@@ -23,11 +23,10 @@ fn send_state(status: &str, pack_id: &str, username: &str, version: &str) {
     );
 }
 
-pub async fn run_game(launcher_dir: &str, java: &str) {
+pub async fn run_game(launcher_dir: &str, java: &str, username: &str) {
     let pack_id = "1.21.1_ver";
     let version = "1.21.1";
     let version_type = "vanilla";
-    let username = "CL_001";
     let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
 
     send_state("Инициализация", pack_id, username, version);
@@ -117,6 +116,6 @@ pub async fn run_game(launcher_dir: &str, java: &str) {
         .map(|arg| arg.to_string_lossy())
         .collect::<Vec<_>>()
         .join(" ");
-    println!("Команда запуска: {}", format!("{} {}", program, args));
+    log::info!("Команда запуска: {}", format!("{} {}", program, args));
     command.spawn().expect("Ошибка при запуске Minecraft");
 }

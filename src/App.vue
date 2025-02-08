@@ -16,7 +16,7 @@ const newVersionData = ref({});
 let unlisten = null;
 
 async function greet() {
-  await invoke("run_game", { java: java.value, launcherDir: launcher_dir.value });
+  await invoke("run_game", { java: java.value, launcherDir: launcher_dir.value, username: name.value });
 }
 
 onMounted(async () => {
