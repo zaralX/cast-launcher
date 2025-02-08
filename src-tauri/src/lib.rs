@@ -1,3 +1,10 @@
+mod minecraft;
+
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+use reqwest::get;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -5,8 +12,8 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-fn run_game() {
-    println!("qq")
+async fn run_game() {
+    minecraft::run_game().await;
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
