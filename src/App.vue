@@ -12,6 +12,7 @@ const currentDownloading = ref(null);
 const java = ref("C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/java.exe");
 const launcher_dir = ref("D:/RustProjects/cast-launcher/test");
 const appVersion = ref('');
+const newVersionData = ref({});
 let unlisten = null;
 
 async function greet() {
@@ -32,6 +33,7 @@ onUnmounted(() => {
 
 async function checkUpdates() {
   const update = await check();
+  newVersionData.value = update;
   if (update) {
     console.log(
         `found update ${update.version} from ${update.date} with notes ${update.body}`
@@ -89,7 +91,7 @@ async function checkUpdates() {
     <input v-model="java">
     <p>launcher dir</p>
     <input v-model="launcher_dir">
-    <p>Version: {{ appVersion}}</p>
+    <p>Version: {{ appVersion }} <span v-if="newVersionData?.available">[Доступно обновление]</span> <span v-else>[Последняя версия]</span></p>
   </main>
 </template>
 
