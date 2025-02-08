@@ -2,11 +2,18 @@ use std::path::Path;
 use std::sync::Arc;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use reqwest::Client;
+use reqwest::{get, Client};
 use serde_json::Value;
 use tokio::fs;
 use tokio::sync::Semaphore;
-use crate::minecraft::MAX_CONCURRENT_DOWNLOADS;
+use crate::minecraft::{send_state, MAX_CONCURRENT_DOWNLOADS};
+
+pub async fn download_file(url: &str, dir: &String) {
+    if !Path::new(&dir).exists() {
+        let jar_data = get(url).await.unwrap().bytes().await.unwrap();
+        fs::write(&dir, jar_data).await.unwrap();
+    }
+}
 
 pub async fn download_libraries(libs: &Vec<Value>, dir: &str) -> Vec<String> {
     let mut lib_paths = Vec::new();

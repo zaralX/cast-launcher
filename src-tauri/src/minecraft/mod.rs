@@ -7,6 +7,7 @@ use tokio::fs;
 use futures::stream::{FuturesUnordered, StreamExt};
 use serde_json::json;
 use crate::emit_global_event;
+use crate::minecraft::downloaders::download_file;
 
 const MAX_CONCURRENT_DOWNLOADS: usize = 10;
 
@@ -55,15 +56,10 @@ pub async fn run_game() {
 
     // Загрузка .jar клиента
     let jar_url = version_data["downloads"]["client"]["url"].as_str().unwrap();
-    let jar_path = format!("{}/minecraft_{}.jar", launcher_dir, version);
-
-    if !Path::new(&jar_path).exists() {
-        send_state("Скачиваем Minecraft.jar", pack_id, username, version);
-        println!("Скачивание Minecraft: {}...", version);
-        let jar_data = get(jar_url).await.unwrap().bytes().await.unwrap();
-        fs::write(&jar_path, jar_data).await.unwrap();
-        println!("Minecraft {} загружен!", version);
-    }
+    let jar_path = &format!("{}/client.jar", launcher_dir);
+    send_state("Скачиваем Minecraft.jar", pack_id, username, version);
+    download_file(jar_url, jar_path).await;
+    send_state("Minecraft.jar установлен", pack_id, username, version);
 
     // Загрузка assets
     send_state("Загружаем assets", pack_id, username, version);
