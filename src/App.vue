@@ -4,14 +4,13 @@ import { invoke } from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { getVersion } from '@tauri-apps/api/app';
 
 const greetMsg = ref("");
 const name = ref("");
 const currentDownloading = ref(null);
 const java = ref("C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/java.exe");
 const launcher_dir = ref("D:/RustProjects/cast-launcher/test");
-const appVersion = ref('');
+const appVersion = ref('0.1.1');
 let unlisten = null;
 
 async function greet() {
@@ -19,7 +18,7 @@ async function greet() {
 }
 
 onMounted(async () => {
-  appVersion.value = await getVersion();
+  await checkUpdates();
   unlisten = await listen("downloading", (event) => {
     currentDownloading.value = event.payload; // Обновляем ref в реальном времени
   });
@@ -29,32 +28,34 @@ onUnmounted(() => {
   if (unlisten) unlisten();
 })
 
-const update = await check();
-if (update) {
-  console.log(
-      `found update ${update.version} from ${update.date} with notes ${update.body}`
-  );
-  let downloaded = 0;
-  let contentLength = 0;
-  // alternatively we could also call update.download() and update.install() separately
-  await update.downloadAndInstall((event) => {
-    switch (event.event) {
-      case 'Started':
-        contentLength = event.data.contentLength;
-        console.log(`started downloading ${event.data.contentLength} bytes`);
-        break;
-      case 'Progress':
-        downloaded += event.data.chunkLength;
-        console.log(`downloaded ${downloaded} from ${contentLength}`);
-        break;
-      case 'Finished':
-        console.log('download finished');
-        break;
-    }
-  });
+async function checkUpdates() {
+  const update = await check();
+  if (update) {
+    console.log(
+        `found update ${update.version} from ${update.date} with notes ${update.body}`
+    );
+    let downloaded = 0;
+    let contentLength = 0;
+    // alternatively we could also call update.download() and update.install() separately
+    await update.downloadAndInstall((event) => {
+      switch (event.event) {
+        case 'Started':
+          contentLength = event.data.contentLength;
+          console.log(`started downloading ${event.data.contentLength} bytes`);
+          break;
+        case 'Progress':
+          downloaded += event.data.chunkLength;
+          console.log(`downloaded ${downloaded} from ${contentLength}`);
+          break;
+        case 'Finished':
+          console.log('download finished');
+          break;
+      }
+    });
 
-  console.log('update installed');
-  await relaunch();
+    console.log('update installed');
+    await relaunch();
+  }
 }
 </script>
 
