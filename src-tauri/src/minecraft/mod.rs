@@ -20,15 +20,17 @@ fn send_state(status: &str, pack_id: &str, username: &str, version: &str) {
     }));
 }
 
-pub async fn run_game() {
+pub async fn run_game(launcher_dir: &str, java: &str) {
     let pack_id = "1.21.1_ver";
     let version = "1.21.1";
     let version_type = "vanilla";
     let username = "CL_001";
-    let launcher_dir = "D:/RustProjects/cast-launcher/test";
-    let java = "C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/java.exe";
+    let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
 
     send_state("Инициализация", pack_id, username, version);
+
+    // Папка пака
+    fs::create_dir_all(pack_dir).await.expect("failed to create pack dir");
 
     // Список версий
     send_state("Получение списка версий", pack_id, username, version);
@@ -56,7 +58,8 @@ pub async fn run_game() {
 
     // Загрузка .jar клиента
     let jar_url = version_data["downloads"]["client"]["url"].as_str().unwrap();
-    let jar_path = &format!("{}/client.jar", launcher_dir);
+    let jar_path = &format!("{}/client.jar", pack_dir);
+    println!("Скачиваем Minecraft.jar");
     send_state("Скачиваем Minecraft.jar", pack_id, username, version);
     download_file(jar_url, jar_path).await;
     send_state("Minecraft.jar установлен", pack_id, username, version);
@@ -64,13 +67,13 @@ pub async fn run_game() {
     // Загрузка assets
     send_state("Загружаем assets", pack_id, username, version);
     let assets_url = version_data["assetIndex"]["url"].as_str().unwrap();
-    let assets_dir = format!("{}/assets", launcher_dir);
+    let assets_dir = format!("{}/assets", pack_dir);
     downloaders::download_assets(assets_url, &assets_dir).await;
 
     // Загрузка libraries
     send_state("Загружаем libraries", pack_id, username, version);
     let libraries = version_data["libraries"].as_array().unwrap();
-    let libraries_dir = format!("{}/libraries", launcher_dir);
+    let libraries_dir = format!("{}/libraries", pack_dir);
     let libs: Vec<String> = downloaders::download_libraries(libraries, &libraries_dir).await;
     println!("Libraries: {}", libs.join(";"));
 

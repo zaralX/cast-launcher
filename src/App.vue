@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
 import {onMounted, onUnmounted, ref} from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
@@ -6,11 +6,12 @@ import {listen} from "@tauri-apps/api/event";
 const greetMsg = ref("");
 const name = ref("");
 const currentDownloading = ref(null);
+const java = ref("C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/java.exe");
+const launcher_dir = ref("D:/RustProjects/cast-launcher/test");
 let unlisten = null;
 
 async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("run_game");
+  await invoke("run_game", { java: java.value, launcherDir: launcher_dir.value });
 }
 
 onMounted(async () => {
@@ -47,7 +48,11 @@ onUnmounted(() => {
     </form>
     <p>{{ greetMsg }}</p>
     <p class="bg-red-500">Tailwind test</p>
-    <p class="bg-red-500">current: {{currentDownloading}}</p>
+    <p class="bg-blue-500">current: {{currentDownloading}}</p>
+    <p>java</p>
+    <input v-model="java">
+    <p>launcher dir</p>
+    <input v-model="launcher_dir">
   </main>
 </template>
 

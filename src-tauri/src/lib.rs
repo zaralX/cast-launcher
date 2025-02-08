@@ -12,8 +12,9 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-async fn run_game() {
-    minecraft::run_game().await;
+async fn run_game(java: String, launcher_dir: String) -> Result<(), String> {
+    minecraft::run_game(&launcher_dir, &java).await;
+    Ok(())
 }
 
 lazy_static! {
