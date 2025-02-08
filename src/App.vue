@@ -1,14 +1,27 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import {onMounted, onUnmounted, ref} from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import {listen} from "@tauri-apps/api/event";
 
 const greetMsg = ref("");
 const name = ref("");
+const currentDownloading = ref(null);
+let unlisten = null;
 
 async function greet() {
   // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
   greetMsg.value = await invoke("run_game");
 }
+
+onMounted(async () => {
+  unlisten = await listen("downloading", (event) => {
+    currentDownloading.value = event.payload; // Обновляем ref в реальном времени
+  });
+})
+
+onUnmounted(() => {
+  if (unlisten) unlisten();
+})
 </script>
 
 <template>
@@ -34,6 +47,7 @@ async function greet() {
     </form>
     <p>{{ greetMsg }}</p>
     <p class="bg-red-500">Tailwind test</p>
+    <p class="bg-red-500">current: {{currentDownloading}}</p>
   </main>
 </template>
 

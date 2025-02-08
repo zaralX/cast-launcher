@@ -26,4 +26,5 @@ log = "0.4.25"
 reqwest = "0.12.12"
 tokio = "1.43.0"
 futures = "0.3.31"
+lazy_static = "1.5.0"
 

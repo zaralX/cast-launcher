@@ -5,17 +5,32 @@ use std::process::Command;
 use reqwest::{get, Client};
 use tokio::fs;
 use futures::stream::{FuturesUnordered, StreamExt};
+use serde_json::json;
+use crate::emit_global_event;
 
 const MAX_CONCURRENT_DOWNLOADS: usize = 10;
 
+fn send_state(status: &str, pack_id: &str, username: &str, version: &str) {
+    emit_global_event("downloading", json!({
+        "status": status,
+        "pack_id": pack_id,
+        "username": username,
+        "version": version
+    }));
+}
+
 pub async fn run_game() {
+    let pack_id = "1.21.1_ver";
     let version = "1.21.1";
     let version_type = "vanilla";
     let username = "CL_001";
     let launcher_dir = "D:/RustProjects/cast-launcher/test";
     let java = "C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/java.exe";
 
+    send_state("Инициализация", pack_id, username, version);
+
     // Список версий
+    send_state("Получение списка версий", pack_id, username, version);
     const VERSION_MANIFEST_LINK: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
     let response = get(VERSION_MANIFEST_LINK).await
@@ -29,6 +44,7 @@ pub async fn run_game() {
     println!("Последняя версия: {}", latest_version);
 
     // JSON Нужной версии
+    send_state("Получаем информацию о версии", pack_id, username, version);
     let version_url = manifest["versions"].as_array().unwrap()
         .iter()
         .find(|v| v["id"].as_str().unwrap() == version)
@@ -42,6 +58,7 @@ pub async fn run_game() {
     let jar_path = format!("{}/minecraft_{}.jar", launcher_dir, version);
 
     if !Path::new(&jar_path).exists() {
+        send_state("Скачиваем Minecraft.jar", pack_id, username, version);
         println!("Скачивание Minecraft: {}...", version);
         let jar_data = get(jar_url).await.unwrap().bytes().await.unwrap();
         fs::write(&jar_path, jar_data).await.unwrap();
@@ -49,17 +66,20 @@ pub async fn run_game() {
     }
 
     // Загрузка assets
+    send_state("Загружаем assets", pack_id, username, version);
     let assets_url = version_data["assetIndex"]["url"].as_str().unwrap();
     let assets_dir = format!("{}/assets", launcher_dir);
     downloaders::download_assets(assets_url, &assets_dir).await;
 
     // Загрузка libraries
+    send_state("Загружаем libraries", pack_id, username, version);
     let libraries = version_data["libraries"].as_array().unwrap();
     let libraries_dir = format!("{}/libraries", launcher_dir);
     let libs: Vec<String> = downloaders::download_libraries(libraries, &libraries_dir).await;
     println!("Libraries: {}", libs.join(";"));
 
     // Запуск игры
+    send_state("Запуск игры", pack_id, username, version);
     println!("Запуск Minecraft...");
     let mut command = Command::new(java);
     command.arg("-Xms1G").arg("-Xmx4G");
@@ -75,6 +95,5 @@ pub async fn run_game() {
     let program = command.get_program().to_string_lossy();
     let args = command.get_args().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>().join(" ");
     println!("Команда запуска: {}", format!("{} {}", program, args));
-    println!("Запуск: {:?} {:?}", java, command.get_args().collect::<Vec<_>>());
     command.spawn().expect("Ошибка при запуске Minecraft");
 }
