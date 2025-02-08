@@ -12,8 +12,8 @@
   "app": {
     "windows": [
       {
-        "title": "cast-launcher",
-        "width": 800,
+        "title": "Cast launcher",
+        "width": 1000,
         "height": 600
       }
     ],
