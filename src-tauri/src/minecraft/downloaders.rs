@@ -1,12 +1,12 @@
-use std::path::Path;
-use std::sync::Arc;
+use crate::minecraft::{send_state, MAX_CONCURRENT_DOWNLOADS};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use reqwest::{get, Client};
 use serde_json::Value;
+use std::path::Path;
+use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Semaphore;
-use crate::minecraft::{send_state, MAX_CONCURRENT_DOWNLOADS};
 
 pub async fn download_file(url: &str, dir: &String) {
     if !Path::new(&dir).exists() {
@@ -46,7 +46,9 @@ pub async fn download_libraries(libs: &Vec<Value>, dir: &str) -> Vec<String> {
             match client.get(&lib_url).send().await {
                 Ok(response) => {
                     if let Ok(asset_data) = response.bytes().await {
-                        fs::create_dir_all(Path::new(&path_clone).parent().unwrap()).await.unwrap();
+                        fs::create_dir_all(Path::new(&path_clone).parent().unwrap())
+                            .await
+                            .unwrap();
                         fs::write(&path_clone, asset_data).await.unwrap();
                         println!("Библиотека {} загружена!", lib_path);
                         Some(path_clone)
@@ -73,7 +75,14 @@ pub async fn download_libraries(libs: &Vec<Value>, dir: &str) -> Vec<String> {
 
 pub async fn download_assets(assets_url: &str, assets_dir: &str) {
     let client = Client::new(); // Повторное использование HTTP-клиента
-    let response = client.get(assets_url).send().await.expect("Ошибка загрузки ассетов").text().await.unwrap();
+    let response = client
+        .get(assets_url)
+        .send()
+        .await
+        .expect("Ошибка загрузки ассетов")
+        .text()
+        .await
+        .unwrap();
     let assets_data: Value = serde_json::from_str(&response).unwrap();
 
     let objects = assets_data["objects"].as_object().unwrap().clone();
@@ -83,7 +92,11 @@ pub async fn download_assets(assets_url: &str, assets_dir: &str) {
 
     for (path, info) in objects {
         let hash = info["hash"].as_str().unwrap().to_string();
-        let asset_url = format!("https://resources.download.minecraft.net/{}/{}", &hash[..2], hash);
+        let asset_url = format!(
+            "https://resources.download.minecraft.net/{}/{}",
+            &hash[..2],
+            hash
+        );
         let asset_path = format!("{}/{}", assets_dir, path);
 
         if Path::new(&asset_path).exists() {
@@ -100,7 +113,9 @@ pub async fn download_assets(assets_url: &str, assets_dir: &str) {
             match client.get(&asset_url).send().await {
                 Ok(response) => {
                     if let Ok(asset_data) = response.bytes().await {
-                        fs::create_dir_all(Path::new(&asset_path).parent().unwrap()).await.unwrap();
+                        fs::create_dir_all(Path::new(&asset_path).parent().unwrap())
+                            .await
+                            .unwrap();
                         fs::write(&asset_path, asset_data).await.unwrap();
                         println!("Ассет {} загружен!", path);
                     }

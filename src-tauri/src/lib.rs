@@ -1,8 +1,8 @@
 mod minecraft;
 
 use lazy_static::lazy_static;
-use std::sync::Mutex;
 use serde_json::Value;
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -35,6 +35,7 @@ pub fn emit_global_event(key: &str, value: Value) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             set_app_handle(app.handle().clone());
             Ok(())
