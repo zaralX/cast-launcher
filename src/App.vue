@@ -33,6 +33,7 @@ async function greet() {
       <button type="submit">Greet</button>
     </form>
     <p>{{ greetMsg }}</p>
+    <p class="bg-red-500">Tailwind test</p>
   </main>
 </template>
 
