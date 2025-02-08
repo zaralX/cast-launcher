@@ -13,8 +13,8 @@ pub async fn run_game() {
     let version = "1.21.1";
     let version_type = "vanilla";
     let username = "CL_001";
-    let launcher_dir = "D:\\RustProjects\\cast-launcher\\test";
-    let java = "C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/javaw.exe";
+    let launcher_dir = "D:/RustProjects/cast-launcher/test";
+    let java = "C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/java.exe";
 
     // Список версий
     const VERSION_MANIFEST_LINK: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -40,7 +40,7 @@ pub async fn run_game() {
 
     // Загрузка .jar клиента
     let jar_url = version_data["downloads"]["client"]["url"].as_str().unwrap();
-    let jar_path = format!("{}\\minecraft_{}.jar", launcher_dir, version);
+    let jar_path = format!("{}/minecraft_{}.jar", launcher_dir, version);
 
     if !Path::new(&jar_path).exists() {
         println!("Скачивание Minecraft: {}...", version);
@@ -51,41 +51,39 @@ pub async fn run_game() {
 
     // Загрузка assets
     let assets_url = version_data["assetIndex"]["url"].as_str().unwrap();
-    let assets_dir = format!("{}\\assets", launcher_dir);
+    let assets_dir = format!("{}/assets", launcher_dir);
     download_assets(assets_url, &assets_dir).await;
 
     // Загрузка libraries
     let libraries = version_data["libraries"].as_array().unwrap();
-    let libraries_dir = format!("{}\\libraries", launcher_dir);
-    download_libraries(libraries, &libraries_dir).await;
+    let libraries_dir = format!("{}/libraries", launcher_dir);
+    let libs: Vec<String> = download_libraries(libraries, &libraries_dir).await;
+    println!("Libraries: {}", libs.join(";"));
 
     // Запуск игры
     println!("Запуск Minecraft...");
     let mut command = Command::new(java);
     command.arg("-Xms1G").arg("-Xmx4G");
-    command.arg("--username").arg(username);
-    command.arg("--gameDir").arg(launcher_dir);
-    command.arg("--assetsDir").arg(format!("{}\\assets", launcher_dir));
-    command.arg("--version").arg(version);
-    command.arg("--cp").arg("\"minecraft.jar;lwjgl.jar;lwjgl_util.jar\"");
+    command.arg("-cp").arg(format!("{};{};{};{}", jar_path, libs.join(";"), libraries_dir, assets_dir));
     command.arg("net.minecraft.client.main.Main");
-    let command_string = format!(
-        "java -Xmx4G -Xms1G --username {} --gameDir {} --assetsDir {} --version {}",
-        username,
-        launcher_dir,
-        format!("{}\\assets", launcher_dir),
-        version
-    );
+    command.arg("--username").arg(username);
+    command.arg("--accessToken").arg("nothing");
+    command.arg("--version").arg(version);
+    command.arg("--gameDir").arg(launcher_dir);
+    command.arg("--assetsDir").arg(format!("{}/assets", launcher_dir));
+    command.arg("--launchTarget").arg("client");
 
-    println!("Команда запуска: {}", command_string);
+    let program = command.get_program().to_string_lossy();
+    let args = command.get_args().map(|arg| arg.to_string_lossy()).collect::<Vec<_>>().join(" ");
+    println!("Команда запуска: {}", format!("{} {}", program, args));
+    println!("Запуск: {:?} {:?}", java, command.get_args().collect::<Vec<_>>());
     command.spawn().expect("Ошибка при запуске Minecraft");
 }
 
-async fn download_libraries(libs: &Vec<Value>, dir: &str) {
-    let client = Client::new(); // Повторное использование HTTP-клиента
-
+async fn download_libraries(libs: &Vec<Value>, dir: &str) -> Vec<String> {
+    let mut lib_paths = Vec::new();
+    let client = Client::new();
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_DOWNLOADS));
-
     let mut tasks = FuturesUnordered::new();
 
     for lib in libs {
@@ -98,30 +96,44 @@ async fn download_libraries(libs: &Vec<Value>, dir: &str) {
         let path = format!("{}/{}", dir, lib_path);
 
         if Path::new(&path).exists() {
+            lib_paths.push(path.clone()); // Добавляем путь в список
             continue;
         }
 
         let client = client.clone();
         let semaphore = Arc::clone(&semaphore);
+        let path_clone = path.clone();
 
         tasks.push(tokio::spawn(async move {
-            let _permit = semaphore.acquire().await.unwrap(); // Блокируем до освобождения слота
+            let _permit = semaphore.acquire().await.unwrap(); // Блокируем слот
 
             println!("Скачивание библиотеки: {}...", lib_path);
             match client.get(&lib_url).send().await {
                 Ok(response) => {
                     if let Ok(asset_data) = response.bytes().await {
-                        fs::create_dir_all(Path::new(&path).parent().unwrap()).await.unwrap();
-                        fs::write(&path, asset_data).await.unwrap();
+                        fs::create_dir_all(Path::new(&path_clone).parent().unwrap()).await.unwrap();
+                        fs::write(&path_clone, asset_data).await.unwrap();
                         println!("Библиотека {} загружена!", lib_path);
+                        Some(path_clone)
+                    } else {
+                        None
                     }
                 }
-                Err(e) => println!("Ошибка при загрузке {}: {}", path, e),
+                Err(e) => {
+                    println!("Ошибка при загрузке {}: {}", path_clone, e);
+                    None
+                }
             }
         }));
     }
 
-    while let Some(_) = tasks.next().await {} // Ждём завершения всех задач
+    while let Some(result) = tasks.next().await {
+        if let Ok(Some(path)) = result {
+            lib_paths.push(path);
+        }
+    }
+
+    lib_paths
 }
 
 async fn download_assets(assets_url: &str, assets_dir: &str) {
