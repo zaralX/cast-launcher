@@ -1,4 +1,5 @@
 mod downloaders;
+mod pack_files;
 
 use std::fmt::Debug;
 use crate::{emit_global_event, settings};
@@ -58,31 +59,7 @@ pub async fn run_game(launcher_dir: &str, java: &str, username: &str, memory: &s
     let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
 
     send_state("Инициализация", pack_id);
-
-    // Папка пака
-    fs::create_dir_all(pack_dir)
-        .await
-        .expect("failed to create pack dir");
-
-    // cast_pack.json
-    let cast_pack_file = Path::new(pack_dir).join("cast_pack.json");
-    if fs::metadata(&cast_pack_file).await.is_err() {
-        fs::write(
-            &cast_pack_file,
-            format!(
-                r#"{{
-                  "pack_id": "{}",
-                  "name": "{}",
-                  "version": "{}",
-                  "type": "{}",
-                  "cast_pack_version": 1
-                }}"#,
-                pack_id, pack_id, version, version_type
-            ),
-        )
-            .await
-            .expect("failed to create cast_pack.json");
-    }
+    pack_files::init(pack_dir, pack_id, version, version_type).await;
 
     // Список версий
     send_state("Получение списка версий", pack_id);
@@ -98,43 +75,23 @@ pub async fn run_game(launcher_dir: &str, java: &str, username: &str, memory: &s
     let manifest: serde_json::Value = serde_json::from_str(&response).unwrap();
 
     // Последняя версия
-    let latest_version = manifest["latest"]["release"].as_str().unwrap();
-    println!("Последняя версия: {}", latest_version);
+    // let latest_version = manifest["latest"]["release"].as_str().unwrap();
+    // println!("Последняя версия: {}", latest_version);
 
-    // JSON Нужной версии
-    send_state("Получаем информацию о версии", pack_id);
-    let version_url = manifest["versions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|v| v["id"].as_str().unwrap() == version)
-        .unwrap()["url"]
-        .as_str()
-        .unwrap();
-
-    let version_json = get(version_url).await.unwrap().text().await.unwrap();
-    let version_data: serde_json::Value = serde_json::from_str(&version_json).unwrap();
+    // Data нужной версии
+    let version_data: serde_json::Value = pack_files::get_version_data(pack_id, version, manifest).await;
 
     // Загрузка .jar клиента
-    let jar_url = version_data["downloads"]["client"]["url"].as_str().unwrap();
-    let jar_path = &format!("{}/client.jar", pack_dir);
-    println!("Скачиваем Minecraft.jar");
-    send_state("Скачиваем Minecraft.jar", pack_id);
-    download_file(jar_url, jar_path).await;
-    send_state("Minecraft.jar установлен", pack_id);
+    let jar_path = Path::new(pack_dir).join("client.jar").to_string_lossy().into_owned();
+    pack_files::download_client_jar(pack_id, &jar_path, &version_data).await;
 
     // Загрузка assets
-    send_state("Загружаем assets", pack_id);
-    let assets_url = version_data["assetIndex"]["url"].as_str().unwrap();
-    let assets_dir = format!("{}/assets", pack_dir);
-    downloaders::download_assets(assets_url, &assets_dir).await;
+    let assets_dir = Path::new(pack_dir).join("assets").to_string_lossy().into_owned();
+    pack_files::download_assets(pack_id, &assets_dir, &version_data).await;
 
     // Загрузка libraries
-    send_state("Загружаем libraries", pack_id);
-    let libraries = version_data["libraries"].as_array().unwrap();
-    let libraries_dir = format!("{}/libraries", pack_dir);
-    let libs: Vec<String> = downloaders::download_libraries(libraries, &libraries_dir).await;
-    println!("Libraries: {}", libs.join(";"));
+    let libraries_dir = Path::new(pack_dir).join("libraries").to_string_lossy().into_owned();
+    let libs = pack_files::download_libraries(pack_id, &libraries_dir, &version_data).await;
 
     // Запуск игры
     send_state("Запуск игры", pack_id);

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::Semaphore;
 
-pub async fn download_file(url: &str, dir: &String) {
+pub async fn download_file(url: &str, dir: &str) {
     if !Path::new(&dir).exists() {
         let jar_data = get(url).await.unwrap().bytes().await.unwrap();
         fs::write(&dir, jar_data).await.unwrap();
