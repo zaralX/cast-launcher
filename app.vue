@@ -3,7 +3,7 @@ const colorMode = useColorMode()
 </script>
 
 <template>
-  <div class="bg-main-light dark:bg-neutral-900 transition-all duration-500 min-h-screen max-h-screen font-montserrat overflow-hidden">
+  <div class="bg-main-light dark:bg-neutral-900 transition-all duration-500 min-h-screen font-montserrat overflow-hidden">
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

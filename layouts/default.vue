@@ -4,10 +4,10 @@ import MainHeader from "../components/main/MainHeader.vue";
 </script>
 
 <template>
-  <div class="flex flex-col min-h-screen">
+  <div class="flex flex-col">
     <MainHeader/>
     <div class="flex-1 flex">
-      <div class="flex-1">
+      <div class="flex-1 h-[calc(100vh-3rem)]">
         <slot/>
       </div>
       <div class="w-32 bg-neutral-950">
