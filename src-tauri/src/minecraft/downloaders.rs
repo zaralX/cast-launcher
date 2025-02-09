@@ -25,7 +25,10 @@ pub async fn download_libraries(libs: &Vec<Value>, dir: &str) -> Vec<String> {
         let data: Value = serde_json::from_str(&lib.to_string()).unwrap();
         let info: Value = serde_json::from_str(&data["downloads"]["artifact"].to_string()).unwrap();
 
-        let hash = info["sha1"].as_str().unwrap().to_string();
+        if info.is_null() {
+            log::warn!("SKIPPED LIB [NOT FOUND ARTIFACT]");
+            continue
+        }
         let lib_url = info["url"].as_str().unwrap().to_string();
         let lib_path = info["path"].as_str().unwrap().to_string();
         let path = format!("{}/{}", dir, lib_path);

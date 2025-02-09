@@ -6,7 +6,7 @@ use crate::{emit_global_event, settings};
 use crate::minecraft::downloaders::download_file;
 use futures::stream::{FuturesUnordered, StreamExt};
 use reqwest::{get, Client};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::path::Path;
 use std::process::Command;
 use futures::FutureExt;
@@ -28,6 +28,8 @@ pub async fn run_pack(pack_id: &str) {
     let settings = settings::load_settings();
     log::info!("settings loaded");
 
+    let mut cast_pack: Option<Value> = None; // Используем Option<Value>
+
     // Поиск пака
     if fs::metadata(&settings.packs_dir).await.map(|m| m.is_dir()).unwrap_or(false) {
         log::info!("pack folder found");
@@ -36,6 +38,24 @@ pub async fn run_pack(pack_id: &str) {
 
         if fs::metadata(&file_path).await.is_ok() {
             log::info!("cast_pack.json found");
+            let pack_content = match fs::read_to_string(&file_path).await {
+                Ok(content) => content,
+                Err(e) => {
+                    eprintln!("Ошибка чтения файла: {}", e);
+                    return;
+                }
+            };
+
+            match serde_json::from_str::<Value>(&pack_content) {
+                Ok(json) => {
+                    log::info!("JSON загружен успешно");
+                    cast_pack = Some(json);
+                }
+                Err(e) => {
+                    eprintln!("Ошибка парсинга JSON: {}", e);
+                    return;
+                }
+            }
         } else {
             send_state("cast_pack.json not found", pack_id);
             log::error!("cast_pack.json not found");
@@ -47,19 +67,21 @@ pub async fn run_pack(pack_id: &str) {
         return;
     }
 
-    let profile = settings.profiles.iter().find(|p| p.selected == true).unwrap();
+    let profile = settings.profiles.iter().find(|p| p.selected).unwrap();
 
-    run_game(&settings.packs_dir, &settings.java_options.path, &profile.username, &settings.java_options.memory).await
+    // Проверяем, есть ли JSON и версия
+    let version = cast_pack.as_ref()
+        .and_then(|json| json["version"].as_str())
+        .unwrap_or("1.21.1");
+
+    run_game(pack_id, &settings.packs_dir, &settings.java_options.path, &profile.username, version, &settings.java_options.memory).await
 }
 
-pub async fn run_game(launcher_dir: &str, java: &str, username: &str, memory: &settings::JavaMemory) {
-    let pack_id = "1.21.1_ver";
-    let version = "1.21.1";
-    let version_type = "vanilla";
+pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &str) -> Vec<String> {
     let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
-
+    // Инициализация пака
     send_state("Инициализация", pack_id);
-    pack_files::init(pack_dir, pack_id, version, version_type).await;
+    pack_files::init(pack_dir, pack_id, version, "vanilla").await;
 
     // Список версий
     send_state("Получение списка версий", pack_id);
@@ -73,10 +95,6 @@ pub async fn run_game(launcher_dir: &str, java: &str, username: &str, memory: &s
         .await
         .unwrap();
     let manifest: serde_json::Value = serde_json::from_str(&response).unwrap();
-
-    // Последняя версия
-    // let latest_version = manifest["latest"]["release"].as_str().unwrap();
-    // println!("Последняя версия: {}", latest_version);
 
     // Data нужной версии
     let version_data: serde_json::Value = pack_files::get_version_data(pack_id, version, manifest).await;
@@ -92,19 +110,51 @@ pub async fn run_game(launcher_dir: &str, java: &str, username: &str, memory: &s
     // Загрузка libraries
     let libraries_dir = Path::new(pack_dir).join("libraries").to_string_lossy().into_owned();
     let libs = pack_files::download_libraries(pack_id, &libraries_dir, &version_data).await;
-
-    // Запуск игры
-    send_state("Запуск игры", pack_id);
-    println!("Запуск Minecraft...");
-    let mut command = Command::new(java);
-    command.arg(format!("-Xms{}M", memory.min)).arg(format!("-Xmx{}M", memory.max));
-    command.arg("-cp").arg(format!(
+    
+    let mut args: Vec<String> = Vec::new();
+    args.push(String::from("-cp"));
+    args.push(format!(
         "{};{};{};{}",
         jar_path,
         libs.join(";"),
         libraries_dir,
         assets_dir
     ));
+
+    // Помечаем что пак был установлен
+    let cast_pack_file = Path::new(pack_dir).join("cast_pack.json");
+    let cast_pack_data = fs::read_to_string(&cast_pack_file).await.unwrap();
+    let mut cast_pack_json: Value = serde_json::from_str(&cast_pack_data).unwrap();
+
+    if let Some(installed) = cast_pack_json.get_mut("installed") {
+        *installed = Value::Bool(true);
+    }
+
+    fs::write(&cast_pack_file, serde_json::to_string_pretty(&cast_pack_json).unwrap()).await.expect("FAILED UPDATE PACK INSTALLED STATUS");
+
+    args
+}
+
+pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &str, version: &str, memory: &settings::JavaMemory) {
+    let version_type = "vanilla";
+    let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
+    
+    let mut args: Vec<String> = Vec::new();
+    
+    if version_type == "vanilla" {
+        args = create_or_fix_vanilla(launcher_dir, pack_id, version).await;
+    }
+
+    // Последняя версия
+    // let latest_version = manifest["latest"]["release"].as_str().unwrap();
+    // println!("Последняя версия: {}", latest_version);
+    
+    // Запуск игры
+    send_state("Запуск игры", pack_id);
+    println!("Запуск Minecraft...");
+    let mut command = Command::new(java);
+    command.arg(format!("-Xms{}M", memory.min)).arg(format!("-Xmx{}M", memory.max));
+    command.args(args);
     command.arg("net.minecraft.client.main.Main");
     command.arg("--username").arg(username);
     command.arg("--accessToken").arg("nothing");
@@ -112,7 +162,7 @@ pub async fn run_game(launcher_dir: &str, java: &str, username: &str, memory: &s
     command.arg("--gameDir").arg(pack_dir);
     command
         .arg("--assetsDir")
-        .arg(format!("{}/assets", pack_dir));
+        .arg(Path::new(pack_dir).join("assets").to_string_lossy().into_owned());
     command.arg("--launchTarget").arg("client");
     command.current_dir(pack_dir);
 

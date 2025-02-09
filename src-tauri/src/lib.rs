@@ -18,13 +18,23 @@ fn greet(name: &str) -> String {
 #[tauri::command]
 async fn run_game(java: String, launcher_dir: String, username: String) -> Result<(), String> {
     let memory = settings::JavaMemory { min: "1024".to_string(), max: "4096".to_string() };
-    minecraft::run_game(&launcher_dir, &java, &username, &memory).await;
+    minecraft::run_game(&launcher_dir, &java, &username, "1.21.1", "1.21.1_ver", &memory).await;
     Ok(())
 }
 
 #[tauri::command]
 async fn run_pack(pack_id: String) -> Result<(), String> {
     minecraft::run_pack(&pack_id).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn create_pack(pack_id: String, version: String, version_type: String) -> Result<(), String> {
+    let settings = settings::load_settings();
+    
+    if version_type == "vanilla" {
+        minecraft::create_or_fix_vanilla(&settings.packs_dir, &pack_id, &version).await;
+    }
     Ok(())
 }
 
@@ -117,7 +127,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs, save_settings, load_settings, run_pack])
+        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs, save_settings, load_settings, run_pack, create_pack])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

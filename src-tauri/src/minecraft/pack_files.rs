@@ -17,12 +17,13 @@ pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &s
             &cast_pack_file,
             format!(
                 r#"{{
-                  "pack_id": "{}",
-                  "name": "{}",
-                  "version": "{}",
-                  "type": "{}",
-                  "cast_pack_version": 1
-                }}"#,
+"pack_id": "{}",
+"name": "{}",
+"version": "{}",
+"type": "{}",
+"cast_pack_version": 1,
+"installed": false
+}}"#,
                 pack_id, pack_id, version, version_type
             ),
         )
