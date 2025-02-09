@@ -1,5 +1,5 @@
 {
-  "extends": "./.nuxt/tsconfig.json",
+  "extends": "nuxt",
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
@@ -19,8 +19,11 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Nuxt types */
+    "types": ["nuxt"]
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "include": ["./**/*.ts", "./**/*.d.ts", "./**/*.tsx", "./**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
