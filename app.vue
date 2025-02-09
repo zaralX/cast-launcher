@@ -6,6 +6,14 @@ import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import {getVersion} from "@tauri-apps/api/app";
 
+const colorMode = useColorMode()
+colorMode.preference = 'dark';
+const isDark = ref(false)
+
+watch(isDark, () => {
+  colorMode.preference = isDark.value ? 'dark' : 'light';
+})
+
 const greetMsg = ref("");
 const name = ref("");
 const currentDownloading = ref(null);
@@ -21,6 +29,7 @@ async function greet() {
 }
 
 onMounted(async () => {
+  isDark.value = colorMode.preference === 'dark' || colorMode.preference === 'system'
   appVersion.value = await getVersion();
   unlisten = await listen("downloading", (event) => {
     currentDownloading.value = event.payload;
@@ -95,6 +104,8 @@ async function checkUpdates() {
     </form>
     <p>{{ greetMsg }}</p>
     <p class="bg-red-500">Tailwind test</p>
+    <el-button>Element Plus test</el-button>
+    <p>color: {{colorMode.preference}}</p>
     <p class="bg-blue-500">current: {{currentDownloading}}</p>
     <p>java</p>
     <input v-model="java">

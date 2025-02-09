@@ -28,4 +28,14 @@ export default defineNuxtConfig({
     pageTransition: { name: 'page', mode: 'out-in' },
     layoutTransition: { name: 'layout', mode: 'out-in' }
   },
+
+  elementPlus: {
+    themes: []
+  },
+
+  colorMode: {
+    classSuffix: ''
+  },
+
+  modules: ['@nuxtjs/color-mode', '@element-plus/nuxt'],
 })
