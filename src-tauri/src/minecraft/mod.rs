@@ -104,11 +104,12 @@ pub async fn run_game(launcher_dir: &str, java: &str, username: &str) {
     command.arg("--username").arg(username);
     command.arg("--accessToken").arg("nothing");
     command.arg("--version").arg(version);
-    command.arg("--gameDir").arg(launcher_dir);
+    command.arg("--gameDir").arg(pack_dir);
     command
         .arg("--assetsDir")
-        .arg(format!("{}/assets", launcher_dir));
+        .arg(format!("{}/assets", pack_dir));
     command.arg("--launchTarget").arg("client");
+    command.current_dir(pack_dir);
 
     let program = command.get_program().to_string_lossy();
     let args = command

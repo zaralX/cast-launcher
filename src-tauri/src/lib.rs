@@ -1,5 +1,6 @@
 mod minecraft;
 
+use std::process::{Command, Stdio};
 use lazy_static::lazy_static;
 use serde_json::Value;
 use std::sync::Mutex;
@@ -15,6 +16,36 @@ fn greet(name: &str) -> String {
 async fn run_game(java: String, launcher_dir: String, username: String) -> Result<(), String> {
     minecraft::run_game(&launcher_dir, &java, &username).await;
     Ok(())
+}
+
+#[tauri::command]
+fn get_java_list() -> Vec<String> {
+    let output = if cfg!(target_os = "windows") {
+        Command::new("where").arg("java").output()
+    } else {
+        Command::new("which").arg("-a").arg("java").output()
+    };
+
+    match output {
+        Ok(out) => {
+            let paths = String::from_utf8_lossy(&out.stdout);
+            paths.lines().map(|s| s.trim().to_string()).collect()
+        }
+        Err(_) => vec![],
+    }
+}
+
+#[tauri::command]
+fn get_java_version(java_path: String) -> Option<String> {
+    let output = Command::new(&java_path)
+        .arg("-version")
+        .stderr(Stdio::piped())
+        .output()
+        .ok()?;
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let version_line = stderr.lines().next()?;
+    Some(version_line.to_string())
 }
 
 lazy_static! {
@@ -47,7 +78,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, run_game])
+        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -13,6 +13,7 @@ const java = ref("C:/Users/Miste/.jdks/graalvm-ce-21.0.2/bin/java.exe");
 const launcher_dir = ref("D:/RustProjects/cast-launcher/test");
 const appVersion = ref('');
 const newVersionData = ref({});
+const javaList = ref([]);
 let unlisten = null;
 
 async function greet() {
@@ -21,10 +22,18 @@ async function greet() {
 
 onMounted(async () => {
   appVersion.value = await getVersion();
-  await checkUpdates();
   unlisten = await listen("downloading", (event) => {
-    currentDownloading.value = event.payload; // Обновляем ref в реальном времени
+    currentDownloading.value = event.payload;
   });
+  const java_paths = await invoke("get_java_list", { });
+  for (const javaPath of java_paths) {
+    const version = await invoke("get_java_version", { javaPath: javaPath });
+    javaList.value.push({
+      path: javaPath,
+      version: version,
+    })
+  }
+  await checkUpdates();
 })
 
 onUnmounted(() => {
@@ -92,6 +101,12 @@ async function checkUpdates() {
     <p>launcher dir</p>
     <input v-model="launcher_dir">
     <p>Version: {{ appVersion }} <span v-if="newVersionData?.available">[Доступно обновление]</span> <span v-else>[Последняя версия]</span></p>
+    Javalist:
+    <p v-for="java in javaList">
+      <span>{{java?.version}}</span>
+      <span> - </span>
+      <span>{{java?.path}}</span>
+    </p>
   </main>
 </template>
 
