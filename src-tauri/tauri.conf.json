@@ -5,8 +5,8 @@
   "identifier": "ru.zaralx.cast-launcher.app",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm run generate",
     "frontendDist": "../dist"
   },
   "app": {

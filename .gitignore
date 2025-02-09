@@ -25,3 +25,18 @@ dist-ssr
 
 # Test launcher dir
 test
+
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+
+# Misc
+.fleet
+
+# Local env files
+.env
+.env.*
+!.env.example
