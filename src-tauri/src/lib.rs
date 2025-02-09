@@ -17,7 +17,14 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 async fn run_game(java: String, launcher_dir: String, username: String) -> Result<(), String> {
-    minecraft::run_game(&launcher_dir, &java, &username).await;
+    let memory = settings::JavaMemory { min: "1024".to_string(), max: "4096".to_string() };
+    minecraft::run_game(&launcher_dir, &java, &username, &memory).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn run_pack(pack_id: String) -> Result<(), String> {
+    minecraft::run_pack(&pack_id).await;
     Ok(())
 }
 
@@ -110,7 +117,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs, save_settings, load_settings])
+        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs, save_settings, load_settings, run_pack])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

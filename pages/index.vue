@@ -6,6 +6,10 @@ const packs = ref([])
 onMounted(async () => {
   packs.value = await invoke("get_packs", { launcherDir: "D:/RustProjects/cast-launcher/test" });
 })
+
+const start = async (pack_id) => {
+  await invoke("run_pack", { packId: pack_id });
+}
 </script>
 
 <template>
@@ -15,7 +19,7 @@ onMounted(async () => {
     <div class="grid grid-cols-3">
       <div v-for="pack in packs">
         {{ pack }}
-        <el-button>Start</el-button>
+        <el-button @click="start(pack.cast_pack.pack_id)">Start</el-button>
       </div>
     </div>
   </el-scrollbar>

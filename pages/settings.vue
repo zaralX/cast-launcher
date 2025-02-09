@@ -1,16 +1,26 @@
 <script setup lang="ts">
 import {invoke} from "@tauri-apps/api/core";
+import {ref} from "vue";
 
 const settings = ref({ java_options: {}, profiles: []})
 
 onMounted(async () => {
   settings.value = await invoke("load_settings", {})
+  const java_paths = await invoke("get_java_list", { });
+  for (const javaPath of java_paths) {
+    const version = await invoke("get_java_version", { javaPath: javaPath });
+    javaList.value.push({
+      path: javaPath,
+      version: version,
+    })
+  }
 })
 
 const save = async () => {
   await invoke("save_settings", { settings: settings.value })
 }
 
+const javaList = ref([]);
 const newNickname = ref("")
 </script>
 
@@ -25,12 +35,22 @@ const newNickname = ref("")
       :parser="(value) => value.replace(/\$\s?|(,*)/g, '')"
   />
   <p>java path</p>
-  <el-input
-      v-model="settings.java_options.path"
-      style="width: 240px"
-      placeholder="Java.exe path"
-      :parser="(value) => value.replace(/\$\s?|(,*)/g, '')"
-  />
+  <div class="flex">
+    <el-input
+        v-model="settings.java_options.path"
+        style="width: 240px"
+        placeholder="Java.exe path"
+        :parser="(value) => value.replace(/\$\s?|(,*)/g, '')"
+    />
+    <el-select v-model="settings.java_options.path" placeholder="Java.exe path">
+      <el-option
+          v-for="java in javaList"
+          :key="java?.path"
+          :label="java?.version + ' - ' + java?.path"
+          :value="java?.path"
+      />
+    </el-select>
+  </div>
   <p>profiles</p>
   <div>
     <div class="grid grid-cols-2">

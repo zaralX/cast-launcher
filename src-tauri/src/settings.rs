@@ -2,28 +2,28 @@ use serde::{Serialize, Deserialize};
 use std::fs;
 
 #[derive(Serialize, Deserialize, Debug)]
-struct JavaMemory {
-    min: String,
-    max: String,
+pub(crate) struct JavaMemory {
+    pub min: String,
+    pub max: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct JavaOptions {
-    memory: JavaMemory,
-    path: String,
+pub(crate) struct JavaOptions {
+    pub memory: JavaMemory,
+    pub path: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Profile {
-    username: String,
-    selected: bool,
+pub(crate) struct Profile {
+    pub username: String,
+    pub selected: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct Settings {
-    packs_dir: String,
-    java_options: JavaOptions,
-    profiles: Vec<Profile>,
+    pub packs_dir: String,
+    pub java_options: JavaOptions,
+    pub profiles: Vec<Profile>,
 }
 
 impl Settings {
