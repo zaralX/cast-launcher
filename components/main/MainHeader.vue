@@ -3,10 +3,8 @@
 </script>
 
 <template>
-<div>
-  test page
-  <NuxtLink to="/"> go to index </NuxtLink>
-  <Test />
+<div class="bg-neutral-950 h-12">
+  123
 </div>
 </template>
 
