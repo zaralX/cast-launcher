@@ -5,6 +5,8 @@ use lazy_static::lazy_static;
 use serde_json::Value;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
+use std::fs;
+use std::io::Read;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -48,6 +50,45 @@ fn get_java_version(java_path: String) -> Option<String> {
     Some(version_line.to_string())
 }
 
+#[tauri::command]
+fn get_packs(launcher_dir: String) -> Vec<serde_json::Value> {
+    let mut directories = Vec::new();
+
+    let entries = match fs::read_dir(&launcher_dir) {
+        Ok(entries) => entries,
+        Err(_) => return directories, // Если ошибка, просто возвращаем пустой список
+    };
+
+    for entry in entries {
+        if let Ok(entry) = entry {
+            let path = entry.path();
+            if path.is_dir() {
+                let folder_name = entry.file_name().to_string_lossy().to_string();
+                let cast_pack_path = path.join("cast_pack.json");
+
+                let cast_pack: Option<Value> = match fs::File::open(&cast_pack_path) {
+                    Ok(mut file) => {
+                        let mut contents = String::new();
+                        if file.read_to_string(&mut contents).is_ok() {
+                            serde_json::from_str(&contents).ok()
+                        } else {
+                            None
+                        }
+                    }
+                    Err(_) => None, // Если файла нет или ошибка чтения, оставляем None
+                };
+
+                directories.push(serde_json::json!({
+                    "folder": folder_name,
+                    "cast_pack": cast_pack
+                }));
+            }
+        }
+    }
+
+    directories
+}
+
 lazy_static! {
     static ref APP_HANDLE: Mutex<Option<AppHandle>> = Mutex::new(None);
 }
@@ -78,7 +119,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version])
+        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
