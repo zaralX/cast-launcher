@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import {invoke} from "@tauri-apps/api/core";
+import {ref} from "vue";
 
 const packs = ref([])
+const settings = ref({ java_options: {}, profiles: []})
 
 onMounted(async () => {
-  packs.value = await invoke("get_packs", { launcherDir: "D:/RustProjects/cast-launcher/test" });
+  settings.value = await invoke("load_settings", {})
+  packs.value = await invoke("get_packs", { launcherDir: settings.value.packs_dir });
 })
 
 const start = async (pack_id) => {
