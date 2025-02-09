@@ -5,10 +5,17 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
 
+  ssr: false,
+
   // Global css
   css: ['~/assets/css/tailwind.css'],
 
   vite: {
+    clearScreen: false,
+    envPrefix: ['VITE_', 'TAURI_'],
+    server: {
+      strictPort: true,
+    },
     plugins: [
       tailwindcss(),
     ],
