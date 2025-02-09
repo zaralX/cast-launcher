@@ -2,10 +2,8 @@
 import {invoke} from "@tauri-apps/api/core";
 
 const packs = ref([])
-const settings = ref({})
 
 onMounted(async () => {
-  settings.value = await invoke("load_settings", {})
   packs.value = await invoke("get_packs", { launcherDir: "D:/RustProjects/cast-launcher/test" });
 })
 </script>
