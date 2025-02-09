@@ -4,8 +4,6 @@
 
 <template>
 <div>
-  test page
-  <NuxtLink to="/"> go to index </NuxtLink>
   <Test />
 </div>
 </template>

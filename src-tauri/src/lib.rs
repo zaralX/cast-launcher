@@ -1,12 +1,13 @@
 mod minecraft;
+mod settings;
+mod java;
 
-use std::process::{Command, Stdio};
 use lazy_static::lazy_static;
 use serde_json::Value;
-use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
 use std::fs;
 use std::io::Read;
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -22,32 +23,12 @@ async fn run_game(java: String, launcher_dir: String, username: String) -> Resul
 
 #[tauri::command]
 fn get_java_list() -> Vec<String> {
-    let output = if cfg!(target_os = "windows") {
-        Command::new("where").arg("java").output()
-    } else {
-        Command::new("which").arg("-a").arg("java").output()
-    };
-
-    match output {
-        Ok(out) => {
-            let paths = String::from_utf8_lossy(&out.stdout);
-            paths.lines().map(|s| s.trim().to_string()).collect()
-        }
-        Err(_) => vec![],
-    }
+    java::get_java_list()
 }
 
 #[tauri::command]
 fn get_java_version(java_path: String) -> Option<String> {
-    let output = Command::new(&java_path)
-        .arg("-version")
-        .stderr(Stdio::piped())
-        .output()
-        .ok()?;
-
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let version_line = stderr.lines().next()?;
-    Some(version_line.to_string())
+    java::get_java_version(java_path)
 }
 
 #[tauri::command]
@@ -104,6 +85,16 @@ pub fn emit_global_event(key: &str, value: Value) {
     }
 }
 
+#[tauri::command]
+fn load_settings() -> settings::Settings {
+    settings::load_settings()
+}
+
+#[tauri::command]
+fn save_settings(settings: settings::Settings) {
+    settings::save_settings(&settings);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -119,7 +110,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs])
+        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs, save_settings, load_settings])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

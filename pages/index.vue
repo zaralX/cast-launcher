@@ -2,17 +2,18 @@
 import {invoke} from "@tauri-apps/api/core";
 
 const packs = ref([])
+const settings = ref({})
 
 onMounted(async () => {
+  settings.value = await invoke("load_settings", {})
   packs.value = await invoke("get_packs", { launcherDir: "D:/RustProjects/cast-launcher/test" });
 })
 </script>
 
 <template>
 <div class="h-full">
+  {{settings}}
   <el-scrollbar height="100%">
-    index page
-    <NuxtLink to="/test"> go to test </NuxtLink>
     <div class="grid grid-cols-3">
       <div v-for="pack in packs">
         {{ pack }}
