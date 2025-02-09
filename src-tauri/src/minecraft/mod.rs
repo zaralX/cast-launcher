@@ -131,7 +131,8 @@ pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &
     }
 
     fs::write(&cast_pack_file, serde_json::to_string_pretty(&cast_pack_json).unwrap()).await.expect("FAILED UPDATE PACK INSTALLED STATUS");
-
+    send_state("Версия установлена", pack_id);
+    
     args
 }
 
