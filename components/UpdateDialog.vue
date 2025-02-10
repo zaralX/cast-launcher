@@ -13,7 +13,11 @@ onMounted(async () => {
 })
 
 async function checkUpdates() {
-  const update = await check();
+  const update = await check().catch((e) => {
+    console.error(e);
+    message.value = "Произошла ошибка";
+    loading.value = false;
+  });
   newVersionData.value = update;
   if (update) {
     message.value = "Обновление найдено"
