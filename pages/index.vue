@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import {invoke} from "@tauri-apps/api/core";
 import {ref} from "vue";
+import {useLauncher} from "~/composables/useLauncher";
 
-const packs = ref([])
-const settings = ref({ java_options: {}, profiles: []})
+const {settings, packs, refreshPacks} = useLauncher()
 
-onMounted(async () => {
-  settings.value = await invoke("load_settings", {})
-  packs.value = await invoke("get_packs", { launcherDir: settings.value.packs_dir });
-})
+watch(settings, async (newSettings) => {
+  if (newSettings) {
+    await refreshPacks();
+  }
+}, { immediate: true });
 
 const start = async (pack_id) => {
   await invoke("run_pack", { packId: pack_id});

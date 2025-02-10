@@ -1,5 +1,12 @@
 <script setup>
+import {useLauncher} from "~/composables/useLauncher.js";
+
 const colorMode = useColorMode()
+const { initData } = useLauncher();
+
+onMounted(async () => {
+  await initData()
+})
 </script>
 
 <template>

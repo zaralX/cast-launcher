@@ -1,26 +1,20 @@
 <script setup lang="ts">
 import {invoke} from "@tauri-apps/api/core";
 import {ref} from "vue";
+import {useLauncher} from "~/composables/useLauncher";
 
-const settings = ref({ java_options: {}, profiles: []})
-
-onMounted(async () => {
-  settings.value = await invoke("load_settings", {})
-  const java_paths = await invoke("get_java_list", { });
-  for (const javaPath of java_paths) {
-    const version = await invoke("get_java_version", { javaPath: javaPath });
-    javaList.value.push({
-      path: javaPath,
-      version: version,
-    })
-  }
-})
+const {settings, javaList, refreshJavaList} = useLauncher()
 
 const save = async () => {
   await invoke("save_settings", { settings: settings.value })
 }
 
-const javaList = ref([]);
+onMounted(async () => {
+  if (javaList.value.length == 0) {
+    await refreshJavaList();
+  }
+})
+
 const newNickname = ref("")
 </script>
 
