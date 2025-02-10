@@ -1,5 +1,6 @@
 <script setup>
 import {useLauncher} from "~/composables/useLauncher.js";
+import UpdateDialog from "~/components/UpdateDialog.vue";
 
 const colorMode = useColorMode()
 const { initData } = useLauncher();
@@ -11,6 +12,7 @@ onMounted(async () => {
 
 <template>
   <div class="bg-main-light dark:bg-neutral-900 transition-all duration-500 min-h-screen font-montserrat overflow-hidden">
+    <UpdateDialog />
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
