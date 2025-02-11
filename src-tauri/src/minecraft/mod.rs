@@ -14,11 +14,12 @@ use tokio::fs;
 
 const MAX_CONCURRENT_DOWNLOADS: usize = 10;
 
-fn send_state(status: &str, pack_id: &str) {
+fn send_state(pack_id: &str, state: &str, status: &str) {
     emit_global_event(
-        "downloading",
+        "launching",
         json!({
             "status": status,
+            "state": state,
             "pack_id": pack_id
         }),
     );
@@ -57,12 +58,12 @@ pub async fn run_pack(pack_id: &str) {
                 }
             }
         } else {
-            send_state("cast_pack.json not found", pack_id);
+            send_state(pack_id, "error", "cast_pack.json not found");
             log::error!("cast_pack.json not found");
             return;
         }
     } else {
-        send_state("pack folder not found", pack_id);
+        send_state(pack_id, "error", "pack folder not found");
         log::error!("pack folder not found");
         return;
     }
@@ -80,11 +81,11 @@ pub async fn run_pack(pack_id: &str) {
 pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &str) -> Vec<String> {
     let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
     // Инициализация пака
-    send_state("Инициализация", pack_id);
+    send_state(pack_id, "init", "Инициализация");
     pack_files::init(pack_dir, pack_id, version, "vanilla").await;
 
     // Список версий
-    send_state("Получение списка версий", pack_id);
+    send_state(pack_id, "versions", "Получение списка версий");
     const VERSION_MANIFEST_LINK: &str =
         "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
@@ -131,7 +132,7 @@ pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &
     }
 
     fs::write(&cast_pack_file, serde_json::to_string_pretty(&cast_pack_json).unwrap()).await.expect("FAILED UPDATE PACK INSTALLED STATUS");
-    send_state("Версия установлена", pack_id);
+    send_state(pack_id, "installed", "Версия установлена");
     
     args
 }
@@ -151,7 +152,7 @@ pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &
     // println!("Последняя версия: {}", latest_version);
     
     // Запуск игры
-    send_state("Запуск игры", pack_id);
+    send_state(pack_id, "starting", "Запуск игры");
     println!("Запуск Minecraft...");
     let mut command = Command::new(java);
     command.arg(format!("-Xms{}M", memory.min)).arg(format!("-Xmx{}M", memory.max));

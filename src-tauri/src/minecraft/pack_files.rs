@@ -33,7 +33,7 @@ pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &s
 }
 
 pub async fn get_version_data(pack_id: &str, version: &str, manifest: serde_json::Value) -> serde_json::Value {
-    send_state("Получаем информацию о версии", pack_id);
+    send_state(pack_id, "version_info", "Получаем информацию о версии");
     let version_url = manifest["versions"]
         .as_array()
         .unwrap()
@@ -50,19 +50,18 @@ pub async fn get_version_data(pack_id: &str, version: &str, manifest: serde_json
 pub async fn download_client_jar(pack_id: &str, jar_path: &str, version_data: &serde_json::Value) {
     let jar_url = version_data["downloads"]["client"]["url"].as_str().unwrap();
     println!("Скачиваем Minecraft.jar");
-    send_state("Скачиваем Minecraft.jar", pack_id);
+    send_state(pack_id, "downloading_jar", "Скачиваем Minecraft.jar");
     download_file(jar_url, jar_path).await;
-    send_state("Minecraft.jar установлен", pack_id);
 }
 
 pub async fn download_assets(pack_id: &str, assets_dir: &str, version_data: &serde_json::Value) {
-    send_state("Загружаем assets", pack_id);
+    send_state(pack_id, "downloading_assets", "Загружаем assets");
     let assets_url = version_data["assetIndex"]["url"].as_str().unwrap();
     downloaders::download_assets(assets_url, &assets_dir).await;
 }
 
 pub async fn download_libraries(pack_id: &str, libraries_dir: &str, version_data: &serde_json::Value) -> Vec<String> {
-    send_state("Загружаем libraries", pack_id);
+    send_state(pack_id, "downloading_libraries", "Загружаем assets");
     let libraries = version_data["libraries"].as_array().unwrap();
     let libs: Vec<String> = downloaders::download_libraries(libraries, &libraries_dir).await;
     println!("Libraries: {}", libs.join(";"));

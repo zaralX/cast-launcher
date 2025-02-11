@@ -1,21 +1,6 @@
 <script setup lang="ts">
 
 import MainHeader from "../components/main/MainHeader.vue";
-import {listen} from "@tauri-apps/api/event";
-import {onUnmounted, ref} from "vue";
-
-let unlisten = null;
-const currentDownloading = ref(null);
-
-onMounted(async () => {
-  unlisten = await listen("downloading", (event) => {
-    currentDownloading.value = event.payload;
-  });
-})
-
-onUnmounted(() => {
-  if (unlisten) unlisten();
-})
 </script>
 
 <template>
@@ -29,8 +14,6 @@ onUnmounted(() => {
         123
       </div>
     </div>
-
-    <div class="fixed bottom-0 left-0 bg-blue-500 font-bold">{{currentDownloading}}</div>
   </div>
 </template>
 

@@ -31,7 +31,7 @@ async function greet() {
 onMounted(async () => {
   isDark.value = colorMode.preference === 'dark' || colorMode.preference === 'system'
   appVersion.value = await getVersion();
-  unlisten = await listen("downloading", (event) => {
+  unlisten = await listen("launching", (event) => {
     currentDownloading.value = event.payload;
   });
   const java_paths = await invoke("get_java_list", { });

@@ -6,6 +6,7 @@ const version = ref("Not found");
 const settings = ref({ java_options: {}, profiles: [] });
 const packs = ref([])
 const javaList = ref([])
+const clients = ref([])
 
 export const useLauncher = () => {
 
@@ -35,6 +36,16 @@ export const useLauncher = () => {
         }
     }
 
+    function updateClientState(pack_id, state) {
+        const client = clients.value.find((c) => c.pack_id === pack_id);
+        if (!client) {
+            clients.value.push({pack_id, state});
+            return;
+        }
+
+        client.value.state = state;
+    }
+
     return {
         settings,
         initData,
@@ -43,5 +54,7 @@ export const useLauncher = () => {
         javaList,
         refreshJavaList,
         version,
+        updateClientState,
+        clients,
     };
 };
