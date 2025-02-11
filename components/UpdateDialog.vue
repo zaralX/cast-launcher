@@ -13,7 +13,7 @@ onMounted(async () => {
 })
 
 async function checkUpdates() {
-  const update = await check().catch((e) => {
+  const update = await check({timeout: 5000}).catch((e) => {
     console.error(e);
     message.value = "Произошла ошибка";
     loading.value = false;

@@ -1,6 +1,8 @@
 import { ref } from 'vue';
 import {invoke} from "@tauri-apps/api/core";
+import {getVersion} from "@tauri-apps/api/app";
 
+const version = ref("Not found");
 const settings = ref({ java_options: {}, profiles: [] });
 const packs = ref([])
 const javaList = ref([])
@@ -10,6 +12,7 @@ export const useLauncher = () => {
     async function initData() {
         settings.value = await invoke("load_settings", {});
         await refreshPacks();
+        version.value = await getVersion();
     }
 
     async function refreshPacks() {
@@ -39,5 +42,6 @@ export const useLauncher = () => {
         refreshPacks,
         javaList,
         refreshJavaList,
+        version,
     };
 };
