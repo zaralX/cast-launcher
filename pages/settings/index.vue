@@ -48,24 +48,6 @@ const route = useRoute()
           />
         </el-select>
       </div>
-      <p>profiles</p>
-      <div>
-        <div class="grid grid-cols-2">
-          <p>Никнейм</p>
-          <p>Действия</p>
-        </div>
-        <div class="grid grid-cols-2" v-for="profile in settings.profiles">
-          <p>{{profile.username}}</p>
-          <div>
-            <el-button type="danger" size="small" @click="settings.profiles = settings.profiles.filter((p) => p.username != profile.username)">Удалить</el-button>
-            <el-button type="success" :disabled="profile.selected" size="small" @click="settings.profiles = settings.profiles.filter((p) => {p.selected = p.username == profile.username; return true})">Выбрать</el-button>
-          </div>
-        </div>
-      </div>
-      <div class="flex">
-        <el-input placeholder="Никнейм" v-model="newNickname" />
-        <el-button @click="settings.profiles.push({username: newNickname, selected: false}); newNickname = ''">Добавить профиль</el-button>
-      </div>
 
       <el-button @click="save">SAVE</el-button>
     </div>
