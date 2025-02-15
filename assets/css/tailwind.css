@@ -12,3 +12,15 @@
 .fade-leave-to {
     opacity: 0;
 }
+
+.font-montserrat {
+    font-family: 'Montserrat', sans-serif;
+}
+
+.font-rubik {
+    font-family: 'Rubik', sans-serif;
+}
+
+.font-fira {
+    font-family: 'Fira Code', sans-serif;
+}
