@@ -14,7 +14,9 @@
       {
         "title": "Cast launcher",
         "width": 1000,
-        "height": 600
+        "height": 600,
+        "decorations": false,
+        "shadow": false
       }
     ],
     "security": {

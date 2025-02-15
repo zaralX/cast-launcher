@@ -5,7 +5,10 @@ import MainHeader from "../components/main/MainHeader.vue";
 
 <template>
   <div class="flex flex-col">
-    <MainHeader/>
+    <div>
+      <MainAppbar />
+      <MainHeader/>
+    </div>
     <div class="flex-1 flex">
       <div class="flex-1 h-[calc(100vh-3rem)]">
         <slot/>
