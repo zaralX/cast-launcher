@@ -28,6 +28,11 @@ const route = useRoute()
           </el-tooltip>
         </div>
         <div class="flex flex-col items-center py-2 gap-2">
+          <el-tooltip effect="light" placement="right" content="Создать сборку">
+            <button class="cursor-pointer w-10 h-10 flex justify-center items-center rounded-lg text-lg hover:shadow-lg hover:bg-green-500/[.2] transition duration-200 text-green-400 bg-green-300/[.1]">
+              <i class="pi pi-plus text-sm"></i>
+            </button>
+          </el-tooltip>
           <el-tooltip effect="light" placement="right" content="Настройки">
             <NuxtLink to="/settings">
               <button :class="route.path.startsWith('/settings') ? 'text-blue-400 bg-sky-300/[.1]' : 'text-neutral-200'" class="cursor-pointer w-10 h-10 flex justify-center items-center rounded-lg text-lg hover:shadow-lg hover:bg-neutral-700 transition duration-200">
