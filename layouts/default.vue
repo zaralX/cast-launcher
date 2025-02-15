@@ -33,7 +33,7 @@ const route = useRoute()
           </el-tooltip>
         </div>
       </div>
-      <div class="flex-1 h-[calc(100vh-3rem)] bg-neutral-900 rounded-tl-2xl p-3 border-t border-l border-sky-400/[.1]">
+      <div class="flex-1 h-[calc(100vh-3rem)] bg-neutral-900 rounded-tl-2xl p-3 shadow-[4px_4px_8px_0px_rgba(0,0,0,0.3)_inset]">
         <slot/>
       </div>
     </div>
