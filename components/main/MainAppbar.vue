@@ -47,7 +47,7 @@ onBeforeUnmount(() => {
       <img src="/default_skin_face.png" class="w-10 h-10 rounded-xl pointer-events-none" alt="">
     </div>
     <transition name="fade-w">
-      <div v-if="openedUserMenu" ref="menuRef" class="absolute w-52 top-12 bg-neutral-950/[.75] p-2 rounded-lg border border-neutral-700/[.25] backdrop-blur-sm">
+      <div v-if="openedUserMenu" ref="menuRef" class="absolute w-52 top-12 bg-neutral-950/[.75] p-2 rounded-lg border border-neutral-700/[.25] backdrop-blur-sm z-10">
         <el-select v-model="selected" class="mb-2" size="default" placeholder="Выбрать аккаунт">
           <template #label>
             <div class="flex gap-2 items-center w-full">
