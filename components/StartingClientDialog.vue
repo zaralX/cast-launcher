@@ -43,7 +43,7 @@ const updateSelected = () => {
         "downloading_assets",
         "downloading_libraries",
         "installed",
-          "starting"
+        "starting"
       ].includes(client.state)
   );
 }
@@ -58,7 +58,9 @@ const updateSelected = () => {
         <p class="text-white text-lg">{{ selected }}</p>
         <p class="text-white text-lg">{{ launchInfo }}</p>
         <div class="flex justify-center mt-4">
-          <el-button v-if="['starting', 'error'].includes(selected?.state)" type="warning" plain @click="selected = null">Закрыть</el-button>
+          <el-button v-if="['starting', 'error'].includes(selected?.state)" type="warning" plain
+                     @click="selected = null">Закрыть
+          </el-button>
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import UpdateDialog from "~/components/UpdateDialog.vue";
 import StartingClientDialog from "~/components/StartingClientDialog.vue";
 
 const colorMode = useColorMode()
-const { initData } = useLauncher();
+const {initData} = useLauncher();
 
 onMounted(async () => {
   await initData()
@@ -12,11 +12,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="bg-main-light dark:bg-neutral-900 transition-all duration-500 min-h-screen font-montserrat overflow-hidden">
-    <UpdateDialog />
-    <StartingClientDialog />
+  <div
+      class="bg-main-light dark:bg-neutral-900 transition-all duration-500 min-h-screen font-montserrat overflow-hidden">
+    <UpdateDialog/>
+    <StartingClientDialog/>
     <NuxtLayout>
-      <NuxtPage />
+      <NuxtPage/>
     </NuxtLayout>
   </div>
 </template>
@@ -26,6 +27,7 @@ onMounted(async () => {
 .page-leave-active {
   transition: all 0.4s;
 }
+
 .page-enter-from,
 .page-leave-to {
   opacity: 0;
@@ -36,6 +38,7 @@ onMounted(async () => {
 .layout-leave-active {
   transition: all 0.4s;
 }
+
 .layout-enter-from,
 .layout-leave-to {
   opacity: 0;

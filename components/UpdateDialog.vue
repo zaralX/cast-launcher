@@ -31,7 +31,7 @@ async function checkUpdates() {
           break;
         case 'Progress':
           downloaded += event.data.chunkLength;
-          message.value = `Получаем обновление ${downloaded/contentLength*100}%`
+          message.value = `Получаем обновление ${downloaded / contentLength * 100}%`
           break;
         case 'Finished':
           message.value = `Обновление получено`
@@ -49,16 +49,17 @@ async function checkUpdates() {
 </script>
 
 <template>
-<div>
-  <transition name="fade">
-    <div v-if="loading" class="fixed w-full h-screen top-0 left-0 z-50 bg-black/[.8] flex justify-center items-center text-blue-500">
-      <div class="animate-pulse flex flex-col items-center">
-        <i class="pi pi-cloud-download text-5xl"></i>
-        <p class="font-semibold">{{ message }}</p>
+  <div>
+    <transition name="fade">
+      <div v-if="loading"
+           class="fixed w-full h-screen top-0 left-0 z-50 bg-black/[.8] flex justify-center items-center text-blue-500">
+        <div class="animate-pulse flex flex-col items-center">
+          <i class="pi pi-cloud-download text-5xl"></i>
+          <p class="font-semibold">{{ message }}</p>
+        </div>
       </div>
-    </div>
-  </transition>
-</div>
+    </transition>
+  </div>
 </template>
 
 <style scoped>

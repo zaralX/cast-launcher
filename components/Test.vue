@@ -1,9 +1,7 @@
 <script setup>
 import {onMounted, onUnmounted, ref} from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
-import { check } from '@tauri-apps/plugin-updater'
-import { relaunch } from '@tauri-apps/plugin-process'
 import {getVersion} from "@tauri-apps/api/app";
 
 const colorMode = useColorMode()
@@ -25,7 +23,7 @@ const javaList = ref([]);
 let unlisten = null;
 
 async function greet() {
-  await invoke("run_game", { java: java.value, launcherDir: launcher_dir.value, username: name.value });
+  await invoke("run_game", {java: java.value, launcherDir: launcher_dir.value, username: name.value});
 }
 
 onMounted(async () => {
@@ -34,9 +32,9 @@ onMounted(async () => {
   unlisten = await listen("launching", (event) => {
     currentDownloading.value = event.payload;
   });
-  const java_paths = await invoke("get_java_list", { });
+  const java_paths = await invoke("get_java_list", {});
   for (const javaPath of java_paths) {
-    const version = await invoke("get_java_version", { javaPath: javaPath });
+    const version = await invoke("get_java_version", {javaPath: javaPath});
     javaList.value.push({
       path: javaPath,
       version: version,
@@ -55,36 +53,37 @@ onUnmounted(() => {
 
     <div class="row">
       <a href="https://vitejs.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
+        <img src="/vite.svg" class="logo vite" alt="Vite logo"/>
       </a>
       <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
+        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo"/>
       </a>
       <a href="https://vuejs.org/" target="_blank">
-        <img src="../assets/vue.svg" class="logo vue" alt="Vue logo" />
+        <img src="../assets/vue.svg" class="logo vue" alt="Vue logo"/>
       </a>
     </div>
     <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
 
     <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
+      <input id="greet-input" v-model="name" placeholder="Enter a name..."/>
       <button type="submit">Greet</button>
     </form>
     <p>{{ greetMsg }}</p>
     <p class="bg-red-500">Tailwind test</p>
     <el-button>Element Plus test</el-button>
-    <p>color: {{colorMode.preference}}</p>
-    <p class="bg-blue-500">current: {{currentDownloading}}</p>
+    <p>color: {{ colorMode.preference }}</p>
+    <p class="bg-blue-500">current: {{ currentDownloading }}</p>
     <p>java</p>
     <input v-model="java">
     <p>launcher dir</p>
     <input v-model="launcher_dir">
-    <p>Version: {{ appVersion }} <span v-if="newVersionData?.available">[Доступно обновление]</span> <span v-else>[Последняя версия]</span></p>
+    <p>Version: {{ appVersion }} <span v-if="newVersionData?.available">[Доступно обновление]</span> <span v-else>[Последняя версия]</span>
+    </p>
     Javalist:
     <p v-for="java in javaList">
-      <span>{{java?.version}}</span>
+      <span>{{ java?.version }}</span>
       <span> - </span>
-      <span>{{java?.path}}</span>
+      <span>{{ java?.path }}</span>
     </p>
   </main>
 </template>
@@ -175,6 +174,7 @@ button {
 button:hover {
   border-color: #396cd8;
 }
+
 button:active {
   border-color: #396cd8;
   background-color: #e8e8e8;
@@ -204,6 +204,7 @@ button {
     color: #ffffff;
     background-color: #0f0f0f98;
   }
+
   button:active {
     background-color: #0f0f0f69;
   }

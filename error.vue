@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { NuxtError } from '#app'
+import type {NuxtError} from '#app'
 
 defineProps({
   error: Object as () => NuxtError
@@ -16,10 +16,12 @@ defineProps({
           <p class="!text-lg">Внимание, ошибка!</p>
         </template>
         <template #title>
-          <p class="!text-2xl">{{error?.statusCode}}</p>
+          <p class="!text-2xl">{{ error?.statusCode }}</p>
         </template>
         <template #extra>
-          <NuxtLink to="/"><el-button type="primary">Вернуться назад</el-button></NuxtLink>
+          <NuxtLink to="/">
+            <el-button type="primary">Вернуться назад</el-button>
+          </NuxtLink>
         </template>
       </el-result>
     </div>
