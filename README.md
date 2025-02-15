@@ -1,16 +1,23 @@
-## On development..
+# Tauri v2 Development
 
-**Tauri v2**
+## Overview
+This project is built using the following technology stack:
 
-Stack front: Nuxt3 + Vite + Typescript + Tailwindcss + ElementPlus
+### Frontend:
+- **Nuxt 3** (Vue-based framework)
+- **Vite** (fast build tool)
+- **TypeScript** (strictly typed JavaScript)
+- **Tailwind CSS** (utility-first CSS framework)
+- **Element Plus** (UI component library)
 
-Back: Rust
+### Backend:
+- **Rust** (high-performance, memory-safe backend)
 
-# Current functions
-Installing and running versions (any from [here](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json))
-Running latest versions (old versions not launching, maybe i fix it later)
-Offline accounts
-Russian language (Later i want add localization)
+## Features
+- Install and run any Minecraft version from [this manifest](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
+- Launch the latest Minecraft versions (older versions currently not supported, may be fixed in future updates)
+- Support for offline accounts
+- Russian language support (localization for other languages planned)
 
-## Galery
-![alt text](./.github/readme/1.png)
+## Gallery
+![Screenshot](./.github/readme/1.png)
