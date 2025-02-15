@@ -1,9 +1,49 @@
 <script setup lang="ts">
+import {invoke} from "@tauri-apps/api/core";
+import {ref} from "vue";
+
 const route = useRoute()
+
+const createPackDialog = ref(false)
+const newPack = ref({
+  packId: "",
+  version: "",
+  versionType: "vanilla"
+});
+
+const createPack = async () => {
+  await invoke("create_pack", newPack.value);
+}
 </script>
 
 <template>
   <div class="flex flex-col">
+    <el-dialog
+        v-model="createPackDialog"
+        title="Создание сборки"
+        width="400"
+    >
+      <p>Pack id</p>
+      <el-input v-model="newPack.packId" placeholder="Pack id" />
+      <p class="mt-2">Minecraft version</p>
+      <el-input v-model="newPack.version" placeholder="Minecraft version" />
+      <p class="mt-2">Version type</p>
+      <el-select v-model="newPack.versionType" placeholder="Version type">
+        <el-option
+            key="vanilla"
+            label="Vanilla"
+            value="vanilla"
+        />
+      </el-select>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="createPackDialog = false">Отмена</el-button>
+          <el-button type="primary" @click="createPack(); createPackDialog = false">
+            Создать
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
     <MainAppbar />
     <div class="flex-1 flex bg-neutral-800">
       <div class="w-16 bg-neutral-800 flex flex-col items-center py-2">
@@ -29,7 +69,7 @@ const route = useRoute()
         </div>
         <div class="flex flex-col items-center py-2 gap-2">
           <el-tooltip effect="light" placement="right" content="Создать сборку">
-            <button class="cursor-pointer w-10 h-10 flex justify-center items-center rounded-lg text-lg hover:shadow-lg hover:bg-green-500/[.2] transition duration-200 text-green-400 bg-green-300/[.1]">
+            <button @click="createPackDialog = true" class="cursor-pointer w-10 h-10 flex justify-center items-center rounded-lg text-lg hover:shadow-lg hover:bg-green-500/[.2] transition duration-200 text-green-400 bg-green-300/[.1]">
               <i class="pi pi-plus text-sm"></i>
             </button>
           </el-tooltip>

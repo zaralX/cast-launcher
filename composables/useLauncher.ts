@@ -43,7 +43,7 @@ export const useLauncher = () => {
             return;
         }
 
-        client.value.state = state;
+        client.state = state;
     }
 
     return {

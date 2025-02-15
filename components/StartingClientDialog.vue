@@ -3,16 +3,19 @@ import {useLauncher} from "~/composables/useLauncher";
 import {listen} from "@tauri-apps/api/event";
 import {onUnmounted} from "vue";
 
-const {settings, packs, clients} = useLauncher()
+const {settings, packs, clients, updateClientState} = useLauncher()
 
 let unlisten = null;
 const selected = ref(null)
 const launchInfo = ref(null)
 
 onMounted(async () => {
-  unlisten = await listen("launching", (event) => {
-    selected.value.state = event.payload?.state;
-    launchInfo.value = event.payload;
+  unlisten = await listen("launching", async (event) => {
+    console.log("launching", event)
+    console.log(1)
+    updateClientState(event.payload?.pack_id, event.payload?.state)
+    console.log(2)
+    updateSelected()
   });
   updateSelected()
 })
@@ -26,6 +29,9 @@ watch(() => clients.value, () => {
 }, {deep: true})
 
 const updateSelected = () => {
+  console.log(3)
+  console.log("updateSelected", selected.value)
+  console.log("clients", clients.value)
   selected.value = clients.value.find((client) =>
       ["error",
         "requesting",
