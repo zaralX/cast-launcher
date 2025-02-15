@@ -31,7 +31,7 @@ async fn run_pack(pack_id: String) -> Result<(), String> {
 #[tauri::command]
 async fn create_pack(pack_id: String, version: String, version_type: String) -> Result<(), String> {
     let settings = settings::load_settings();
-    
+
     if version_type == "vanilla" {
         minecraft::create_or_fix_vanilla(&settings.packs_dir, &pack_id, &version).await;
     }
@@ -117,10 +117,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::new()
             .target(tauri_plugin_log::Target::new(
-            tauri_plugin_log::TargetKind::LogDir {
-                file_name: Some("cast_logs".to_string()),
-            },
-        )).build())
+                tauri_plugin_log::TargetKind::LogDir {
+                    file_name: Some("cast_logs".to_string()),
+                },
+            )).build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             set_app_handle(app.handle().clone());

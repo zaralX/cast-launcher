@@ -1,4 +1,4 @@
-use crate::minecraft::{send_state, MAX_CONCURRENT_DOWNLOADS};
+use crate::minecraft::{MAX_CONCURRENT_DOWNLOADS};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use reqwest::{get, Client};
@@ -27,7 +27,7 @@ pub async fn download_libraries(libs: &Vec<Value>, dir: &str) -> Vec<String> {
 
         if info.is_null() {
             log::warn!("SKIPPED LIB [NOT FOUND ARTIFACT]");
-            continue
+            continue;
         }
         let lib_url = info["url"].as_str().unwrap().to_string();
         let lib_path = info["path"].as_str().unwrap().to_string();

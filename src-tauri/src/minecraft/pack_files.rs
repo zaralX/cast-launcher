@@ -1,8 +1,8 @@
-use std::path::Path;
-use reqwest::get;
-use tokio::fs;
 use crate::minecraft::downloaders::download_file;
 use crate::minecraft::{downloaders, send_state};
+use reqwest::get;
+use std::path::Path;
+use tokio::fs;
 
 pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &str) {
     // Папка пака

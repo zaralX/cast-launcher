@@ -1,15 +1,11 @@
 mod downloaders;
 mod pack_files;
 
-use std::fmt::Debug;
 use crate::{emit_global_event, settings};
-use crate::minecraft::downloaders::download_file;
-use futures::stream::{FuturesUnordered, StreamExt};
-use reqwest::{get, Client};
+use reqwest::{get};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::process::Command;
-use futures::FutureExt;
 use tokio::fs;
 
 const MAX_CONCURRENT_DOWNLOADS: usize = 10;
@@ -111,7 +107,7 @@ pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &
     // Загрузка libraries
     let libraries_dir = Path::new(pack_dir).join("libraries").to_string_lossy().into_owned();
     let libs = pack_files::download_libraries(pack_id, &libraries_dir, &version_data).await;
-    
+
     let mut args: Vec<String> = Vec::new();
     args.push(String::from("-cp"));
     args.push(format!(
@@ -133,16 +129,16 @@ pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &
 
     fs::write(&cast_pack_file, serde_json::to_string_pretty(&cast_pack_json).unwrap()).await.expect("FAILED UPDATE PACK INSTALLED STATUS");
     send_state(pack_id, "installed", "Версия установлена");
-    
+
     args
 }
 
 pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &str, version: &str, memory: &settings::JavaMemory) {
     let version_type = "vanilla";
     let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
-    
+
     let mut args: Vec<String> = Vec::new();
-    
+
     if version_type == "vanilla" {
         args = create_or_fix_vanilla(launcher_dir, pack_id, version).await;
     }
@@ -150,7 +146,7 @@ pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &
     // Последняя версия
     // let latest_version = manifest["latest"]["release"].as_str().unwrap();
     // println!("Последняя версия: {}", latest_version);
-    
+
     // Запуск игры
     send_state(pack_id, "starting", "Запуск игры");
     println!("Запуск Minecraft...");
