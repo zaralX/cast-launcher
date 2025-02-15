@@ -35,6 +35,7 @@ const addOfflineDialog = ref(false)
 const offlineUsername = ref("")
 
 const addOffline = async () => {
+  if (offlineUsername.value.length == 0) return;
   addOfflineDialog.value = false
   settings.value.profiles.push({username: offlineUsername.value, selected: false});
   await select(offlineUsername.value);
