@@ -30,9 +30,9 @@ const route = useRoute()
         <div class="flex flex-col items-center py-2 gap-2">
           <el-tooltip effect="light" placement="right" content="Настройки">
             <NuxtLink to="/settings">
-              <button :class="route.path === '/settings' ? 'text-blue-400 bg-sky-300/[.1]' : 'text-neutral-200'" class="cursor-pointer w-10 h-10 flex justify-center items-center rounded-lg text-lg hover:shadow-lg hover:bg-neutral-700 transition duration-200">
-                <div :class="route.path === '/settings' ? 'h-6' : 'h-0'" class="w-1 bg-blue-400 absolute left-0 rounded-r-md transition-all duration-200 -translate-x-0.5"></div>
-                <div :class="route.path === '/' ? 'h-8' : 'h-0'" class="w-4 bg-blue-400 absolute left-0 rounded-r-md transition-all duration-200 -translate-x-2 blur-md opacity-50"></div>
+              <button :class="route.path.startsWith('/settings') ? 'text-blue-400 bg-sky-300/[.1]' : 'text-neutral-200'" class="cursor-pointer w-10 h-10 flex justify-center items-center rounded-lg text-lg hover:shadow-lg hover:bg-neutral-700 transition duration-200">
+                <div :class="route.path.startsWith('/settings') ? 'h-6' : 'h-0'" class="w-1 bg-blue-400 absolute left-0 rounded-r-md transition-all duration-200 -translate-x-0.5"></div>
+                <div :class="route.path.startsWith('/settings') ? 'h-8' : 'h-0'" class="w-4 bg-blue-400 absolute left-0 rounded-r-md transition-all duration-200 -translate-x-2 blur-md opacity-50"></div>
                 <i class="pi pi-cog"></i>
               </button>
             </NuxtLink>
