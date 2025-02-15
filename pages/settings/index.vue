@@ -20,19 +20,7 @@ const route = useRoute()
 </script>
 
 <template>
-<div class="h-full flex gap-2">
-  <div class="bg-neutral-800 rounded-lg p-2 shadow-lg w-48 flex flex-col gap-2">
-    <NuxtLink to="/settings">
-      <button :class="route.path == '/settings' ? 'text-sky-400 bg-sky-300/[.1]' : 'text-neutral-300 bg-white/[.05]'" class="p-1 rounded-lg w-full font-medium cursor-pointer hover:bg-white/[.1] transition-all duration-200 flex justify-center items-center gap-2">
-        <i class="pi pi-cog"></i> Основное
-      </button>
-    </NuxtLink>
-    <NuxtLink to="/settings/profiles">
-      <button :class="route.path == '/settings/profiles' ? 'text-sky-400 bg-sky-300/[.1]' : 'text-neutral-300 bg-white/[.05]'" class="p-1 rounded-lg w-full font-medium cursor-pointer hover:bg-white/[.1] transition-all duration-200 flex justify-center items-center gap-2">
-        <i class="pi pi-user"></i> Профили
-      </button>
-    </NuxtLink>
-  </div>
+<div class="h-full">
   <el-scrollbar height="100%">
     <div class="flex flex-col gap-2">
       {{settings}}
