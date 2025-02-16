@@ -45,14 +45,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div data-tauri-drag-region class="bg-neutral-800 h-12 w-full select-none flex">
-    <div class="flex items-center pl-2 relative">
+    <div class="flex items-center pl-3 relative">
       <div ref="userMenuButton" @click="openedUserMenu = !openedUserMenu"
            class="cursor-pointer w-10 h-10 hover:opacity-75 active:scale-110 transition duration-200">
         <img src="/default_skin_face.png" class="w-10 h-10 rounded-xl pointer-events-none" alt="">
       </div>
       <transition name="fade-w">
         <div v-if="openedUserMenu" ref="menuRef"
-             class="absolute w-52 top-12 bg-neutral-950/[.75] p-2 rounded-lg border border-neutral-700/[.25] backdrop-blur-sm z-10">
+             class="absolute w-52 top-12 bg-neutral-950/[.75] p-2 rounded-lg border border-neutral-700/[.25] backdrop-blur-sm z-10 overflow-hidden">
           <el-select v-model="selected" class="mb-2" size="default" placeholder="Выбрать аккаунт">
             <template #label>
               <div class="flex gap-2 items-center w-full">
