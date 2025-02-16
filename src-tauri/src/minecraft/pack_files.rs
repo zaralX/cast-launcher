@@ -24,7 +24,7 @@ pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &s
 "type": "{}",
 "cast_pack_version": 1,
 "installed": false,
-"java_path": {}
+"java_path": "{}"
 }}"#,
                 pack_id, pack_id, version, version_type, java_path
             ),

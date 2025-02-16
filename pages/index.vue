@@ -24,11 +24,11 @@ const start = async (pack_id) => {
           <div class="flex gap-4 p-2">
             <img src="/vite.svg" class="w-16 h-16" alt="">
             <div>
-              <p class="text-lg font-medium">{{ pack.cast_pack.name }}</p>
+              <p class="text-lg font-medium">{{ pack?.cast_pack?.name }}</p>
               <p class="text-xs">{{ pack }}</p>
             </div>
             <div class="flex justify-end items-end">
-              <el-button type="primary" plain size="small" @click="start(pack.cast_pack.pack_id)"><i
+              <el-button type="primary" plain size="small" @click="start(pack?.cast_pack?.pack_id)"><i
                   class="pi pi-play text-xs"></i>  Играть
               </el-button>
             </div>

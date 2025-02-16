@@ -111,11 +111,9 @@ pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &
     let mut args: Vec<String> = Vec::new();
     args.push(String::from("-cp"));
     args.push(format!(
-        "{};{};{};{}",
-        jar_path,
-        libs.join(";"),
-        libraries_dir,
-        assets_dir
+        "{};{}",
+        jar_path.replace('/', &std::path::MAIN_SEPARATOR.to_string()),
+        (libraries_dir + "\\*").replace('/', &std::path::MAIN_SEPARATOR.to_string())
     ));
 
     // Помечаем что пак был установлен
@@ -145,20 +143,23 @@ pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &
 
     let cast_pack_path = pack_dir.join("cast_pack.json");
     let pack_settings: Value = serde_json::from_str(fs::read_to_string(cast_pack_path).await.unwrap().as_ref()).expect("failed to read cast_pack.json");
-    
+
     let mut java_path = java;
     if pack_settings["java_path"] != "launcher" {
         java_path = pack_settings["java_path"].as_str().unwrap()
     }
-    
+
     // Последняя версия
     // let latest_version = manifest["latest"]["release"].as_str().unwrap();
     // println!("Последняя версия: {}", latest_version);
+    
+    let natives = pack_dir.join("natives").to_string_lossy().into_owned();
 
     // Запуск игры
     send_state(pack_id, "starting", "Запуск игры");
     println!("Запуск Minecraft...");
     let mut command = Command::new(java_path);
+    command.arg(format!("-Djava.library.path={}", natives));
     command.arg(format!("-Xms{}M", memory.min)).arg(format!("-Xmx{}M", memory.max));
     command.args(args);
     command.arg("net.minecraft.client.main.Main");
@@ -170,7 +171,6 @@ pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &
         .arg("--assetsDir")
         .arg(Path::new(&pack_dir).join("assets").to_string_lossy().into_owned());
     command.arg("--launchTarget").arg("client");
-    command.arg("-Djava.library.path=\"D:\\RustProjects\\cast-launcher\\test\\testpack\\libraries\"");
     command.current_dir(&pack_dir);
 
     let program = command.get_program().to_string_lossy();
