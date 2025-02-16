@@ -45,6 +45,101 @@ const addOffline = async () => {
   offlineUsername.value = "";
 }
 
+const addOnline = async () => {
+  const CLIENT_ID = "ВАШ_CLIENT_ID";
+  const REDIRECT_URI = "https://login.microsoftonline.com/common/oauth2/nativeclient";
+
+  // Открываем окно авторизации Microsoft
+  const authUrl = `https://login.live.com/oauth20_authorize.srf?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&scope=XboxLive.signin%20offline_access`;
+
+  window.open(authUrl, "_blank");
+
+  // Ожидаем код из редиректа (потребуется слушатель или промежуточный сервер)
+  const code = await getAuthCodeFromRedirect(); // Реализуйте этот метод
+
+  // Получаем access_token от Microsoft
+  const tokenResponse = await fetch("https://login.live.com/oauth20_token.srf", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: REDIRECT_URI,
+      client_secret: "ВАШ_CLIENT_SECRET",
+    }),
+  });
+
+  const tokenData = await tokenResponse.json();
+  const microsoftAccessToken = tokenData.access_token;
+
+  // Получаем Xbox токен
+  const xboxResponse = await fetch("https://user.auth.xboxlive.com/user/authenticate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      Properties: {
+        AuthMethod: "RPS",
+        SiteName: "user.auth.xboxlive.com",
+        RpsTicket: `d=${microsoftAccessToken}`,
+      },
+      RelyingParty: "http://auth.xboxlive.com",
+      TokenType: "JWT",
+    }),
+  });
+
+  const xboxData = await xboxResponse.json();
+  const xboxToken = xboxData.Token;
+  const userHash = xboxData.DisplayClaims.xui[0].uhs;
+
+  // Получаем XSTS токен
+  const xstsResponse = await fetch("https://xsts.auth.xboxlive.com/xsts/authorize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      Properties: {
+        SandboxId: "RETAIL",
+        UserTokens: [xboxToken],
+      },
+      RelyingParty: "rp://api.minecraftservices.com/",
+      TokenType: "JWT",
+    }),
+  });
+
+  const xstsData = await xstsResponse.json();
+  const xstsToken = xstsData.Token;
+
+  // Получаем Minecraft токен
+  const mcResponse = await fetch("https://api.minecraftservices.com/authentication/login_with_xbox", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      identityToken: `XBL3.0 x=${userHash};${xstsToken}`,
+    }),
+  });
+
+  const mcData = await mcResponse.json();
+  const minecraftAccessToken = mcData.access_token;
+
+  // Получаем профиль игрока
+  const profileResponse = await fetch("https://api.minecraftservices.com/minecraft/profile", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${minecraftAccessToken}`,
+    },
+  });
+
+  const profileData = await profileResponse.json();
+
+  // Сохраняем данные в localStorage или Vuex/Pinia
+  localStorage.setItem("mc_access_token", minecraftAccessToken);
+  localStorage.setItem("mc_uuid", profileData.id);
+  localStorage.setItem("mc_username", profileData.name);
+
+  console.log("Вход выполнен:", profileData.name);
+};
+
+
 const addOfflineHandleClose = async (done: () => void) => {
   await addOffline()
   done()
@@ -93,7 +188,7 @@ const addOfflineHandleClose = async (done: () => void) => {
       <el-button type="info" plain @click="addOfflineDialog = true">
         <i class="pi pi-user"></i>  Добавить автономную
       </el-button>
-      <el-button type="info" plain disabled>
+      <el-button type="info" plain @click="addOnline" disabled>
         <i class="pi pi-microsoft"></i>  Войти через Microsoft
       </el-button>
     </div>
