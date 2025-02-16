@@ -12,9 +12,7 @@ const launchInfo = ref(null)
 onMounted(async () => {
   unlisten = await listen("launching", async (event) => {
     console.log("launching", event)
-    console.log(1)
     updateClientState(event.payload?.pack_id, event.payload?.state)
-    console.log(2)
     updateSelected()
   });
   updateSelected()
@@ -29,9 +27,6 @@ watch(() => clients.value, () => {
 }, {deep: true})
 
 const updateSelected = () => {
-  console.log(3)
-  console.log("updateSelected", selected.value)
-  console.log("clients", clients.value)
   selected.value = clients.value.find((client) =>
       ["error",
         "requesting",
