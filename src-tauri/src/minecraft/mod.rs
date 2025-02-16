@@ -170,6 +170,7 @@ pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &
         .arg("--assetsDir")
         .arg(Path::new(&pack_dir).join("assets").to_string_lossy().into_owned());
     command.arg("--launchTarget").arg("client");
+    command.arg("-Djava.library.path=\"D:\\RustProjects\\cast-launcher\\test\\testpack\\libraries\"");
     command.current_dir(&pack_dir);
 
     let program = command.get_program().to_string_lossy();
