@@ -29,11 +29,11 @@ async fn run_pack(pack_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn create_pack(pack_id: String, version: String, version_type: String) -> Result<(), String> {
+async fn create_pack(pack_id: String, version: String, version_type: String, java_path: String) -> Result<(), String> {
     let settings = settings::load_settings();
 
     if version_type == "vanilla" {
-        minecraft::create_or_fix_vanilla(&settings.packs_dir, &pack_id, &version).await;
+        minecraft::create_or_fix_vanilla(&settings.packs_dir, &pack_id, &version, &java_path).await;
     }
     Ok(())
 }
@@ -44,12 +44,12 @@ fn get_java_list() -> Vec<String> {
 }
 
 #[tauri::command]
-fn get_java_version(java_path: String) -> Option<String> {
-    java::get_java_version(java_path)
+fn get_java_version(java_path: String) -> Option<u8> {
+    java::get_java_version(&java_path)
 }
 
 #[tauri::command]
-fn get_packs(launcher_dir: String) -> Vec<serde_json::Value> {
+fn get_packs(launcher_dir: String) -> Vec<Value> {
     let mut directories = Vec::new();
 
     let entries = match fs::read_dir(&launcher_dir) {

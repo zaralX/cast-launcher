@@ -4,7 +4,7 @@ use reqwest::get;
 use std::path::Path;
 use tokio::fs;
 
-pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &str) {
+pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &str, java_path: &str) {
     // Папка пака
     fs::create_dir_all(pack_dir)
         .await
@@ -12,6 +12,7 @@ pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &s
 
     // cast_pack.json
     let cast_pack_file = Path::new(pack_dir).join("cast_pack.json");
+    if cast_pack_file.exists() { return; }
     if fs::metadata(&cast_pack_file).await.is_err() {
         fs::write(
             &cast_pack_file,
@@ -22,9 +23,10 @@ pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &s
 "version": "{}",
 "type": "{}",
 "cast_pack_version": 1,
-"installed": false
+"installed": false,
+"java_path": {}
 }}"#,
-                pack_id, pack_id, version, version_type
+                pack_id, pack_id, version, version_type, java_path
             ),
         )
             .await

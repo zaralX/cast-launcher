@@ -74,11 +74,11 @@ pub async fn run_pack(pack_id: &str) {
     run_game(pack_id, &settings.packs_dir, &settings.java_options.path, &profile.username, version, &settings.java_options.memory).await
 }
 
-pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &str) -> Vec<String> {
+pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &str, java_path: &str) -> Vec<String> {
     let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
     // Инициализация пака
     send_state(pack_id, "init", "Инициализация");
-    pack_files::init(pack_dir, pack_id, version, "vanilla").await;
+    pack_files::init(pack_dir, pack_id, version, "vanilla", java_path).await;
 
     // Список версий
     send_state(pack_id, "versions", "Получение списка версий");
@@ -133,16 +133,24 @@ pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &
     args
 }
 
-pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &str, version: &str, memory: &settings::JavaMemory) {
+pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &str, version: &str, memory: &settings::JavaMemory,) {
     let version_type = "vanilla";
-    let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
+    let pack_dir = Path::new(launcher_dir).join(pack_id);
 
     let mut args: Vec<String> = Vec::new();
 
     if version_type == "vanilla" {
-        args = create_or_fix_vanilla(launcher_dir, pack_id, version).await;
+        args = create_or_fix_vanilla(launcher_dir, pack_id, version, "null".as_ref()).await;
     }
 
+    let cast_pack_path = pack_dir.join("cast_pack.json");
+    let pack_settings: Value = serde_json::from_str(fs::read_to_string(cast_pack_path).await.unwrap().as_ref()).expect("failed to read cast_pack.json");
+    
+    let mut java_path = java;
+    if pack_settings["java_path"] != "launcher" {
+        java_path = pack_settings["java_path"].as_str().unwrap()
+    }
+    
     // Последняя версия
     // let latest_version = manifest["latest"]["release"].as_str().unwrap();
     // println!("Последняя версия: {}", latest_version);
@@ -150,19 +158,19 @@ pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &
     // Запуск игры
     send_state(pack_id, "starting", "Запуск игры");
     println!("Запуск Minecraft...");
-    let mut command = Command::new(java);
+    let mut command = Command::new(java_path);
     command.arg(format!("-Xms{}M", memory.min)).arg(format!("-Xmx{}M", memory.max));
     command.args(args);
     command.arg("net.minecraft.client.main.Main");
     command.arg("--username").arg(username);
     command.arg("--accessToken").arg("nothing");
     command.arg("--version").arg(version);
-    command.arg("--gameDir").arg(pack_dir);
+    command.arg("--gameDir").arg(&pack_dir);
     command
         .arg("--assetsDir")
-        .arg(Path::new(pack_dir).join("assets").to_string_lossy().into_owned());
+        .arg(Path::new(&pack_dir).join("assets").to_string_lossy().into_owned());
     command.arg("--launchTarget").arg("client");
-    command.current_dir(pack_dir);
+    command.current_dir(&pack_dir);
 
     let program = command.get_program().to_string_lossy();
     let args = command
