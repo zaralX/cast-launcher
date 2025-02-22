@@ -39,6 +39,34 @@ async fn create_pack(pack_id: String, version: String, version_type: String, jav
 }
 
 #[tauri::command]
+async fn run_zproject(pack_id: String, java_path: String) -> Result<(), String> {
+    let json_str = r#"{
+        "id": "debthunt-0.4",
+        "name": "DebtHunt",
+        "banner": "/image.png",
+        "version": "0.4",
+        "minecraft": {
+            "version": "1.12.2",
+            "installer": "forge",
+            "forge": "1.12.2-14.23.5.2859"
+        }
+    }"#;
+    let packs: Vec<Value> = vec![serde_json::from_str(json_str).expect("Invalid JSON")];
+    
+    // Main
+    let pack = packs.iter().find(|p| p["id"] == pack_id).unwrap();
+    
+    let settings = settings::load_settings();
+
+    if pack["minecraft"]["installer"] == "forge" {
+        minecraft::create_or_fix_forge(&settings.packs_dir, pack.clone(), &java_path).await;
+    }
+    
+    minecraft::run_pack(&pack_id).await;
+    Ok(())
+}
+
+#[tauri::command]
 fn get_java_list() -> Vec<String> {
     java::get_java_list()
 }
@@ -127,7 +155,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs, save_settings, load_settings, run_pack, create_pack])
+        .invoke_handler(tauri::generate_handler![greet, run_game, get_java_list, get_java_version, get_packs, save_settings, load_settings, run_pack, create_pack, run_zproject])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

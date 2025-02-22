@@ -1,5 +1,6 @@
 mod downloaders;
 mod pack_files;
+mod forge;
 
 use crate::{emit_global_event, settings};
 use reqwest::{get};
@@ -131,14 +132,98 @@ pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &
     args
 }
 
+pub async fn create_or_fix_forge(launcher_dir: &str, pack: Value, java_path: &str) -> Vec<String> {
+    let pack_id = pack["id"].as_str().unwrap();
+    let version = pack["minecraft"]["version"].as_str().unwrap();
+    let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
+    // Инициализация пака
+    send_state(pack_id, "init", "Инициализация");
+    pack_files::init(pack_dir, pack_id, pack["minecraft"]["version"].as_str().unwrap(), "forge", java_path).await;
+
+    send_state(pack_id, "versions", "Получение списка версий");
+    const VERSION_MANIFEST_LINK: &str =
+        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
+
+    let response = get(VERSION_MANIFEST_LINK)
+        .await
+        .expect("Error when get version list")
+        .text()
+        .await
+        .unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(&response).unwrap();
+
+    // Data нужной версии
+    let version_data: serde_json::Value = pack_files::get_version_data(pack_id, version, manifest).await;
+
+    // Загрузка assets
+    let assets_dir = Path::new(pack_dir).join("assets").to_string_lossy().into_owned();
+    pack_files::download_assets(pack_id, &assets_dir, &version_data).await;
+
+    // Загрузка libraries
+    let libraries_dir = Path::new(pack_dir).join("libraries").to_string_lossy().into_owned();
+    let libs = pack_files::download_libraries(pack_id, &libraries_dir, &version_data).await;
+
+    let mut args: Vec<String> = Vec::new();
+    args.push(String::from("-cp"));
+    args.push(format!(
+        "{};{}",
+        Path::new(pack_dir).join("client.jar").to_string_lossy().into_owned(),
+        (libraries_dir + "\\*").replace('/', &std::path::MAIN_SEPARATOR.to_string())
+    ));
+
+    // Загружаем forge_installer
+    forge::download_forge(pack["minecraft"]["forge"].as_str().unwrap(), pack_dir).await.expect("Failed download forge");
+
+    // Устанавливаем forge
+    forge::install_forge(pack_dir).await.expect("Failed install forge");
+
+    fs::copy(
+        Path::new(pack_dir).join("versions").join(version).join(format!("{}.jar", version)).to_string_lossy().into_owned(),
+        Path::new(pack_dir).join("client.jar")
+    ).await.expect("failed to move forge jar");
+
+    // Помечаем что пак был установлен
+    let cast_pack_file = Path::new(pack_dir).join("cast_pack.json");
+    let cast_pack_data = fs::read_to_string(&cast_pack_file).await.unwrap();
+    let mut cast_pack_json: Value = serde_json::from_str(&cast_pack_data).unwrap();
+
+    if let Some(installed) = cast_pack_json.get_mut("installed") {
+        *installed = Value::Bool(true);
+    }
+
+    fs::write(&cast_pack_file, serde_json::to_string_pretty(&cast_pack_json).unwrap()).await.expect("FAILED UPDATE PACK INSTALLED STATUS");
+    send_state(pack_id, "installed", "Версия установлена");
+
+    // Very bad code, im sorry :(
+    let libraries_dir = Path::new(pack_dir).join("libraries");
+    pack_files::copy_jar_files(libraries_dir.clone(), libraries_dir.clone()).await.expect("Failed copy jars");
+
+    args
+}
+
 pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &str, version: &str, memory: &settings::JavaMemory,) {
     let version_type = "vanilla";
     let pack_dir = Path::new(launcher_dir).join(pack_id);
 
     let mut args: Vec<String> = Vec::new();
+    let mut main_class = "net.minecraft.client.main.Main";
 
     if version_type == "vanilla" {
         args = create_or_fix_vanilla(launcher_dir, pack_id, version, "null".as_ref()).await;
+    }
+
+    else if version_type == "forge" {
+        let jar_path = pack_dir.join("client.jar").to_string_lossy().into_owned();
+        let libraries_dir = pack_dir.join("libraries").to_string_lossy().into_owned();
+        args.push(String::from("-cp"));
+        args.push(format!(
+            "{};{}",
+            jar_path.replace('/', &std::path::MAIN_SEPARATOR.to_string()),
+            (libraries_dir + "\\*").replace('/', &std::path::MAIN_SEPARATOR.to_string())
+        ));
+        args.push("--tweakClass".to_string());
+        args.push("net.minecraftforge.fml.common.launcher.FMLTweaker".to_string());
+        main_class = "net.minecraft.launchwrapper.Launch";
     }
 
     let cast_pack_path = pack_dir.join("cast_pack.json");
@@ -162,7 +247,7 @@ pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &
     command.arg(format!("-Djava.library.path={}", natives));
     command.arg(format!("-Xms{}M", memory.min)).arg(format!("-Xmx{}M", memory.max));
     command.args(args);
-    command.arg("net.minecraft.client.main.Main");
+    command.arg(main_class);
     command.arg("--username").arg(username);
     command.arg("--accessToken").arg("nothing");
     command.arg("--version").arg(version);

@@ -1,7 +1,7 @@
 use crate::minecraft::downloaders::download_file;
 use crate::minecraft::{downloaders, send_state};
 use reqwest::get;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 
 pub async fn init(pack_dir: &str, pack_id: &str, version: &str, version_type: &str, java_path: &str) {
@@ -68,4 +68,38 @@ pub async fn download_libraries(pack_id: &str, libraries_dir: &str, version_data
     let libs: Vec<String> = downloaders::download_libraries(libraries, &libraries_dir).await;
     println!("Libraries: {}", libs.join(";"));
     libs
+}
+
+pub async fn copy_jar_files(src_dir: PathBuf, dest_dir: PathBuf) -> tokio::io::Result<()> {
+    let mut dirs_to_delete = vec![];
+
+    // Рекурсивный обход директорий
+    let mut stack = vec![src_dir];
+    while let Some(current_dir) = stack.pop() {
+        let mut entries = fs::read_dir(&current_dir).await?;
+        let mut files = Vec::new();
+
+        // Проход по всем файлам и папкам в текущей директории
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().map_or(false, |ext| ext == "jar") {
+                files.push(path);
+            }
+        }
+
+        // Копирование файлов .jar в целевую директорию
+        for file in files {
+            let dest_file = dest_dir.join(file.file_name().unwrap());
+            fs::copy(&file, &dest_file).await?;
+        }
+
+        // Если директория пуста после копирования, добавляем её в список на удаление
+        if fs::read_dir(&current_dir).await.iter().count() == 0 {
+            dirs_to_delete.push(current_dir);
+        }
+    }
+
+    Ok(())
 }
