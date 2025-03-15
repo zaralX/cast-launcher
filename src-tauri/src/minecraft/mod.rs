@@ -1,269 +1,49 @@
-mod downloaders;
-mod pack_files;
-mod forge;
+mod cast_pack_json;
 
-use crate::{emit_global_event, settings};
-use reqwest::{get};
-use serde_json::{json, Value};
+use std::fs::create_dir_all;
 use std::path::Path;
-use std::process::Command;
-use tokio::fs;
+use crate::minecraft::cast_pack_json::CastPack;
+use crate::utils;
 
-const MAX_CONCURRENT_DOWNLOADS: usize = 10;
+pub async fn create_pack(main_dir: &Path, data: &mut serde_json::Value) -> Result<(), String> {
+    create_dir_all(main_dir).unwrap(); // Creating launcher container folder
 
-fn send_state(pack_id: &str, state: &str, status: &str) {
-    emit_global_event(
-        "launching",
-        json!({
-            "status": status,
-            "state": state,
-            "pack_id": pack_id
-        }),
-    );
-}
+    let id = data["id"].as_str().ok_or("Missing id field in pack data")?.to_string();
+    let name = data["name"].as_str().ok_or("Missing name field in pack data")?.to_string();
+    let _type = data["type"].as_str().ok_or("Missing type field in pack data")?.to_string();
 
-pub async fn run_pack(pack_id: &str) {
-    let settings = settings::load_settings();
-    log::info!("settings loaded");
-
-    let mut cast_pack: Option<Value> = None; // Используем Option<Value>
-
-    // Поиск пака
-    if fs::metadata(&settings.packs_dir).await.map(|m| m.is_dir()).unwrap_or(false) {
-        log::info!("pack folder found");
-        let path = Path::new(&settings.packs_dir);
-        let file_path = path.join(pack_id).join("cast_pack.json");
-
-        if fs::metadata(&file_path).await.is_ok() {
-            log::info!("cast_pack.json found");
-            let pack_content = match fs::read_to_string(&file_path).await {
-                Ok(content) => content,
-                Err(e) => {
-                    eprintln!("Ошибка чтения файла: {}", e);
-                    return;
-                }
-            };
-
-            match serde_json::from_str::<Value>(&pack_content) {
-                Ok(json) => {
-                    log::info!("JSON загружен успешно");
-                    cast_pack = Some(json);
-                }
-                Err(e) => {
-                    eprintln!("Ошибка парсинга JSON: {}", e);
-                    return;
-                }
-            }
-        } else {
-            send_state(pack_id, "error", "cast_pack.json not found");
-            log::error!("cast_pack.json not found");
-            return;
+    match _type.as_str() {
+        "vanilla" => {
+            data["version"]
+                .as_str()
+                .ok_or("Missing 'version' field")?;
         }
-    } else {
-        send_state(pack_id, "error", "pack folder not found");
-        log::error!("pack folder not found");
-        return;
+        "fabric" => {
+            data["fabric-loader"]
+                .as_str()
+                .ok_or("Missing 'fabric-loader' field")?;
+            data["version"]
+                .as_str()
+                .ok_or("Missing 'version' field")?;
+        }
+        "modrinth" => {
+            data["modrinth-project-id"]
+                .as_str()
+                .ok_or("Missing 'modrinth-project-id' field")?;
+            data["modrinth-project-version"]
+                .as_str()
+                .ok_or("Missing 'modrinth-project-version' field")?;
+        }
+        _ => return Err(format!("UNKNOWN PACK TYPE {:?}", _type)),
     }
 
-    let profile = settings.profiles.iter().find(|p| p.selected).unwrap();
+    data["castPackVersion"] = serde_json::json!("1");
+    data["installed"] = serde_json::json!(false);
 
-    // Проверяем, есть ли JSON и версия
-    let version = cast_pack.as_ref()
-        .and_then(|json| json["version"].as_str())
-        .unwrap_or("1.21.1");
-
-    run_game(pack_id, &settings.packs_dir, &settings.java_options.path, &profile.username, version, &settings.java_options.memory).await
-}
-
-pub async fn create_or_fix_vanilla(launcher_dir: &str, pack_id: &str, version: &str, java_path: &str) -> Vec<String> {
-    let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
-    // Инициализация пака
-    send_state(pack_id, "init", "Инициализация");
-    pack_files::init(pack_dir, pack_id, version, "vanilla", java_path).await;
-
-    // Список версий
-    send_state(pack_id, "versions", "Получение списка версий");
-    const VERSION_MANIFEST_LINK: &str =
-        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
-
-    let response = get(VERSION_MANIFEST_LINK)
-        .await
-        .expect("Error when get version list")
-        .text()
-        .await
-        .unwrap();
-    let manifest: serde_json::Value = serde_json::from_str(&response).unwrap();
-
-    // Data нужной версии
-    let version_data: serde_json::Value = pack_files::get_version_data(pack_id, version, manifest).await;
-
-    // Загрузка .jar клиента
-    let jar_path = Path::new(pack_dir).join("client.jar").to_string_lossy().into_owned();
-    pack_files::download_client_jar(pack_id, &jar_path, &version_data).await;
-
-    // Загрузка assets
-    let assets_dir = Path::new(pack_dir).join("assets").to_string_lossy().into_owned();
-    pack_files::download_assets(pack_id, &assets_dir, &version_data).await;
-
-    // Загрузка libraries
-    let libraries_dir = Path::new(pack_dir).join("libraries").to_string_lossy().into_owned();
-    let libs = pack_files::download_libraries(pack_id, &libraries_dir, &version_data).await;
-
-    let mut args: Vec<String> = Vec::new();
-    args.push(String::from("-cp"));
-    args.push(format!(
-        "{};{}",
-        jar_path.replace('/', &std::path::MAIN_SEPARATOR.to_string()),
-        (libraries_dir + "\\*").replace('/', &std::path::MAIN_SEPARATOR.to_string())
-    ));
-
-    // Помечаем что пак был установлен
-    let cast_pack_file = Path::new(pack_dir).join("cast_pack.json");
-    let cast_pack_data = fs::read_to_string(&cast_pack_file).await.unwrap();
-    let mut cast_pack_json: Value = serde_json::from_str(&cast_pack_data).unwrap();
-
-    if let Some(installed) = cast_pack_json.get_mut("installed") {
-        *installed = Value::Bool(true);
-    }
-
-    fs::write(&cast_pack_file, serde_json::to_string_pretty(&cast_pack_json).unwrap()).await.expect("FAILED UPDATE PACK INSTALLED STATUS");
-    send_state(pack_id, "installed", "Версия установлена");
-
-    args
-}
-
-pub async fn create_or_fix_forge(launcher_dir: &str, pack: Value, java_path: &str) -> Vec<String> {
-    let pack_id = pack["id"].as_str().unwrap();
-    let version = pack["minecraft"]["version"].as_str().unwrap();
-    let pack_dir = &format!("{}/{}", launcher_dir, pack_id);
-    // Инициализация пака
-    send_state(pack_id, "init", "Инициализация");
-    pack_files::init(pack_dir, pack_id, pack["minecraft"]["version"].as_str().unwrap(), "forge", java_path).await;
-
-    send_state(pack_id, "versions", "Получение списка версий");
-    const VERSION_MANIFEST_LINK: &str =
-        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
-
-    let response = get(VERSION_MANIFEST_LINK)
-        .await
-        .expect("Error when get version list")
-        .text()
-        .await
-        .unwrap();
-    let manifest: serde_json::Value = serde_json::from_str(&response).unwrap();
-
-    // Data нужной версии
-    let version_data: serde_json::Value = pack_files::get_version_data(pack_id, version, manifest).await;
-
-    // Загрузка assets
-    let assets_dir = Path::new(pack_dir).join("assets").to_string_lossy().into_owned();
-    pack_files::download_assets(pack_id, &assets_dir, &version_data).await;
-
-    // Загрузка libraries
-    let libraries_dir = Path::new(pack_dir).join("libraries").to_string_lossy().into_owned();
-    let libs = pack_files::download_libraries(pack_id, &libraries_dir, &version_data).await;
-
-    let mut args: Vec<String> = Vec::new();
-    args.push(String::from("-cp"));
-    args.push(format!(
-        "{};{}",
-        Path::new(pack_dir).join("client.jar").to_string_lossy().into_owned(),
-        (libraries_dir + "\\*").replace('/', &std::path::MAIN_SEPARATOR.to_string())
-    ));
-
-    // Загружаем forge_installer
-    forge::download_forge(pack["minecraft"]["forge"].as_str().unwrap(), pack_dir).await.expect("Failed download forge");
-
-    // Устанавливаем forge
-    forge::install_forge(pack_dir).await.expect("Failed install forge");
-
-    fs::copy(
-        Path::new(pack_dir).join("versions").join(version).join(format!("{}.jar", version)).to_string_lossy().into_owned(),
-        Path::new(pack_dir).join("client.jar")
-    ).await.expect("failed to move forge jar");
-
-    // Помечаем что пак был установлен
-    let cast_pack_file = Path::new(pack_dir).join("cast_pack.json");
-    let cast_pack_data = fs::read_to_string(&cast_pack_file).await.unwrap();
-    let mut cast_pack_json: Value = serde_json::from_str(&cast_pack_data).unwrap();
-
-    if let Some(installed) = cast_pack_json.get_mut("installed") {
-        *installed = Value::Bool(true);
-    }
-
-    fs::write(&cast_pack_file, serde_json::to_string_pretty(&cast_pack_json).unwrap()).await.expect("FAILED UPDATE PACK INSTALLED STATUS");
-    send_state(pack_id, "installed", "Версия установлена");
-
-    // Very bad code, im sorry :(
-    let libraries_dir = Path::new(pack_dir).join("libraries");
-    pack_files::copy_jar_files(libraries_dir.clone(), libraries_dir.clone()).await.expect("Failed copy jars");
-
-    args
-}
-
-pub async fn run_game(pack_id: &str, launcher_dir: &str, java: &str, username: &str, version: &str, memory: &settings::JavaMemory,) {
-    let version_type = "vanilla";
-    let pack_dir = Path::new(launcher_dir).join(pack_id);
-
-    let mut args: Vec<String> = Vec::new();
-    let mut main_class = "net.minecraft.client.main.Main";
-
-    if version_type == "vanilla" {
-        args = create_or_fix_vanilla(launcher_dir, pack_id, version, "null".as_ref()).await;
-    }
-
-    else if version_type == "forge" {
-        let jar_path = pack_dir.join("client.jar").to_string_lossy().into_owned();
-        let libraries_dir = pack_dir.join("libraries").to_string_lossy().into_owned();
-        args.push(String::from("-cp"));
-        args.push(format!(
-            "{};{}",
-            jar_path.replace('/', &std::path::MAIN_SEPARATOR.to_string()),
-            (libraries_dir + "\\*").replace('/', &std::path::MAIN_SEPARATOR.to_string())
-        ));
-        args.push("--tweakClass".to_string());
-        args.push("net.minecraftforge.fml.common.launcher.FMLTweaker".to_string());
-        main_class = "net.minecraft.launchwrapper.Launch";
-    }
-
-    let cast_pack_path = pack_dir.join("cast_pack.json");
-    let pack_settings: Value = serde_json::from_str(fs::read_to_string(cast_pack_path).await.unwrap().as_ref()).expect("failed to read cast_pack.json");
-
-    let mut java_path = java;
-    if pack_settings["java_path"] != "launcher" {
-        java_path = pack_settings["java_path"].as_str().unwrap()
-    }
-
-    // Последняя версия
-    // let latest_version = manifest["latest"]["release"].as_str().unwrap();
-    // println!("Последняя версия: {}", latest_version);
+    let pack_dir = utils::create_unique_dir(main_dir, id.as_str()).unwrap();
+    let mut cast_pack = CastPack::new(pack_dir);
+    cast_pack.set_data(data);
+    cast_pack.save().unwrap();
     
-    let natives = pack_dir.join("natives").to_string_lossy().into_owned();
-
-    // Запуск игры
-    send_state(pack_id, "starting", "Запуск игры");
-    println!("Запуск Minecraft...");
-    let mut command = Command::new(java_path);
-    command.arg(format!("-Djava.library.path={}", natives));
-    command.arg(format!("-Xms{}M", memory.min)).arg(format!("-Xmx{}M", memory.max));
-    command.args(args);
-    command.arg(main_class);
-    command.arg("--username").arg(username);
-    command.arg("--accessToken").arg("nothing");
-    command.arg("--version").arg(version);
-    command.arg("--gameDir").arg(&pack_dir);
-    command
-        .arg("--assetsDir")
-        .arg(Path::new(&pack_dir).join("assets").to_string_lossy().into_owned());
-    command.arg("--launchTarget").arg("client");
-    command.current_dir(&pack_dir);
-
-    let program = command.get_program().to_string_lossy();
-    let args = command
-        .get_args()
-        .map(|arg| arg.to_string_lossy())
-        .collect::<Vec<_>>()
-        .join(" ");
-    log::info!("Команда запуска: {}", format!("{} {}", program, args));
-    command.spawn().expect("Ошибка при запуске Minecraft");
+    Ok(())
 }

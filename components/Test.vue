@@ -23,7 +23,12 @@ const javaList = ref([]);
 let unlisten = null;
 
 async function greet() {
-  await invoke("run_game", {java: java.value, launcherDir: launcher_dir.value, username: name.value});
+  await invoke("create_pack", {data: {
+      id: "test",
+      name: "Vanilla test",
+      type: "vanilla",
+      version: "1.12.2"
+    }});
 }
 
 onMounted(async () => {
