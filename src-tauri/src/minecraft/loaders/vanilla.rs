@@ -36,6 +36,7 @@ pub async fn generate_args(main_dir: &Path, cast_pack: &mut CastPack) -> Vec<Str
     let mut arguments: Vec<String> = Vec::new();
     let version = cast_pack.get("version").unwrap().as_str().unwrap();
     let minecraft_dir = cast_pack.dir().join(".minecraft");
+    create_dir_all(&minecraft_dir).unwrap();
     
     let version_data = get_version_data(main_dir, version).await;
 

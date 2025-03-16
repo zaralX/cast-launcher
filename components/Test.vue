@@ -24,15 +24,16 @@ let unlisten = null;
 
 async function greet() {
   // await invoke("create_pack", {data: {
-  //     id: "test",
-  //     name: "Vanilla test",
-  //     type: "vanilla",
-  //     version: "1.12.2"
+  //     id: "test3",
+  //     name: "Fabric test",
+  //     type: "fabric",
+  //     version: "1.20.1",
+  //     "fabric-loader": "latest"
   //   }});
 
-  // await invoke("install_pack", {id: "test"});
+  // await invoke("install_pack", {id: "test3"});
 
-  // await invoke("run_pack", {id: "test"});
+  // await invoke("run_pack", {id: "test3"});
 }
 
 onMounted(async () => {
