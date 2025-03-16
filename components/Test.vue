@@ -23,12 +23,16 @@ const javaList = ref([]);
 let unlisten = null;
 
 async function greet() {
-  await invoke("create_pack", {data: {
-      id: "test",
-      name: "Vanilla test",
-      type: "vanilla",
-      version: "1.12.2"
-    }});
+  // await invoke("create_pack", {data: {
+  //     id: "test",
+  //     name: "Vanilla test",
+  //     type: "vanilla",
+  //     version: "1.12.2"
+  //   }});
+
+  // await invoke("install_pack", {id: "test"});
+
+  // await invoke("run_pack", {id: "test"});
 }
 
 onMounted(async () => {

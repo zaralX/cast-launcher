@@ -43,6 +43,10 @@ impl CastPack {
     pub fn get(&self, key: &str) -> Option<&serde_json::Value> {
         self.data.get(key)
     }
+    
+    pub fn dir(&self) -> &Path {
+        self.path.parent().unwrap()
+    }
 
     pub fn set(&mut self, key: &str, value: serde_json::Value) {
         self.data[key] = value;
