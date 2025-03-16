@@ -1,18 +1,16 @@
-<script setup lang="ts">
+<script setup>
 import {invoke} from "@tauri-apps/api/core";
 import {useLauncher} from "~/composables/useLauncher";
 
 const {settings, packs, refreshPacks, updateClientState, clients} = useLauncher()
 
-watch(settings, async (newSettings) => {
-  if (newSettings) {
-    await refreshPacks();
-  }
-}, {immediate: true});
+onMounted(async () => {
+  await refreshPacks();
+  console.log(packs.value);
+})
 
 const start = async (pack_id) => {
-  await updateClientState(pack_id, "requesting");
-  await invoke("run_pack", {packId: pack_id});
+  await invoke("run_pack", {id: pack_id});
 }
 </script>
 
@@ -28,7 +26,7 @@ const start = async (pack_id) => {
               <p class="text-xs">{{ pack }}</p>
             </div>
             <div class="flex justify-end items-end">
-              <el-button type="primary" plain size="small" @click="start(pack?.cast_pack?.pack_id)"><i
+              <el-button type="primary" plain size="small" @click="start(pack['cast-pack']?.id)"><i
                   class="pi pi-play text-xs"></i>  Играть
               </el-button>
             </div>

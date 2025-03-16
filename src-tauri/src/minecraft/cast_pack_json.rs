@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct CastPack {
     path: PathBuf,
-    data: serde_json::Value,
+    pub(crate) data: serde_json::Value,
 }
 
 impl CastPack {

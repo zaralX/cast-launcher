@@ -17,11 +17,7 @@ export const useLauncher = () => {
     }
 
     async function refreshPacks() {
-        if (!settings.value?.packs_dir) {
-            console.warn("Not found packs_dir in settings")
-            return;
-        }
-        packs.value = await invoke("get_packs", { launcherDir: settings.value?.packs_dir });
+        packs.value = await invoke("get_packs", { });
     }
 
     async function refreshJavaList() {

@@ -7,6 +7,7 @@ use std::fs::create_dir_all;
 use std::path::Path;
 use std::process::Command;
 use log::warn;
+use serde_json::Value;
 use crate::minecraft::cast_pack_json::CastPack;
 use crate::utils;
 
@@ -104,4 +105,35 @@ pub fn get_cast_pack(main_dir: &Path, id: &str) -> CastPack {
     }
 
     panic!("Not found instance with id: {}", id)
+}
+
+pub fn get_packs(main_dir: &Path) -> Vec<Value> {
+    let instances_dir = main_dir.join("instances");
+    create_dir_all(&instances_dir).unwrap();
+    
+    let mut packs: Vec<Value> = Vec::new();
+
+    for entry in fs::read_dir(instances_dir).unwrap() {
+        let entry = entry.unwrap();
+        let entry_path = entry.path();
+        let cast_pack_path = entry_path.join("cast-pack.json");
+        if !cast_pack_path.exists() {
+            warn!("Not found cast pack in: {}", cast_pack_path.display());
+            continue
+        }
+
+        let mut _cast_pack = CastPack::new(entry_path);
+        let mut _cast_pack = _cast_pack.load().unwrap();
+        
+        let folder_name = cast_pack_path.file_name().and_then(|s| s.to_str()).unwrap();
+
+        let pack = serde_json::json!({
+            "cast-pack": _cast_pack.data,
+            "folder": folder_name
+        });
+        
+        packs.push(pack)
+    }
+    
+    packs
 }

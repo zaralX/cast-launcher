@@ -1,3 +1,4 @@
+use std::io;
 use std::path::Path;
 use serde_json::Value;
 
@@ -39,6 +40,13 @@ async fn run_pack(id: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_packs() -> Result<Vec<Value>, String> {
+    let main_dir = Path::new("./test");
+    let packs = minecraft::get_packs(main_dir);
+    Ok(packs)
+}
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -54,7 +62,7 @@ pub fn run() {
             )).build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, create_pack, install_pack, run_pack])
+        .invoke_handler(tauri::generate_handler![greet, create_pack, install_pack, run_pack, get_packs])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
