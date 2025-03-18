@@ -21,3 +21,6 @@ This project is built using the following technology stack:
 
 ## Gallery
 ![Screenshot](./.github/readme/1.png)
+
+## TODO
+Add hash and size files verification

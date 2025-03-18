@@ -63,6 +63,8 @@ pub async fn install_pack(main_dir: &Path, id: &str) {
         loaders::vanilla::install(main_dir, &mut cast_pack).await;
     } else if cast_pack.get("type").unwrap().eq("fabric") {
         loaders::fabric::install(main_dir, &mut cast_pack).await;
+    } else if cast_pack.get("type").unwrap().eq("modrinth") {
+        loaders::modrinth::install(main_dir, &mut cast_pack).await;
     } else {
         panic!("UNKNOWN CAST-PACK TYPE: {}", cast_pack.get("type").unwrap())
     }
@@ -80,6 +82,13 @@ pub async fn run_pack(main_dir: &Path, id: &str, java: &str) {
         command.spawn().expect("Error when Minecraft start.");
     } else if cast_pack.get("type").unwrap().eq("fabric") {
         let args = loaders::fabric::generate_args(main_dir, &mut cast_pack).await;
+        println!("Launch args: {}", args.join(" ").as_str());
+        let mut command = Command::new(java);
+        command.args(args);
+        command.current_dir(cast_pack.dir().join(".minecraft"));
+        command.spawn().expect("Error when Minecraft start.");
+    } else if cast_pack.get("type").unwrap().eq("modrinth") {
+        let args = loaders::modrinth::generate_args(main_dir, &mut cast_pack).await;
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);
@@ -134,7 +143,7 @@ pub fn get_packs(main_dir: &Path) -> Vec<Value> {
         let mut _cast_pack = CastPack::new(entry_path);
         let mut _cast_pack = _cast_pack.load().unwrap();
         
-        let folder_name = cast_pack_path.file_name().and_then(|s| s.to_str()).unwrap();
+        let folder_name = cast_pack_path.parent().unwrap().file_name().and_then(|s| s.to_str()).unwrap();
 
         let pack = serde_json::json!({
             "cast-pack": _cast_pack.data,
