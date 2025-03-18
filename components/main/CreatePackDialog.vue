@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
 import {ref} from "vue";
 import {invoke} from "@tauri-apps/api/core";
 import axios from "axios";
@@ -80,7 +80,9 @@ const updateRequiredJava = async () => {
       </el-select>
       <div>
         <el-checkbox v-model="snapshots" @change="updateOptions()" label="Снапшоты"/>
-        <el-checkbox v-model="old" @change="updateOptions()" label="Старые версии"/>
+        <el-tooltip content="Не поддерживается :(" effect="light" placement="right">
+          <el-checkbox disabled v-model="old" @change="updateOptions()" label="Старые версии"/>
+        </el-tooltip>
       </div>
       <p class="mt-2">Version type</p>
       <el-select v-model="newPack.versionType" placeholder="Version type">
