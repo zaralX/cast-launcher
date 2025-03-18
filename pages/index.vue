@@ -12,6 +12,10 @@ onMounted(async () => {
 const start = async (pack_id) => {
   await invoke("run_pack", {id: pack_id});
 }
+
+const install = async (pack_id) => {
+  await invoke("install_pack", {id: pack_id});
+}
 </script>
 
 <template>
@@ -26,8 +30,11 @@ const start = async (pack_id) => {
               <p class="text-xs">{{ pack }}</p>
             </div>
             <div class="flex justify-end items-end">
-              <el-button type="primary" plain size="small" @click="start(pack['cast-pack']?.id)"><i
+              <el-button v-if="pack['cast-pack']?.installed" type="primary" plain size="small" @click="start(pack['cast-pack']?.id)"><i
                   class="pi pi-play text-xs"></i>  Играть
+              </el-button>
+              <el-button v-else type="warning" plain size="small" @click="install(pack['cast-pack']?.id)"><i
+                  class="pi pi-download text-xs"></i>  Установить
               </el-button>
             </div>
           </div>

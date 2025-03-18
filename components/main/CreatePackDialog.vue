@@ -9,6 +9,7 @@ const {settings, javaList} = useLauncher()
 
 const newPack = ref({
   packId: "",
+  packName: "",
   version: "1.12.2",
   versionType: "vanilla",
   javaPath: ""
@@ -24,9 +25,14 @@ const createPack = async () => {
   model.value = false;
   const sendData = newPack.value;
   if (sendData.javaPath === settings.value.java_options.path) {
-    sendData.javaPath = "launcher"
+    sendData.javaPath = ""
   }
-  await invoke("create_pack", sendData);
+  await invoke("create_pack", {data: {
+          id: newPack.value.packId,
+          name: newPack.value.packName,
+          type: newPack.value.versionType,
+          version: newPack.value.version
+    }});
 }
 
 onMounted(async () => {
@@ -63,10 +69,15 @@ const updateRequiredJava = async () => {
         title="Создание сборки"
         width="400"
     >
-      <p>Pack id</p>
-      <el-input v-model="newPack.packId" placeholder="Pack id"
+      <p>Pack name</p>
+      <el-input v-model="newPack.packName" placeholder="Pack name"
                 :formatter='(value) => value.replace(/[<>:\"/\\|?*]+/g, "")'
                 :parser='(value) => value.replace(/[<>:\"/\\|?*]+/g, "")'
+      />
+      <p class="mt-2">Pack id</p>
+      <el-input v-model="newPack.packId" placeholder="Pack id"
+                :formatter='(value) => value.replace(/[<>: \"/\\|?*]+/g, "")'
+                :parser='(value) => value.replace(/[<>: \"/\\|?*]+/g, "")'
       />
       <p class="mt-2">Minecraft version</p>
       <!--      <el-input v-model="newPack.version" placeholder="Minecraft version"/>-->
