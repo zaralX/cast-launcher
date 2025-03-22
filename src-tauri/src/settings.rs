@@ -14,30 +14,30 @@ impl Settings {
         self.data = data.clone();
     }
 
-    pub fn load(&mut self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let config_dir = dirs::config_dir().ok_or("Failed to get config directory")?;
         let config_dir = config_dir.join("cast-launcher");
-        let path = config_dir.join("settings.json");
-        self.path = path.clone();
+        let path = config_dir.join("../settings.json");
 
-        if self.path.exists() {
-            let mut file = fs::File::open(&self.path)?;
+        if path.exists() {
+            let mut file = fs::File::open(&path)?;
             let mut content = String::new();
             file.read_to_string(&mut content)?;
             let data: serde_json::Value = serde_json::from_str(&content)?;
-            Ok(Self { path: self.path.clone(), data })
+            Ok(Self { path, data })
         } else {
-            let json = serde_json::json!({ "packs_dir": config_dir.to_string_lossy(),
-  "java_options": {
-    "memory": {
-      "min": "1024",
-      "max": "4096"
-    },
-    "path": "java"
-  },
-  "profiles": []});
-            self.data = json.clone();
-            Ok(Self { path: self.path.clone(), data: json })
+            let json = serde_json::json!({
+                "packs_dir": config_dir.to_string_lossy(),
+                "java_options": {
+                    "memory": {
+                        "min": "1024",
+                        "max": "4096"
+                    },
+                    "path": "java"
+                },
+                "profiles": []
+            });
+            Ok(Self { path, data: json })
         }
     }
 

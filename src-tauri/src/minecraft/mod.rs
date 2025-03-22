@@ -1,7 +1,6 @@
 mod cast_pack_json;
 mod loaders;
 mod downloaders;
-mod settings;
 
 use std::fs;
 use std::fs::create_dir_all;

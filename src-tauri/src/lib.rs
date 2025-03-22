@@ -4,6 +4,7 @@ use serde_json::Value;
 
 mod minecraft;
 mod utils;
+mod settings;
 
 const VERSION_MANIFEST_LINK: &str =
     "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
@@ -47,6 +48,12 @@ fn get_packs() -> Result<Vec<Value>, String> {
 }
 
 #[tauri::command]
+fn get_settings() -> Result<Value, String> {
+    let settings = settings::Settings::new();
+    Ok(settings.unwrap().data)
+}
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -62,7 +69,7 @@ pub fn run() {
             )).build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, create_pack, install_pack, run_pack, get_packs])
+        .invoke_handler(tauri::generate_handler![greet, create_pack, install_pack, run_pack, get_packs, get_settings])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -35,8 +35,9 @@ async function greet() {
 
   // await invoke("run_pack", {id: "test3"});
 
-  await invoke("greet", {name: "1"});
+  // await invoke("greet", {name: "1"});
 
+  console.log(await invoke("get_settings"));
 }
 
 onMounted(async () => {
