@@ -598,6 +598,7 @@ dependencies = [
 name = "cast-launcher"
 version = "0.1.9"
 dependencies = [
+ "dirs 6.0.0",
  "log",
  "reqwest",
  "semver",

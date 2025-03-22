@@ -31,9 +31,12 @@ async function greet() {
   //     "fabric-loader": "latest"
   //   }});
 
-  await invoke("install_pack", {id: "fabulously-optimized"});
+  // await invoke("install_pack", {id: "fabulously-optimized"});
 
   // await invoke("run_pack", {id: "test3"});
+
+  await invoke("greet", {name: "1"});
+
 }
 
 onMounted(async () => {
