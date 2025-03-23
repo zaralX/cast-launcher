@@ -33,20 +33,20 @@ const route = useRoute()
         />
         <p>java path</p>
         <div class="flex">
-          <el-input
-              v-model="settings.java_options.path"
-              style="width: 240px"
-              placeholder="Java.exe path"
-              :parser="(value) => value.replace(/\$\s?|(,*)/g, '')"
-          />
-          <el-select v-model="settings.java_options.path" placeholder="Java.exe path">
-            <el-option
-                v-for="java in javaList"
-                :key="java?.path"
-                :label="java?.version + ' - ' + java?.path"
-                :value="java?.path"
-            />
-          </el-select>
+<!--          <el-input-->
+<!--              v-model="settings.java_options.path"-->
+<!--              style="width: 240px"-->
+<!--              placeholder="Java.exe path"-->
+<!--              :parser="(value) => value.replace(/\$\s?|(,*)/g, '')"-->
+<!--          />-->
+<!--          <el-select v-model="settings.java_options.path" placeholder="Java.exe path">-->
+<!--            <el-option-->
+<!--                v-for="java in javaList"-->
+<!--                :key="java?.path"-->
+<!--                :label="java?.version + ' - ' + java?.path"-->
+<!--                :value="java?.path"-->
+<!--            />-->
+<!--          </el-select>-->
         </div>
 
         <el-button @click="save">SAVE</el-button>

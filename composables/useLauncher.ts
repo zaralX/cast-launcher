@@ -3,7 +3,7 @@ import {invoke} from "@tauri-apps/api/core";
 import {getVersion} from "@tauri-apps/api/app";
 
 const version = ref("Not found");
-const settings = ref({ java_options: {}, profiles: [] });
+const settings = ref({});
 const packs = ref([])
 const javaList = ref([])
 const clients = ref([])
@@ -11,7 +11,7 @@ const clients = ref([])
 export const useLauncher = () => {
 
     async function initData() {
-        settings.value = await invoke("load_settings", {});
+        settings.value = await invoke("get_settings");
         await refreshPacks();
         version.value = await getVersion();
     }
@@ -21,15 +21,15 @@ export const useLauncher = () => {
     }
 
     async function refreshJavaList() {
-        javaList.value = []
-        const java_paths = await invoke("get_java_list", { });
-        for (const javaPath of java_paths) {
-            const version = await invoke("get_java_version", { javaPath: javaPath });
-            javaList.value.push({
-                path: javaPath,
-                version: version,
-            })
-        }
+        // javaList.value = []
+        // const java_paths = await invoke("get_java_list", { });
+        // for (const javaPath of java_paths) {
+        //     const version = await invoke("get_java_version", { javaPath: javaPath });
+        //     javaList.value.push({
+        //         path: javaPath,
+        //         version: version,
+        //     })
+        // }
     }
 
     function updateClientState(pack_id, state) {
