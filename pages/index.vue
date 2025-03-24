@@ -20,8 +20,16 @@ const install = async (pack_id) => {
 
 <template>
   <div class="h-full">
+<!--    <div class="w-full h-24 relative mb-4 shadow-lg border border-amber-400 rounded-lg bg-neutral-800 overflow-hidden">-->
+<!--      <div class="absolute -left-8 -bottom-8 w-16 h-16 bg-amber-400 blur-3xl"></div>-->
+<!--      <div class="absolute -right-8 -top-8 w-16 h-16 bg-amber-400 blur-3xl"></div>-->
+<!--      <div class="absolute right-2 top-2 cursor-pointer text-amber-200 hover:text-amber-400"><i class="pi pi-times opacity-50 text-lg"></i></div>-->
+<!--      <div class="w-full h-full p-2">-->
+<!--        <p class="text-xl text-amber-400">Новый сезон!</p>-->
+<!--      </div>-->
+<!--    </div>-->
     <el-scrollbar height="100%">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div v-for="pack in packs" class="w-full gap-4 border rounded-lg border-neutral-700 shadow-lg bg-neutral-800">
           <div class="flex gap-4 p-2">
             <img src="/vite.svg" class="w-16 h-16" alt="">

@@ -39,18 +39,6 @@ const createPackDialog = ref(false)
               </button>
             </NuxtLink>
           </el-tooltip>
-          <el-tooltip effect="light" placement="right" content="zProjects">
-            <NuxtLink to="/zprojects">
-              <button :class="route.path === '/zprojects' ? 'text-blue-400 bg-sky-300/[.1]' : 'text-neutral-200'"
-                      class="cursor-pointer w-10 h-10 flex justify-center items-center rounded-lg text-lg hover:shadow-lg hover:bg-neutral-700 transition duration-200">
-                <div :class="route.path === '/zprojects' ? 'h-6' : 'h-0'"
-                     class="w-1 bg-blue-400 absolute left-0 rounded-r-md transition-all duration-200 -translate-x-0.5"></div>
-                <div :class="route.path === '/zprojects' ? 'h-8' : 'h-0'"
-                     class="w-4 bg-blue-400 absolute left-0 rounded-r-md transition-all duration-200 -translate-x-2 blur-md opacity-50"></div>
-                <i class="pi pi-book"></i>
-              </button>
-            </NuxtLink>
-          </el-tooltip>
           <el-tooltip effect="light" placement="right" content="Тест">
             <NuxtLink to="/test">
               <button :class="route.path === '/test' ? 'text-blue-400 bg-sky-300/[.1]' : 'text-neutral-200'"
