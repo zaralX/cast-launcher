@@ -24,11 +24,11 @@ let unlisten = null;
 
 async function greet() {
   // await invoke("create_pack", {data: {
-  //     id: "test3",
-  //     name: "Fabric test",
-  //     type: "fabric",
-  //     version: "1.20.1",
-  //     "fabric-loader": "latest"
+  //     id: "test6",
+  //     name: "Forge 1.21.1 test",
+  //     type: "forge",
+  //     version: "1.21.1",
+  //     "forge-version": "latest"
   //   }});
 
   // await invoke("install_pack", {id: "fabulously-optimized"});
@@ -37,7 +37,7 @@ async function greet() {
 
   // await invoke("greet", {name: "1"});
 
-  console.log(await invoke("get_settings"));
+  // console.log(await invoke("get_settings"));
 }
 
 onMounted(async () => {

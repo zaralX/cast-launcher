@@ -33,6 +33,14 @@ pub async fn create_pack(main_dir: &Path, data: &mut serde_json::Value) -> Resul
                 .as_str()
                 .ok_or("Missing 'version' field")?;
         }
+        "forge" => {
+            data["forge-version"]
+                .as_str()
+                .ok_or("Missing 'forge-version' field")?;
+            data["version"]
+                .as_str()
+                .ok_or("Missing 'version' field")?;
+        }
         "modrinth" => {
             data["modrinth-project-id"]
                 .as_str()
@@ -65,6 +73,8 @@ pub async fn install_pack(main_dir: &Path, id: &str) {
         loaders::fabric::install(main_dir, &mut cast_pack).await;
     } else if cast_pack.get("type").unwrap().eq("modrinth") {
         loaders::modrinth::install(main_dir, &mut cast_pack).await;
+    } else if cast_pack.get("type").unwrap().eq("forge") {
+        loaders::forge::install(main_dir, &mut cast_pack).await;
     } else {
         panic!("UNKNOWN CAST-PACK TYPE: {}", cast_pack.get("type").unwrap())
     }
@@ -89,6 +99,13 @@ pub async fn run_pack(main_dir: &Path, id: &str, java: &str) {
         command.spawn().expect("Error when Minecraft start.");
     } else if cast_pack.get("type").unwrap().eq("modrinth") {
         let args = loaders::modrinth::generate_args(main_dir, &mut cast_pack).await;
+        println!("Launch args: {}", args.join(" ").as_str());
+        let mut command = Command::new(java);
+        command.args(args);
+        command.current_dir(cast_pack.dir().join(".minecraft"));
+        command.spawn().expect("Error when Minecraft start.");
+    } else if cast_pack.get("type").unwrap().eq("forge") {
+        let args = loaders::forge::generate_args(main_dir, &mut cast_pack).await;
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);

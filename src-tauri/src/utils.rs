@@ -4,6 +4,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use semver::Version;
 use serde_json::Value;
+use walkdir::WalkDir;
 use zip::ZipArchive;
 
 pub async fn http_get_json(url: &str) -> Value {
@@ -129,4 +130,24 @@ pub fn create_unique_dir(base_path: &Path, new_dir: &str) -> std::io::Result<Pat
 
     fs::create_dir(&path)?;
     Ok(path)
+}
+
+pub fn move_files(src: PathBuf, dest: PathBuf) -> io::Result<()> {
+    for entry in WalkDir::new(&src).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.is_file() {
+            // Получаем относительный путь от исходной папки
+            let relative_path = path.strip_prefix(&src).unwrap();
+            let destination_path = dest.join(relative_path);
+
+            // Создаём директорию, если её нет
+            if let Some(parent) = destination_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+            // Перемещаем файл с заменой
+            fs::rename(path, &destination_path)?;
+        }
+    }
+    Ok(())
 }

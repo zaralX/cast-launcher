@@ -18,6 +18,9 @@ const FABRIC_LOADERS_BY_GAME_VERSION_LINK: &str =
 const FABRIC_LOADER_LINK: &str =
     "https://meta.fabricmc.net/v2/versions/loader/%A/%B/profile/json";
 
+const FORGE_INSTALLER_LINK: &str = "https://maven.minecraftforge.net/net/minecraftforge/forge/%A-%B/forge-%A-%B-installer.jar";
+const FORGE_LIST_LINK: &str = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json";
+
 #[tauri::command]
 async fn create_pack(data: Value) -> Result<(), String> {
     let main_dir = Path::new("./test");
