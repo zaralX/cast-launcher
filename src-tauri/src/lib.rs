@@ -49,8 +49,17 @@ fn get_packs() -> Result<Vec<Value>, String> {
 
 #[tauri::command]
 fn get_settings() -> Result<Value, String> {
-    let settings = settings::Settings::new();
-    Ok(settings.unwrap().data)
+    let settings = settings::Settings::new().unwrap();
+    settings.save().unwrap();
+    Ok(settings.data)
+}
+
+#[tauri::command]
+fn update_settings(data: Value) -> Result<Value, String> {
+    let mut settings = settings::Settings::new().unwrap();
+    settings.set_data(&data);
+    settings.save().unwrap();
+    Ok(settings.data)
 }
 
 #[tauri::command]
@@ -69,7 +78,7 @@ pub fn run() {
             )).build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, create_pack, install_pack, run_pack, get_packs, get_settings])
+        .invoke_handler(tauri::generate_handler![greet, create_pack, install_pack, run_pack, get_packs, get_settings, update_settings])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

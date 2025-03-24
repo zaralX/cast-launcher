@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::fs::create_dir_all;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -17,7 +18,7 @@ impl Settings {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let config_dir = dirs::config_dir().ok_or("Failed to get config directory")?;
         let config_dir = config_dir.join("cast-launcher");
-        let path = config_dir.join("../settings.json");
+        let path = config_dir.join("settings.json");
 
         if path.exists() {
             let mut file = fs::File::open(&path)?;
@@ -37,6 +38,9 @@ impl Settings {
                 },
                 "profiles": []
             });
+            if !config_dir.exists() {
+                create_dir_all(config_dir).unwrap();
+            }
             Ok(Self { path, data: json })
         }
     }

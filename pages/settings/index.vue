@@ -6,7 +6,7 @@ import {useLauncher} from "~/composables/useLauncher";
 const {settings, javaList, refreshJavaList} = useLauncher()
 
 const save = async () => {
-  await invoke("save_settings", {settings: settings.value})
+  await invoke("update_settings", {data: settings.value})
 }
 
 onMounted(async () => {
