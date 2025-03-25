@@ -9,7 +9,6 @@ const model = defineModel()
 const {settings, javaList} = useLauncher()
 
 const newPack = ref({
-  packId: "",
   packName: "",
   version: "1.12.2",
   versionType: "vanilla",
@@ -25,7 +24,6 @@ const createPack = async () => {
   if (newPack.value.packId.length == 0) return;
   model.value = false;
   const sendData = {
-    id: newPack.value.packId,
     name: newPack.value.packName,
     type: newPack.value.versionType,
     version: newPack.value.version
@@ -107,11 +105,6 @@ const versionTypeUpdate = async (newValue) => {
       <el-input v-model="newPack.packName" placeholder="Pack name"
                 :formatter='(value) => value.replace(/[<>:\"/\\|?*]+/g, "")'
                 :parser='(value) => value.replace(/[<>:\"/\\|?*]+/g, "")'
-      />
-      <p class="mt-2">Pack id</p>
-      <el-input v-model="newPack.packId" placeholder="Pack id"
-                :formatter='(value) => value.replace(/[<>: \"/\\|?*]+/g, "")'
-                :parser='(value) => value.replace(/[<>: \"/\\|?*]+/g, "")'
       />
       <p class="mt-2">Minecraft version</p>
       <!--      <el-input v-model="newPack.version" placeholder="Minecraft version"/>-->

@@ -8,6 +8,7 @@ use std::path::Path;
 use std::process::Command;
 use log::warn;
 use serde_json::Value;
+use uuid::Uuid;
 use crate::minecraft::cast_pack_json::CastPack;
 use crate::settings::Settings;
 use crate::utils;
@@ -16,7 +17,7 @@ pub async fn create_pack(main_dir: &Path, data: &mut serde_json::Value) -> Resul
     let instances_dir = main_dir.join("instances");
     create_dir_all(&instances_dir).unwrap(); // Creating required folders
 
-    let id = data["id"].as_str().ok_or("Missing id field in pack data")?.to_string();
+    let id = Uuid::new_v4().to_string();
     let name = data["name"].as_str().ok_or("Missing name field in pack data")?.to_string();
     let _type = data["type"].as_str().ok_or("Missing type field in pack data")?.to_string();
 
@@ -93,9 +94,10 @@ pub async fn install_pack(main_dir: &Path, id: &str) {
 
 pub async fn run_pack(main_dir: &Path, id: &str) {
     let mut cast_pack: CastPack = get_cast_pack(main_dir, id);
-    
+
     let settings = Settings::new().unwrap();
-    
+    let mut more_args: Vec<String> = Vec::new();
+
     let java: String;
     if cast_pack.get("java").is_some() {
         java = cast_pack.get("java").unwrap().as_str().unwrap().to_string();
@@ -105,36 +107,50 @@ pub async fn run_pack(main_dir: &Path, id: &str) {
         java = "java".to_string();
     }
 
+    let username: Option<&Value> = settings.get("profiles").unwrap().as_array().unwrap().iter().find(|p| p["selected"].as_bool().unwrap());
+    if username.is_some() {
+        let username = username.unwrap()["username"].as_str();
+        if username.is_some() {
+            more_args.push("--username".to_string());
+            more_args.push(username.unwrap().to_string())
+        }
+    }
+
     if cast_pack.get("type").unwrap().eq("vanilla") {
-        let args = loaders::vanilla::generate_args(main_dir, &mut cast_pack).await;
+        let mut args = loaders::vanilla::generate_args(main_dir, &mut cast_pack).await;
+        args.extend(more_args);
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);
         command.current_dir(cast_pack.dir().join(".minecraft"));
         command.spawn().expect("Error when Minecraft start.");
     } else if cast_pack.get("type").unwrap().eq("fabric") {
-        let args = loaders::fabric::generate_args(main_dir, &mut cast_pack).await;
+        let mut args = loaders::fabric::generate_args(main_dir, &mut cast_pack).await;
+        args.extend(more_args);
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);
         command.current_dir(cast_pack.dir().join(".minecraft"));
         command.spawn().expect("Error when Minecraft start.");
     } else if cast_pack.get("type").unwrap().eq("modrinth") {
-        let args = loaders::modrinth::generate_args(main_dir, &mut cast_pack).await;
+        let mut args = loaders::modrinth::generate_args(main_dir, &mut cast_pack).await;
+        args.extend(more_args);
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);
         command.current_dir(cast_pack.dir().join(".minecraft"));
         command.spawn().expect("Error when Minecraft start.");
     } else if cast_pack.get("type").unwrap().eq("forge") {
-        let args = loaders::forge::generate_args(main_dir, &mut cast_pack).await;
+        let mut args = loaders::forge::generate_args(main_dir, &mut cast_pack).await;
+        args.extend(more_args);
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);
         command.current_dir(cast_pack.dir().join(".minecraft"));
         command.spawn().expect("Error when Minecraft start.");
     } else if cast_pack.get("type").unwrap().eq("zapi") {
-        let args = loaders::zapi::generate_args(main_dir, &mut cast_pack).await;
+        let mut args = loaders::zapi::generate_args(main_dir, &mut cast_pack).await;
+        args.extend(more_args);
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);
