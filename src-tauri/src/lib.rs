@@ -39,7 +39,7 @@ async fn install_pack(id: &str) -> Result<(), String> {
 #[tauri::command]
 async fn run_pack(id: &str) -> Result<(), String> {
     let main_dir = Path::new("./test");
-    minecraft::run_pack(main_dir, id, "java").await;
+    minecraft::run_pack(main_dir, id).await;
     Ok(())
 }
 

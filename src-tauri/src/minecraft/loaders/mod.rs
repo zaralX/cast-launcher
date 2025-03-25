@@ -5,3 +5,4 @@ pub(crate) mod vanilla;
 pub(crate) mod fabric;
 pub(crate) mod modrinth;
 pub(crate) mod forge;
+pub(crate) mod zapi;

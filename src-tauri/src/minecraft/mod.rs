@@ -9,6 +9,7 @@ use std::process::Command;
 use log::warn;
 use serde_json::Value;
 use crate::minecraft::cast_pack_json::CastPack;
+use crate::settings::Settings;
 use crate::utils;
 
 pub async fn create_pack(main_dir: &Path, data: &mut serde_json::Value) -> Result<(), String> {
@@ -49,6 +50,14 @@ pub async fn create_pack(main_dir: &Path, data: &mut serde_json::Value) -> Resul
                 .as_str()
                 .ok_or("Missing 'modrinth-project-version' field")?;
         }
+        "zapi" => {
+            data["zapi-project-id"]
+                .as_str()
+                .ok_or("Missing 'zapi-project-id' field")?;
+            data["zapi-project-version"]
+                .as_str()
+                .ok_or("Missing 'zapi-project-version' field")?;
+        }
         _ => return Err(format!("UNKNOWN PACK TYPE {:?}", _type)),
     }
 
@@ -75,13 +84,26 @@ pub async fn install_pack(main_dir: &Path, id: &str) {
         loaders::modrinth::install(main_dir, &mut cast_pack).await;
     } else if cast_pack.get("type").unwrap().eq("forge") {
         loaders::forge::install(main_dir, &mut cast_pack).await;
+    } else if cast_pack.get("type").unwrap().eq("zapi") {
+        loaders::zapi::install(main_dir, &mut cast_pack).await;
     } else {
         panic!("UNKNOWN CAST-PACK TYPE: {}", cast_pack.get("type").unwrap())
     }
 }
 
-pub async fn run_pack(main_dir: &Path, id: &str, java: &str) {
+pub async fn run_pack(main_dir: &Path, id: &str) {
     let mut cast_pack: CastPack = get_cast_pack(main_dir, id);
+    
+    let settings = Settings::new().unwrap();
+    
+    let java: String;
+    if cast_pack.get("java").is_some() {
+        java = cast_pack.get("java").unwrap().as_str().unwrap().to_string();
+    } else if settings.data["java_options"]["path"].as_str().is_some() {
+        java = settings.data["java_options"]["path"].as_str().unwrap().to_string();
+    } else {
+        java = "java".to_string();
+    }
 
     if cast_pack.get("type").unwrap().eq("vanilla") {
         let args = loaders::vanilla::generate_args(main_dir, &mut cast_pack).await;
@@ -106,6 +128,13 @@ pub async fn run_pack(main_dir: &Path, id: &str, java: &str) {
         command.spawn().expect("Error when Minecraft start.");
     } else if cast_pack.get("type").unwrap().eq("forge") {
         let args = loaders::forge::generate_args(main_dir, &mut cast_pack).await;
+        println!("Launch args: {}", args.join(" ").as_str());
+        let mut command = Command::new(java);
+        command.args(args);
+        command.current_dir(cast_pack.dir().join(".minecraft"));
+        command.spawn().expect("Error when Minecraft start.");
+    } else if cast_pack.get("type").unwrap().eq("zapi") {
+        let args = loaders::zapi::generate_args(main_dir, &mut cast_pack).await;
         println!("Launch args: {}", args.join(" ").as_str());
         let mut command = Command::new(java);
         command.args(args);
