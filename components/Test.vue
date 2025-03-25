@@ -23,13 +23,13 @@ const javaList = ref([]);
 let unlisten = null;
 
 async function greet() {
-  await invoke("create_pack", {data: {
-      id: "zapi",
-      name: "zAPI test",
-      type: "zapi",
-      "zapi-project-id": "2",
-      "zapi-project-version": "1"
-    }});
+  // await invoke("create_pack", {data: {
+  //     id: "zapi",
+  //     name: "zAPI test",
+  //     type: "zapi",
+  //     "zapi-project-id": "2",
+  //     "zapi-project-version": "1"
+  //   }});
 
   // await invoke("install_pack", {id: "fabulously-optimized"});
 
