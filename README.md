@@ -15,7 +15,8 @@ This project is built using the following technology stack:
 - **Rust** (high-performance, memory-safe backend)
 
 ## Features
-- Install and run any Minecraft version from [this manifest](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
+- Install and run any Vanilla Minecraft version from [this manifest](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
+- Install and run Forge/Fabric
 - Launch the latest Minecraft versions (older versions currently not supported, may be fixed in future updates)
 - Support for offline accounts
 - Russian language support (localization for other languages planned)
