@@ -15,16 +15,28 @@ const items = ref<DropdownMenuItem[]>([
     icon: 'i-lucide-user'
   },
 ])
+
+const links = [{
+  name: "Главная",
+  icon: "lucide:house",
+  to: "/main"
+},{
+  name: "Настройки",
+  icon: "lucide:cog",
+  to: "/settings"
+}]
+
+const route = useRoute()
 </script>
 
 <template>
 <div class="h-screen w-full">
   <div class="flex w-full">
-    <div class="bg-zinc-800/50 w-16">
-      <div class="flex flex-col w-16 h-16 items-center justify-center gap-1">
-        <Icon name="lucide:house" class="text-lg" />
-        <p class="text-sm">Главная</p>
-      </div>
+    <div class="bg-zinc-800/50 w-24">
+      <NuxtLink v-for="link in links" :to="link.to" :class="{'text-sky-500': link.to == route.path}" class="flex flex-col w-24 h-16 items-center justify-center gap-1">
+        <Icon :name="link.icon" class="text-lg" />
+        <p class="text-sm">{{ link.name }}</p>
+      </NuxtLink>
     </div>
     <div class="h-[calc(100vh-4rem)] flex w-full">
       <slot />
