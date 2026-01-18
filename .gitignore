@@ -7,9 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
 *.local
 
 # Editor directories and files
@@ -23,15 +20,16 @@ dist-ssr
 *.sln
 *.sw?
 
-# Test launcher dir
-test
-
 # Nuxt dev/build outputs
 .output
 .data
 .nuxt
 .nitro
 .cache
+dist
+
+# Node dependencies
+node_modules
 
 # Misc
 .fleet

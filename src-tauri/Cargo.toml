@@ -1,6 +1,6 @@
 [package]
 name = "cast-launcher"
-version = "0.2.0"
+version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -11,25 +11,15 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "cast_launcher_lib"
+name = "cast_launcher_v2_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["devtools"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri-plugin-log = "2"
-zip = "2.2.3"
-semver = { version = "1.0.26", features = [] }
-reqwest = "0.12.13"
-log = "0.4.25"
-dirs = "6.0.0"
-walkdir = "2"
-uuid = { version = "1.16.0", features = ["v4"] }
 
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-updater = "2"
