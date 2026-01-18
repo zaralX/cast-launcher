@@ -7,6 +7,7 @@ export interface AppConfig {
 export interface LauncherConfig {
     language: string
     theme: string
+    dir: string
 }
 
 export interface JavaConfig {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import ActiveDownloadingModal from "~/components/ActiveDownloadingModal.vue";
 
 const items = ref<DropdownMenuItem[]>([
   {
@@ -61,7 +62,8 @@ const route = useRoute()
         <UButton color="neutral" variant="outline" icon="i-lucide-chevron-up" />
       </UFieldGroup>
     </UDropdownMenu>
-    <UButton size="xl" class="ml-auto mr-0 font-unbounded" icon="i-lucide-play">Играть</UButton>
+    <ActiveDownloadingModal />
+    <UButton size="xl" class="font-unbounded" icon="i-lucide-play">Играть</UButton>
   </div>
 </div>
 </template>

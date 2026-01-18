@@ -12,7 +12,19 @@
     "fs:write-all",
     {
       "identifier": "fs:scope-appdata",
-      "allow": [{ "path": "$APPDATA/**" }]
+      "allow": [
+        {
+          "path": "$APPDATA/**"
+        }
+      ]
+    },
+    "os:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://**" },
+        { "url": "http://**" }
+      ]
     }
   ]
 }
