@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import CreateInstanceModalBody from "~/components/CreateInstanceModalBody.vue";
+
 definePageMeta({
   layout: "main"
 })
@@ -31,6 +33,13 @@ definePageMeta({
       >
         <UButton icon="i-lucide-play">Играть</UButton>
       </UPageCard>
+      <UModal title="Создание сборки">
+        <UButton label="Создать" color="neutral" variant="subtle" />
+
+        <template #body>
+          <CreateInstanceModalBody />
+        </template>
+      </UModal>
     </div>
   </div>
 </template>

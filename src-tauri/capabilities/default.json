@@ -9,6 +9,10 @@
     "core:default",
     "opener:default",
     "fs:default",
-    "fs:scope-appdata"
+    "fs:write-all",
+    {
+      "identifier": "fs:scope-appdata",
+      "allow": [{ "path": "$APPDATA/**" }]
+    }
   ]
 }
