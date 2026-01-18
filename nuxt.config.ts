@@ -20,5 +20,5 @@ export default defineNuxtConfig({
     provider: 'google'
   },
   ignore: ['**/src-tauri/**'],
-  modules: ['@nuxt/image', '@nuxt/ui']
+  modules: ['@nuxt/image', '@pinia/nuxt', '@nuxt/ui']
 })
