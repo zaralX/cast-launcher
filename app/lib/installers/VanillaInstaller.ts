@@ -1,8 +1,9 @@
-import type {DownloadTask, MojangLibraryObject, MojangObject} from "~/types/instance"
+import type {DownloadTask, MojangAssetIndexObject, MojangLibraryObject, MojangObject} from "~/types/instance"
 import { InstallerBase } from "./InstallerBase"
 import {$fetch} from "ofetch";
 import { path } from "@tauri-apps/api";
 import { platform, arch } from "@tauri-apps/plugin-os";
+import {exists, mkdir, readFile, readTextFile} from "@tauri-apps/plugin-fs";
 
 export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
@@ -64,6 +65,53 @@ export class VanillaInstaller extends InstallerBase {
                 stage: "download",
                 type: 'global',
                 message: "Загрузка библиотек",
+                progress: progress,
+            })
+        })
+
+        // Assets
+        const assetIndex: MojangAssetIndexObject = this.versionPackage.assetIndex
+        const assetsCacheDir = await path.join(this.cacheDir!, "assetIndexes")
+        if (!(await exists(assetsCacheDir))) await mkdir(assetsCacheDir)
+
+        const assetIndexFilePath = await path.join(assetsCacheDir, `${assetIndex.id}.json`)
+        if (await exists(assetIndexFilePath)) {
+            const fileData = await readFile(assetIndexFilePath);
+            const fileHash = Array.from(new Uint8Array(
+                await crypto.subtle.digest("SHA-1", fileData)
+            ))
+                .map(b => b.toString(16).padStart(2, "0"))
+                .join("");
+            if (fileHash != assetIndex.sha1) {
+                await this.downloadJson(assetIndex.url, assetIndexFilePath)
+            }
+        } else { await this.downloadJson(assetIndex.url, assetIndexFilePath) }
+        const assetIndexData = JSON.parse(await readTextFile(assetIndexFilePath))
+        const assets = assetIndexData.objects
+
+        const assetsTasks: DownloadTask[] = await Promise.all(Object.values(assets).map(async (asset: any) => {
+            const folder = asset.hash.slice(0, 2)
+            return {
+                url: `https://resources.download.minecraft.net/${folder}/${asset.hash}`,
+                destination: await path.join(this.assetsDir!, folder, asset.hash),
+                size: asset.size,
+                verificationType: "sha1",
+                hash: asset.hash
+            } as DownloadTask
+        }))
+
+        await this.downloader.download(assetsTasks, (progress) => {
+            this.emit({
+                stage: "download",
+                type: 'single',
+                message: "Загрузка ассета " + progress.name,
+                progress: progress.percent,
+            })
+        }, (progress) => {
+            this.emit({
+                stage: "download",
+                type: 'global',
+                message: "Загрузка ассетов",
                 progress: progress,
             })
         })

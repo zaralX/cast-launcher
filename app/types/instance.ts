@@ -47,3 +47,8 @@ export interface MojangObject {
 export interface MojangLibraryObject extends MojangObject {
     path: string
 }
+
+export interface MojangAssetIndexObject extends MojangObject {
+    totalSize: number
+    id: string
+}

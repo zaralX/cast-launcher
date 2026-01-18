@@ -4,7 +4,7 @@ import type {InstallerProgress} from "~/types/instance";
 const instanceStore = useInstanceStore()
 const {currentInstaller} = storeToRefs(instanceStore)
 
-const latestMessage = ref()
+const latestMessage = ref({})
 const globalDownloading = ref(0)
 
 watch(currentInstaller, (newValue) => {
