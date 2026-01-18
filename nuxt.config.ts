@@ -17,7 +17,7 @@ export default defineNuxtConfig({
     ],
   },
   fonts: {
-    provider: 'none'
+    provider: 'google'
   },
   ignore: ['**/src-tauri/**'],
   modules: ['@nuxt/image', '@nuxt/ui']

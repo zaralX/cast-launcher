@@ -1,5 +1,6 @@
 @import "./tailwind.css";
+@import "@nuxt/ui";
 
 body {
-
+    font-family: 'Golos Text', Helvetica, Arial, sans-serif;
 }
