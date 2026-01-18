@@ -6,17 +6,17 @@ const steps = ["Ожидание", "Готово!"]
 const currentStep = ref()
 
 onMounted(() => {
-  currentStep.value = 1
-  loading.value = false
+  setTimeout(() => {
+    currentStep.value = 1
+    loading.value = false
+    navigateTo("/main")
+  }, 2000)
 })
 </script>
 
 <template>
 <div class="">
-  <LoadingScreen v-model="currentStep" :steps="steps" v-if="loading" />
-  <div v-else>
-    <UButton>Button</UButton>
-  </div>
+  <LoadingScreen v-model="currentStep" :steps="steps" />
 </div>
 </template>
 
