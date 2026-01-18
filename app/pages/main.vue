@@ -4,6 +4,8 @@ import CreateInstanceModalBody from "~/components/CreateInstanceModalBody.vue";
 definePageMeta({
   layout: "main"
 })
+
+const {instances} = useInstanceStore()
 </script>
 
 <template>
@@ -25,11 +27,11 @@ definePageMeta({
     <p class="font-unbounded">Ваши сборки</p>
     <div class="grid grid-cols-5 w-full gap-4">
       <UPageCard
-          title="Random Mods"
-          description="Каждый день добавляется случайный мод"
+          :title="instance.name"
+          :description="instance.description"
           orientation="vertical"
           class="w-full"
-          v-for="i in 5"
+          v-for="instance in instances"
       >
         <UButton icon="i-lucide-play">Играть</UButton>
       </UPageCard>
