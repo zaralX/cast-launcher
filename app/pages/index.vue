@@ -2,16 +2,20 @@
 import LoadingScreen from "~/components/LoadingScreen.vue";
 import {invoke} from "@tauri-apps/api/core";
 import {useAppStore} from "~/stores/app";
+import {useInstanceStore} from "~/stores/instance";
 
 const loading = ref(true)
-const steps = ["Ожидание", "Получение конфигурации", "Готово!"]
+const steps = ["Ожидание", "Получение конфигурации", "Подготовка instances", "Готово!"]
 const currentStep = ref()
-const store = useAppStore();
+const appStore = useAppStore();
+const instanceStore = useInstanceStore();
 
 onMounted(() => {
   setTimeout(async () => {
     currentStep.value = 1
-    await store.loadConfig()
+    await appStore.loadConfig()
+    currentStep.value += 1
+    await instanceStore.initInstances()
     currentStep.value += 1
 
     loading.value = false

@@ -87,20 +87,6 @@ async function saveConfig() {
       </div>
     </UPageCard>
 
-    <!-- Minecraft -->
-    <UPageCard
-        title="Minecraft"
-        description="Настройки игры."
-        variant="soft"
-    >
-      <UFormField  label="Папка игры">
-        <UInput
-            v-model="config!.minecraft.game_dir"
-            placeholder="/home/user/.minecraft"
-        />
-      </UFormField >
-    </UPageCard>
-
     <!-- Actions -->
     <div class="flex justify-end">
       <UButton color="primary" @click="saveConfig">

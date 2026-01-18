@@ -1,9 +1,5 @@
+use crate::{config::save_config, config::schema::AppConfig, state::app_state::AppState};
 use tauri::{AppHandle, State};
-use crate::{
-    state::app_state::AppState,
-    config::{save_config},
-    config::schema::AppConfig,
-};
 
 #[tauri::command]
 pub fn get_config(state: State<AppState>) -> AppConfig {

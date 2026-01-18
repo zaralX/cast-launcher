@@ -1,10 +1,10 @@
-use tauri::Manager;
 use crate::config::load_config;
 use crate::state::app_state::AppState;
+use tauri::Manager;
 
-mod state;
-mod config;
 mod commands;
+mod config;
+mod state;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -15,6 +15,7 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let config = load_config(app.handle())?;
 

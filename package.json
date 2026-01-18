@@ -4,8 +4,9 @@
   "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "tauri": "tauri dev",
+    "tauri": "tauri",
     "build": "nuxt build",
+    "tauri:dev": "tauri dev",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
@@ -16,8 +17,10 @@
     "@nuxt/ui": "^4.3.0",
     "@pinia/nuxt": "^0.11.3",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-fs": "^2.4.5",
     "@tauri-apps/plugin-opener": "^2",
     "nuxt": "^4.2.2",
+    "path": "^0.12.7",
     "pinia": "^3.0.4",
     "vue": "^3.5.26",
     "vue-router": "^4.6.4"
