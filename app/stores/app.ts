@@ -11,7 +11,11 @@ export const useAppStore = defineStore('app', {
     },
     actions: {
         async loadConfig() {
-            await invoke("get_config").then((res) => console.log(res));
+            this.config = await invoke("get_config")
+        },
+
+        async updateConfig(config: AppConfig) {
+            await invoke("update_config", {newConfig: config})
         },
     }
 })

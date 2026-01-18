@@ -5,16 +5,16 @@ export interface AppConfig {
 }
 
 export interface LauncherConfig {
-    language: String
-    theme: String
+    language: string
+    theme: string
 }
 
 export interface JavaConfig {
-    java_path?: String
-    min_ram: Number
-    max_ram: Number
+    java_path?: string
+    min_ram: number
+    max_ram: number
 }
 
 export interface MinecraftConfig {
-    game_dir: String
+    game_dir: string
 }

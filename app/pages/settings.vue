@@ -1,15 +1,114 @@
 <script setup lang="ts">
+import { useAppStore } from "~/stores/app";
+import { storeToRefs } from "pinia";
+import { ru } from "@nuxt/ui/locale";
+
 definePageMeta({
   layout: "main"
-})
+});
+
+const store = useAppStore();
+const { config } = storeToRefs(store);
+
+const toast = useToast()
+
+async function saveConfig() {
+  if (!config.value) return;
+  try {
+    await store.updateConfig(config.value)
+    toast.add({
+      title: 'Настройки сохранены',
+      color: 'success',
+      icon: 'i-lucide-save'
+    })
+  } catch (e) {
+    toast.add({
+      title: 'Произошла ошибка',
+      description: 'Не получилось сохранить настройки',
+      color: 'error',
+      icon: 'i-lucide-save'
+    })
+  }
+}
 </script>
 
 <template>
-  <div class="p-4 space-y-2 w-full">
+  <div class="p-4 space-y-6 w-full">
+    <!-- Launcher -->
+    <UPageCard
+        title="Лаунчер"
+        description="Базовые настройки лаунчера."
+        variant="soft"
+    >
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm mb-1 block">Язык</label>
+          <ULocaleSelect
+              v-model="config!.launcher.language"
+              :locales="[ru]"
+              class="w-48"
+          />
+        </div>
 
+        <div>
+          <label class="text-sm mb-1 block">Тема</label>
+          <UColorModeSelect />
+        </div>
+      </div>
+    </UPageCard>
+
+    <!-- Java -->
+    <UPageCard
+        title="Java"
+        description="Параметры виртуальной машины Java."
+        variant="soft"
+    >
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <UFormField  label="Путь к Java">
+          <UInput
+              v-model="config!.java.java_path"
+              placeholder="/path/to/java"
+          />
+        </UFormField >
+
+        <UFormField  label="Минимум RAM (MB)">
+          <UInput
+              type="number"
+              v-model="config!.java.min_ram"
+          />
+        </UFormField >
+
+        <UFormField  label="Максимум RAM (MB)">
+          <UInput
+              type="number"
+              v-model="config!.java.max_ram"
+          />
+        </UFormField >
+      </div>
+    </UPageCard>
+
+    <!-- Minecraft -->
+    <UPageCard
+        title="Minecraft"
+        description="Настройки игры."
+        variant="soft"
+    >
+      <UFormField  label="Папка игры">
+        <UInput
+            v-model="config!.minecraft.game_dir"
+            placeholder="/home/user/.minecraft"
+        />
+      </UFormField >
+    </UPageCard>
+
+    <!-- Actions -->
+    <div class="flex justify-end">
+      <UButton color="primary" @click="saveConfig">
+        Сохранить
+      </UButton>
+    </div>
   </div>
 </template>
 
 <style scoped>
-
 </style>
