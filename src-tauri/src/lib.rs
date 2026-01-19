@@ -1,5 +1,3 @@
-use crate::config::load_config;
-use crate::state::app_state::AppState;
 use tauri::Manager;
 use std::{
     io::{BufRead, BufReader},
@@ -9,9 +7,6 @@ use std::{
 use tauri::Emitter;
 
 mod commands;
-mod config;
-mod state;
-
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -121,20 +116,9 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
-        .setup(|app| {
-            let config = load_config(app.handle())?;
-
-            app.manage(AppState {
-                config: std::sync::Mutex::new(config),
-            });
-
-            Ok(())
-        })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
-            commands::settings::get_config,
-            commands::settings::update_config,
             launch_minecraft,
         ])
         .run(tauri::generate_context!())

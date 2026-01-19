@@ -54,6 +54,15 @@ async function saveConfig() {
           <label class="text-sm mb-1 block">Тема</label>
           <UColorModeSelect />
         </div>
+
+        <div>
+          <UFormField label="Файлы лаунчера">
+            <UInput
+                v-model="config!.launcher.dir"
+                placeholder="/path/to/launcher"
+            />
+          </UFormField >
+        </div>
       </div>
     </UPageCard>
 

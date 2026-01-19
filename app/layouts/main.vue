@@ -39,9 +39,9 @@ const route = useRoute()
         <p class="text-sm">{{ link.name }}</p>
       </NuxtLink>
     </div>
-    <div class="h-[calc(100vh-4rem)] flex w-full">
+    <UScrollArea class="h-[calc(100vh-4rem)] w-full">
       <slot />
-    </div>
+    </UScrollArea>
   </div>
   <div class="bg-zinc-950/50 h-16 p-2 flex gap-4 items-center">
     <UDropdownMenu :items="items">
