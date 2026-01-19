@@ -1,3 +1,4 @@
+use std::process::Command;
 use crate::config::load_config;
 use crate::state::app_state::AppState;
 use tauri::Manager;
@@ -10,6 +11,19 @@ mod state;
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn launch_minecraft(
+    java_path: String,
+    args: Vec<String>,
+) -> Result<(), String> {
+    Command::new(java_path)
+        .args(args)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -32,6 +46,7 @@ pub fn run() {
             greet,
             commands::settings::get_config,
             commands::settings::update_config,
+            launch_minecraft,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
