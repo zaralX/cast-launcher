@@ -6,10 +6,12 @@ import { path } from "@tauri-apps/api";
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from '@tauri-apps/plugin-process';
+import type {AccountConfig} from "~/types/account";
 
 export const useAppStore = defineStore('app', {
     state: () => ({
         config: null as null | AppConfig,
+        accountsConfig: null as null | AccountConfig
     }),
     getters: {
         hasConfig: (state) => !!state.config,

@@ -1,7 +1,7 @@
 import {ClientBase} from "~/lib/client/ClientBase";
 import {path} from "@tauri-apps/api";
 import {readTextFile} from "@tauri-apps/plugin-fs";
-import type { MinecraftAccount } from "~/types/account";
+import type { Account } from "~/types/account";
 
 export class VanillaClient extends ClientBase {
     private versionPackage: any
@@ -27,10 +27,10 @@ export class VanillaClient extends ClientBase {
     }
 
 
-    protected override async getFullArgs(account: MinecraftAccount): Promise<string[]> {
+    protected override async getFullArgs(account: Account): Promise<string[]> {
         const cp = await this.generateCP(this.versionPackage.libraries)
         return this.generateArgs({
-            auth_player_name: account.nickname,
+            auth_player_name: account.name,
             version_name: this.versionPackage.id,
             game_directory: this.minecraftDir,
             assets_root: this.assetsDir!,

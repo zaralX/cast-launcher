@@ -109,10 +109,13 @@ export const useInstanceStore = defineStore('instance', {
                     unsubscribe()
                 }
             })
-            await client.run({
-                nickname: 'test_bro123',
-                type: 'offline'
-            })
+            const { config } = useAccountStore()
+            const account = config!.accounts[config!.selected ?? 0]
+            if (!account) {
+                unsubscribe()
+                return;
+            }
+            await client.run(account)
             this.runningClients.push(client)
         },
 

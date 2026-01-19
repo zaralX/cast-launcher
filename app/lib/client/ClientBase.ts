@@ -13,7 +13,7 @@ import {exists, mkdir, writeTextFile} from "@tauri-apps/plugin-fs";
 import {$fetch} from "ofetch";
 import {dirname} from "@tauri-apps/api/path";
 import {arch, platform} from "@tauri-apps/plugin-os";
-import type {MinecraftAccount} from "~/types/account";
+import type {Account} from "~/types/account";
 import {invoke} from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {v4} from "uuid";
@@ -57,7 +57,7 @@ export abstract class ClientBase {
         if (!(await exists(this.nativesDir))) await mkdir(this.nativesDir)
     }
 
-    protected async getFullArgs(account: MinecraftAccount): Promise<string[]> {
+    protected async getFullArgs(account: Account): Promise<string[]> {
         return []
     }
 
@@ -107,7 +107,7 @@ export abstract class ClientBase {
         )
     }
 
-    public async run(account: MinecraftAccount) {
+    public async run(account: Account) {
         await this.injectListeners()
         const args = await this.getFullArgs(account)
         console.log("Starting minecraft", this.instance, account, args)

@@ -44,24 +44,15 @@ const route = useRoute()
     </UScrollArea>
   </div>
   <div class="bg-zinc-950/50 h-16 p-2 flex gap-4 items-center">
-    <UDropdownMenu :items="items">
-      <UFieldGroup>
-        <UButton color="neutral" variant="subtle" class="min-w-48">
-          <NuxtImg src="/default_skin_face.png" class="w-8 h-8 rounded-lg" />
-          <p>123123</p>
-        </UButton>
-        <UButton color="neutral" variant="outline" icon="i-lucide-chevron-up" />
-      </UFieldGroup>
-    </UDropdownMenu>
-    <UDropdownMenu :items="items">
-      <UFieldGroup>
-        <UButton color="neutral" variant="subtle" class="min-w-48">
-          <NuxtImg src="/default_skin_face.png" class="w-8 h-8 rounded-lg" />
-          <p>123123</p>
-        </UButton>
-        <UButton color="neutral" variant="outline" icon="i-lucide-chevron-up" />
-      </UFieldGroup>
-    </UDropdownMenu>
+<!--    <UDropdownMenu :items="items">-->
+<!--      <UFieldGroup>-->
+<!--        <UButton color="neutral" variant="subtle" class="min-w-48">-->
+<!--          <NuxtImg src="/default_skin_face.png" class="w-8 h-8 rounded-lg" />-->
+<!--          <p>123123</p>-->
+<!--        </UButton>-->
+<!--        <UButton color="neutral" variant="outline" icon="i-lucide-chevron-up" />-->
+<!--      </UFieldGroup>-->
+<!--    </UDropdownMenu>-->
     <ActiveDownloadingModal />
     <UButton size="xl" class="font-unbounded" icon="i-lucide-play">Играть</UButton>
   </div>

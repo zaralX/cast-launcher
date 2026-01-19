@@ -6,15 +6,17 @@ import {useInstanceStore} from "~/stores/instance";
 import {check} from "@tauri-apps/plugin-updater";
 
 const loading = ref(true)
-const steps = ["Ожидание", "Получение конфигурации", "Проверка обновлений", "Подготовка instances", "Готово!"]
+const steps = ["Ожидание", "Получение конфигураций", "Проверка обновлений", "Подготовка instances", "Готово!"]
 const currentStep = ref()
 const appStore = useAppStore();
+const accountStore = useAccountStore();
 const instanceStore = useInstanceStore();
 
 onMounted(() => {
   setTimeout(async () => {
     currentStep.value = 1
     await appStore.loadConfig()
+    await accountStore.loadConfig()
     currentStep.value += 1
 
     if (await check().catch()) {
