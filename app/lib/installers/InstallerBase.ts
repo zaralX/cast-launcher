@@ -1,7 +1,7 @@
 import type {InstallerProgress, Instance, LivingInstance} from "~/types/instance"
 import { ParallelDownloader } from "../ParallelDownloader"
 import { path } from "@tauri-apps/api"
-import {exists, mkdir, writeTextFile} from "@tauri-apps/plugin-fs";
+import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import {$fetch} from "ofetch";
 import {dirname} from "@tauri-apps/api/path";
 
@@ -83,6 +83,13 @@ export abstract class InstallerBase {
 
     protected async finalize() {
         this.emit({ stage: "finalize", message: "Завершение установки" })
+
+        const staticInstanceFile = await path.join(this.instance.dir, "instance.json")
+        const staticInstanceData: Instance = JSON.parse(await readTextFile(staticInstanceFile))
+
+        staticInstanceData.installed = true
+
+        await writeTextFile(staticInstanceFile, JSON.stringify(staticInstanceData))
     }
 
     protected async finish() {

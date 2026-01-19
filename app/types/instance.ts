@@ -10,6 +10,7 @@ export interface Instance {
 }
 
 export interface LivingInstance extends Instance {
+    installing: boolean
     dir: string
 }
 

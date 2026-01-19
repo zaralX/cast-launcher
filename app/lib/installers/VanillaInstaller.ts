@@ -3,8 +3,7 @@ import {InstallerBase} from "./InstallerBase"
 import {$fetch} from "ofetch";
 import {path} from "@tauri-apps/api";
 import {arch, platform} from "@tauri-apps/plugin-os";
-import {exists, mkdir, readFile, readTextFile} from "@tauri-apps/plugin-fs";
-import { invoke } from "@tauri-apps/api/core";
+import {exists, mkdir, readFile, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 
 export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
@@ -17,7 +16,21 @@ export class VanillaInstaller extends InstallerBase {
         const versionsManifest = await $fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
         const versionObject = versionsManifest.versions.find((v: any) => v.id == this.instance.minecraftVersion)
 
-        const versionPackage = await $fetch(versionObject.url)
+        let versionPackage = null
+
+        // Cached version package
+        const versionPackageDir = await path.join(this.cacheDir!, "versions", `${this.instance.minecraftVersion}-vanilla`)
+        if (!(await exists(versionPackageDir))) await mkdir(versionPackageDir, { recursive: true })
+        const versionPackageFile = await path.join(versionPackageDir, "package.json")
+        if (await exists(versionPackageFile)) {
+            versionPackage = JSON.parse(await readTextFile(versionPackageFile))
+        }
+
+        if (!versionPackage) {
+            const versionPackage = await $fetch(versionObject.url)
+            await writeTextFile(versionPackageFile, JSON.stringify(versionPackage))
+        }
+
         this.versionPackage = versionPackage
     }
 
@@ -117,52 +130,6 @@ export class VanillaInstaller extends InstallerBase {
         })
     }
 
-    protected generateArgs(placeholders: Record<string, any> = {}): string[] {
-        const argumentsObject = this.versionPackage!.arguments
-        const args: string[] = []
-
-        const gameArgs = this.getFilteredArgs(argumentsObject.game)
-        const jvmArgs = this.getFilteredArgs(argumentsObject.jvm)
-
-        args.push(...this.replaceArgPlaceholders(jvmArgs, placeholders))
-        args.push(this.versionPackage!.mainClass)
-        args.push(...this.replaceArgPlaceholders(gameArgs, placeholders))
-
-        return args
-    }
-
-    private getFilteredArgs(args: any[]): string[] {
-        const filteredArgs: string[] = []
-
-        const os = platform();
-        const architecture = arch();
-
-        for (const arg of args as any[]) {
-            if (typeof arg == 'string') {
-                filteredArgs.push(arg)
-            } else {
-                if (arg.rules) {
-                    const allow = checkRules(arg.rules, os, architecture)
-                    if (allow) {
-                        if (typeof arg.value == 'string') {
-                            filteredArgs.push(arg.value)
-                        } else if (Array.isArray(arg.value)) {
-                            filteredArgs.push(...arg.value)
-                        }
-                    }
-                }
-            }
-        }
-
-        return filteredArgs
-    }
-
-    private replaceArgPlaceholders(args: string[], placeholders: Record<string, any>): string[] {
-        return args.map(str =>
-            str.replace(/\$\{(\w+)}/g, (match, key) => placeholders[key] ?? match)
-        )
-    }
-
     private async getLibraries(rawLibraries: any[]): Promise<MojangLibraryObject[]> {
         const libs: MojangLibraryObject[] = []
 
@@ -188,40 +155,6 @@ export class VanillaInstaller extends InstallerBase {
 
     protected override async finalize(): Promise<void> {
         await super.finalize();
-
-        const nativesDir = await path.join(this.minecraftDir!, "natives")
-        if (!(await exists(nativesDir))) await mkdir(nativesDir)
-
-        const cp: string[] = []
-        for (const library of this.versionPackage.libraries) {
-            cp.push(await path.join(this.librariesDir!, library.downloads.artifact.path))
-        }
-        cp.push(await path.join(this.minecraftDir!, "client.jar"))
-
-        const args = this.generateArgs({
-            auth_player_name: "_zaralX_test",
-            version: this.versionPackage.id,
-            game_directory: this.minecraftDir,
-            assets_root: this.assetsDir,
-            assets_index_name: this.versionPackage.assets,
-            uuid: undefined,
-            auth_access_token: "null",
-            clientid: undefined,
-            auth_xuid: undefined,
-            version_type: "Vanilla",
-            natives_directory: nativesDir,
-            launcher_name: "Cast Launcher",
-            launcher_version: "1.0",
-            classpath: cp.join(path.delimiter())
-        })
-
-        console.log(args)
-
-
-        await invoke("launch_minecraft", {
-            javaPath: "C:/Users/admin/AppData/Roaming/PrismLauncher/java/java-runtime-delta/bin/javaw.exe",
-            args: args
-        });
     }
 
     private async resolveVanillaAssets(): Promise<DownloadTask[]> {

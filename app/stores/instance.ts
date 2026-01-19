@@ -6,12 +6,15 @@ import {create, exists, mkdir, readDir, readTextFile, writeTextFile} from "@taur
 import { v4 as uuidv4 } from "uuid";
 import {InstallerBase} from "~/lib/installers/InstallerBase";
 import {VanillaInstaller} from "~/lib/installers/VanillaInstaller";
+import {ClientBase} from "~/lib/client/ClientBase";
+import { VanillaClient } from "~/lib/client/VanillaClient";
 
 export const useInstanceStore = defineStore('instance', {
     state: () => ({
         instances: [] as LivingInstance[],
         instancesDir: "",
-        currentInstaller: null as null | InstallerBase
+        currentInstaller: null as null | InstallerBase,
+        runningClients: [] as ClientBase[]
     }),
     getters: {
         getInstance: (state) => {
@@ -40,7 +43,8 @@ export const useInstanceStore = defineStore('instance', {
                 const instanceConfig = JSON.parse(instanceFileContent) as Instance
                 this.instances.push({
                     ...instanceConfig,
-                    dir: await path.join(instancesDir, instanceEntry.name)
+                    dir: await path.join(instancesDir, instanceEntry.name),
+                    installing: false
                 })
             }
         },
@@ -60,6 +64,8 @@ export const useInstanceStore = defineStore('instance', {
             const instance = this.getInstance(id)
             if (!instance) return;
 
+            instance.installing = true
+
             const installer = await this.createInstaller(instance)
 
             this.currentInstaller = installer
@@ -68,6 +74,7 @@ export const useInstanceStore = defineStore('instance', {
                 console.log(p)
                 if (p.stage == "finished" || p.stage == "aborted") {
                     this.currentInstaller = null
+                    instance.installing = false
                     unsubscribeInstaller()
                 }
             })
@@ -85,5 +92,30 @@ export const useInstanceStore = defineStore('instance', {
                     throw new Error("UNKNOWN_INSTALLER")
             }
         },
+
+        async runInstance(id: string) {
+            const instance = this.getInstance(id)
+            if (!instance) return;
+
+            const client = await this.createInstanceClient(instance)
+
+            await client.prepare()
+            await client.run({
+                nickname: 'test_bro123',
+                type: 'offline'
+            })
+            this.runningClients.push(client)
+        },
+
+        async createInstanceClient(instance: LivingInstance) {
+            const appStore = useAppStore()
+            const launcherDir = appStore?.config?.launcher?.dir ?? await appConfigDir();
+            switch (instance.type) {
+                case "vanilla":
+                    return new VanillaClient(launcherDir, instance)
+                default:
+                    throw new Error("UNKNOWN_CLIENT_TYPE")
+            }
+        }
     }
 })
