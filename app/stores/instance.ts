@@ -100,6 +100,15 @@ export const useInstanceStore = defineStore('instance', {
             const client = await this.createInstanceClient(instance)
 
             await client.prepare()
+            const unsubscribe = client.onEvent(e => {
+                if (e.type == 'exit') {
+                    this.runningClients = this.runningClients.filter(c => {
+                        console.log(c.id != client.id)
+                        return c.id != client.id
+                    })
+                    unsubscribe()
+                }
+            })
             await client.run({
                 nickname: 'test_bro123',
                 type: 'offline'

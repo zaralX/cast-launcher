@@ -68,3 +68,9 @@ export interface MinecraftLogEvent {
     line: string
     is_error: boolean
 }
+
+export interface MinecraftEvent {
+    type: 'log' | 'status' | 'exit'
+    status?: MinecraftStatus
+    line?: string
+}

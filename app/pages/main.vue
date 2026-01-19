@@ -5,7 +5,9 @@ definePageMeta({
   layout: "main"
 })
 
-const {instances, installInstance, runInstance} = useInstanceStore()
+const instanceStore = useInstanceStore()
+const {installInstance, runInstance} = instanceStore
+const {runningClients, instances} = storeToRefs(instanceStore)
 </script>
 
 <template>
@@ -34,7 +36,7 @@ const {instances, installInstance, runInstance} = useInstanceStore()
           v-for="instance in instances"
       >
         <UButton v-if="!instance.installed" icon="i-lucide-download" @click="installInstance(instance.id)" variant="subtle" :loading="instance.installing">Загрузить</UButton>
-        <UButton v-else icon="i-lucide-play" @click="runInstance(instance.id)">Играть</UButton>
+        <UButton v-else icon="i-lucide-play" @click="runInstance(instance.id)" :loading="!!runningClients.find(c => c.instance.id == instance.id)">Играть</UButton>
       </UPageCard>
       <UModal title="Создание сборки">
         <UButton label="Создать" color="neutral" variant="subtle" />

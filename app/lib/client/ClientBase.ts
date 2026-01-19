@@ -1,4 +1,12 @@
-import type {InstallerProgress, Instance, LivingInstance, MinecraftLogEvent, MinecraftStatusEvent} from "~/types/instance"
+import type {
+    InstallerProgress,
+    Instance,
+    LivingInstance,
+    MinecraftEvent,
+    MinecraftLogEvent,
+    MinecraftStatus,
+    MinecraftStatusEvent
+} from "~/types/instance"
 import { ParallelDownloader } from "../ParallelDownloader"
 import { path } from "@tauri-apps/api"
 import {exists, mkdir, writeTextFile} from "@tauri-apps/plugin-fs";
@@ -11,8 +19,8 @@ import { listen } from "@tauri-apps/api/event";
 import {v4} from "uuid";
 
 export abstract class ClientBase {
-    protected instance: LivingInstance
-    protected id: string // used for backend emits
+    public instance: LivingInstance
+    public id: string // used for backend emits
 
     protected launcherDir: string
     protected librariesDir?: string
@@ -24,10 +32,21 @@ export abstract class ClientBase {
     private unlistenStatus?: () => void
     private unlistenExit?: () => void
 
+    private listeners = new Set<(e: MinecraftEvent) => void>()
+
     constructor(launcherDir: string, instance: LivingInstance) {
         this.instance = instance
         this.launcherDir = launcherDir
         this.id = v4()
+    }
+
+    onEvent(cb: (e: MinecraftEvent) => void) {
+        this.listeners.add(cb)
+        return () => this.listeners.delete(cb)
+    }
+
+    protected emit(e: MinecraftEvent) {
+        for (const cb of this.listeners) cb(e)
     }
 
     public async prepare() {
@@ -99,16 +118,28 @@ export abstract class ClientBase {
         });
     }
 
+    // isError - stderr / stdout detection
     protected onLog(line: string, isError: boolean) {
-        console.log(isError ? "[MC STDERR]" : "[MC STDOUT]", line)
+        this.emit({
+            type: 'log',
+            line,
+        })
+        console.log(this.id, line)
     }
 
-    protected onStatus(status: MinecraftStatusEvent["status"]) {
-        console.log("Minecraft status:", status)
+    protected onStatus(status: MinecraftStatus) {
+        this.emit({
+            type: 'status',
+            status
+        })
+        console.log(this.id, "Minecraft status changed:", status)
     }
 
     protected onExit(code: number | null) {
-        console.log("Minecraft exited with code", code)
+        this.emit({
+            type: 'exit',
+        })
+        console.log(this.id, "Minecraft exited with code", code)
         this.destroyListeners()
     }
 
