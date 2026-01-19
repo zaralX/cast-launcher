@@ -17,7 +17,7 @@ onMounted(() => {
     await appStore.loadConfig()
     currentStep.value += 1
 
-    if (await check()) {
+    if (await check().catch()) {
       await appStore.updateApp()
     }
     currentStep.value += 1
