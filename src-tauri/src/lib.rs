@@ -1,10 +1,10 @@
-use tauri::Manager;
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
     thread,
 };
 use tauri::Emitter;
+use tauri::Manager;
 
 mod commands;
 
@@ -24,7 +24,6 @@ struct MinecraftLogEvent {
 struct MinecraftStatusEvent {
     status: String, // starting | running | exited | error
 }
-
 
 #[tauri::command]
 fn launch_minecraft(
@@ -49,7 +48,8 @@ fn launch_minecraft(
         MinecraftStatusEvent {
             status: "starting".into(),
         },
-    ).ok();
+    )
+    .ok();
 
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
@@ -64,13 +64,15 @@ fn launch_minecraft(
     thread::spawn(move || {
         let reader = BufReader::new(stdout);
         for line in reader.lines().flatten() {
-            app_stdout.emit(
-                &log_event_stdout,
-                MinecraftLogEvent {
-                    line,
-                    is_error: false,
-                },
-            ).ok();
+            app_stdout
+                .emit(
+                    &log_event_stdout,
+                    MinecraftLogEvent {
+                        line,
+                        is_error: false,
+                    },
+                )
+                .ok();
         }
     });
 
@@ -78,13 +80,15 @@ fn launch_minecraft(
     thread::spawn(move || {
         let reader = BufReader::new(stderr);
         for line in reader.lines().flatten() {
-            app_stderr.emit(
-                &log_event_stderr,
-                MinecraftLogEvent {
-                    line,
-                    is_error: true,
-                },
-            ).ok();
+            app_stderr
+                .emit(
+                    &log_event_stderr,
+                    MinecraftLogEvent {
+                        line,
+                        is_error: true,
+                    },
+                )
+                .ok();
         }
     });
 
@@ -93,10 +97,9 @@ fn launch_minecraft(
     let exit_event_thread = exit_event.clone();
     thread::spawn(move || {
         let status = child.wait().ok();
-        app_exit.emit(
-            &exit_event_thread,
-            status.map(|s| s.code()).unwrap_or(None),
-        ).ok();
+        app_exit
+            .emit(&exit_event_thread, status.map(|s| s.code()).unwrap_or(None))
+            .ok();
     });
 
     app.emit(
@@ -104,23 +107,22 @@ fn launch_minecraft(
         MinecraftStatusEvent {
             status: "running".into(),
         },
-    ).ok();
+    )
+    .ok();
 
     Ok(())
 }
 
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![
-            greet,
-            launch_minecraft,
-        ])
+        .invoke_handler(tauri::generate_handler![greet, launch_minecraft,])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
