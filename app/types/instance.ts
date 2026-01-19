@@ -53,3 +53,18 @@ export interface MojangAssetIndexObject extends MojangObject {
     totalSize: number
     id: string
 }
+
+export type MinecraftStatus =
+    | "starting"
+    | "running"
+    | "exited"
+    | "error"
+
+export interface MinecraftStatusEvent {
+    status: MinecraftStatus
+}
+
+export interface MinecraftLogEvent {
+    line: string
+    is_error: boolean
+}

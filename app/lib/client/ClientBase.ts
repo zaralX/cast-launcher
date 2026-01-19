@@ -1,4 +1,4 @@
-import type {InstallerProgress, Instance, LivingInstance} from "~/types/instance"
+import type {InstallerProgress, Instance, LivingInstance, MinecraftLogEvent, MinecraftStatusEvent} from "~/types/instance"
 import { ParallelDownloader } from "../ParallelDownloader"
 import { path } from "@tauri-apps/api"
 import {exists, mkdir, writeTextFile} from "@tauri-apps/plugin-fs";
@@ -7,18 +7,27 @@ import {dirname} from "@tauri-apps/api/path";
 import {arch, platform} from "@tauri-apps/plugin-os";
 import type {MinecraftAccount} from "~/types/account";
 import {invoke} from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import {v4} from "uuid";
 
 export abstract class ClientBase {
     protected instance: LivingInstance
+    protected id: string // used for backend emits
+
     protected launcherDir: string
     protected librariesDir?: string
     protected assetsDir?: string
     protected nativesDir?: string
     protected minecraftDir?: string
 
+    private unlistenLog?: () => void
+    private unlistenStatus?: () => void
+    private unlistenExit?: () => void
+
     constructor(launcherDir: string, instance: LivingInstance) {
         this.instance = instance
         this.launcherDir = launcherDir
+        this.id = v4()
     }
 
     public async prepare() {
@@ -80,11 +89,50 @@ export abstract class ClientBase {
     }
 
     public async run(account: MinecraftAccount) {
+        await this.injectListeners()
         const args = await this.getFullArgs(account)
         console.log("Starting minecraft", this.instance, account, args)
         await invoke("launch_minecraft", {
             javaPath: "C:/Users/admin/AppData/Roaming/PrismLauncher/java/java-runtime-delta/bin/javaw.exe",
+            clientId: this.id,
             args: args
         });
     }
+
+    protected onLog(line: string, isError: boolean) {
+        console.log(isError ? "[MC STDERR]" : "[MC STDOUT]", line)
+    }
+
+    protected onStatus(status: MinecraftStatusEvent["status"]) {
+        console.log("Minecraft status:", status)
+    }
+
+    protected onExit(code: number | null) {
+        console.log("Minecraft exited with code", code)
+        this.destroyListeners()
+    }
+
+    protected async injectListeners() {
+        this.unlistenLog = await listen<MinecraftLogEvent>(
+            `${this.id}:log`,
+            e => this.onLog(e.payload.line, e.payload.is_error)
+        )
+
+        this.unlistenStatus = await listen<MinecraftStatusEvent>(
+            `${this.id}:status`,
+            e => this.onStatus(e.payload.status)
+        )
+
+        this.unlistenExit = await listen<number | null>(
+            `${this.id}:exit`,
+            e => this.onExit(e.payload)
+        )
+    }
+
+    protected destroyListeners() {
+        this.unlistenLog?.()
+        this.unlistenStatus?.()
+        this.unlistenExit?.()
+    }
+
 }
