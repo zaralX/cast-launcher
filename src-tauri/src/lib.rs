@@ -4,7 +4,6 @@ use std::{
     thread,
 };
 use tauri::Emitter;
-use tauri::Manager;
 
 mod commands;
 
