@@ -8,6 +8,8 @@ import {InstallerBase} from "~/lib/installers/InstallerBase";
 import {VanillaInstaller} from "~/lib/installers/VanillaInstaller";
 import {ClientBase} from "~/lib/client/ClientBase";
 import { VanillaClient } from "~/lib/client/VanillaClient";
+import {FabricInstaller} from "~/lib/installers/FabricInstaller";
+import {FabricClient} from "~/lib/client/FabricClient";
 
 export const useInstanceStore = defineStore('instance', {
     state: () => ({
@@ -57,8 +59,9 @@ export const useInstanceStore = defineStore('instance', {
             await mkdir(instanceDir, { recursive: true })
 
             const instanceFileDir = await path.join(instanceDir, "instance.json")
-            // const instanceFile = await create(instanceFileDir)
             await writeTextFile(instanceFileDir, JSON.stringify(data))
+
+            await this.initInstances()
         },
         async installInstance(id: string) {
             const instance = this.getInstance(id)
@@ -88,6 +91,8 @@ export const useInstanceStore = defineStore('instance', {
             switch (instance.type) {
                 case "vanilla":
                     return new VanillaInstaller(instance, launcherDir)
+                case "fabric":
+                    return new FabricInstaller(instance, launcherDir)
                 default:
                     throw new Error("UNKNOWN_INSTALLER")
             }
@@ -127,6 +132,8 @@ export const useInstanceStore = defineStore('instance', {
             switch (instance.type) {
                 case "vanilla":
                     return new VanillaClient(launcherDir, instance)
+                case "fabric":
+                    return new FabricClient(launcherDir, instance)
                 default:
                     throw new Error("UNKNOWN_CLIENT_TYPE")
             }

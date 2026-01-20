@@ -43,7 +43,12 @@ export class VanillaInstaller extends InstallerBase {
     protected async download() {
         this.emit({ stage: "download", message: "Начало загрузки" })
 
-        // Client.jar
+        await this.downloadClientJar()
+        await this.downloadLibraries()
+        await this.downloadAssets()
+    }
+
+    protected async downloadClientJar() {
         this.emit({ stage: "download", message: "Проверка client.jar" })
         const clientObject: MojangObject = this.versionPackage?.downloads?.client
 
@@ -62,21 +67,21 @@ export class VanillaInstaller extends InstallerBase {
                 progress: progress.percent,
             })
         })
+    }
 
-        // Libraries
+    protected async downloadLibraries() {
         this.emit({ stage: "download", message: "Проверка libraries" })
         this.libs = await this.getLibraries(this.versionPackage?.libraries)
-        console.log(this.librariesDir!)
-        console.log(this.libs)
+
         const librariesTasks: DownloadTask[] = await Promise.all(this.libs
             .filter(lib => lib.path)
             .map(async lib => ({
-            url: lib.url,
-            destination: await path.join(this.librariesDir!, lib.path),
-            size: lib.size,
-            verificationType: 'sha1',
-            hash: lib.sha1
-        } as DownloadTask)));
+                url: lib.url,
+                destination: await path.join(this.librariesDir!, lib.path),
+                size: lib.size,
+                verificationType: 'sha1',
+                hash: lib.sha1
+            } as DownloadTask)));
 
         // add natives tasks
         for (const lib of this.libs!.filter(lib => lib.native)) {
@@ -105,8 +110,9 @@ export class VanillaInstaller extends InstallerBase {
                 progress: progress,
             })
         })
+    }
 
-        // Assets
+    protected async downloadAssets() {
         this.emit({ stage: "download", message: "Проверка assets" })
         const assetIndex: MojangAssetIndexObject = this.versionPackage.assetIndex
         const assetIndexesDir = await path.join(this.assetsDir!, "indexes")

@@ -21,6 +21,7 @@ import {v4} from "uuid";
 export abstract class ClientBase {
     public instance: LivingInstance
     public id: string // used for backend emits
+    public versionType?: string
 
     protected launcherDir: string
     protected librariesDir?: string

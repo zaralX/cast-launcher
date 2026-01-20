@@ -3,9 +3,15 @@ import {path} from "@tauri-apps/api";
 import {readTextFile} from "@tauri-apps/plugin-fs";
 import type { Account } from "~/types/account";
 import {v4} from "uuid";
+import type {LivingInstance} from "~/types/instance";
 
 export class VanillaClient extends ClientBase {
-    private versionPackage: any
+    public versionPackage: any
+
+    constructor(launcherDir: string, instance: LivingInstance) {
+        super(launcherDir, instance);
+        this.versionType = "Vanilla"
+    }
 
     public override async prepare(): Promise<void> {
         await super.prepare();
@@ -50,7 +56,7 @@ export class VanillaClient extends ClientBase {
             auth_access_token: account.accessToken ?? "null",
             clientid: v4(),
             auth_xuid: account.xblHash,
-            version_type: "Vanilla",
+            version_type: this.versionType,
             natives_directory: this.nativesDir!,
             launcher_name: "Cast Launcher",
             launcher_version: "1.0",
