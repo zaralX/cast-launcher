@@ -109,13 +109,15 @@ export const useInstanceStore = defineStore('instance', {
                     unsubscribe()
                 }
             })
-            const { config } = useAccountStore()
-            const account = config!.accounts[config!.selected ?? 0]
+
+            const { config } = useAppStore()
+            const { accountConfig } = useAccountStore()
+            const account = accountConfig!.accounts[accountConfig!.selected ?? 0]
             if (!account) {
                 unsubscribe()
                 return;
             }
-            await client.run(account)
+            await client.run(config!.java.java_path ?? "java", account)
             this.runningClients.push(client)
         },
 

@@ -122,7 +122,14 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, launch_minecraft, commands::microsoft::auth_microsoft, commands::microsoft::exchange_microsoft_code, commands::microsoft::minecraft_services_request])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            launch_minecraft,
+            commands::microsoft::auth_microsoft,
+            commands::microsoft::exchange_microsoft_code,
+            commands::microsoft::minecraft_services_request,
+            commands::extract::extract_jar
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

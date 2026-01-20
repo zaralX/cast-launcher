@@ -45,6 +45,8 @@ export const useAppStore = defineStore('app', {
                 this.config = JSON.parse(await readTextFile(configPath))
             }
 
+            console.log("Loaded config ", this.config)
+
             return this.config
         },
 

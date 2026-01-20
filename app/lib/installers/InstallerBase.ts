@@ -1,9 +1,10 @@
-import type {InstallerProgress, Instance, LivingInstance} from "~/types/instance"
+import type {InstallerProgress, Instance, LivingInstance, MojangLibraryNative} from "~/types/instance"
 import { ParallelDownloader } from "../ParallelDownloader"
 import { path } from "@tauri-apps/api"
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import {$fetch} from "ofetch";
 import {dirname} from "@tauri-apps/api/path";
+import {invoke} from "@tauri-apps/api/core";
 
 export abstract class InstallerBase {
     protected instance: LivingInstance
@@ -12,6 +13,7 @@ export abstract class InstallerBase {
     protected assetsDir?: string
     protected cacheDir?: string
     protected minecraftDir?: string
+    protected nativesDir?: string
 
     protected downloader = new ParallelDownloader()
     protected aborted = false
@@ -64,11 +66,13 @@ export abstract class InstallerBase {
         this.assetsDir = await path.join(this.launcherDir, "assets")
         this.cacheDir = await path.join(this.launcherDir, "cache")
         this.minecraftDir = await path.join(this.instance.dir, "minecraft")
+        this.nativesDir = await path.join(this.minecraftDir, "natives")
 
         if (!(await exists(this.librariesDir))) await mkdir(this.librariesDir)
         if (!(await exists(this.assetsDir))) await mkdir(this.assetsDir)
         if (!(await exists(this.cacheDir))) await mkdir(this.cacheDir)
         if (!(await exists(this.minecraftDir))) await mkdir(this.minecraftDir)
+        if (!(await exists(this.nativesDir))) await mkdir(this.nativesDir)
     }
     protected abstract download(): Promise<void>
     protected abstract installFiles(): Promise<void>
@@ -79,6 +83,22 @@ export abstract class InstallerBase {
             await mkdir(await dirname(destination), {recursive: true})
         }
         await writeTextFile(destination, JSON.stringify(data))
+    }
+
+    protected async installNative(
+        native: MojangLibraryNative,
+        destination: string
+    ) {
+        const nativeJarPath = await path.join(this.librariesDir!, native.path)
+
+        if (! (await exists(nativeJarPath)) ) {
+            throw new Error(`Native jar not found: ${nativeJarPath}`)
+        }
+
+        await invoke("extract_jar", {
+            jarPath: nativeJarPath,
+            outputDir: destination
+        })
     }
 
     protected async finalize() {

@@ -1,4 +1,10 @@
-import type {DownloadTask, MojangAssetIndexObject, MojangLibraryObject, MojangObject} from "~/types/instance"
+import type {
+    DownloadTask,
+    MojangAssetIndexObject,
+    MojangLibraryArtifact,
+    MojangLibraryObject,
+    MojangObject
+} from "~/types/instance"
 import {InstallerBase} from "./InstallerBase"
 import {$fetch} from "ofetch";
 import {path} from "@tauri-apps/api";
@@ -8,13 +14,11 @@ import {exists, mkdir, readFile, readTextFile, writeTextFile} from "@tauri-apps/
 export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
     private versionPackage?: any
+    private libs?: MojangLibraryObject[]
 
     protected override async prepare() {
         await super.prepare()
         this.emit({ stage: "prepare", message: "Подготовка Vanilla" })
-
-        const versionsManifest = await $fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
-        const versionObject = versionsManifest.versions.find((v: any) => v.id == this.instance.minecraftVersion)
 
         let versionPackage = null
 
@@ -27,6 +31,8 @@ export class VanillaInstaller extends InstallerBase {
         }
 
         if (!versionPackage) {
+            const versionsManifest = await $fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
+            const versionObject = versionsManifest.versions.find((v: any) => v.id == this.instance.minecraftVersion)
             const versionPackage = await $fetch(versionObject.url)
             await writeTextFile(versionPackageFile, JSON.stringify(versionPackage))
         }
@@ -38,6 +44,7 @@ export class VanillaInstaller extends InstallerBase {
         this.emit({ stage: "download", message: "Начало загрузки" })
 
         // Client.jar
+        this.emit({ stage: "download", message: "Проверка client.jar" })
         const clientObject: MojangObject = this.versionPackage?.downloads?.client
 
         const clientTask: DownloadTask = {
@@ -57,14 +64,27 @@ export class VanillaInstaller extends InstallerBase {
         })
 
         // Libraries
-        const libraries = await this.getLibraries(this.versionPackage?.libraries)
-        const librariesTasks: DownloadTask[] = await Promise.all(libraries.map(async lib => ({
+        this.emit({ stage: "download", message: "Проверка libraries" })
+        this.libs = await this.getLibraries(this.versionPackage?.libraries)
+        const librariesTasks: DownloadTask[] = await Promise.all(this.libs.map(async lib => ({
             url: lib.url,
             destination: await path.join(this.librariesDir!, lib.path),
             size: lib.size,
             verificationType: 'sha1',
             hash: lib.sha1
         } as DownloadTask)));
+
+        // add natives tasks
+        for (const lib of this.libs!.filter(lib => lib.native)) {
+            console.log("Appended native " + lib.native?.path + " to download tasks")
+            librariesTasks.push({
+                url: lib.native!.url,
+                destination: await path.join(this.librariesDir!, lib.native!.path),
+                size: lib.native!.size,
+                verificationType: 'sha1',
+                hash: lib.native!.sha1,
+            })
+        }
 
         await this.downloader.download(librariesTasks, (progress) => {
             this.emit({
@@ -83,6 +103,7 @@ export class VanillaInstaller extends InstallerBase {
         })
 
         // Assets
+        this.emit({ stage: "download", message: "Проверка assets" })
         const assetIndex: MojangAssetIndexObject = this.versionPackage.assetIndex
         const assetIndexesDir = await path.join(this.assetsDir!, "indexes")
         if (!(await exists(assetIndexesDir))) await mkdir(assetIndexesDir)
@@ -142,7 +163,13 @@ export class VanillaInstaller extends InstallerBase {
             if (!checkRules(rules, os.toLowerCase(), architecture.toLowerCase()))
                 continue
 
-            libs.push(lib.downloads.artifact as MojangLibraryObject)
+            const nativeId =  lib?.natives?.[os]
+            const native = lib?.downloads?.classifiers?.[nativeId]
+
+            libs.push({
+                ...lib.downloads.artifact,
+                native: native
+            } as MojangLibraryObject)
         }
 
         return libs
@@ -150,7 +177,13 @@ export class VanillaInstaller extends InstallerBase {
 
     protected async installFiles() {
         this.emit({ stage: "install", message: "Установка Vanilla" })
-        // распаковка, json, libraries, assets
+
+        // Installing natives
+        for (const lib of this.libs!.filter(lib => lib.native)) {
+            console.log("installing native", lib.native)
+            await this.installNative(lib.native!, this.nativesDir!)
+            console.log("Native installed")
+        }
     }
 
     protected override async finalize(): Promise<void> {

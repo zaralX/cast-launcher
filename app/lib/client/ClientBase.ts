@@ -107,12 +107,12 @@ export abstract class ClientBase {
         )
     }
 
-    public async run(account: Account) {
+    public async run(javaPath: string, account: Account) {
         await this.injectListeners()
         const args = await this.getFullArgs(account)
         console.log("Starting minecraft", this.instance, account, args)
         await invoke("launch_minecraft", {
-            javaPath: "C:/Users/admin/AppData/Roaming/PrismLauncher/java/java-runtime-delta/bin/javaw.exe",
+            javaPath: javaPath,
             clientId: this.id,
             args: args
         });

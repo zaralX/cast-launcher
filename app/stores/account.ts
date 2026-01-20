@@ -24,11 +24,11 @@ import {
 
 export const useAccountStore = defineStore('account', {
     state: () => ({
-        config: null as null | AccountConfig,
+        accountConfig: null as null | AccountConfig,
         microsoftClientId: "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb"
     }),
     getters: {
-        hasConfig: (state) => !!state.config,
+        hasConfig: (state) => !!state.accountConfig,
     },
     actions: {
         async getConfigPath() {
@@ -42,15 +42,17 @@ export const useAccountStore = defineStore('account', {
             const configPath = await this.getConfigPath()
             if (!(await exists(configPath))) {
                 await mkdir(await dirname(configPath), {recursive: true})
-                this.config = {
+                this.accountConfig = {
                     accounts: []
                 }
-                await writeTextFile(configPath, JSON.stringify(this.config))
+                await writeTextFile(configPath, JSON.stringify(this.accountConfig))
             } else {
-                this.config = JSON.parse(await readTextFile(configPath))
+                this.accountConfig = JSON.parse(await readTextFile(configPath))
             }
 
-            return this.config
+            console.log("Loaded account config ", this.accountConfig)
+
+            return this.accountConfig
         },
 
         async updateConfig(config: AccountConfig) {
@@ -59,7 +61,7 @@ export const useAccountStore = defineStore('account', {
                 await mkdir(await dirname(configPath), {recursive: true})
             }
             await writeTextFile(configPath, JSON.stringify(config))
-            this.config = config
+            this.accountConfig = config
         },
 
         async microsoftLogin() {
@@ -102,8 +104,8 @@ export const useAccountStore = defineStore('account', {
 
                     console.log("savedAccount", savedAccount)
 
-                    this.config!.accounts.push(savedAccount)
-                    await this.updateConfig(this.config!)
+                    this.accountConfig!.accounts.push(savedAccount)
+                    await this.updateConfig(this.accountConfig!)
                 } catch (e) {
                     console.error(e)
                 }
