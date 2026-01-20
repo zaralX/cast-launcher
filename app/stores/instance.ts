@@ -10,6 +10,8 @@ import {ClientBase} from "~/lib/client/ClientBase";
 import { VanillaClient } from "~/lib/client/VanillaClient";
 import {FabricInstaller} from "~/lib/installers/FabricInstaller";
 import {FabricClient} from "~/lib/client/FabricClient";
+import { ForgeInstaller } from "~/lib/installers/ForgeInstaller";
+import {ForgeClient} from "~/lib/client/ForgeClient";
 
 export const useInstanceStore = defineStore('instance', {
     state: () => ({
@@ -93,6 +95,8 @@ export const useInstanceStore = defineStore('instance', {
                     return new VanillaInstaller(instance, launcherDir)
                 case "fabric":
                     return new FabricInstaller(instance, launcherDir)
+                case "forge":
+                    return new ForgeInstaller(instance, launcherDir)
                 default:
                     throw new Error("UNKNOWN_INSTALLER")
             }
@@ -134,6 +138,8 @@ export const useInstanceStore = defineStore('instance', {
                     return new VanillaClient(launcherDir, instance)
                 case "fabric":
                     return new FabricClient(launcherDir, instance)
+                case "forge":
+                    return new ForgeClient(launcherDir, instance)
                 default:
                     throw new Error("UNKNOWN_CLIENT_TYPE")
             }

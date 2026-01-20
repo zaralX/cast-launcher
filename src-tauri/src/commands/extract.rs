@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io;
+use std::{fs, io};
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
@@ -40,6 +40,50 @@ pub fn extract_jar(jar_path: String, output_dir: String) -> Result<(), String> {
             .ok_or("Invalid file name in zip")?;
 
         let out_path = output_dir.join(filename);
+
+        let mut outfile = File::create(&out_path)
+            .map_err(|e| format!("Failed to create file {:?}: {e}", out_path))?;
+
+        io::copy(&mut entry, &mut outfile)
+            .map_err(|e| format!("Failed to extract {:?}: {e}", out_path))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn extract_everything_jar(jar_path: String, output_dir: String) -> Result<(), String> {
+    let jar_path = PathBuf::from(jar_path);
+    let output_dir = PathBuf::from(output_dir);
+
+    let file = File::open(&jar_path)
+        .map_err(|e| format!("Failed to open jar: {e}"))?;
+
+    let mut archive = ZipArchive::new(file)
+        .map_err(|e| format!("Invalid zip archive: {e}"))?;
+
+    for i in 0..archive.len() {
+        let mut entry = archive
+            .by_index(i)
+            .map_err(|e| format!("Zip entry error: {e}"))?;
+
+        let entry_path = match entry.enclosed_name() {
+            Some(p) => p.to_owned(),
+            None => continue, // защита от zip-slip
+        };
+
+        let out_path = output_dir.join(entry_path);
+
+        if entry.is_dir() {
+            fs::create_dir_all(&out_path)
+                .map_err(|e| format!("Failed to create dir {:?}: {e}", out_path))?;
+            continue;
+        }
+
+        if let Some(parent) = out_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create dir {:?}: {e}", parent))?;
+        }
 
         let mut outfile = File::create(&out_path)
             .map_err(|e| format!("Failed to create file {:?}: {e}", out_path))?;

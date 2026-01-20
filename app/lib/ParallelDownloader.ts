@@ -20,6 +20,10 @@ export class ParallelDownloader {
         this.concurrency = concurrency
     }
 
+    async downloadSingle(task: DownloadTask) {
+        await this.downloadFile(task)
+    }
+
     async download(
         tasks: DownloadTask[],
         onFileProgress?: (p: FileProgress) => void,
