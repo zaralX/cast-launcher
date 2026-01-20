@@ -17,12 +17,22 @@ export class VanillaClient extends ClientBase {
         const argumentsObject = this.versionPackage.arguments
         const args: string[] = []
 
-        const gameArgs = ClientBase.getMojangRuleFilteredArgs(argumentsObject.game)
-        const jvmArgs = ClientBase.getMojangRuleFilteredArgs(argumentsObject.jvm)
+        // Legacy versions doesnt have arguments object
+        if (argumentsObject) {
+            const gameArgs = ClientBase.getMojangRuleFilteredArgs(argumentsObject.game)
+            const jvmArgs = ClientBase.getMojangRuleFilteredArgs(argumentsObject.jvm)
 
-        args.push(...ClientBase.replaceArgPlaceholders(jvmArgs, placeholders))
-        args.push(this.versionPackage.mainClass)
-        args.push(...ClientBase.replaceArgPlaceholders(gameArgs, placeholders))
+            args.push(...ClientBase.replaceArgPlaceholders(jvmArgs, placeholders))
+            args.push(this.versionPackage.mainClass)
+            args.push(...ClientBase.replaceArgPlaceholders(gameArgs, placeholders))
+        } else {
+            const gameArgs = this.versionPackage.minecraftArguments.split(" ") as string[]
+            const jvmArgs = ["-Djava.library.path=${natives_directory}", "-cp", "${classpath}"]
+
+            args.push(...ClientBase.replaceArgPlaceholders(jvmArgs, placeholders))
+            args.push(this.versionPackage.mainClass)
+            args.push(...ClientBase.replaceArgPlaceholders(gameArgs, placeholders))
+        }
 
         return args
     }

@@ -64,6 +64,7 @@ export abstract class ClientBase {
     protected async generateCP(libraries: any[]): Promise<string[]> {
         const cp: string[] = []
         for (const library of libraries) {
+            if (!library?.downloads?.artifact?.path) continue // Skips only native libs
             cp.push(await path.join(this.librariesDir!, library.downloads.artifact.path))
         }
         cp.push(await path.join(this.minecraftDir!, "client.jar"))

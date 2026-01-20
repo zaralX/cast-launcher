@@ -66,7 +66,11 @@ export class VanillaInstaller extends InstallerBase {
         // Libraries
         this.emit({ stage: "download", message: "Проверка libraries" })
         this.libs = await this.getLibraries(this.versionPackage?.libraries)
-        const librariesTasks: DownloadTask[] = await Promise.all(this.libs.map(async lib => ({
+        console.log(this.librariesDir!)
+        console.log(this.libs)
+        const librariesTasks: DownloadTask[] = await Promise.all(this.libs
+            .filter(lib => lib.path)
+            .map(async lib => ({
             url: lib.url,
             destination: await path.join(this.librariesDir!, lib.path),
             size: lib.size,
