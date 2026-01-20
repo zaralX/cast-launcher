@@ -4,6 +4,7 @@ import {appConfigDir, dirname} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import type {
+    Account,
     AccountConfig,
     MicrosoftTokens,
     MinecraftAccount,
@@ -67,26 +68,45 @@ export const useAccountStore = defineStore('account', {
             const unlisten = await listen<string>('microsoft-oauth-code', async (event) => {
                 const code = event.payload
                 console.log('OAuth code:', code)
+                try {
+                    const microsoftTokens: MicrosoftTokens = await exchangeMicrosoftCode(
+                        code,
+                        codeVerifier,
+                        this.microsoftClientId
+                    )
 
-                const microsoftTokens: MicrosoftTokens = await exchangeMicrosoftCode(
-                    code,
-                    codeVerifier,
-                    this.microsoftClientId
-                )
+                    if (microsoftTokens?.error) {
+                        console.error("Failed to fetch microsoft tokens ", microsoftTokens.error)
+                        return
+                    }
 
-                if (microsoftTokens?.error) {
-                    throw new Error("Failed to fetch microsoft tokens " + microsoftTokens.error)
+                    const xboxLive: XboxLiveResponse = await xboxLiveAuthenticate(microsoftTokens.access_token)
+
+                    const xstsAuth: XboxLiveResponse = await xstsAuthorize(xboxLive.Token)
+
+                    const minecraftAccount: MinecraftAccount = await minecraftXboxLogin(xboxLive.DisplayClaims.xui[0]!.uhs, xstsAuth.Token)
+
+                    const minecraftProfile: MinecraftProfile = await getMinecraftProfile(minecraftAccount.access_token)
+
+                    const savedAccount: Account = {
+                        type: "microsoft",
+                        name: minecraftProfile.name,
+                        uuid: minecraftProfile.id,
+                        accessToken: minecraftAccount.access_token,
+                        expiresAt: Math.floor(Date.now() / 1000) + minecraftAccount.expires_in,
+                        xblHash: xboxLive.DisplayClaims.xui[0]!.uhs,
+                        refreshToken: microsoftTokens.refresh_token,
+                        skins: minecraftProfile.skins,
+                        capes: minecraftProfile.capes,
+                    }
+
+                    console.log("savedAccount", savedAccount)
+
+                    this.config!.accounts.push(savedAccount)
+                    await this.updateConfig(this.config!)
+                } catch (e) {
+                    console.error(e)
                 }
-
-                const xboxLive: XboxLiveResponse = await xboxLiveAuthenticate(microsoftTokens.access_token)
-
-                const xstsAuth: XboxLiveResponse = await xstsAuthorize(xboxLive.Token)
-
-                const minecraftAccount: MinecraftAccount = await minecraftXboxLogin(xboxLive.DisplayClaims.xui[0]!.uhs, xstsAuth.Token)
-
-                const minecraftProfile: MinecraftProfile = await getMinecraftProfile(minecraftAccount.access_token)
-
-                console.log("minecraftProfile", minecraftProfile)
 
                 unlisten()
             })

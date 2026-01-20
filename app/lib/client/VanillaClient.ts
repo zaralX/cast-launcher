@@ -2,6 +2,7 @@ import {ClientBase} from "~/lib/client/ClientBase";
 import {path} from "@tauri-apps/api";
 import {readTextFile} from "@tauri-apps/plugin-fs";
 import type { Account } from "~/types/account";
+import {v4} from "uuid";
 
 export class VanillaClient extends ClientBase {
     private versionPackage: any
@@ -35,10 +36,10 @@ export class VanillaClient extends ClientBase {
             game_directory: this.minecraftDir,
             assets_root: this.assetsDir!,
             assets_index_name: this.versionPackage.assets,
-            uuid: undefined,
-            auth_access_token: "null",
-            clientid: undefined,
-            auth_xuid: undefined,
+            auth_uuid: account.uuid ?? undefined,
+            auth_access_token: account.accessToken ?? "null",
+            clientid: v4(),
+            auth_xuid: account.xblHash,
             version_type: "Vanilla",
             natives_directory: this.nativesDir!,
             launcher_name: "Cast Launcher",

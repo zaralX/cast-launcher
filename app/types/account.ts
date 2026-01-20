@@ -1,14 +1,13 @@
 export interface Account {
     type: 'offline' | 'microsoft'
     name: string
-    skin?: AccountSkin
-}
-
-export interface AccountSkin {
-    data: string
-    id: string
-    url: string
-    variant: "SLIM" | "CLASSIC"
+    uuid?: string
+    accessToken?: string // Minecraft Access Token from @MinecraftAccount
+    expiresAt?: number // accessToken expiresAt , in seconds , expiresIn обычно 86400 (24h)
+    refreshToken?: string // Microsoft Refresh Token from @MicrosoftTokens
+    xblHash?: string // XboxLive account hash
+    skins?: MinecraftSkinData[]
+    capes?: MinecraftCapeData[]
 }
 
 export interface AccountConfig {
