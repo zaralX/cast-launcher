@@ -12,7 +12,7 @@ definePageMeta({
 
 const store = useAppStore();
 const accountStore = useAccountStore();
-const { config: accountConfig } = storeToRefs(accountStore)
+const { accountConfig } = storeToRefs(accountStore)
 const { config } = storeToRefs(store);
 
 const toast = useToast()
@@ -98,7 +98,7 @@ const createMicrosoftAccount = async () => {
             :title="account.name"
             :description="`type: ${account.type}`"
             variant="soft"
-            :highlight="!!(accountConfig?.selected == i)"
+            :highlight="(accountConfig?.selected == i)"
         />
         <div class="grid grid-cols-2 gap-4">
           <UButton icon="i-lucide-plus" @click="createMicrosoftAccount">Microsoft аккаунт</UButton>
