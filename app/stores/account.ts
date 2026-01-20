@@ -13,6 +13,13 @@ import type {
 import {open} from "@tauri-apps/plugin-shell";
 import {listen} from "@tauri-apps/api/event";
 import {$fetch} from "ofetch";
+import {
+    exchangeMicrosoftCode,
+    getMinecraftProfile,
+    minecraftXboxLogin,
+    xboxLiveAuthenticate,
+    xstsAuthorize
+} from "~/utils/microsoftUtil";
 
 export const useAccountStore = defineStore('account', {
     state: () => ({
@@ -54,41 +61,6 @@ export const useAccountStore = defineStore('account', {
             this.config = config
         },
 
-        async getMicrosoftLogin() {
-            function base64Url(buffer: ArrayBuffer) {
-                return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-                    .replace(/\+/g, '-')
-                    .replace(/\//g, '_')
-                    .replace(/=+$/, '')
-            }
-
-            async function generatePKCE() {
-                const verifier = crypto.randomUUID().replace(/-/g, '')
-                const hash = await crypto.subtle.digest(
-                    'SHA-256',
-                    new TextEncoder().encode(verifier)
-                )
-
-                return {
-                    verifier,
-                    challenge: base64Url(hash)
-                }
-            }
-
-            const { verifier, challenge } = await generatePKCE()
-
-            const url =
-                'https://login.live.com/oauth20_authorize.srf' +
-                '?client_id=' + this.microsoftClientId +
-                '&response_type=code' +
-                '&redirect_uri=http://localhost:55325/' +
-                '&scope=XboxLive.SignIn%20XboxLive.offline_access' +
-                '&code_challenge=' + challenge +
-                '&code_challenge_method=S256'
-
-            return { url, verifier, challenge }
-        },
-
         async microsoftLogin() {
             const { codeVerifier, codeChallenge } = await PKCE.createPKCEPair();
 
@@ -96,79 +68,23 @@ export const useAccountStore = defineStore('account', {
                 const code = event.payload
                 console.log('OAuth code:', code)
 
-                const microsoftTokens: MicrosoftTokens = await this.exchangeMicrosoftCode(
+                const microsoftTokens: MicrosoftTokens = await exchangeMicrosoftCode(
                     code,
-                    codeVerifier
+                    codeVerifier,
+                    this.microsoftClientId
                 )
 
                 if (microsoftTokens?.error) {
                     throw new Error("Failed to fetch microsoft tokens " + microsoftTokens.error)
                 }
 
-                console.log('Microsoft tokens:', microsoftTokens)
+                const xboxLive: XboxLiveResponse = await xboxLiveAuthenticate(microsoftTokens.access_token)
 
-                const xboxLive: XboxLiveResponse = await $fetch("https://user.auth.xboxlive.com/user/authenticate", {
-                    method: "POST",
-                    body: {
-                        "Properties": {
-                            "AuthMethod": "RPS",
-                            "SiteName": "user.auth.xboxlive.com",
-                            "RpsTicket": "d=" + microsoftTokens.access_token
-                        },
-                        "RelyingParty": "http://auth.xboxlive.com",
-                        "TokenType": "JWT"
-                    }
-                })
+                const xstsAuth: XboxLiveResponse = await xstsAuthorize(xboxLive.Token)
 
-                console.log("xboxLive", xboxLive)
+                const minecraftAccount: MinecraftAccount = await minecraftXboxLogin(xboxLive.DisplayClaims.xui[0]!.uhs, xstsAuth.Token)
 
-                const xstsAuth: XboxLiveResponse = await $fetch("https://xsts.auth.xboxlive.com/xsts/authorize", {
-                    method: "POST",
-                    body: {
-                        "Properties": {
-                            "SandboxId": "RETAIL",
-                            "UserTokens": [ xboxLive.Token ]
-                        },
-                        "RelyingParty": "rp://api.minecraftservices.com/",
-                        "TokenType": "JWT"
-                    }
-                })
-
-                console.log("xstsAuth", xstsAuth)
-
-                const minecraftAccount: MinecraftAccount = await invoke("minecraft_services_request", {
-                    url: "https://api.minecraftservices.com/authentication/login_with_xbox",
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: {
-                        identityToken: `XBL3.0 x=${xboxLive.DisplayClaims.xui[0]!.uhs};${xstsAuth.Token}`
-                    }
-                })
-
-                console.log("minecraftAccount", minecraftAccount)
-
-                // const createdMinecraftProfile = await invoke("minecraft_services_request", {
-                //     url: "https://api.minecraftservices.com/minecraft/profile",
-                //     method: "POST",
-                //     headers: {
-                //         Authorization: `Bearer ${minecraftAccount.access_token}`,
-                //         "Content-Type": "application/json"
-                //     },
-                //     body: {
-                //         profileName: "_zaralX_"
-                //     }
-                // })
-
-                // console.log("createdMinecraftProfile", createdMinecraftProfile)
-
-                const minecraftProfile: MinecraftProfile = await invoke("minecraft_services_request", {
-                    url: 'https://api.minecraftservices.com/minecraft/profile',
-                    headers: {
-                        Authorization: `Bearer ${minecraftAccount.access_token}`
-                    },
-                })
+                const minecraftProfile: MinecraftProfile = await getMinecraftProfile(minecraftAccount.access_token)
 
                 console.log("minecraftProfile", minecraftProfile)
 
@@ -188,17 +104,5 @@ export const useAccountStore = defineStore('account', {
 
             await open(url)
         },
-
-        async exchangeMicrosoftCode(
-            code: string,
-            verifier: string
-        ): Promise<MicrosoftTokens> {
-            return await invoke("exchange_microsoft_code", {
-                code,
-                codeVerifier: verifier,
-                clientId: this.microsoftClientId
-            }) as MicrosoftTokens
-        }
-
     }
 })
