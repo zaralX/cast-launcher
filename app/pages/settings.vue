@@ -3,6 +3,8 @@ import { useAppStore } from "~/stores/app";
 import { storeToRefs } from "pinia";
 import { ru } from "@nuxt/ui/locale";
 import {useAccountStore} from "~/stores/account";
+import { open } from '@tauri-apps/plugin-shell'
+import { invoke } from "@tauri-apps/api/core";
 
 definePageMeta({
   layout: "main"
@@ -42,7 +44,11 @@ const createOfflineAccount = () => {
     name: offlineNickname.value
   })
   accountConfig.value!.selected = accountConfig.value!.accounts.length - 1
-  accountStore.updateConfig(accountConfig.value)
+  accountStore.updateConfig(accountConfig.value!)
+}
+
+const createMicrosoftAccount = async () => {
+  await accountStore.microsoftLogin()
 }
 </script>
 
@@ -95,7 +101,7 @@ const createOfflineAccount = () => {
             :highlight="!!(accountConfig?.selected == i)"
         />
         <div class="grid grid-cols-2 gap-4">
-          <UButton icon="i-lucide-plus" disabled>Microsoft аккаунт</UButton>
+          <UButton icon="i-lucide-plus" @click="createMicrosoftAccount">Microsoft аккаунт</UButton>
           <UPopover mode="hover">
             <UButton icon="i-lucide-plus">Оффлайн аккаунт</UButton>
 
