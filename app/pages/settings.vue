@@ -99,6 +99,7 @@ const createMicrosoftAccount = async () => {
             :description="`type: ${account.type}`"
             variant="soft"
             :highlight="(accountConfig?.selected == i)"
+            @click="accountStore.selectAccount(i)"
         />
         <div class="grid grid-cols-2 gap-4">
           <UButton icon="i-lucide-plus" @click="createMicrosoftAccount">Microsoft аккаунт</UButton>

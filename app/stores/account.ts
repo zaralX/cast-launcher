@@ -64,6 +64,11 @@ export const useAccountStore = defineStore('account', {
             this.accountConfig = config
         },
 
+        async selectAccount(id: number) {
+            this.accountConfig!.selected = id < this.accountConfig!.accounts.length ? id : 0;
+            await this.updateConfig(this.accountConfig!)
+        },
+
         async microsoftLogin() {
             const { codeVerifier, codeChallenge } = await PKCE.createPKCEPair();
 
