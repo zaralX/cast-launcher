@@ -7,6 +7,7 @@ export interface Instance {
     installed: boolean
     version: number
     loaderVersion?: string
+    customId?: string // custom pack id, for example: modrinth slug
 }
 
 export interface LivingInstance extends Instance {

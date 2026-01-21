@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import CreateInstanceModalBody from "~/components/CreateInstanceModalBody.vue";
+import {useAppStore} from "~/stores/app";
 
 definePageMeta({
   layout: "main"
 })
 
+const appStore = useAppStore()
 const instanceStore = useInstanceStore()
 const {installInstance, runInstance} = instanceStore
 const {runningClients, instances} = storeToRefs(instanceStore)
@@ -12,19 +14,21 @@ const {runningClients, instances} = storeToRefs(instanceStore)
 
 <template>
   <div class="p-4 space-y-2 w-full">
-    <p class="font-unbounded">Сборки от zaralX</p>
-    <div class="grid grid-cols-3 w-full gap-4">
-      <UPageCard
-          title="Random Mods"
-          description="Каждый день добавляется случайный мод"
-          orientation="vertical"
-          spotlight
-          spotlight-color="primary"
-          class="w-full"
-          v-for="i in 3"
-      >
-        <UButton icon="i-lucide-download" variant="subtle">Загрузить</UButton>
-      </UPageCard>
+    <div v-if="appStore.myPacksConfig && Object.keys(appStore.myPacksConfig.packs).length > 0">
+      <p class="font-unbounded">Сборки от zaralX</p>
+      <div class="grid grid-cols-2 lg:grid-cols-3 w-full gap-4">
+        <UPageCard
+            v-for="(pack, packId) in appStore.myPacksConfig.packs"
+            :title="pack.name"
+            :description="pack.description"
+            orientation="vertical"
+            spotlight
+            spotlight-color="primary"
+            class="w-full"
+        >
+          <UButton icon="i-lucide-download" variant="subtle">Загрузить {{packId}}</UButton>
+        </UPageCard>
+      </div>
     </div>
     <p class="font-unbounded">Ваши сборки</p>
     <div class="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 w-full gap-4">

@@ -1,17 +1,17 @@
 import {defineStore} from 'pinia'
 import {type AppConfig, CONFIG_VERSION} from '~/types/app'
-import {invoke} from "@tauri-apps/api/core";
 import {appConfigDir, dirname} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import {check} from "@tauri-apps/plugin-updater";
 import {relaunch} from '@tauri-apps/plugin-process';
-import type {AccountConfig} from "~/types/account";
+import type {MyPacksConfig} from "~/types/pack";
+import {fetch} from "@tauri-apps/plugin-http";
 
 export const useAppStore = defineStore('app', {
     state: () => ({
         config: null as null | AppConfig,
-        accountsConfig: null as null | AccountConfig
+        myPacksConfig: null as null | MyPacksConfig,
     }),
     getters: {
         hasConfig: (state) => !!state.config,
@@ -137,6 +137,10 @@ export const useAppStore = defineStore('app', {
                 console.log('update installed');
                 await relaunch();
             }
-        }
+        },
+        async loadMyPacks() {
+            this.myPacksConfig = await (await fetch("https://s3.zaralx.ru/launcher/my_packs.json")).json() as MyPacksConfig
+            console.log("Loaded myPacksConfig ", this.myPacksConfig)
+        },
     }
 })

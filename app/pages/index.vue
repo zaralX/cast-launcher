@@ -6,7 +6,7 @@ import {useInstanceStore} from "~/stores/instance";
 import {check} from "@tauri-apps/plugin-updater";
 
 const loading = ref(true)
-const steps = ["Ожидание", "Получение конфигураций", "Проверка обновлений", "Подготовка instances", "Готово!"]
+const steps = ["Ожидание", "Получение конфигураций", "Проверка обновлений", "Получение сборок zaralX", "Подготовка instances", "Готово!"]
 const currentStep = ref()
 const appStore = useAppStore();
 const accountStore = useAccountStore();
@@ -25,6 +25,13 @@ onMounted(() => {
       }
     } catch (e) {
       console.error("Failed to auto update app", e)
+    }
+    currentStep.value += 1
+
+    try {
+      await appStore.loadMyPacks()
+    } catch (e) {
+      console.error("Failed to load myPacks", e)
     }
     currentStep.value += 1
 
