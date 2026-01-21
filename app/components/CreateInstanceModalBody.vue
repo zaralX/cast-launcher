@@ -2,6 +2,7 @@
 import type {InstanceType} from "~/types/instance";
 import {$fetch} from "ofetch";
 import {XMLParser} from "fast-xml-parser";
+import {v4} from "uuid";
 
 const minecraftVersionManifest = await $fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
 const minecraftVersions = ref(minecraftVersionManifest.versions.filter((v: any) => v.type == 'release').map((v: any) => v.id))
@@ -37,7 +38,6 @@ forgeVersions.sort(compareForgeVersions)
 
 const instancesStore = useInstanceStore()
 
-const id = ref("")
 const name = ref("")
 const description = ref("")
 const instanceType = ref<InstanceType>("vanilla")
@@ -51,7 +51,7 @@ const filteredForgeVersions = computed(() => {
 
 const createInstance = async () => {
   await instancesStore.createInstance({
-    id: id.value,
+    id: v4(),
     name: name.value,
     description: description.value,
     type: instanceType.value,
@@ -65,7 +65,6 @@ const createInstance = async () => {
 
 <template>
 <div class="flex flex-col">
-  <UInput v-model="id" placeholder="id" />
   <UInput v-model="name" placeholder="name" />
   <UInput v-model="description" placeholder="description" />
   <USelect v-model="instanceType" :items="['vanilla', 'fabric', 'forge']" />
