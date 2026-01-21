@@ -29,8 +29,8 @@ tauri-plugin-process = "2"
 tauri-plugin-shell = "2"
 url = "2"
 tiny_http = "0.12"
-reqwest = "0.12.28"
-zip = "4.6.1"
+reqwest = "0.13.1"
+zip = "7.2.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
