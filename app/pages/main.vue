@@ -27,7 +27,7 @@ const {runningClients, instances} = storeToRefs(instanceStore)
       </UPageCard>
     </div>
     <p class="font-unbounded">Ваши сборки</p>
-    <div class="grid grid-cols-5 w-full gap-4">
+    <div class="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 w-full gap-4">
       <UPageCard
           :title="instance.name"
           :description="instance.description"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import ActiveDownloadingModal from "~/components/ActiveDownloadingModal.vue";
 
 const items = ref<DropdownMenuItem[]>([
@@ -28,10 +29,23 @@ const links = [{
 }]
 
 const route = useRoute()
+
+const appWindow = getCurrentWindow();
 </script>
 
 <template>
 <div class="h-screen w-full">
+  <div class="bg-zinc-950/50 h-12 flex">
+    <div>
+      <ActiveDownloadingModal />
+    </div>
+    <div data-tauri-drag-region class="flex-1"></div>
+    <div>
+      <UButton icon="i-lucide-minimize-2" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.minimize()" />
+      <UButton icon="i-lucide-scaling" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.toggleMaximize()" />
+      <UButton icon="i-lucide-x" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.close()" />
+    </div>
+  </div>
   <div class="flex w-full">
     <div class="bg-zinc-800/50 w-24">
       <NuxtLink v-for="link in links" :to="link.to" :class="{'text-sky-500': link.to == route.path}" class="flex flex-col w-24 h-16 items-center justify-center gap-1">
@@ -39,22 +53,9 @@ const route = useRoute()
         <p class="text-sm">{{ link.name }}</p>
       </NuxtLink>
     </div>
-    <UScrollArea class="h-[calc(100vh-4rem)] w-full">
+    <UScrollArea class="h-[calc(100vh-3rem)] w-full">
       <slot />
     </UScrollArea>
-  </div>
-  <div class="bg-zinc-950/50 h-16 p-2 flex gap-4 items-center">
-<!--    <UDropdownMenu :items="items">-->
-<!--      <UFieldGroup>-->
-<!--        <UButton color="neutral" variant="subtle" class="min-w-48">-->
-<!--          <NuxtImg src="/default_skin_face.png" class="w-8 h-8 rounded-lg" />-->
-<!--          <p>123123</p>-->
-<!--        </UButton>-->
-<!--        <UButton color="neutral" variant="outline" icon="i-lucide-chevron-up" />-->
-<!--      </UFieldGroup>-->
-<!--    </UDropdownMenu>-->
-    <ActiveDownloadingModal />
-    <UButton size="xl" class="font-unbounded" icon="i-lucide-play">Играть</UButton>
   </div>
 </div>
 </template>
