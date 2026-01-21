@@ -1,11 +1,11 @@
 import {defineStore} from 'pinia'
-import type {AppConfig} from '~/types/app'
+import {type AppConfig, CONFIG_VERSION} from '~/types/app'
 import {invoke} from "@tauri-apps/api/core";
 import {appConfigDir, dirname} from "@tauri-apps/api/path";
-import { path } from "@tauri-apps/api";
+import {path} from "@tauri-apps/api";
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from '@tauri-apps/plugin-process';
+import {check} from "@tauri-apps/plugin-updater";
+import {relaunch} from '@tauri-apps/plugin-process';
 import type {AccountConfig} from "~/types/account";
 
 export const useAppStore = defineStore('app', {
@@ -24,26 +24,41 @@ export const useAppStore = defineStore('app', {
             )
         },
 
+        async getDefaultConfig() {
+            return {
+                version: CONFIG_VERSION,
+                launcher: {
+                    language: "ru",
+                    theme: "dark",
+                    dir: await dirname(await this.getConfigPath()),
+                    auto_update: true
+                },
+                java: {
+                    java_path: "",
+                    min_ram: 1024,
+                    max_ram: 4096
+                }
+            }
+        },
+
         async loadConfig() {
             const configPath = await this.getConfigPath()
+            const defaults = await this.getDefaultConfig()
+
             if (!(await exists(configPath))) {
-                await mkdir(await dirname(configPath), {recursive: true})
-                this.config = {
-                    launcher: {
-                        language: "ru",
-                        theme: "dark",
-                        dir: await dirname(configPath)
-                    },
-                    java: {
-                        java_path: "",
-                        min_ram: 1024,
-                        max_ram: 4096
-                    }
-                }
-                await writeTextFile(configPath, JSON.stringify(this.config))
-            } else {
-                this.config = JSON.parse(await readTextFile(configPath))
+                defaults.launcher.dir = await dirname(configPath)
+                this.config = defaults
+                await this.updateConfig(this.config)
+                return this.config
             }
+
+            const raw = JSON.parse(await readTextFile(configPath))
+
+            const migrated = this.migrateConfig(raw)
+            const merged = this.mergeConfig(defaults, migrated)
+
+            this.config = merged
+            await this.updateConfig(this.config)
 
             console.log("Loaded config ", this.config)
 
@@ -58,6 +73,41 @@ export const useAppStore = defineStore('app', {
             await writeTextFile(configPath, JSON.stringify(config))
             this.config = config
         },
+
+        migrateConfig(config: any): AppConfig {
+            let cfg = {...config}
+
+            if (!cfg.version) {
+                cfg.version = 1
+            }
+
+            // Cfg 1 -> 2 Migration
+            if (cfg.version === 1) {
+                cfg.launcher = {
+                    ...cfg.launcher,
+                    auto_update: true
+                }
+                cfg.version = 2
+            }
+
+            return cfg
+        },
+
+        mergeConfig(defaults: AppConfig, user: any): AppConfig {
+            return {
+                ...defaults,
+                ...user,
+                launcher: {
+                    ...defaults.launcher,
+                    ...user.launcher
+                },
+                java: {
+                    ...defaults.java,
+                    ...user.java
+                }
+            }
+        },
+
 
         async updateApp() {
             const update = await check();

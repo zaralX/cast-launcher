@@ -19,8 +19,12 @@ onMounted(() => {
     await accountStore.loadConfig()
     currentStep.value += 1
 
-    if (await check().catch()) {
-      await appStore.updateApp()
+    try {
+      if (appStore.config!.launcher.auto_update && await check({ timeout: 15000 })) {
+        await appStore.updateApp()
+      }
+    } catch (e) {
+      console.error("Failed to auto update app", e)
     }
     currentStep.value += 1
 
