@@ -12,36 +12,34 @@ const appStore = useAppStore();
 const accountStore = useAccountStore();
 const instanceStore = useInstanceStore();
 
-onMounted(() => {
-  setTimeout(async () => {
-    currentStep.value = 1
-    await appStore.loadConfig()
-    await accountStore.loadConfig()
-    currentStep.value += 1
+onMounted(async () => {
+  currentStep.value = 1
+  await appStore.loadConfig()
+  await accountStore.loadConfig()
+  currentStep.value += 1
 
-    try {
-      if (appStore.config!.launcher.auto_update && await check({ timeout: 15000 })) {
-        await appStore.updateApp()
-      }
-    } catch (e) {
-      console.error("Failed to auto update app", e)
+  try {
+    if (appStore.config!.launcher.auto_update && await check({ timeout: 15000 })) {
+      await appStore.updateApp()
     }
-    currentStep.value += 1
+  } catch (e) {
+    console.error("Failed to auto update app", e)
+  }
+  currentStep.value += 1
 
-    try {
-      await appStore.loadMyPacks()
-    } catch (e) {
-      console.error("Failed to load myPacks", e)
-    }
-    currentStep.value += 1
+  try {
+    await appStore.loadMyPacks()
+  } catch (e) {
+    console.error("Failed to load myPacks", e)
+  }
+  currentStep.value += 1
 
-    await instanceStore.initInstances()
-    currentStep.value += 1
+  await instanceStore.initInstances()
+  currentStep.value += 1
 
-    loading.value = false
-    navigateTo("/main")
-    invoke("greet", {name: "Cast Launcher"}).then((res) => console.log(res));
-  }, 2000)
+  loading.value = false
+  invoke("greet", {name: "Cast Launcher"}).then((res) => console.log(res));
+  navigateTo("/main")
 })
 </script>
 

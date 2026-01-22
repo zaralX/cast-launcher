@@ -19,6 +19,9 @@ export default defineNuxtConfig({
   fonts: {
     provider: 'google'
   },
+  app: {
+    layoutTransition: { name: 'layout', mode: 'out-in' },
+  },
   ignore: ['**/src-tauri/**'],
   modules: ['@nuxt/image', '@pinia/nuxt', '@nuxt/ui']
 })
