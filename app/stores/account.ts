@@ -17,7 +17,7 @@ import {$fetch} from "ofetch";
 import {
     exchangeMicrosoftCode,
     getMinecraftProfile,
-    minecraftXboxLogin,
+    minecraftXboxLogin, refreshMicrosoftToken,
     xboxLiveAuthenticate,
     xstsAuthorize
 } from "~/utils/microsoftUtil";
@@ -131,5 +131,36 @@ export const useAccountStore = defineStore('account', {
 
             await open(url)
         },
+
+        async refreshMicrosoftAccount(uuid: string) {
+            const account = this.accountConfig!.accounts.find(a => a.uuid == uuid)
+
+            if (!account) {
+                throw new Error("Account not found")
+            }
+
+            const microsoftTokens: MicrosoftTokens = await refreshMicrosoftToken(account.refreshToken!, this.microsoftClientId)
+
+            if (microsoftTokens?.error) {
+                console.error("Failed to fetch microsoft tokens ", microsoftTokens.error)
+                return
+            }
+
+            const xboxLive: XboxLiveResponse = await xboxLiveAuthenticate(microsoftTokens.access_token)
+
+            const xstsAuth: XboxLiveResponse = await xstsAuthorize(xboxLive.Token)
+
+            const minecraftAccount: MinecraftAccount = await minecraftXboxLogin(xboxLive.DisplayClaims.xui[0]!.uhs, xstsAuth.Token)
+
+            const minecraftProfile: MinecraftProfile = await getMinecraftProfile(minecraftAccount.access_token)
+
+            account.skins = minecraftProfile.skins
+            account.capes = minecraftProfile.capes
+            account.accessToken = minecraftAccount.access_token
+            account.xblHash = xboxLive.DisplayClaims.xui[0]!.uhs
+            account.expiresAt = Math.floor(Date.now() / 1000) + minecraftAccount.expires_in
+
+            await this.updateConfig(this.accountConfig!)
+        }
     }
 })

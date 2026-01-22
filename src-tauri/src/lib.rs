@@ -128,6 +128,7 @@ pub fn run() {
             commands::microsoft::auth_microsoft,
             commands::microsoft::exchange_microsoft_code,
             commands::microsoft::minecraft_services_request,
+            commands::microsoft::refresh_microsoft,
             commands::extract::extract_jar,
             commands::extract::extract_everything_jar,
             commands::forge::install_forge,

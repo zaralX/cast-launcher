@@ -70,6 +70,26 @@ pub async fn exchange_microsoft_code(client_id: String, code: String, code_verif
 }
 
 #[tauri::command]
+pub async fn refresh_microsoft(client_id: String, refresh_token: String) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let params = [
+        ("grant_type", "refresh_token"),
+        ("client_id", &client_id),
+        ("refresh_token", &refresh_token),
+        ("redirect_uri", "http://localhost:55325/")
+    ];
+
+    let resp = client.post("https://login.live.com/oauth20_token.srf")
+        .form(&params)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(json)
+}
+
+#[tauri::command]
 pub async fn minecraft_services_request(
     url: String,
     method: Option<String>, // "GET" или "POST", по умолчанию GET

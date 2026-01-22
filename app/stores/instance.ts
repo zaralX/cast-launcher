@@ -126,6 +126,12 @@ export const useInstanceStore = defineStore('instance', {
                 unsubscribe()
                 return;
             }
+
+            // Re-login
+            if (account.type == 'microsoft' && Math.floor(Date.now() / 1000) > (account?.expiresAt ?? 0)) {
+                await useAccountStore().refreshMicrosoftAccount(account.uuid!)
+            }
+
             await client.run(config!.java.java_path ?? "java", account)
             this.runningClients.push(client)
         },

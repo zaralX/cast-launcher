@@ -96,25 +96,8 @@ export async function refreshMicrosoftToken(
     refreshToken: string,
     clientId: string
 ): Promise<MicrosoftTokens> {
-
-    const body = new URLSearchParams({
-        client_id: clientId,
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        scope: 'XboxLive.SignIn XboxLive.offline_access',
-    })
-
-    const res = await $fetch(
-        'https://login.live.com/oauth20_token.srf',
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body,
-        }
-    )
-
-    if (!res.ok) throw new Error(await res.text())
-    return await res.json()
+    return await invoke("refresh_microsoft", {
+        refreshToken,
+        clientId: clientId
+    }) as MicrosoftTokens
 }
