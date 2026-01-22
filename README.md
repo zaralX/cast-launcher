@@ -1,4 +1,4 @@
-# <img src="./logo.png" width="32"> Cast Launcher
+# <img src="./src-tauri/icons/icon.png" width="32"> Cast Launcher
 Cast Launcher is a new Minecraft Launcher, which in the future plans to provide a user-friendly interface, and new features in the form of server rentals, server listings, downloading minecraft maps, and unique modpacks! 
 
 ## Overview
