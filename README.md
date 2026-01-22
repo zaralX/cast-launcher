@@ -5,11 +5,11 @@ Cast Launcher is a new Minecraft Launcher, which in the future plans to provide 
 This project is built using the following technology stack:
 
 ### Frontend:
-- **Nuxt 3** (Vue-based framework)
+- **Nuxt 4** (Vue-based framework)
 - **Vite** (fast build tool)
 - **TypeScript** (strictly typed JavaScript)
 - **Tailwind CSS** (utility-first CSS framework)
-- **Element Plus** (UI component library)
+- **Nuxt UI** (UI component library)
 
 ### Backend:
 - **Rust** (high-performance, memory-safe backend)
@@ -18,11 +18,8 @@ This project is built using the following technology stack:
 - Install and run any Vanilla Minecraft version from [this manifest](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)
 - Install and run Forge/Fabric
 - Launch the latest Minecraft versions (older versions currently not supported, may be fixed in future updates)
-- Support for offline accounts
+- Support for offline and microsoft accounts
 - Russian language support (localization for other languages planned)
 
 ## Gallery
 ![Screenshot](./.github/readme/1.png)
-
-## TODO
-Add hash and size files verification
