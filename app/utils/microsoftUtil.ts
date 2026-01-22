@@ -91,7 +91,6 @@ export async function getMinecraftProfile(
     })
 }
 
-// NEVER TESTED
 export async function refreshMicrosoftToken(
     refreshToken: string,
     clientId: string
