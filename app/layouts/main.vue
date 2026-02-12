@@ -3,25 +3,14 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ActiveDownloadingModal from "~/components/ActiveDownloadingModal.vue";
 
-const items = ref<DropdownMenuItem[]>([
-  {
-    label: 'Account',
-    icon: 'i-lucide-user'
-  },
-  {
-    label: 'Account',
-    icon: 'i-lucide-user'
-  },
-  {
-    label: 'Account',
-    icon: 'i-lucide-user'
-  },
-])
-
 const links = [{
   name: "Главная",
   icon: "lucide:house",
   to: "/main"
+},{
+  name: "Поиск сборок",
+  icon: "lucide:search",
+  to: "/search"
 },{
   name: "Настройки",
   icon: "lucide:cog",
@@ -38,9 +27,10 @@ const appWindow = getCurrentWindow();
   <div class="bg-zinc-950/50 h-12 flex">
     <div class="flex">
       <NuxtImg src="/logo.png" class="h-12 w-12" />
+    </div>
+    <div data-tauri-drag-region class="flex-1 flex justify-center items-center">
       <ActiveDownloadingModal />
     </div>
-    <div data-tauri-drag-region class="flex-1"></div>
     <div>
       <UButton icon="i-lucide-minimize-2" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.minimize()" />
       <UButton icon="i-lucide-scaling" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.toggleMaximize()" />

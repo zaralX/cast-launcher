@@ -5,6 +5,7 @@
     ".nuxt/**/*.ts",
     "nuxt.config.ts",
     "app/types/**/*.d.ts",
+    "app/components/ui/**/*.ts",
     "**/*.ts",
     "**/*.vue"
   ]
