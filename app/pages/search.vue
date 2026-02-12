@@ -10,7 +10,7 @@ const modPlatforms = ref([{name: "Modrinth"}, {name: "Curseforge"}])
 
 <template>
   <div class="p-4 w-full">
-
+    В разработке
   </div>
 </template>
 
