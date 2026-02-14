@@ -7,7 +7,6 @@ const { accountConfig } = storeToRefs(accountStore)
 
 const offlineNickname = ref("")
 
-
 const createOfflineAccount = () => {
   accountConfig.value!.accounts.push({
     type: 'offline',

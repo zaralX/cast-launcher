@@ -461,6 +461,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tiny_http",
  "url",
+ "winreg",
  "zip 7.2.0",
 ]
 

@@ -37,37 +37,10 @@ async function saveConfig() {
     <SettingsLauncher v-model="config" />
 
     <!-- Accounts -->
-    <SettingsAccounts v-model="config" />
+    <SettingsAccounts />
 
     <!-- Java -->
-    <UPageCard
-        title="Java"
-        description="Параметры виртуальной машины Java."
-        variant="soft"
-    >
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <UFormField  label="Путь к Java">
-          <UInput
-              v-model="config!.java.java_path"
-              placeholder="/path/to/java"
-          />
-        </UFormField >
-
-        <UFormField  label="Минимум RAM (MB)">
-          <UInput
-              type="number"
-              v-model="config!.java.min_ram"
-          />
-        </UFormField >
-
-        <UFormField  label="Максимум RAM (MB)">
-          <UInput
-              type="number"
-              v-model="config!.java.max_ram"
-          />
-        </UFormField >
-      </div>
-    </UPageCard>
+    <SettingsJava v-model="config" />
 
     <!-- Actions -->
     <div class="flex justify-end">
