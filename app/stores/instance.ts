@@ -15,11 +15,8 @@ import { ForgeInstaller } from "~/lib/installers/ForgeInstaller";
 import {ForgeClient} from "~/lib/client/ForgeClient";
 import {LauncherError, toLauncherError} from "~/types/error";
 import {captureError} from "~/composables/useErrorHandler";
+import {listActiveDownloadJobs} from "~/lib/ParallelDownloader";
 
-/**
- * Сами инсталляторы держим вне стора: они таскают манифесты и тысячи задач,
- * оборачивать это в реактивный прокси Pinia дорого и незачем.
- */
 const activeInstallers = new Map<string, InstallerBase>()
 
 export const useInstanceStore = defineStore('instance', {
@@ -122,8 +119,12 @@ export const useInstanceStore = defineStore('instance', {
                 message: "Подготовка",
                 progress: 0,
                 files: [],
-                startedAt: Date.now()
+                startedAt: Date.now(),
+                aborting: false,
+                resumed: !!instance.pendingInstall
             })
+
+            await this.setInstallPending(instance, true)
 
             let unsubscribe: (() => void) | null = null
 
@@ -141,6 +142,34 @@ export const useInstanceStore = defineStore('instance', {
                 activeInstallers.delete(instance.id)
                 this.installs = this.installs.filter(install => install.instanceId !== instance.id)
                 instance.installing = false
+                await this.setInstallPending(instance, false)
+            }
+        },
+
+        async setInstallPending(instance: LivingInstance, pending: boolean) {
+            instance.pendingInstall = pending
+
+            const instanceFileDir = await path.join(instance.dir, "instance.json")
+
+            try {
+                const data = JSON.parse(await readTextFile(instanceFileDir)) as Instance
+                if (!!data.pendingInstall === pending) return
+                data.pendingInstall = pending
+                await writeTextFile(instanceFileDir, JSON.stringify(data))
+            } catch (e) {
+                console.warn("Failed to update pendingInstall flag", instanceFileDir, e)
+            }
+        },
+
+        async resumeInstalls() {
+            const liveJobs = await listActiveDownloadJobs()
+            const hasLiveJob = (id: string) => liveJobs.some(job => job.startsWith(`${id}:`))
+
+            for (const instance of this.instances) {
+                if (instance.installed || instance.installing) continue
+                if (!instance.pendingInstall && !hasLiveJob(instance.id)) continue
+
+                this.installInstance(instance.id)
             }
         },
 
@@ -151,6 +180,8 @@ export const useInstanceStore = defineStore('instance', {
             install.stage = p.stage
 
             if (p.type === "single" && p.file) {
+                if (install.aborting) return
+
                 const file = p.file
                 const index = install.files.findIndex(f => f.url === file.url)
 
@@ -175,6 +206,14 @@ export const useInstanceStore = defineStore('instance', {
         },
 
         abortInstall(id: string) {
+            const install = this.installs.find(i => i.instanceId === id)
+            if (install) {
+                if (install.aborting) return
+                install.aborting = true
+                install.message = "Останавливаем загрузку"
+                install.files = []
+            }
+
             activeInstallers.get(id)?.abort()
         },
 

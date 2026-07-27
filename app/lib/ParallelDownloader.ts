@@ -1,25 +1,64 @@
-import { dirname } from "@tauri-apps/api/path"
-import { exists, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs"
-import { sha1 } from "hash-wasm"
-import type { DownloadFileProgress, DownloadTask } from "~/types/instance"
-import { fetch } from '@tauri-apps/plugin-http';
-import { LauncherError, toLauncherError } from "~/types/error"
+import {invoke} from "@tauri-apps/api/core"
+import {listen} from "@tauri-apps/api/event"
+import {v4 as uuidv4} from "uuid"
+import type {DownloadFileProgress, DownloadTask} from "~/types/instance"
+import {toLauncherError} from "~/types/error"
 
 export type FileProgress = DownloadFileProgress
 
-/** Порог изменения, ниже которого прогресс не пересылается наружу (гасит дрожание UI). */
-const GLOBAL_PROGRESS_EPS = 0.002
-const FILE_PROGRESS_EPS = 0.01
+export interface DownloadOptions {
+    largeThreshold?: number
+    deepVerify?: boolean
+}
+
+type JobState = "running" | "finished" | "cancelled" | "failed"
+
+interface JobSnapshot {
+    jobId: string
+    status: { state: JobState, error?: { code: string, message: string, details?: string } }
+    progress: number
+    totalFiles: number
+    doneFiles: number
+    skippedFiles: number
+    downloadedBytes: number
+    totalBytes: number
+    files: FileProgress[]
+}
+
+const PROGRESS_EVENT = "download:progress"
+
+export async function listActiveDownloadJobs(): Promise<string[]> {
+    try {
+        const jobs = await invoke<JobSnapshot[]>("list_downloads")
+        return jobs.filter(job => job.status.state === "running").map(job => job.jobId)
+    } catch (e) {
+        console.warn("Failed to list active downloads", e)
+        return []
+    }
+}
 
 export class ParallelDownloader {
-    private concurrency: number
+    private options: DownloadOptions
+    private jobKey: string | null = null
+    private activeJobId: string | null = null
+    private aborted = false
 
-    constructor(concurrency = 3) {
-        this.concurrency = concurrency
+    constructor(options: DownloadOptions = {}) {
+        this.options = options
+    }
+
+    /** Детерминированный ключ джобы — по нему происходит переподключение после перезагрузки. */
+    setJob(key: string) {
+        this.jobKey = key
+    }
+
+    abort() {
+        this.aborted = true
+        if (this.activeJobId) invoke("cancel_download", {jobId: this.activeJobId}).catch(() => {})
     }
 
     async downloadSingle(task: DownloadTask, onFileProgress?: (p: FileProgress) => void) {
-        await this.downloadFile(task, undefined, onFileProgress)
+        await this.download([task], onFileProgress)
     }
 
     async download(
@@ -32,170 +71,61 @@ export class ParallelDownloader {
             return
         }
 
-        const useBytes = tasks.every(t => (t.size ?? 0) > 0)
-        const weights = tasks.map(t => (useBytes ? (t.size as number) : 1))
-        const totalWeight = weights.reduce((a, w) => a + w, 0) || 1
+        const jobId = this.jobKey ?? uuidv4()
+        this.activeJobId = jobId
 
-        const fractions = new Array<number>(tasks.length).fill(0)
-        let accumulated = 0
-        let lastReported = -1
+        const known = new Map<string, FileProgress>()
 
-        const setFraction = (index: number, value: number) => {
-            const clamped = Math.min(1, Math.max(fractions[index]!, value))
-            accumulated += (clamped - fractions[index]!) * weights[index]!
-            fractions[index] = clamped
-        }
+        const apply = (snapshot: JobSnapshot) => {
+            if (snapshot.jobId !== jobId) return
 
-        const reportGlobal = (force = false) => {
-            if (!onGlobalProgress) return
-            const percent = Math.min(1, Math.max(0, accumulated / totalWeight))
-            if (!force && percent - lastReported < GLOBAL_PROGRESS_EPS) return
-            lastReported = percent
-            onGlobalProgress(percent)
-        }
+            onGlobalProgress?.(snapshot.progress)
 
-        reportGlobal(true)
+            if (!onFileProgress) return
 
-        const queue = tasks.map((task, index) => ({ task, index }))
+            const seen = new Set<string>()
 
-        const workers = Array.from({ length: Math.min(this.concurrency, queue.length) }).map(async () => {
-            while (queue.length) {
-                const item = queue.shift()
-                if (!item) return
-
-                await this.downloadFile(item.task, (loaded, total) => {
-                    if (total > 0) {
-                        setFraction(item.index, loaded / total)
-                        reportGlobal()
-                    }
-                }, onFileProgress)
-
-                setFraction(item.index, 1)
-                reportGlobal(true)
+            for (const file of snapshot.files) {
+                seen.add(file.url)
+                known.set(file.url, file)
+                onFileProgress(file)
             }
-        })
 
-        await Promise.all(workers)
-
-        reportGlobal(true)
-    }
-
-    private async downloadFile(
-        task: DownloadTask,
-        onChunk?: (loaded: number, total: number) => void,
-        onFileProgress?: (p: FileProgress) => void
-    ) {
-        const context = { url: task.url, path: task.destination }
-        const name = task.destination.split(/[\\/]/).pop() ?? "файл"
-
-        const reportFile = (loaded: number, total: number, done: boolean) => {
-            onFileProgress?.({
-                url: task.url,
-                name,
-                destination: task.destination,
-                loaded,
-                total,
-                percent: total ? Math.min(1, loaded / total) : (done ? 1 : 0),
-                done
-            })
-        }
-
-        if (task.verificationType === "sha1" && task.hash) {
-            try {
-                if (await exists(task.destination)) {
-                    const data = await readFile(task.destination)
-                    if (await sha1(data) === task.hash) {
-                        reportFile(data.length, task.size ?? data.length, true)
-                        return 0
-                    }
-                }
-            } catch (e) {
-                console.warn("Failed to verify cached file, redownloading", task.destination, e)
+            for (const [url, file] of known) {
+                if (seen.has(url)) continue
+                known.delete(url)
+                onFileProgress({...file, done: true})
             }
         }
+
+        const unlisten = await listen<JobSnapshot>(PROGRESS_EVENT, e => apply(e.payload))
 
         try {
-            await mkdir(await dirname(task.destination), { recursive: true })
-        } catch (e) {
-            throw toLauncherError(e, "FS_ERROR", context)
-        }
-
-        let response: Response
-        try {
-            response = await fetch(task.url, {
-                method: "GET",
+            const initial = await invoke<JobSnapshot>("start_download", {
+                jobId,
+                tasks,
+                options: this.options
             })
+
+            apply(initial)
+
+            if (this.aborted) {
+                await invoke("cancel_download", {jobId}).catch(() => {})
+            }
+
+            await invoke("await_download", {jobId})
+
+            onGlobalProgress?.(1)
         } catch (e) {
-            throw toLauncherError(e, "NETWORK", context)
-        }
+            throw toLauncherError(e, "DOWNLOAD_FAILED", {})
+        } finally {
+            unlisten()
+            this.activeJobId = null
 
-        if (!response.ok || !response.body) {
-            throw new LauncherError("DOWNLOAD_FAILED", {
-                message: `Сервер ответил HTTP ${response.status} на ${task.url}`,
-                context
-            })
-        }
-
-        const headerLength = Number(response.headers.get("content-length"))
-        const total = task.size ?? (Number.isFinite(headerLength) && headerLength > 0 ? headerLength : 0)
-
-        const reader = response.body.getReader()
-        let received = 0
-        let lastFilePercent = -1
-        const chunks: Uint8Array[] = []
-
-        reportFile(0, total, false)
-
-        while (true) {
-            let done: boolean
-            let value: Uint8Array | undefined
-
-            try {
-                ({ done, value } = await reader.read())
-            } catch (e) {
-                throw toLauncherError(e, "DOWNLOAD_FAILED", context)
-            }
-
-            if (done || !value) break
-
-            received += value.length
-            chunks.push(value)
-
-            onChunk?.(received, total)
-
-            const percent = total ? Math.min(1, received / total) : 0
-            if (percent - lastFilePercent >= FILE_PROGRESS_EPS) {
-                lastFilePercent = percent
-                reportFile(received, total, false)
+            if (onFileProgress) {
+                for (const [, file] of known) onFileProgress({...file, done: true})
+                known.clear()
             }
         }
-
-        const buffer = new Uint8Array(received)
-        let offset = 0
-        for (const chunk of chunks) {
-            buffer.set(chunk, offset)
-            offset += chunk.length
-        }
-
-        if (task.verificationType === "sha1" && task.hash) {
-            const actual = await sha1(buffer)
-            if (actual !== task.hash) {
-                throw new LauncherError("HASH_MISMATCH", {
-                    message: `Контрольная сумма не совпала: ${task.url}`,
-                    details: `Ожидалось: ${task.hash}\nПолучено:  ${actual}`,
-                    context
-                })
-            }
-        }
-
-        try {
-            await writeFile(task.destination, buffer)
-        } catch (e) {
-            throw toLauncherError(e, "FS_ERROR", context)
-        }
-
-        reportFile(received, total || received, true)
-
-        return received
     }
 }

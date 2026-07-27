@@ -31,6 +31,8 @@ onMounted(async () => {
   await safeRun(() => instanceStore.initInstances(), {code: "FS_ERROR"})
   currentStep.value += 1
 
+  instanceStore.resumeInstalls()
+
   loading.value = false
   navigateTo("/main")
 })

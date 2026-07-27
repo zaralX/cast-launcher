@@ -10,6 +10,7 @@ export interface Instance {
     version: number
     loaderVersion?: string
     customId?: string // custom pack id, for example: modrinth slug
+    pendingInstall?: boolean
 }
 
 export interface LivingInstance extends Instance {
@@ -77,6 +78,8 @@ export interface InstallProgressView {
     progress: number // 0..1
     files: DownloadFileProgress[]
     startedAt: number
+    aborting: boolean
+    resumed: boolean
 }
 
 export interface MojangObject {

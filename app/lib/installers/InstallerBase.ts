@@ -79,6 +79,7 @@ export abstract class InstallerBase {
 
     abort() {
         this.aborted = true
+        this.downloader.abort()
     }
 
     onProgress(cb: (p: InstallerProgress) => void) {
@@ -101,6 +102,11 @@ export abstract class InstallerBase {
         const index = this.phases.findIndex(p => p.key === key)
         if (index >= 0) this.phaseIndex = index
         this.phaseMessage = message
+
+        // Ключ джобы детерминирован: после перезагрузки страницы пайплайн дойдёт
+        // до этого же этапа и подключится к уже идущей загрузке вместо новой.
+        this.downloader.setJob(`${this.instance.id}:${key}`)
+
         this.emitOverall(0)
     }
 

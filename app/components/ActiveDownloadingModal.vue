@@ -63,7 +63,7 @@ watch(installs, (value) => {
               <h3 class="truncate font-unbounded text-[14px] font-semibold tracking-[-0.035em] text-fg">
                 {{ install.instanceName }}
               </h3>
-              <p class="mt-1.5 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
+              <p class="mt-1.5 flex items-center gap-2 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
                 {{ install.phase }}
               </p>
             </div>
@@ -102,11 +102,16 @@ watch(installs, (value) => {
 
           <button
               type="button"
-              class="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-faint transition-colors duration-300 hover:text-red-400"
+              :disabled="install.aborting"
+              class="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-faint transition-colors duration-300 hover:text-red-400 disabled:pointer-events-none disabled:opacity-40"
               @click="instanceStore.abortInstall(install.instanceId)"
           >
-            <UIcon name="i-lucide-circle-stop" class="size-3"/>
-            Прервать
+            <UIcon
+                :name="install.aborting ? 'i-lucide-loader-circle' : 'i-lucide-circle-stop'"
+                class="size-3"
+                :class="install.aborting ? 'animate-spin' : ''"
+            />
+            {{ install.aborting ? 'Останавливаем' : 'Прервать' }}
           </button>
         </section>
       </div>

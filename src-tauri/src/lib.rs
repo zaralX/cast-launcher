@@ -149,6 +149,7 @@ fn launch_minecraft(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(commands::download::DownloadRegistry::new())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -163,6 +164,10 @@ pub fn run() {
             commands::microsoft::exchange_microsoft_code,
             commands::microsoft::minecraft_services_request,
             commands::microsoft::refresh_microsoft,
+            commands::download::start_download,
+            commands::download::await_download,
+            commands::download::cancel_download,
+            commands::download::list_downloads,
             commands::extract::extract_jar,
             commands::extract::extract_everything_jar,
             commands::forge::install_forge,

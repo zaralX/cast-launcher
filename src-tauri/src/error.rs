@@ -54,6 +54,30 @@ impl CommandError {
         Self::new("NETWORK", message)
     }
 
+    pub fn download(message: impl Into<String>) -> Self {
+        Self::new("DOWNLOAD_FAILED", message)
+    }
+
+    pub fn hash_mismatch(message: impl Into<String>) -> Self {
+        Self::new("HASH_MISMATCH", message)
+    }
+
+    pub fn aborted(message: impl Into<String>) -> Self {
+        Self::new("INSTALL_ABORTED", message)
+    }
+
+    pub fn from_code(code: &str, message: impl Into<String>) -> Self {
+        let code = match code {
+            "NETWORK" => "NETWORK",
+            "DOWNLOAD_FAILED" => "DOWNLOAD_FAILED",
+            "HASH_MISMATCH" => "HASH_MISMATCH",
+            "FS_ERROR" => "FS_ERROR",
+            "INSTALL_ABORTED" => "INSTALL_ABORTED",
+            _ => "UNKNOWN",
+        };
+        Self::new(code, message)
+    }
+
     pub fn spawn(program: &str, error: std::io::Error) -> Self {
         if error.kind() == std::io::ErrorKind::NotFound {
             Self::java_not_found(format!("Исполняемый файл не найден: {program}"))
