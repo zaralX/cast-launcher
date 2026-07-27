@@ -16,7 +16,7 @@ export class VanillaClient extends ClientBase {
     public override async prepare(): Promise<void> {
         await super.prepare();
         const versionPackageFile = await path.join(this.launcherDir, "cache", "versions", `${this.instance.minecraftVersion}-vanilla`, 'package.json')
-        this.versionPackage = JSON.parse(await readTextFile(versionPackageFile))
+        this.versionPackage = await this.readInstalledJson(versionPackageFile, `манифест Minecraft ${this.instance.minecraftVersion}`)
     }
 
     protected override async generateArgs(placeholders: Record<string, any> = {}): Promise<string[]> {

@@ -6,19 +6,29 @@ const accountStore = useAccountStore();
 const { accountConfig } = storeToRefs(accountStore)
 
 const offlineNickname = ref("")
+const loggingIn = ref(false)
 
-const createOfflineAccount = () => {
+const createOfflineAccount = async () => {
+  const name = offlineNickname.value.trim()
+  if (!name) return
+
   accountConfig.value!.accounts.push({
     type: 'offline',
-    name: offlineNickname.value
+    name
   })
   accountConfig.value!.selected = accountConfig.value!.accounts.length - 1
-  accountStore.updateConfig(accountConfig.value!)
+
+  await safeRun(() => accountStore.updateConfig(accountConfig.value!))
+  offlineNickname.value = ""
 }
 
 const createMicrosoftAccount = async () => {
-  await accountStore.microsoftLogin()
+  loggingIn.value = true
+  await safeRun(() => accountStore.microsoftLogin(), {code: "AUTH_FAILED"})
+  loggingIn.value = false
 }
+
+const selectAccount = (index: number) => safeRun(() => accountStore.selectAccount(index))
 </script>
 
 <template>
@@ -32,7 +42,7 @@ const createMicrosoftAccount = async () => {
       bg-zinc-800/50 rounded-lg p-2 flex items-center gap-2
       border-2 hover:bg-zinc-800 transition-all cursor-pointer"
            :class="accountConfig?.selected == i ? 'border-sky-500' : 'border-transparent'"
-           @click="accountStore.selectAccount(i)">
+           @click="selectAccount(i)">
         <div>
           <NuxtImg :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${account.name}/full`" class="w-8 h-8" />
         </div>
@@ -43,7 +53,7 @@ const createMicrosoftAccount = async () => {
         <Icon v-else name="mdi:globe-x" size="24" />
       </div>
       <div class="grid grid-cols-2 gap-4">
-        <UButton icon="i-lucide-plus" @click="createMicrosoftAccount">Microsoft аккаунт</UButton>
+        <UButton icon="i-lucide-plus" :loading="loggingIn" @click="createMicrosoftAccount">Microsoft аккаунт</UButton>
         <UPopover mode="hover">
           <UButton icon="i-lucide-plus">Оффлайн аккаунт</UButton>
 

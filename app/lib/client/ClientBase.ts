@@ -9,7 +9,7 @@ import type {
 } from "~/types/instance"
 import { ParallelDownloader } from "../ParallelDownloader"
 import { path } from "@tauri-apps/api"
-import {exists, mkdir, writeTextFile} from "@tauri-apps/plugin-fs";
+import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import {$fetch} from "ofetch";
 import {dirname} from "@tauri-apps/api/path";
 import {arch, platform} from "@tauri-apps/plugin-os";
@@ -17,6 +17,9 @@ import type {Account} from "~/types/account";
 import {invoke} from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {v4} from "uuid";
+import {type ErrorContext, LauncherError, toLauncherError} from "~/types/error";
+
+const LOG_TAIL = 60;
 
 export abstract class ClientBase {
     public instance: LivingInstance
@@ -34,11 +37,27 @@ export abstract class ClientBase {
     private unlistenExit?: () => void
 
     private listeners = new Set<(e: MinecraftEvent) => void>()
+    private recentLogs: string[] = []
 
     constructor(launcherDir: string, instance: LivingInstance) {
         this.instance = instance
         this.launcherDir = launcherDir
         this.id = v4()
+    }
+
+    public errorContext(extra: ErrorContext = {}): ErrorContext {
+        return {
+            instanceId: this.instance.id,
+            instanceName: this.instance.name,
+            minecraftVersion: this.instance.minecraftVersion,
+            loader: this.instance.type,
+            loaderVersion: this.instance.loaderVersion,
+            ...extra
+        }
+    }
+
+    public getLogTail(): string {
+        return this.recentLogs.join("\n")
     }
 
     onEvent(cb: (e: MinecraftEvent) => void) {
@@ -55,7 +74,25 @@ export abstract class ClientBase {
         this.assetsDir = await path.join(this.launcherDir, "assets")
         this.minecraftDir = await path.join(this.instance.dir, "minecraft")
         this.nativesDir = await path.join(this.minecraftDir, "natives")
-        if (!(await exists(this.nativesDir))) await mkdir(this.nativesDir)
+
+        try {
+            if (!(await exists(this.nativesDir))) await mkdir(this.nativesDir, { recursive: true })
+        } catch (e) {
+            throw toLauncherError(e, "FS_ERROR", this.errorContext({ path: this.nativesDir }))
+        }
+    }
+
+    protected async readInstalledJson<T = any>(file: string, what: string): Promise<T> {
+        try {
+            return JSON.parse(await readTextFile(file)) as T
+        } catch (e) {
+            throw new LauncherError("FS_ERROR", {
+                message: `Не найден или повреждён ${what}. Переустановите сборку.`,
+                details: `${file}\n${e instanceof Error ? e.message : String(e)}`,
+                context: this.errorContext({ path: file }),
+                cause: e
+            })
+        }
     }
 
     protected async getFullArgs(account: Account): Promise<string[]> {
@@ -111,17 +148,26 @@ export abstract class ClientBase {
 
     public async run(javaPath: string, account: Account) {
         await this.injectListeners()
-        const args = await this.getFullArgs(account)
-        console.log("Starting minecraft", this.instance, account, args)
-        await invoke("launch_minecraft", {
-            javaPath: javaPath,
-            clientId: this.id,
-            args: args
-        });
+
+        try {
+            const args = await this.getFullArgs(account)
+            console.log("Starting minecraft", this.instance, account, args)
+            await invoke("launch_minecraft", {
+                javaPath: javaPath,
+                clientId: this.id,
+                args: args
+            });
+        } catch (e) {
+            this.destroyListeners()
+            throw toLauncherError(e, "LAUNCH_FAILED", this.errorContext({ javaPath }))
+        }
     }
 
     // isError - stderr / stdout detection
     protected onLog(line: string, isError: boolean) {
+        this.recentLogs.push(line)
+        if (this.recentLogs.length > LOG_TAIL) this.recentLogs.shift()
+
         this.emit({
             type: 'log',
             line,
@@ -140,9 +186,18 @@ export abstract class ClientBase {
     protected onExit(code: number | null) {
         this.emit({
             type: 'exit',
+            code
         })
         console.log(this.id, "Minecraft exited with code", code)
         this.destroyListeners()
+    }
+
+    public crashError(code: number | null): LauncherError {
+        return new LauncherError("LAUNCH_FAILED", {
+            message: `Minecraft завершился с кодом ${code ?? "неизвестно"}`,
+            details: this.getLogTail(),
+            context: this.errorContext({ exitCode: code })
+        })
     }
 
     protected async injectListeners() {

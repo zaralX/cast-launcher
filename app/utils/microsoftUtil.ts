@@ -1,6 +1,32 @@
 import type {MicrosoftTokens, MinecraftAccount, MinecraftProfile, XboxLiveResponse} from "~/types/account";
 import {invoke} from "@tauri-apps/api/core";
 import {$fetch} from "ofetch";
+import {LauncherError} from "~/types/error";
+
+const XERR_HINTS: Record<string, string> = {
+    "2148916233": "К аккаунту Microsoft не привязан профиль Xbox. Создайте его на xbox.com и повторите вход.",
+    "2148916235": "Xbox Live недоступен в стране этого аккаунта.",
+    "2148916236": "Аккаунт требует подтверждения возраста.",
+    "2148916237": "Аккаунт требует подтверждения возраста.",
+    "2148916238": "Детский аккаунт должен быть добавлен в семейную группу Microsoft."
+}
+
+async function xboxRequest<T>(url: string, body: Record<string, any>): Promise<T> {
+    try {
+        return await $fetch<T>(url, {method: "POST", body})
+    } catch (e) {
+        const data = (e as { data?: { XErr?: number | string } })?.data
+        const xErr = data?.XErr !== undefined ? String(data.XErr) : undefined
+
+        throw new LauncherError("AUTH_FAILED", {
+            message: (xErr && XERR_HINTS[xErr])
+                ?? (xErr ? `Xbox Live отклонил вход (XErr ${xErr})` : "Xbox Live отклонил вход"),
+            details: data ? JSON.stringify(data, null, 2) : (e instanceof Error ? e.message : String(e)),
+            context: {url},
+            cause: e
+        })
+    }
+}
 
 export async function exchangeMicrosoftCode(
     code: string,
@@ -17,33 +43,27 @@ export async function exchangeMicrosoftCode(
 export async function xboxLiveAuthenticate(
     microsoftAccessToken: string,
 ): Promise<XboxLiveResponse> {
-    return await $fetch("https://user.auth.xboxlive.com/user/authenticate", {
-        method: "POST",
-        body: {
-            "Properties": {
-                "AuthMethod": "RPS",
-                "SiteName": "user.auth.xboxlive.com",
-                "RpsTicket": "d=" + microsoftAccessToken
-            },
-            "RelyingParty": "http://auth.xboxlive.com",
-            "TokenType": "JWT"
-        }
+    return await xboxRequest("https://user.auth.xboxlive.com/user/authenticate", {
+        "Properties": {
+            "AuthMethod": "RPS",
+            "SiteName": "user.auth.xboxlive.com",
+            "RpsTicket": "d=" + microsoftAccessToken
+        },
+        "RelyingParty": "http://auth.xboxlive.com",
+        "TokenType": "JWT"
     })
 }
 
 export async function xstsAuthorize(
     xboxLiveToken: string,
 ): Promise<XboxLiveResponse> {
-    return await $fetch("https://xsts.auth.xboxlive.com/xsts/authorize", {
-        method: "POST",
-        body: {
-            "Properties": {
-                "SandboxId": "RETAIL",
-                "UserTokens": [ xboxLiveToken ]
-            },
-            "RelyingParty": "rp://api.minecraftservices.com/",
-            "TokenType": "JWT"
-        }
+    return await xboxRequest("https://xsts.auth.xboxlive.com/xsts/authorize", {
+        "Properties": {
+            "SandboxId": "RETAIL",
+            "UserTokens": [ xboxLiveToken ]
+        },
+        "RelyingParty": "rp://api.minecraftservices.com/",
+        "TokenType": "JWT"
     })
 }
 

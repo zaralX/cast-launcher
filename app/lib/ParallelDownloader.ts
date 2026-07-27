@@ -3,6 +3,7 @@ import { exists, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs"
 import { sha1 } from "hash-wasm"
 import type { DownloadTask } from "~/types/instance"
 import { fetch } from '@tauri-apps/plugin-http';
+import { LauncherError, toLauncherError } from "~/types/error"
 
 type FileProgress = {
     url: string
@@ -60,21 +61,40 @@ export class ParallelDownloader {
         onChunk?: (chunkSize: number, total: number) => void,
         onFileProgress?: (p: FileProgress) => void
     ) {
+        const context = { url: task.url, path: task.destination }
+
         // Проверка sha1
         if (task.verificationType === "sha1" && task.hash) {
-            if (await exists(task.destination)) {
-                const data = await readFile(task.destination)
-                if (await sha1(data) === task.hash) return 0
+            try {
+                if (await exists(task.destination)) {
+                    const data = await readFile(task.destination)
+                    if (await sha1(data) === task.hash) return 0
+                }
+            } catch (e) {
+                console.warn("Failed to verify cached file, redownloading", task.destination, e)
             }
         }
 
-        await mkdir(await dirname(task.destination), { recursive: true })
+        try {
+            await mkdir(await dirname(task.destination), { recursive: true })
+        } catch (e) {
+            throw toLauncherError(e, "FS_ERROR", context)
+        }
 
-        const response = await fetch(task.url, {
-            method: "GET",
-        })
+        let response: Response
+        try {
+            response = await fetch(task.url, {
+                method: "GET",
+            })
+        } catch (e) {
+            throw toLauncherError(e, "NETWORK", context)
+        }
+
         if (!response.ok || !response.body) {
-            throw new Error(`DOWNLOAD_FAILED: ${task.url}`)
+            throw new LauncherError("DOWNLOAD_FAILED", {
+                message: `Сервер ответил HTTP ${response.status} на ${task.url}`,
+                context
+            })
         }
 
         const total =
@@ -87,8 +107,16 @@ export class ParallelDownloader {
         const chunks: Uint8Array[] = []
 
         while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
+            let done: boolean
+            let value: Uint8Array | undefined
+
+            try {
+                ({ done, value } = await reader.read())
+            } catch (e) {
+                throw toLauncherError(e, "DOWNLOAD_FAILED", context)
+            }
+
+            if (done || !value) break
 
             received += value.length
             chunks.push(value)
@@ -114,12 +142,21 @@ export class ParallelDownloader {
         }
 
         if (task.verificationType === "sha1" && task.hash) {
-            if (await sha1(buffer) !== task.hash) {
-                throw new Error(`HASH_MISMATCH: ${task.url}`)
+            const actual = await sha1(buffer)
+            if (actual !== task.hash) {
+                throw new LauncherError("HASH_MISMATCH", {
+                    message: `Контрольная сумма не совпала: ${task.url}`,
+                    details: `Ожидалось: ${task.hash}\nПолучено:  ${actual}`,
+                    context
+                })
             }
         }
 
-        await writeFile(task.destination, buffer)
+        try {
+            await writeFile(task.destination, buffer)
+        } catch (e) {
+            throw toLauncherError(e, "FS_ERROR", context)
+        }
 
         return received
     }

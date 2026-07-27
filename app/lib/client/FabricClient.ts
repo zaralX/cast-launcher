@@ -19,7 +19,7 @@ export class FabricClient extends VanillaClient {
     override async prepare(): Promise<void> {
         await super.prepare()
         const loaderVersionPackageFile = await path.join(this.launcherDir, "cache", "fabric_loaders", `${this.instance.loaderVersion}`, 'package.json')
-        this.loaderPackage = JSON.parse(await readTextFile(loaderVersionPackageFile));
+        this.loaderPackage = await this.readInstalledJson(loaderVersionPackageFile, `манифест Fabric ${this.instance.loaderVersion}`)
     }
 
     protected override async generateArgs(placeholders: Record<string, any> = {}): Promise<string[]> {

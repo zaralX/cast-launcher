@@ -1,3 +1,5 @@
+import type {LauncherError} from "~/types/error";
+
 export interface Instance {
     id: string
     name: string
@@ -32,12 +34,20 @@ export type InstallerStage =
     | "finalize"
     | "finished"
     | "aborted"
+    | "failed"
+
+export const TERMINAL_STAGES: InstallerStage[] = ["finished", "aborted", "failed"]
+
+export function isTerminalStage(stage: InstallerStage): boolean {
+    return TERMINAL_STAGES.includes(stage)
+}
 
 export interface InstallerProgress {
     stage: InstallerStage
     type?: 'global' | 'single'
     message?: string
     progress?: number // 0..1
+    error?: LauncherError
 }
 
 export interface MojangObject {
@@ -82,4 +92,5 @@ export interface MinecraftEvent {
     type: 'log' | 'status' | 'exit'
     status?: MinecraftStatus
     line?: string
+    code?: number | null
 }

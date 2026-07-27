@@ -10,6 +10,8 @@ const appStore = useAppStore()
 const instanceStore = useInstanceStore()
 const {installInstance, runInstance} = instanceStore
 const {runningClients, instances} = storeToRefs(instanceStore)
+
+const createModalOpen = ref(false)
 </script>
 
 <template>
@@ -42,11 +44,11 @@ const {runningClients, instances} = storeToRefs(instanceStore)
         <UButton v-if="!instance.installed" icon="i-lucide-download" @click="installInstance(instance.id)" variant="subtle" :loading="instance.installing">Загрузить</UButton>
         <UButton v-else icon="i-lucide-play" @click="runInstance(instance.id)" :loading="!!runningClients.find(c => c.instance.id == instance.id)">Играть</UButton>
       </UPageCard>
-      <UModal title="Создание сборки">
+      <UModal v-model:open="createModalOpen" title="Создание сборки">
         <UButton label="Создать" color="neutral" variant="subtle" />
 
         <template #body>
-          <CreateInstanceModalBody />
+          <CreateInstanceModalBody @created="createModalOpen = false" />
         </template>
       </UModal>
     </div>

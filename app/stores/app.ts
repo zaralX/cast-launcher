@@ -7,6 +7,8 @@ import {check} from "@tauri-apps/plugin-updater";
 import {relaunch} from '@tauri-apps/plugin-process';
 import type {MyPacksConfig} from "~/types/pack";
 import {fetch} from "@tauri-apps/plugin-http";
+import {LauncherError, toLauncherError} from "~/types/error";
+import {captureError} from "~/composables/useErrorHandler";
 
 export const useAppStore = defineStore('app', {
     state: () => ({
@@ -52,9 +54,14 @@ export const useAppStore = defineStore('app', {
                 return this.config
             }
 
-            const raw = JSON.parse(await readTextFile(configPath))
+            let raw: any = null
+            try {
+                raw = JSON.parse(await readTextFile(configPath))
+            } catch (e) {
+                captureError(e, {code: "CONFIG_ERROR", context: {path: configPath}})
+            }
 
-            const migrated = this.migrateConfig(raw)
+            const migrated = this.migrateConfig(raw ?? {})
             const merged = this.mergeConfig(defaults, migrated)
 
             this.config = merged
@@ -67,10 +74,16 @@ export const useAppStore = defineStore('app', {
 
         async updateConfig(config: AppConfig) {
             const configPath = await this.getConfigPath()
-            if (!(await exists(configPath))) {
-                await mkdir(await dirname(configPath), {recursive: true})
+
+            try {
+                if (!(await exists(configPath))) {
+                    await mkdir(await dirname(configPath), {recursive: true})
+                }
+                await writeTextFile(configPath, JSON.stringify(config))
+            } catch (e) {
+                throw toLauncherError(e, "FS_ERROR", {path: configPath})
             }
-            await writeTextFile(configPath, JSON.stringify(config))
+
             this.config = config
         },
 
@@ -110,7 +123,13 @@ export const useAppStore = defineStore('app', {
 
 
         async updateApp() {
-            const update = await check();
+            let update
+            try {
+                update = await check();
+            } catch (e) {
+                throw toLauncherError(e, "UPDATE_FAILED", {})
+            }
+
             if (update) {
                 console.log(
                     `found update ${update.version} from ${update.date} with notes ${update.body}`
@@ -139,7 +158,28 @@ export const useAppStore = defineStore('app', {
             }
         },
         async loadMyPacks() {
-            this.myPacksConfig = await (await fetch("https://s3.zaralx.ru/launcher/my_packs.json")).json() as MyPacksConfig
+            const url = "https://s3.zaralx.ru/launcher/my_packs.json"
+
+            let response: Response
+            try {
+                response = await fetch(url)
+            } catch (e) {
+                throw toLauncherError(e, "NETWORK", {url})
+            }
+
+            if (!response.ok) {
+                throw new LauncherError("NETWORK", {
+                    message: `Список сборок недоступен (HTTP ${response.status})`,
+                    context: {url}
+                })
+            }
+
+            try {
+                this.myPacksConfig = await response.json() as MyPacksConfig
+            } catch (e) {
+                throw toLauncherError(e, "MANIFEST_INVALID", {url})
+            }
+
             console.log("Loaded myPacksConfig ", this.myPacksConfig)
         },
     }

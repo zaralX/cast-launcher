@@ -1,5 +1,37 @@
 <script setup lang="ts">
+import {registerErrorSink} from "~/stores/error";
+import type {ErrorSeverity} from "~/types/error";
+
 const toaster = { position: 'bottom-right' }
+
+const TOAST_COLOR: Record<ErrorSeverity, "error" | "warning" | "info"> = {
+  error: "error",
+  warning: "warning",
+  info: "info"
+}
+
+const toast = useToast()
+const errorCenterOpen = useErrorCenterOpen()
+
+const unregister = registerErrorSink((entry) => {
+  toast.add({
+    title: entry.title,
+    description: entry.hint ?? entry.message,
+    icon: entry.icon,
+    color: TOAST_COLOR[entry.severity],
+    duration: entry.severity === "info" ? 4000 : 8000,
+    actions: [{
+      label: "Подробнее",
+      color: "neutral",
+      variant: "outline",
+      onClick: () => {
+        errorCenterOpen.value = true
+      }
+    }]
+  })
+})
+
+onUnmounted(unregister)
 </script>
 
 <template>

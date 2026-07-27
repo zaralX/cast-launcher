@@ -21,6 +21,8 @@ import {
     xboxLiveAuthenticate,
     xstsAuthorize
 } from "~/utils/microsoftUtil";
+import {LauncherError, toLauncherError} from "~/types/error";
+import {captureError} from "~/composables/useErrorHandler";
 
 export const useAccountStore = defineStore('account', {
     state: () => ({
@@ -40,14 +42,18 @@ export const useAccountStore = defineStore('account', {
 
         async loadConfig() {
             const configPath = await this.getConfigPath()
+
             if (!(await exists(configPath))) {
-                await mkdir(await dirname(configPath), {recursive: true})
-                this.accountConfig = {
-                    accounts: []
-                }
-                await writeTextFile(configPath, JSON.stringify(this.accountConfig))
-            } else {
+                this.accountConfig = { accounts: [] }
+                await this.updateConfig(this.accountConfig)
+                return this.accountConfig
+            }
+
+            try {
                 this.accountConfig = JSON.parse(await readTextFile(configPath))
+            } catch (e) {
+                captureError(e, {code: "CONFIG_ERROR", context: {path: configPath}})
+                this.accountConfig = { accounts: [] }
             }
 
             console.log("Loaded account config ", this.accountConfig)
@@ -57,10 +63,16 @@ export const useAccountStore = defineStore('account', {
 
         async updateConfig(config: AccountConfig) {
             const configPath = await this.getConfigPath()
-            if (!(await exists(configPath))) {
-                await mkdir(await dirname(configPath), {recursive: true})
+
+            try {
+                if (!(await exists(configPath))) {
+                    await mkdir(await dirname(configPath), {recursive: true})
+                }
+                await writeTextFile(configPath, JSON.stringify(config))
+            } catch (e) {
+                throw toLauncherError(e, "FS_ERROR", {path: configPath})
             }
-            await writeTextFile(configPath, JSON.stringify(config))
+
             this.accountConfig = config
         },
 
@@ -69,31 +81,55 @@ export const useAccountStore = defineStore('account', {
             await this.updateConfig(this.accountConfig!)
         },
 
+        async completeMicrosoftLogin(microsoftTokens: MicrosoftTokens) {
+            const xboxLive: XboxLiveResponse = await xboxLiveAuthenticate(microsoftTokens.access_token)
+
+            const uhs = xboxLive?.DisplayClaims?.xui?.[0]?.uhs
+            if (!uhs || !xboxLive?.Token) {
+                throw new LauncherError("AUTH_FAILED", {
+                    message: "Xbox Live вернул ответ без токена",
+                    details: JSON.stringify(xboxLive, null, 2)
+                })
+            }
+
+            const xstsAuth: XboxLiveResponse = await xstsAuthorize(xboxLive.Token)
+            const minecraftAccount: MinecraftAccount = await minecraftXboxLogin(uhs, xstsAuth.Token)
+            const minecraftProfile: MinecraftProfile = await getMinecraftProfile(minecraftAccount.access_token)
+
+            if (!minecraftProfile?.id) {
+                throw new LauncherError("AUTH_FAILED", {
+                    message: "Minecraft не вернул профиль для этого аккаунта",
+                    details: JSON.stringify(minecraftProfile, null, 2)
+                })
+            }
+
+            return {uhs, minecraftAccount, minecraftProfile}
+        },
+
         async microsoftLogin() {
             const { codeVerifier, codeChallenge } = await PKCE.createPKCEPair();
 
-            const unlisten = await listen<string>('microsoft-oauth-code', async (event) => {
-                const code = event.payload
-                console.log('OAuth code:', code)
+            let unlistenCode: (() => void) | undefined
+            let unlistenError: (() => void) | undefined
+            let timeout: ReturnType<typeof setTimeout> | undefined
+
+            const stop = () => {
+                unlistenCode?.()
+                unlistenError?.()
+                if (timeout) clearTimeout(timeout)
+                unlistenCode = unlistenError = undefined
+                timeout = undefined
+            }
+
+            unlistenCode = await listen<string>('microsoft-oauth-code', async (event) => {
                 try {
                     const microsoftTokens: MicrosoftTokens = await exchangeMicrosoftCode(
-                        code,
+                        event.payload,
                         codeVerifier,
                         this.microsoftClientId
                     )
 
-                    if (microsoftTokens?.error) {
-                        console.error("Failed to fetch microsoft tokens ", microsoftTokens.error)
-                        return
-                    }
-
-                    const xboxLive: XboxLiveResponse = await xboxLiveAuthenticate(microsoftTokens.access_token)
-
-                    const xstsAuth: XboxLiveResponse = await xstsAuthorize(xboxLive.Token)
-
-                    const minecraftAccount: MinecraftAccount = await minecraftXboxLogin(xboxLive.DisplayClaims.xui[0]!.uhs, xstsAuth.Token)
-
-                    const minecraftProfile: MinecraftProfile = await getMinecraftProfile(minecraftAccount.access_token)
+                    const {uhs, minecraftAccount, minecraftProfile} = await this.completeMicrosoftLogin(microsoftTokens)
 
                     const savedAccount: Account = {
                         type: "microsoft",
@@ -101,24 +137,34 @@ export const useAccountStore = defineStore('account', {
                         uuid: minecraftProfile.id,
                         accessToken: minecraftAccount.access_token,
                         expiresAt: Math.floor(Date.now() / 1000) + minecraftAccount.expires_in,
-                        xblHash: xboxLive.DisplayClaims.xui[0]!.uhs,
+                        xblHash: uhs,
                         refreshToken: microsoftTokens.refresh_token,
                         skins: minecraftProfile.skins,
                         capes: minecraftProfile.capes,
                     }
 
-                    console.log("savedAccount", savedAccount)
-
                     this.accountConfig!.accounts.push(savedAccount)
                     await this.updateConfig(this.accountConfig!)
                 } catch (e) {
-                    console.error(e)
+                    captureError(e, {code: "AUTH_FAILED"})
+                } finally {
+                    stop()
                 }
-
-                unlisten()
             })
 
-            await invoke('auth_microsoft')
+            unlistenError = await listen<string>('microsoft-oauth-error', (event) => {
+                captureError(new LauncherError("AUTH_FAILED", {message: event.payload}))
+                stop()
+            })
+
+            timeout = setTimeout(stop, 5 * 60 * 1000)
+
+            try {
+                await invoke('auth_microsoft')
+            } catch (e) {
+                stop()
+                throw toLauncherError(e, "AUTH_FAILED", {})
+            }
 
             const url =
                 'https://login.live.com/oauth20_authorize.srf' +
@@ -129,36 +175,44 @@ export const useAccountStore = defineStore('account', {
                 '&code_challenge=' + codeChallenge +
                 '&code_challenge_method=S256'
 
-            await open(url)
+            try {
+                await open(url)
+            } catch (e) {
+                stop()
+                throw new LauncherError("AUTH_FAILED", {
+                    message: "Не удалось открыть браузер для входа",
+                    cause: e
+                })
+            }
         },
 
         async refreshMicrosoftAccount(uuid: string) {
             const account = this.accountConfig!.accounts.find(a => a.uuid == uuid)
 
             if (!account) {
-                throw new Error("Account not found")
+                throw new LauncherError("NO_ACCOUNT", {
+                    message: "Аккаунт не найден в конфигурации",
+                    context: {uuid}
+                })
             }
 
-            const microsoftTokens: MicrosoftTokens = await refreshMicrosoftToken(account.refreshToken!, this.microsoftClientId)
-
-            if (microsoftTokens?.error) {
-                console.error("Failed to fetch microsoft tokens ", microsoftTokens.error)
-                return
+            if (!account.refreshToken) {
+                throw new LauncherError("AUTH_EXPIRED", {
+                    message: `Для аккаунта ${account.name} нет refresh-токена. Войдите заново.`,
+                    context: {uuid}
+                })
             }
 
-            const xboxLive: XboxLiveResponse = await xboxLiveAuthenticate(microsoftTokens.access_token)
+            const microsoftTokens: MicrosoftTokens = await refreshMicrosoftToken(account.refreshToken, this.microsoftClientId)
 
-            const xstsAuth: XboxLiveResponse = await xstsAuthorize(xboxLive.Token)
-
-            const minecraftAccount: MinecraftAccount = await minecraftXboxLogin(xboxLive.DisplayClaims.xui[0]!.uhs, xstsAuth.Token)
-
-            const minecraftProfile: MinecraftProfile = await getMinecraftProfile(minecraftAccount.access_token)
+            const {uhs, minecraftAccount, minecraftProfile} = await this.completeMicrosoftLogin(microsoftTokens)
 
             account.skins = minecraftProfile.skins
             account.capes = minecraftProfile.capes
             account.accessToken = minecraftAccount.access_token
-            account.xblHash = xboxLive.DisplayClaims.xui[0]!.uhs
+            account.xblHash = uhs
             account.expiresAt = Math.floor(Date.now() / 1000) + minecraftAccount.expires_in
+            if (microsoftTokens.refresh_token) account.refreshToken = microsoftTokens.refresh_token
 
             await this.updateConfig(this.accountConfig!)
         }

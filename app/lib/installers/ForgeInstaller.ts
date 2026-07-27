@@ -5,8 +5,19 @@ import type {DownloadTask, MojangLibraryArtifact} from "~/types/instance";
 import {getMavenLibraryPath, getMavenUrl} from "~/utils/mavenUtils";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
+import {LauncherError} from "~/types/error";
 
 export class ForgeInstaller extends VanillaInstaller {
+
+    private async cleanup(targets: string[]) {
+        for (const target of targets) {
+            try {
+                if (await exists(target)) await remove(target, {recursive: true})
+            } catch (e) {
+                console.warn("Failed to cleanup", target, e)
+            }
+        }
+    }
 
     protected override async download(): Promise<void> {
         this.emit({ stage: "download", message: "Начало загрузки" })
@@ -24,7 +35,11 @@ export class ForgeInstaller extends VanillaInstaller {
         })
 
         const forgeInstallerDir = await path.join(this.cacheDir!, "forge", `${forgeLoaderVersion}`)
-        if (!(await exists(forgeInstallerDir))) await mkdir(forgeInstallerDir, { recursive: true })
+        try {
+            if (!(await exists(forgeInstallerDir))) await mkdir(forgeInstallerDir, { recursive: true })
+        } catch (e) {
+            throw this.wrap(e, { path: forgeInstallerDir })
+        }
 
         const forgeInstallerFile = await path.join(forgeInstallerDir, "installer.jar")
         if (!(await exists(forgeInstallerFile))) {
@@ -52,30 +67,36 @@ export class ForgeInstaller extends VanillaInstaller {
                 type: "global"
             })
 
-            await writeTextFile(await path.join(this.launcherDir, "launcher_profiles.json"), JSON.stringify({
+            // Forge installer defence fix
+            const launcherProfilesFile = await path.join(this.launcherDir, "launcher_profiles.json")
+            try {
+                await writeTextFile(launcherProfilesFile, JSON.stringify({
                     "profiles": {},
                     "clientToken": "00000000-0000-0000-0000-000000000000",
                     "launcherVersion": {
                         "name": "custom",
                         "format": 21
                     }
-                }
-            )) // Forge installer defence fix
+                }))
+            } catch (e) {
+                throw this.wrap(e, { path: launcherProfilesFile })
+            }
 
             const unsubscribeLog = await listen<string>("forgeinstaller-log", (l) => console.log(l.payload))
             const unsubscribeError = await listen<string>("forgeinstaller-error", (e) => console.error(e.payload))
 
-            await invoke("install_forge", {
-                javaPath: "C:/Users/admin/AppData/Roaming/PrismLauncher/java/java-runtime-delta/bin/javaw.exe",
-                installerPath: forgeInstallerFile,
-                minecraftDir: this.launcherDir
-            }).catch(() => {
+            try {
+                await invoke("install_forge", {
+                    javaPath: this.javaPath,
+                    installerPath: forgeInstallerFile,
+                    minecraftDir: this.launcherDir
+                })
+            } catch (e) {
+                throw this.wrap(e, { javaPath: this.javaPath, path: forgeInstallerFile })
+            } finally {
                 unsubscribeLog()
                 unsubscribeError()
-            })
-
-            unsubscribeLog()
-            unsubscribeError()
+            }
 
             const versionsDir = await path.join(this.launcherDir, "versions")
 
@@ -83,13 +104,25 @@ export class ForgeInstaller extends VanillaInstaller {
             const _forgeClientJar = await path.join(versionsDir, this.instance.minecraftVersion, `${this.instance.minecraftVersion}.jar`)
             const _forgeClientJson = await path.join(versionsDir, `${this.instance.minecraftVersion}-forge-${forgeLoaderVersion?.split('-')?.[1]}`, `${this.instance.minecraftVersion}-forge-${forgeLoaderVersion?.split('-')?.[1]}.json`)
 
-            await rename(_forgeClientJar, forgeInstalledFile);
-            await rename(_forgeClientJson, forgeInstalledJsonFile);
+            for (const [from, to] of [[_forgeClientJar, forgeInstalledFile], [_forgeClientJson, forgeInstalledJsonFile]] as const) {
+                if (!(await exists(from))) {
+                    throw new LauncherError("FORGE_INSTALL_FAILED", {
+                        message: "Установщик Forge не создал ожидаемые файлы",
+                        details: `Не найден: ${from}`,
+                        context: this.errorContext({ path: from })
+                    })
+                }
+                await rename(from, to).catch(e => {
+                    throw this.wrap(e, { path: from })
+                })
+            }
 
             // Cleanup
-            await remove(versionsDir, {recursive: true})
-            await remove(await path.join(this.launcherDir, "installer.jar.log"))
-            await remove(await path.join(this.launcherDir, "launcher_profiles.json"))
+            await this.cleanup([
+                versionsDir,
+                await path.join(this.launcherDir, "installer.jar.log"),
+                await path.join(this.launcherDir, "launcher_profiles.json")
+            ])
         }
     }
 }

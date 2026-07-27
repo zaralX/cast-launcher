@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import LoadingScreen from "~/components/LoadingScreen.vue";
-import {invoke} from "@tauri-apps/api/core";
 import {useAppStore} from "~/stores/app";
 import {useInstanceStore} from "~/stores/instance";
 import {check} from "@tauri-apps/plugin-updater";
@@ -14,31 +13,25 @@ const instanceStore = useInstanceStore();
 
 onMounted(async () => {
   currentStep.value = 1
-  await appStore.loadConfig()
-  await accountStore.loadConfig()
+
+  await safeRun(() => appStore.loadConfig(), {code: "CONFIG_ERROR"})
+  await safeRun(() => accountStore.loadConfig(), {code: "CONFIG_ERROR"})
   currentStep.value += 1
 
-  try {
-    if (appStore.config!.launcher.auto_update && await check({ timeout: 15000 })) {
-      await appStore.updateApp()
-    }
-  } catch (e) {
-    console.error("Failed to auto update app", e)
+  if (appStore.config?.launcher?.auto_update) {
+    await safeRun(async () => {
+      if (await check({timeout: 15000})) await appStore.updateApp()
+    }, {code: "UPDATE_FAILED"})
   }
   currentStep.value += 1
 
-  try {
-    await appStore.loadMyPacks()
-  } catch (e) {
-    console.error("Failed to load myPacks", e)
-  }
+  await safeRun(() => appStore.loadMyPacks(), {code: "NETWORK"})
   currentStep.value += 1
 
-  await instanceStore.initInstances()
+  await safeRun(() => instanceStore.initInstances(), {code: "FS_ERROR"})
   currentStep.value += 1
 
   loading.value = false
-  invoke("greet", {name: "Cast Launcher"}).then((res) => console.log(res));
   navigateTo("/main")
 })
 </script>

@@ -18,7 +18,7 @@ export class ForgeClient extends VanillaClient {
     override async prepare(): Promise<void> {
         await super.prepare()
         const loaderVersionPackageFile = await path.join(this.launcherDir, "cache", "forge", `${this.instance.loaderVersion}`, 'client.json')
-        this.loaderPackage = JSON.parse(await readTextFile(loaderVersionPackageFile));
+        this.loaderPackage = await this.readInstalledJson(loaderVersionPackageFile, `манифест Forge ${this.instance.loaderVersion}`)
     }
 
     protected override async generateArgs(placeholders: Record<string, any> = {}): Promise<string[]> {

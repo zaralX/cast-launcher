@@ -6,10 +6,10 @@ import type {
     MojangObject
 } from "~/types/instance"
 import {InstallerBase} from "./InstallerBase"
-import {$fetch} from "ofetch";
 import {path} from "@tauri-apps/api";
 import {arch, platform} from "@tauri-apps/plugin-os";
-import {exists, mkdir, readFile, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
+import {exists, mkdir, readFile, writeTextFile} from "@tauri-apps/plugin-fs";
+import {LauncherError} from "~/types/error";
 
 export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
@@ -20,21 +20,31 @@ export class VanillaInstaller extends InstallerBase {
         await super.prepare()
         this.emit({ stage: "prepare", message: "Подготовка Vanilla" })
 
-        let versionPackage = null
-
         // Cached version package
         const versionPackageDir = await path.join(this.cacheDir!, "versions", `${this.instance.minecraftVersion}-vanilla`)
-        if (!(await exists(versionPackageDir))) await mkdir(versionPackageDir, { recursive: true })
         const versionPackageFile = await path.join(versionPackageDir, "package.json")
-        if (await exists(versionPackageFile)) {
-            versionPackage = JSON.parse(await readTextFile(versionPackageFile))
-        }
+
+        let versionPackage = await this.readCachedJson(versionPackageFile)
 
         if (!versionPackage) {
-            const versionsManifest = await $fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
-            const versionObject = versionsManifest.versions.find((v: any) => v.id == this.instance.minecraftVersion)
-            const versionPackage = await $fetch(versionObject.url)
-            await writeTextFile(versionPackageFile, JSON.stringify(versionPackage))
+            const versionsManifest = await this.fetchJson("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
+            const versionObject = versionsManifest?.versions?.find((v: any) => v.id == this.instance.minecraftVersion)
+
+            if (!versionObject?.url) {
+                throw new LauncherError("VERSION_NOT_FOUND", {
+                    message: `Версия ${this.instance.minecraftVersion} отсутствует в манифесте Mojang`,
+                    context: this.errorContext()
+                })
+            }
+
+            versionPackage = await this.fetchJson(versionObject.url)
+
+            try {
+                if (!(await exists(versionPackageDir))) await mkdir(versionPackageDir, { recursive: true })
+                await writeTextFile(versionPackageFile, JSON.stringify(versionPackage))
+            } catch (e) {
+                throw this.wrap(e, { path: versionPackageFile })
+            }
         }
 
         this.versionPackage = versionPackage
@@ -50,7 +60,14 @@ export class VanillaInstaller extends InstallerBase {
 
     protected async downloadClientJar() {
         this.emit({ stage: "download", message: "Проверка client.jar" })
-        const clientObject: MojangObject = this.versionPackage?.downloads?.client
+        const clientObject: MojangObject | undefined = this.versionPackage?.downloads?.client
+
+        if (!clientObject?.url) {
+            throw new LauncherError("MANIFEST_INVALID", {
+                message: "В манифесте версии нет ссылки на client.jar",
+                context: this.errorContext()
+            })
+        }
 
         const clientTask: DownloadTask = {
             url: clientObject.url,
@@ -114,9 +131,22 @@ export class VanillaInstaller extends InstallerBase {
 
     protected async downloadAssets() {
         this.emit({ stage: "download", message: "Проверка assets" })
-        const assetIndex: MojangAssetIndexObject = this.versionPackage.assetIndex
+        const assetIndex: MojangAssetIndexObject | undefined = this.versionPackage?.assetIndex
+
+        if (!assetIndex?.url || !assetIndex?.id) {
+            throw new LauncherError("MANIFEST_INVALID", {
+                message: "В манифесте версии нет индекса ассетов",
+                context: this.errorContext()
+            })
+        }
+
         const assetIndexesDir = await path.join(this.assetsDir!, "indexes")
-        if (!(await exists(assetIndexesDir))) await mkdir(assetIndexesDir)
+
+        try {
+            if (!(await exists(assetIndexesDir))) await mkdir(assetIndexesDir, { recursive: true })
+        } catch (e) {
+            throw this.wrap(e, { path: assetIndexesDir })
+        }
 
         const assetIndexFilePath = await path.join(assetIndexesDir, `${assetIndex.id}.json`)
         if (await exists(assetIndexFilePath)) {
@@ -130,8 +160,16 @@ export class VanillaInstaller extends InstallerBase {
                 await this.downloadJson(assetIndex.url, assetIndexFilePath)
             }
         } else { await this.downloadJson(assetIndex.url, assetIndexFilePath) }
-        const assetIndexData = JSON.parse(await readTextFile(assetIndexFilePath))
-        const assets = assetIndexData.objects
+
+        const assetIndexData = await this.readCachedJson(assetIndexFilePath)
+        const assets = assetIndexData?.objects
+
+        if (!assets) {
+            throw new LauncherError("MANIFEST_INVALID", {
+                message: "Индекс ассетов повреждён",
+                context: this.errorContext({ path: assetIndexFilePath })
+            })
+        }
 
         const assetsTasks: DownloadTask[] = await Promise.all(Object.values(assets).map(async (asset: any) => {
             const folder = asset.hash.slice(0, 2)
@@ -161,23 +199,30 @@ export class VanillaInstaller extends InstallerBase {
         })
     }
 
-    private async getLibraries(rawLibraries: any[]): Promise<MojangLibraryObject[]> {
+    private async getLibraries(rawLibraries: any[] | undefined): Promise<MojangLibraryObject[]> {
+        if (!Array.isArray(rawLibraries)) {
+            throw new LauncherError("MANIFEST_INVALID", {
+                message: "В манифесте версии нет списка библиотек",
+                context: this.errorContext()
+            })
+        }
+
         const libs: MojangLibraryObject[] = []
 
         const os = platform();
         const architecture = arch();
 
         for (const lib of rawLibraries) {
-            const rules = lib.rules
+            const rules = lib?.rules
 
             if (!checkRules(rules, os.toLowerCase(), architecture.toLowerCase()))
                 continue
 
-            const nativeId =  lib?.natives?.[os]
+            const nativeId = lib?.natives?.[os]
             const native = lib?.downloads?.classifiers?.[nativeId]
 
             libs.push({
-                ...lib.downloads.artifact,
+                ...lib?.downloads?.artifact,
                 native: native
             } as MojangLibraryObject)
         }

@@ -5,7 +5,10 @@ use std::{
 };
 use tauri::Emitter;
 
+use crate::error::CommandError;
+
 mod commands;
+mod error;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -30,14 +33,7 @@ fn launch_minecraft(
     java_path: String,
     client_id: String,
     args: Vec<String>,
-) -> Result<(), String> {
-    let mut child = Command::new(java_path)
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| e.to_string())?;
-
+) -> Result<(), CommandError> {
     let status_event = format!("{client_id}:status");
     let log_event = format!("{client_id}:log");
     let exit_event = format!("{client_id}:exit");
@@ -50,8 +46,36 @@ fn launch_minecraft(
     )
     .ok();
 
-    let stdout = child.stdout.take().unwrap();
-    let stderr = child.stderr.take().unwrap();
+    let mut child = Command::new(&java_path)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            app.emit(
+                &status_event,
+                MinecraftStatusEvent {
+                    status: "error".into(),
+                },
+            )
+            .ok();
+            CommandError::spawn(&java_path, e)
+        })?;
+
+    let (stdout, stderr) = match (child.stdout.take(), child.stderr.take()) {
+        (Some(stdout), Some(stderr)) => (stdout, stderr),
+        _ => {
+            let _ = child.kill();
+            app.emit(
+                &status_event,
+                MinecraftStatusEvent {
+                    status: "error".into(),
+                },
+            )
+            .ok();
+            return Err(CommandError::launch("Нет доступа к выводу процесса Minecraft"));
+        }
+    };
 
     let app_stdout = app.clone();
     let app_stderr = app.clone();
@@ -94,11 +118,21 @@ fn launch_minecraft(
     // ожидание завершения
     let app_exit = app.clone();
     let exit_event_thread = exit_event.clone();
+    let status_event_thread = status_event.clone();
     thread::spawn(move || {
         let status = child.wait().ok();
+        let code = status.and_then(|s| s.code());
+
         app_exit
-            .emit(&exit_event_thread, status.map(|s| s.code()).unwrap_or(None))
+            .emit(
+                &status_event_thread,
+                MinecraftStatusEvent {
+                    status: if code == Some(0) { "exited" } else { "error" }.into(),
+                },
+            )
             .ok();
+
+        app_exit.emit(&exit_event_thread, code).ok();
     });
 
     app.emit(

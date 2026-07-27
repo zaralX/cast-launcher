@@ -31,7 +31,8 @@ const appWindow = getCurrentWindow();
     <div data-tauri-drag-region class="flex-1 flex justify-center items-center">
       <ActiveDownloadingModal />
     </div>
-    <div>
+    <div class="flex">
+      <ErrorCenter />
       <UButton icon="i-lucide-minimize-2" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.minimize()" />
       <UButton icon="i-lucide-scaling" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.toggleMaximize()" />
       <UButton icon="i-lucide-x" class="h-full aspect-square justify-center rounded-none" variant="ghost" color="neutral" @click="appWindow?.close()" />
