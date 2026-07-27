@@ -14,7 +14,7 @@ import {LauncherError} from "~/types/error";
 
 export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
-    private versionPackage?: any
+    protected versionPackage?: any
     private libs?: MojangLibraryObject[]
 
     protected override definePhases(): InstallPhase[] {

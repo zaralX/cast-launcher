@@ -18,6 +18,7 @@ import {invoke} from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {v4} from "uuid";
 import {type ErrorContext, LauncherError, toLauncherError} from "~/types/error";
+import {javaRequirementForMinecraft, type JavaRequirement} from "~/utils/javaUtils";
 
 const LOG_TAIL = 60;
 
@@ -58,6 +59,10 @@ export abstract class ClientBase {
 
     public getLogTail(): string {
         return this.recentLogs.join("\n")
+    }
+
+    public requiredJava(): JavaRequirement | null {
+        return javaRequirementForMinecraft(this.instance.minecraftVersion)
     }
 
     onEvent(cb: (e: MinecraftEvent) => void) {

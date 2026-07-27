@@ -5,7 +5,7 @@ import {appConfigDir} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
 import {exists, mkdir, readDir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import { v4 as uuidv4 } from "uuid";
-import {InstallerBase} from "~/lib/installers/InstallerBase";
+import {InstallerBase, type JavaResolver} from "~/lib/installers/InstallerBase";
 import {VanillaInstaller} from "~/lib/installers/VanillaInstaller";
 import {ClientBase} from "~/lib/client/ClientBase";
 import { VanillaClient } from "~/lib/client/VanillaClient";
@@ -220,15 +220,15 @@ export const useInstanceStore = defineStore('instance', {
         async createInstaller(instance: LivingInstance) {
             const appStore = useAppStore()
             const launcherDir = appStore?.config?.launcher?.dir ?? await appConfigDir();
-            const javaPath = await appStore.resolveJavaPath()
+            const resolveJava: JavaResolver = requirement => appStore.resolveJavaPath(requirement)
 
             switch (instance.type) {
                 case "vanilla":
-                    return new VanillaInstaller(instance, launcherDir, javaPath)
+                    return new VanillaInstaller(instance, launcherDir, resolveJava)
                 case "fabric":
-                    return new FabricInstaller(instance, launcherDir, javaPath)
+                    return new FabricInstaller(instance, launcherDir, resolveJava)
                 case "forge":
-                    return new ForgeInstaller(instance, launcherDir, javaPath)
+                    return new ForgeInstaller(instance, launcherDir, resolveJava)
                 default:
                     throw new LauncherError("UNKNOWN", {
                         message: `Неизвестный тип сборки: ${instance.type}`,
@@ -277,7 +277,7 @@ export const useInstanceStore = defineStore('instance', {
                     }
                 })
 
-                await client.run(await appStore.resolveJavaPath(), account)
+                await client.run(await appStore.resolveJavaPath(client.requiredJava()), account)
                 this.runningClients.push(client)
             } catch (e) {
                 captureError(e, {context})

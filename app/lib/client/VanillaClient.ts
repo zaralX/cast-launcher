@@ -4,6 +4,7 @@ import {readTextFile} from "@tauri-apps/plugin-fs";
 import type { Account } from "~/types/account";
 import {v4} from "uuid";
 import type {LivingInstance} from "~/types/instance";
+import {javaRequirementFromPackage, type JavaRequirement} from "~/utils/javaUtils";
 
 export class VanillaClient extends ClientBase {
     public versionPackage: any
@@ -17,6 +18,10 @@ export class VanillaClient extends ClientBase {
         await super.prepare();
         const versionPackageFile = await path.join(this.launcherDir, "cache", "versions", `${this.instance.minecraftVersion}-vanilla`, 'package.json')
         this.versionPackage = await this.readInstalledJson(versionPackageFile, `манифест Minecraft ${this.instance.minecraftVersion}`)
+    }
+
+    public override requiredJava(): JavaRequirement | null {
+        return javaRequirementFromPackage(this.versionPackage, this.instance.minecraftVersion)
     }
 
     protected override async generateArgs(placeholders: Record<string, any> = {}): Promise<string[]> {

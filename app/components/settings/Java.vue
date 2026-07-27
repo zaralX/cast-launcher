@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {storeToRefs} from "pinia";
 import {useAppStore} from "~/stores/app";
-import {JAVA_SOURCE_LABELS, type AppConfig, type JavaRuntime} from "~/types/app";
+import {JAVA_SOURCE_LABELS, type AppConfig, type JavaMode, type JavaRuntime} from "~/types/app";
 
 const config = defineModel<AppConfig | null>()
 
@@ -10,15 +10,25 @@ const {javaRuntimes, javaScanning} = storeToRefs(store)
 
 const gb = (mb?: number) => ((mb ?? 0) / 1024).toFixed(1).replace(".", ",")
 
+const setMode = (mode: JavaMode, path = "") => {
+  if (!config.value) return
+  config.value.java.java_mode = mode
+  config.value.java.java_path = path
+}
+
+const mode = computed(() => config.value?.java.java_mode ?? "auto")
+
 const javaPath = computed({
   get: () => config.value?.java.java_path ?? "",
-  set: (value: string) => {
-    if (config.value) config.value.java.java_path = value
-  }
+  // Ручной ввод сам переводит настройку в manual, пустое поле возвращает к подбору
+  set: (value: string) => setMode(value.trim() ? "manual" : "auto", value)
 })
 
-const isAuto = computed(() => !javaPath.value.trim())
+const isManual = computed(() => mode.value === "manual" && !!javaPath.value.trim())
 const isDetected = computed(() => javaRuntimes.value.some(r => r.path === javaPath.value))
+
+// Мажорные версии, из которых есть из чего выбирать в режиме auto
+const majors = computed(() => [...new Set(javaRuntimes.value.map(r => r.major))].sort((a, b) => a - b))
 
 const describe = (runtime: JavaRuntime) => [
   runtime.vendor,
@@ -26,9 +36,7 @@ const describe = (runtime: JavaRuntime) => [
   JAVA_SOURCE_LABELS[runtime.source] ?? runtime.source
 ].join(" · ")
 
-const select = (runtime: JavaRuntime | null) => {
-  javaPath.value = runtime?.path ?? ""
-}
+const select = (runtime: JavaRuntime) => setMode("manual", runtime.path)
 
 const rescan = () => safeRun(() => store.scanJava(true))
 
@@ -41,7 +49,7 @@ watch([javaPath, javaRuntimes], () => {
   if (probeTimer) clearTimeout(probeTimer)
 
   const value = javaPath.value.trim()
-  if (!value || isDetected.value) {
+  if (!isManual.value || isDetected.value) {
     manual.value = null
     manualChecking.value = false
     return
@@ -128,11 +136,11 @@ onBeforeUnmount(() => {
         <ul class="border-t border-line">
           <li
               class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 pr-1 transition-colors duration-300 hover:bg-ink-700"
-              @click="select(null)"
+              @click="setMode('auto')"
           >
             <span
                 class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-                :class="isAuto ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
+                :class="mode === 'auto' ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
             />
 
             <UIcon name="i-lucide-wand-sparkles" class="size-4 shrink-0 text-fg-faint"/>
@@ -140,15 +148,40 @@ onBeforeUnmount(() => {
             <div class="min-w-0 flex-1">
               <p class="truncate text-[13px] text-fg">Автоматически</p>
               <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-                <template v-if="store.autoJavaRuntime">
-                  Java {{ store.autoJavaRuntime.major }} · {{ store.autoJavaRuntime.vendor }}
+                <template v-if="majors.length">Под версию Minecraft · есть {{ majors.join(', ') }}</template>
+                <template v-else-if="javaScanning">Идёт поиск</template>
+                <template v-else>Java в системе не найдена</template>
+              </p>
+            </div>
+
+            <span v-if="mode === 'auto'" class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid">
+              Активна
+            </span>
+          </li>
+
+          <li
+              class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 pr-1 transition-colors duration-300 hover:bg-ink-700"
+              @click="setMode('system')"
+          >
+            <span
+                class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
+                :class="mode === 'system' ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
+            />
+
+            <UIcon name="i-lucide-square-terminal" class="size-4 shrink-0 text-fg-faint"/>
+
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-[13px] text-fg">Системная</p>
+              <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
+                <template v-if="store.systemJavaRuntime">
+                  Java {{ store.systemJavaRuntime.major }} · {{ store.systemJavaRuntime.vendor }}
                 </template>
                 <template v-else-if="javaScanning">Идёт поиск</template>
                 <template v-else>Java в системе не найдена</template>
               </p>
             </div>
 
-            <span v-if="isAuto" class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid">
+            <span v-if="mode === 'system'" class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid">
               Активна
             </span>
           </li>
@@ -161,7 +194,7 @@ onBeforeUnmount(() => {
           >
             <span
                 class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-                :class="javaPath === runtime.path ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
+                :class="isManual && javaPath === runtime.path ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
             />
 
             <span class="shrink-0 font-mono text-[15px] leading-none tabular-nums text-fg-muted">
@@ -182,7 +215,7 @@ onBeforeUnmount(() => {
             </div>
 
             <span
-                v-if="javaPath === runtime.path"
+                v-if="isManual && javaPath === runtime.path"
                 class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
             >
               Активна
@@ -204,12 +237,12 @@ onBeforeUnmount(() => {
       >
         <UInput
             v-model="javaPath"
-            placeholder="Автоматически"
+            :placeholder="mode === 'system' ? 'Системная' : 'Автоматически'"
             class="w-full"
             :ui="{ base: 'font-mono text-[12px]' }"
         />
 
-        <p v-if="!isAuto && !isDetected" class="mt-2 flex items-center gap-2 font-mono text-[10px] tracking-[0.02em]">
+        <p v-if="isManual && !isDetected" class="mt-2 flex items-center gap-2 font-mono text-[10px] tracking-[0.02em]">
           <template v-if="manualChecking">
             <UIcon name="i-lucide-loader-circle" class="size-3 shrink-0 animate-spin text-fg-faint"/>
             <span class="text-fg-faint">Проверяем путь</span>

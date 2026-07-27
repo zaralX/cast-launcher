@@ -14,11 +14,14 @@ import {$fetch} from "ofetch";
 import {dirname} from "@tauri-apps/api/path";
 import {invoke} from "@tauri-apps/api/core";
 import {type ErrorContext, LauncherError, toLauncherError} from "~/types/error";
+import type {JavaRequirement} from "~/utils/javaUtils";
+
+export type JavaResolver = (requirement: JavaRequirement | null) => Promise<string>
 
 export abstract class InstallerBase {
     protected instance: LivingInstance
     protected launcherDir: string
-    protected javaPath: string
+    protected resolveJava: JavaResolver
     protected librariesDir?: string
     protected assetsDir?: string
     protected cacheDir?: string
@@ -36,10 +39,10 @@ export abstract class InstallerBase {
     private phaseMessage = ""
     private overall = 0
 
-    constructor(instance: LivingInstance, launcherDir: string, javaPath: string = "java") {
+    constructor(instance: LivingInstance, launcherDir: string, resolveJava: JavaResolver = async () => "java") {
         this.instance = instance
         this.launcherDir = launcherDir
-        this.javaPath = javaPath
+        this.resolveJava = resolveJava
     }
 
     async install() {

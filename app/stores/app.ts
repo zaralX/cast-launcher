@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import {type AppConfig, type JavaRuntime, CONFIG_VERSION} from '~/types/app'
+import {type AppConfig, type JavaMode, type JavaRuntime, CONFIG_VERSION} from '~/types/app'
 import {invoke} from "@tauri-apps/api/core";
 import {appConfigDir, dirname} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
@@ -10,6 +10,7 @@ import type {MyPacksConfig} from "~/types/pack";
 import {fetch} from "@tauri-apps/plugin-http";
 import {LauncherError, toLauncherError} from "~/types/error";
 import {captureError, safeRun} from "~/composables/useErrorHandler";
+import {pickJavaRuntime, pickSystemJavaRuntime, type JavaRequirement} from "~/utils/javaUtils";
 
 let javaScan: Promise<JavaRuntime[]> | null = null
 
@@ -24,12 +25,7 @@ export const useAppStore = defineStore('app', {
     getters: {
         hasConfig: (state) => !!state.config,
 
-        autoJavaRuntime: (state): JavaRuntime | null => {
-            const configured = state.javaRuntimes.find(
-                r => r.source === "path" || r.source === "java_home"
-            )
-            return configured ?? state.javaRuntimes[0] ?? null
-        },
+        systemJavaRuntime: (state): JavaRuntime | null => pickSystemJavaRuntime(state.javaRuntimes),
     },
     actions: {
         async getConfigPath() {
@@ -49,6 +45,7 @@ export const useAppStore = defineStore('app', {
                     auto_update: true
                 },
                 java: {
+                    java_mode: "auto" as JavaMode,
                     java_path: "",
                     min_ram: 1024,
                     max_ram: 4096
@@ -116,6 +113,16 @@ export const useAppStore = defineStore('app', {
                 cfg.version = 2
             }
 
+            // Cfg 2 -> 3 Migration
+            if (cfg.version === 2) {
+                cfg.java = {
+                    ...cfg.java,
+                    // Указанный руками путь остаётся, остальные переезжают на подбор по версии
+                    java_mode: cfg.java?.java_path ? "manual" : "auto"
+                }
+                cfg.version = 3
+            }
+
             return cfg
         },
 
@@ -161,15 +168,26 @@ export const useAppStore = defineStore('app', {
             return await invoke<JavaRuntime | null>("probe_java", {path})
         },
 
-        async resolveJavaPath(): Promise<string> {
-            const configured = this.config?.java?.java_path?.trim()
-            if (configured) return configured
+        // required — какая Java нужна сборке; учитывается только в режиме auto
+        async resolveJavaPath(required: JavaRequirement | null = null): Promise<string> {
+            const mode = this.config?.java?.java_mode ?? "auto"
+            const manual = this.config?.java?.java_path?.trim()
+
+            if (mode === "manual" && manual) return manual
 
             if (!this.javaScanned) {
                 await safeRun(() => this.scanJava())
             }
 
-            return this.autoJavaRuntime?.path ?? "java"
+            if (mode === "auto") {
+                const picked = pickJavaRuntime(this.javaRuntimes, required)
+                if (picked) return picked.path
+
+                // Подходящей нет — берём системную, чтобы дойти хотя бы до понятной ошибки запуска
+                console.warn(`Java ${required?.major} для сборки не найдена, используем системную`)
+            }
+
+            return this.systemJavaRuntime?.path ?? "java"
         },
 
         async updateApp() {

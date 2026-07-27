@@ -1,4 +1,4 @@
-export const CONFIG_VERSION = 2
+export const CONFIG_VERSION = 3
 
 export interface AppConfig {
     launcher: LauncherConfig
@@ -13,7 +13,10 @@ export interface LauncherConfig {
     auto_update: boolean
 }
 
+export type JavaMode = "auto" | "system" | "manual"
+
 export interface JavaConfig {
+    java_mode: JavaMode
     java_path?: string
     min_ram: number
     max_ram: number

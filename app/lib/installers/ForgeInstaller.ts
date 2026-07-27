@@ -6,6 +6,7 @@ import {getMavenLibraryPath, getMavenUrl} from "~/utils/mavenUtils";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {LauncherError} from "~/types/error";
+import {javaRequirementFromPackage} from "~/utils/javaUtils";
 
 export class ForgeInstaller extends VanillaInstaller {
 
@@ -93,14 +94,18 @@ export class ForgeInstaller extends VanillaInstaller {
             const unsubscribeLog = await listen<string>("forgeinstaller-log", (l) => console.log(l.payload))
             const unsubscribeError = await listen<string>("forgeinstaller-error", (e) => console.error(e.payload))
 
+            const javaPath = await this.resolveJava(
+                javaRequirementFromPackage(this.versionPackage, this.instance.minecraftVersion)
+            )
+
             try {
                 await invoke("install_forge", {
-                    javaPath: this.javaPath,
+                    javaPath,
                     installerPath: forgeInstallerFile,
                     minecraftDir: this.launcherDir
                 })
             } catch (e) {
-                throw this.wrap(e, { javaPath: this.javaPath, path: forgeInstallerFile })
+                throw this.wrap(e, { javaPath, path: forgeInstallerFile })
             } finally {
                 unsubscribeLog()
                 unsubscribeError()
