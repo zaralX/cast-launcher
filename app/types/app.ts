@@ -18,3 +18,24 @@ export interface JavaConfig {
     min_ram: number
     max_ram: number
 }
+
+export type JavaSource = "path" | "java_home" | "registry" | "system" | "minecraft" | "manual"
+
+export interface JavaRuntime {
+    path: string
+    version: string
+    major: number
+    vendor: string
+    arch: string
+    is_64bit: boolean
+    source: JavaSource
+}
+
+export const JAVA_SOURCE_LABELS: Record<JavaSource, string> = {
+    path: "PATH",
+    java_home: "JAVA_HOME",
+    registry: "Реестр",
+    system: "Система",
+    minecraft: "Minecraft",
+    manual: "Вручную"
+}

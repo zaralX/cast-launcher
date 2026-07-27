@@ -1,5 +1,6 @@
 import {defineStore} from 'pinia'
-import {type AppConfig, CONFIG_VERSION} from '~/types/app'
+import {type AppConfig, type JavaRuntime, CONFIG_VERSION} from '~/types/app'
+import {invoke} from "@tauri-apps/api/core";
 import {appConfigDir, dirname} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
@@ -8,15 +9,27 @@ import {relaunch} from '@tauri-apps/plugin-process';
 import type {MyPacksConfig} from "~/types/pack";
 import {fetch} from "@tauri-apps/plugin-http";
 import {LauncherError, toLauncherError} from "~/types/error";
-import {captureError} from "~/composables/useErrorHandler";
+import {captureError, safeRun} from "~/composables/useErrorHandler";
+
+let javaScan: Promise<JavaRuntime[]> | null = null
 
 export const useAppStore = defineStore('app', {
     state: () => ({
         config: null as null | AppConfig,
         myPacksConfig: null as null | MyPacksConfig,
+        javaRuntimes: [] as JavaRuntime[],
+        javaScanning: false,
+        javaScanned: false,
     }),
     getters: {
         hasConfig: (state) => !!state.config,
+
+        autoJavaRuntime: (state): JavaRuntime | null => {
+            const configured = state.javaRuntimes.find(
+                r => r.source === "path" || r.source === "java_home"
+            )
+            return configured ?? state.javaRuntimes[0] ?? null
+        },
     },
     actions: {
         async getConfigPath() {
@@ -121,6 +134,43 @@ export const useAppStore = defineStore('app', {
             }
         },
 
+
+        async scanJava(force = false): Promise<JavaRuntime[]> {
+            if (javaScan) return await javaScan
+            if (this.javaScanned && !force) return this.javaRuntimes
+
+            this.javaScanning = true
+            javaScan = invoke<JavaRuntime[]>("list_java")
+
+            try {
+                this.javaRuntimes = await javaScan
+                this.javaScanned = true
+                console.log("Found java runtimes ", this.javaRuntimes)
+            } catch (e) {
+                throw toLauncherError(e, "JAVA_NOT_FOUND", {})
+            } finally {
+                javaScan = null
+                this.javaScanning = false
+            }
+
+            return this.javaRuntimes
+        },
+
+        async probeJava(path: string): Promise<JavaRuntime | null> {
+            if (!path.trim()) return null
+            return await invoke<JavaRuntime | null>("probe_java", {path})
+        },
+
+        async resolveJavaPath(): Promise<string> {
+            const configured = this.config?.java?.java_path?.trim()
+            if (configured) return configured
+
+            if (!this.javaScanned) {
+                await safeRun(() => this.scanJava())
+            }
+
+            return this.autoJavaRuntime?.path ?? "java"
+        },
 
         async updateApp() {
             let update

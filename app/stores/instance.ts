@@ -220,7 +220,7 @@ export const useInstanceStore = defineStore('instance', {
         async createInstaller(instance: LivingInstance) {
             const appStore = useAppStore()
             const launcherDir = appStore?.config?.launcher?.dir ?? await appConfigDir();
-            const javaPath = appStore?.config?.java?.java_path || "java"
+            const javaPath = await appStore.resolveJavaPath()
 
             switch (instance.type) {
                 case "vanilla":
@@ -277,7 +277,7 @@ export const useInstanceStore = defineStore('instance', {
                     }
                 })
 
-                await client.run(appStore.config?.java?.java_path || "java", account)
+                await client.run(await appStore.resolveJavaPath(), account)
                 this.runningClients.push(client)
             } catch (e) {
                 captureError(e, {context})
