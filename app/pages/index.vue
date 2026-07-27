@@ -37,7 +37,7 @@ onMounted(async () => {
 </script>
 
 <template>
-<div class="">
+<div class="h-screen w-full">
   <LoadingScreen v-model="currentStep" :steps="steps" />
 </div>
 </template>

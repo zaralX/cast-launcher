@@ -38,13 +38,13 @@ export function checkRules(
         // FEATURES
         if (rule.features) {
             for (const [key, value] of Object.entries(rule.features)) {
-                // если feature отсутствует — НЕ матч
+                // если feature отсутствует - НЕ матч
                 if (!(key in features)) {
                     match = false
                     break
                 }
 
-                // если значение не совпадает — НЕ матч
+                // если значение не совпадает - НЕ матч
                 if (features[key] !== value) {
                     match = false
                     break
@@ -52,7 +52,7 @@ export function checkRules(
             }
         }
 
-        // если правило совпало — оно влияет
+        // если правило совпало - оно влияет
         if (match) {
             allowed = rule.action === "allow"
         }

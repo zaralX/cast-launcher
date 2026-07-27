@@ -1,4 +1,12 @@
-import type {InstallerProgress, InstallerStage, Instance, LivingInstance, MojangLibraryNative} from "~/types/instance"
+import type {
+    DownloadFileProgress,
+    InstallerProgress,
+    InstallerStage,
+    InstallPhase,
+    Instance,
+    LivingInstance,
+    MojangLibraryNative
+} from "~/types/instance"
 import { ParallelDownloader } from "../ParallelDownloader"
 import { path } from "@tauri-apps/api"
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
@@ -23,16 +31,24 @@ export abstract class InstallerBase {
 
     private progressListeners = new Set<(p: InstallerProgress) => void>()
 
+    private phases: InstallPhase[] = []
+    private phaseIndex = -1
+    private phaseMessage = ""
+    private overall = 0
+
     constructor(instance: LivingInstance, launcherDir: string, javaPath: string = "java") {
         this.instance = instance
         this.launcherDir = launcherDir
         this.javaPath = javaPath
     }
 
-    /* ---------- Public API ---------- */
-
     async install() {
-        this.emit({ stage: "prepare", message: "Подготовка" })
+        this.phases = this.definePhases()
+        this.phaseIndex = -1
+        this.phaseMessage = "Подготовка"
+        this.overall = 0
+
+        this.emit({ stage: "prepare", type: "global", message: "Подготовка", progress: 0 })
 
         try {
             await this.prepare()
@@ -75,6 +91,53 @@ export abstract class InstallerBase {
     protected emit(progress: InstallerProgress) {
         this.stage = progress.stage
         for (const cb of this.progressListeners) cb(progress)
+    }
+
+    protected definePhases(): InstallPhase[] {
+        return [{ key: "install", label: "Установка", weight: 1 }]
+    }
+
+    protected beginPhase(key: string, message: string) {
+        const index = this.phases.findIndex(p => p.key === key)
+        if (index >= 0) this.phaseIndex = index
+        this.phaseMessage = message
+        this.emitOverall(0)
+    }
+
+    protected reportPhase(fraction: number, message?: string) {
+        if (message) this.phaseMessage = message
+        this.emitOverall(fraction)
+    }
+
+    protected emitFile(file: DownloadFileProgress, label: string) {
+        this.emit({
+            stage: this.stage,
+            type: "single",
+            message: `${label} · ${file.name}`,
+            progress: file.percent,
+            file
+        })
+    }
+
+    private emitOverall(fraction: number) {
+        const phase = this.phases[this.phaseIndex]
+        const totalWeight = this.phases.reduce((a, p) => a + p.weight, 0)
+
+        if (phase && totalWeight > 0) {
+            const before = this.phases
+                .slice(0, this.phaseIndex)
+                .reduce((a, p) => a + p.weight, 0)
+            const value = (before + Math.min(1, Math.max(0, fraction)) * phase.weight) / totalWeight
+            this.overall = Math.min(1, Math.max(this.overall, value))
+        }
+
+        this.emit({
+            stage: this.stage,
+            type: "global",
+            message: this.phaseMessage,
+            phase: phase?.label,
+            progress: this.overall
+        })
     }
 
     protected errorContext(extra: ErrorContext = {}): ErrorContext {
@@ -174,7 +237,7 @@ export abstract class InstallerBase {
     }
 
     protected async finalize() {
-        this.emit({ stage: "finalize", message: "Завершение установки" })
+        this.emit({ stage: "finalize", type: "global", message: "Завершение установки", progress: this.overall })
 
         const staticInstanceFile = await path.join(this.instance.dir, "instance.json")
 
@@ -188,6 +251,7 @@ export abstract class InstallerBase {
     }
 
     protected async finish() {
-        this.emit({ stage: "finished", message: "Установка завершена" })
+        this.overall = 1
+        this.emit({ stage: "finished", type: "global", message: "Установка завершена", progress: 1 })
     }
 }

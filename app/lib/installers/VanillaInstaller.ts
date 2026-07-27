@@ -1,5 +1,6 @@
 import type {
     DownloadTask,
+    InstallPhase,
     MojangAssetIndexObject,
     MojangLibraryArtifact,
     MojangLibraryObject,
@@ -15,6 +16,15 @@ export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
     private versionPackage?: any
     private libs?: MojangLibraryObject[]
+
+    protected override definePhases(): InstallPhase[] {
+        return [
+            {key: "client", label: "Клиент", weight: 12},
+            {key: "libraries", label: "Библиотеки", weight: 20},
+            {key: "assets", label: "Ресурсы", weight: 58},
+            {key: "natives", label: "Нативные библиотеки", weight: 10}
+        ]
+    }
 
     protected override async prepare() {
         await super.prepare()
@@ -59,7 +69,7 @@ export class VanillaInstaller extends InstallerBase {
     }
 
     protected async downloadClientJar() {
-        this.emit({ stage: "download", message: "Проверка client.jar" })
+        this.beginPhase("client", "Клиент Minecraft")
         const clientObject: MojangObject | undefined = this.versionPackage?.downloads?.client
 
         if (!clientObject?.url) {
@@ -77,17 +87,15 @@ export class VanillaInstaller extends InstallerBase {
             hash: clientObject.sha1
         }
 
-        await this.downloader.download([clientTask], (progress) => {
-            this.emit({
-                stage: "download",
-                message: "Загрузка client.jar",
-                progress: progress.percent,
-            })
-        })
+        await this.downloader.download(
+            [clientTask],
+            (file) => this.emitFile(file, "Клиент"),
+            (progress) => this.reportPhase(progress)
+        )
     }
 
     protected async downloadLibraries() {
-        this.emit({ stage: "download", message: "Проверка libraries" })
+        this.beginPhase("libraries", "Библиотеки")
         this.libs = await this.getLibraries(this.versionPackage?.libraries)
 
         const librariesTasks: DownloadTask[] = await Promise.all(this.libs
@@ -112,25 +120,15 @@ export class VanillaInstaller extends InstallerBase {
             })
         }
 
-        await this.downloader.download(librariesTasks, (progress) => {
-            this.emit({
-                stage: "download",
-                type: 'single',
-                message: "Загрузка библиотеки " + progress.name,
-                progress: progress.percent,
-            })
-        }, (progress) => {
-            this.emit({
-                stage: "download",
-                type: 'global',
-                message: "Загрузка библиотек",
-                progress: progress,
-            })
-        })
+        await this.downloader.download(
+            librariesTasks,
+            (file) => this.emitFile(file, "Библиотека"),
+            (progress) => this.reportPhase(progress)
+        )
     }
 
     protected async downloadAssets() {
-        this.emit({ stage: "download", message: "Проверка assets" })
+        this.beginPhase("assets", "Ресурсы игры")
         const assetIndex: MojangAssetIndexObject | undefined = this.versionPackage?.assetIndex
 
         if (!assetIndex?.url || !assetIndex?.id) {
@@ -182,21 +180,11 @@ export class VanillaInstaller extends InstallerBase {
             } as DownloadTask
         }))
 
-        await this.downloader.download(assetsTasks, (progress) => {
-            this.emit({
-                stage: "download",
-                type: 'single',
-                message: "Загрузка ассета " + progress.name,
-                progress: progress.percent,
-            })
-        }, (progress) => {
-            this.emit({
-                stage: "download",
-                type: 'global',
-                message: "Загрузка ассетов",
-                progress: progress,
-            })
-        })
+        await this.downloader.download(
+            assetsTasks,
+            (file) => this.emitFile(file, "Ресурс"),
+            (progress) => this.reportPhase(progress)
+        )
     }
 
     private async getLibraries(rawLibraries: any[] | undefined): Promise<MojangLibraryObject[]> {
@@ -232,12 +220,14 @@ export class VanillaInstaller extends InstallerBase {
 
     protected async installFiles() {
         this.emit({ stage: "install", message: "Установка Vanilla" })
+        this.beginPhase("natives", "Нативные библиотеки")
 
         // Installing natives
-        for (const lib of this.libs!.filter(lib => lib.native)) {
-            console.log("installing native", lib.native)
+        const natives = this.libs!.filter(lib => lib.native)
+
+        for (const [index, lib] of natives.entries()) {
             await this.installNative(lib.native!, this.nativesDir!)
-            console.log("Native installed")
+            this.reportPhase((index + 1) / natives.length)
         }
     }
 

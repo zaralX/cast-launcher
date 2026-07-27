@@ -1,6 +1,101 @@
 @import "./tailwind.css";
 @import "@nuxt/ui";
 
+:root {
+    --cast-ink-900: #07080a;
+    --cast-ink-800: #0b0d10;
+    --cast-ink-700: #111418;
+    --cast-ink-600: #171b21;
+
+    --cast-line: #ffffff14;
+    --cast-line-strong: #ffffff2e;
+
+    --cast-fg: #e9ebed;
+    --cast-fg-muted: #9ba1a8;
+    --cast-fg-faint: #5f666e;
+
+    --cast-acid: #3ec8ff;
+    --cast-on-acid: #0a0b0c;
+
+    color-scheme: dark;
+}
+
+html.light {
+    --cast-ink-900: #f2f3ef;
+    --cast-ink-800: #ffffff;
+    --cast-ink-700: #f7f8f4;
+    --cast-ink-600: #eceee7;
+
+    --cast-line: #0f14190f;
+    --cast-line-strong: #0f141926;
+
+    --cast-fg: #14171a;
+    --cast-fg-muted: #565d64;
+    --cast-fg-faint: #8b9299;
+
+    --cast-acid: #0a6770;
+    --cast-on-acid: #ffffff;
+
+    color-scheme: light;
+}
+
 body {
     font-family: 'Golos Text', Helvetica, Arial, sans-serif;
+    background-color: var(--cast-ink-900);
+    color: var(--cast-fg);
+    -webkit-font-smoothing: antialiased;
+}
+
+code, kbd, pre, samp {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+::selection {
+    background: var(--cast-acid);
+    color: var(--cast-on-acid);
+}
+
+/* Волосяной скроллбар вместо системного бруска */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--cast-line-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: var(--cast-line-strong);
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.cut-16 {
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+
+.cut-10 {
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

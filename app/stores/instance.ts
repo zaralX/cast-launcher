@@ -1,5 +1,6 @@
 import {defineStore} from 'pinia'
-import type {Instance, LivingInstance} from '~/types/instance'
+import type {InstallerProgress, InstallProgressView, Instance, LivingInstance} from '~/types/instance'
+import {isTerminalStage} from '~/types/instance'
 import {appConfigDir} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
 import {exists, mkdir, readDir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
@@ -15,16 +16,25 @@ import {ForgeClient} from "~/lib/client/ForgeClient";
 import {LauncherError, toLauncherError} from "~/types/error";
 import {captureError} from "~/composables/useErrorHandler";
 
+/**
+ * Сами инсталляторы держим вне стора: они таскают манифесты и тысячи задач,
+ * оборачивать это в реактивный прокси Pinia дорого и незачем.
+ */
+const activeInstallers = new Map<string, InstallerBase>()
+
 export const useInstanceStore = defineStore('instance', {
     state: () => ({
         instances: [] as LivingInstance[],
         instancesDir: "",
-        currentInstaller: null as null | InstallerBase,
+        installs: [] as InstallProgressView[],
         runningClients: [] as ClientBase[]
     }),
     getters: {
         getInstance: (state) => {
             return (id: string) => state.instances.find((instance) => instance.id == id)
+        },
+        getInstall: (state) => {
+            return (id: string) => state.installs.find((install) => install.instanceId == id)
         }
     },
     actions: {
@@ -103,18 +113,69 @@ export const useInstanceStore = defineStore('instance', {
             if (instance.installing) return
 
             instance.installing = true
-            let installer: InstallerBase | null = null
+
+            this.installs.push({
+                instanceId: instance.id,
+                instanceName: instance.name,
+                stage: "prepare",
+                phase: "Подготовка",
+                message: "Подготовка",
+                progress: 0,
+                files: [],
+                startedAt: Date.now()
+            })
+
+            let unsubscribe: (() => void) | null = null
 
             try {
-                installer = await this.createInstaller(instance)
-                this.currentInstaller = installer
+                const installer = await this.createInstaller(instance)
+                activeInstallers.set(instance.id, installer)
+
+                unsubscribe = installer.onProgress(p => this.applyInstallProgress(instance.id, p))
+
                 await installer.install()
             } catch (e) {
                 captureError(e, {context: {instanceId: instance.id, instanceName: instance.name}})
             } finally {
+                unsubscribe?.()
+                activeInstallers.delete(instance.id)
+                this.installs = this.installs.filter(install => install.instanceId !== instance.id)
                 instance.installing = false
-                if (this.currentInstaller === installer) this.currentInstaller = null
             }
+        },
+
+        applyInstallProgress(instanceId: string, p: InstallerProgress) {
+            const install = this.installs.find(i => i.instanceId === instanceId)
+            if (!install) return
+
+            install.stage = p.stage
+
+            if (p.type === "single" && p.file) {
+                const file = p.file
+                const index = install.files.findIndex(f => f.url === file.url)
+
+                if (file.done) {
+                    if (index >= 0) install.files.splice(index, 1)
+                    return
+                }
+
+                if (index >= 0) Object.assign(install.files[index]!, file)
+                else install.files.push({...file})
+
+                return
+            }
+
+            if (p.phase) install.phase = p.phase
+            if (p.message) install.message = p.message
+            if (typeof p.progress === "number") {
+                install.progress = Math.min(1, Math.max(0, p.progress))
+            }
+
+            if (isTerminalStage(p.stage)) install.files = []
+        },
+
+        abortInstall(id: string) {
+            activeInstallers.get(id)?.abort()
         },
 
         async createInstaller(instance: LivingInstance) {

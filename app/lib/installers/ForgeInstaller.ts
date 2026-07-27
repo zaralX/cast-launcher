@@ -1,13 +1,23 @@
 import { path } from "@tauri-apps/api";
 import {exists, mkdir, readTextFile, remove, rename, writeTextFile} from "@tauri-apps/plugin-fs";
 import {VanillaInstaller} from "~/lib/installers/VanillaInstaller";
-import type {DownloadTask, MojangLibraryArtifact} from "~/types/instance";
+import type {DownloadTask, InstallPhase, MojangLibraryArtifact} from "~/types/instance";
 import {getMavenLibraryPath, getMavenUrl} from "~/utils/mavenUtils";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {LauncherError} from "~/types/error";
 
 export class ForgeInstaller extends VanillaInstaller {
+
+    protected override definePhases(): InstallPhase[] {
+        return [
+            {key: "libraries", label: "Библиотеки", weight: 18},
+            {key: "assets", label: "Ресурсы", weight: 45},
+            {key: "forge-installer", label: "Установщик Forge", weight: 12},
+            {key: "natives", label: "Нативные библиотеки", weight: 5},
+            {key: "forge-install", label: "Установка Forge", weight: 20}
+        ]
+    }
 
     private async cleanup(targets: string[]) {
         for (const target of targets) {
@@ -28,11 +38,7 @@ export class ForgeInstaller extends VanillaInstaller {
         let forgeLoaderVersion = this.instance.loaderVersion
 
         // Download Forge Installer
-        this.emit({
-            stage: "download",
-            message: "Загрузка Forge Installer",
-            type: "global"
-        })
+        this.beginPhase("forge-installer", "Установщик Forge")
 
         const forgeInstallerDir = await path.join(this.cacheDir!, "forge", `${forgeLoaderVersion}`)
         try {
@@ -47,8 +53,13 @@ export class ForgeInstaller extends VanillaInstaller {
             await this.downloader.downloadSingle({
                 url: installerUrl,
                 destination: forgeInstallerFile
+            }, (file) => {
+                this.emitFile(file, "Установщик Forge")
+                this.reportPhase(file.percent)
             })
         }
+
+        this.reportPhase(1)
     }
 
     protected override async installFiles(): Promise<void> {
@@ -61,11 +72,8 @@ export class ForgeInstaller extends VanillaInstaller {
         const forgeInstalledFile = await path.join(forgeInstallerDir, "client.jar")
         const forgeInstalledJsonFile = await path.join(forgeInstallerDir, "client.json")
         if (!(await exists(forgeInstalledFile) && await exists(forgeInstalledJsonFile))) {
-            this.emit({
-                stage: "install",
-                message: "Установка Forge",
-                type: "global"
-            })
+            this.emit({stage: "install", message: "Установка Forge"})
+            this.beginPhase("forge-install", "Установщик Forge работает")
 
             // Forge installer defence fix
             const launcherProfilesFile = await path.join(this.launcherDir, "launcher_profiles.json")

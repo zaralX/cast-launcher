@@ -42,12 +42,41 @@ export function isTerminalStage(stage: InstallerStage): boolean {
     return TERMINAL_STAGES.includes(stage)
 }
 
+export interface DownloadFileProgress {
+    url: string
+    name: string
+    destination: string
+    loaded: number
+    total: number
+    percent: number // 0..1
+    done: boolean
+}
+
+export interface InstallPhase {
+    key: string
+    label: string
+    weight: number
+}
+
 export interface InstallerProgress {
     stage: InstallerStage
     type?: 'global' | 'single'
     message?: string
-    progress?: number // 0..1
+    progress?: number
+    phase?: string
+    file?: DownloadFileProgress
     error?: LauncherError
+}
+
+export interface InstallProgressView {
+    instanceId: string
+    instanceName: string
+    stage: InstallerStage
+    phase: string
+    message: string
+    progress: number // 0..1
+    files: DownloadFileProgress[]
+    startedAt: number
 }
 
 export interface MojangObject {

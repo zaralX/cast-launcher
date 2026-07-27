@@ -1,13 +1,24 @@
 import { path } from "@tauri-apps/api";
 import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import {VanillaInstaller} from "~/lib/installers/VanillaInstaller";
-import type {DownloadTask} from "~/types/instance";
+import type {DownloadTask, InstallPhase} from "~/types/instance";
 import {getMavenLibraryPath, getMavenUrl} from "~/utils/mavenUtils";
 import {LauncherError} from "~/types/error";
 
 const FABRIC_MAVEN = "https://maven.fabricmc.net/"
 
 export class FabricInstaller extends VanillaInstaller {
+
+    protected override definePhases(): InstallPhase[] {
+        const phases = super.definePhases()
+        const fabric: InstallPhase = {key: "fabric", label: "Fabric", weight: 10}
+
+        const nativesIndex = phases.findIndex(p => p.key === "natives")
+        if (nativesIndex >= 0) phases.splice(nativesIndex, 0, fabric)
+        else phases.push(fabric)
+
+        return phases
+    }
 
     protected override async download(): Promise<void> {
         await super.download(); // Vanilla client.jar, libs and assets
@@ -44,11 +55,7 @@ export class FabricInstaller extends VanillaInstaller {
         }
 
         // Download Fabric libs
-        this.emit({
-            stage: "download",
-            message: "Загрузка Fabric Libraries",
-            type: "global"
-        })
+        this.beginPhase("fabric", "Библиотеки Fabric")
 
         const librariesTasks: DownloadTask[] = []
 
@@ -78,20 +85,10 @@ export class FabricInstaller extends VanillaInstaller {
             })
         }
 
-        await this.downloader.download(librariesTasks, (progress) => {
-            this.emit({
-                stage: "download",
-                type: 'single',
-                message: "Загрузка Fabric библиотеки " + progress.name,
-                progress: progress.percent,
-            })
-        }, (progress) => {
-            this.emit({
-                stage: "download",
-                type: 'global',
-                message: "Загрузка Fabric библиотек",
-                progress: progress,
-            })
-        })
+        await this.downloader.download(
+            librariesTasks,
+            (file) => this.emitFile(file, "Fabric"),
+            (progress) => this.reportPhase(progress)
+        )
     }
 }

@@ -1,6 +1,69 @@
 @import "tailwindcss" theme(static);
 
 @theme static {
-    --font-golos: "Golos", sans-serif;
+    --font-golos: "Golos Text", sans-serif;
     --font-unbounded: "Unbounded", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+    --color-ink-900: var(--cast-ink-900);
+    --color-ink-800: var(--cast-ink-800);
+    --color-ink-700: var(--cast-ink-700);
+    --color-ink-600: var(--cast-ink-600);
+
+    --color-line: var(--cast-line);
+    --color-line-strong: var(--cast-line-strong);
+
+    --color-fg: var(--cast-fg);
+    --color-fg-muted: var(--cast-fg-muted);
+    --color-fg-faint: var(--cast-fg-faint);
+
+    --color-acid: var(--cast-acid);
+    --color-on-acid: var(--cast-on-acid);
+
+    --ease-deck: cubic-bezier(0.16, 1, 0.3, 1);
+
+    --animate-rise: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-sweep: sweep 1.35s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    --animate-blink: blink 1.1s steps(1, end) infinite;
+    --animate-breathe: breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes sweep {
+    0% {
+        transform: translateX(-110%);
+    }
+    100% {
+        transform: translateX(410%);
+    }
+}
+
+@keyframes blink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
+}
+
+@keyframes breathe {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.35;
+        transform: scale(1.6);
+    }
 }
