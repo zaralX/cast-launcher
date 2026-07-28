@@ -6,7 +6,7 @@ export default defineAppConfig({
         },
         button: {
             slots: {
-                base: 'rounded-none font-mono uppercase tracking-[0.16em] transition-all duration-300'
+                base: 'rounded-none font-mono uppercase tracking-[0.16em] transition-all duration-300 cursor-pointer'
             },
             variants: {
                 size: {

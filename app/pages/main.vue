@@ -32,13 +32,13 @@ const openCreateModal = () => {
   <div class="min-h-full w-full px-8 pb-16 pt-10 xl:px-14">
     <header class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
       <div class="animate-rise">
-        <h1 class="mt-4 font-unbounded text-[clamp(30px,4.2vw,46px)] font-bold leading-[0.92] tracking-[-0.055em] text-fg">
+        <h1 class="font-unbounded text-xl lg:text-2xl xl:text-4xl font-bold leading-[0.92] tracking-[-0.055em] text-fg">
           Привет здоровяк<span class="text-acid">!</span>
         </h1>
       </div>
     </header>
 
-    <section :class="myPacks.length ? 'mt-16' : 'mt-14'">
+    <section class="mt-8">
       <SectionHeading
           index="01"
           title="Ваши сборки"
