@@ -18,10 +18,12 @@ const FABRIC: &[Phase] = &[
 
 const FORGE: &[Phase] = &[
     Phase::new("java", "Java", 8),
-    Phase::new("libraries", "Библиотеки", 20),
-    Phase::new("assets", "Ресурсы", 45),
-    Phase::new("forge-installer", "Установщик Forge", 12),
-    Phase::new("forge-install", "Установка Forge", 15),
+    Phase::new("client", "Клиент", 10),
+    Phase::new("libraries", "Библиотеки", 18),
+    Phase::new("assets", "Ресурсы", 40),
+    Phase::new("forge-installer", "Установщик Forge", 4),
+    Phase::new("forge-libraries", "Библиотеки Forge", 12),
+    Phase::new("forge-patch", "Сборка Forge", 8),
 ];
 
 const MODPACK: Phase = Phase::new("modpack", "Файлы модпака", 25);
@@ -114,9 +116,21 @@ mod tests {
     }
 
     #[test]
-    fn forge_has_no_client_phase() {
-        assert!(!for_loader(LoaderType::Forge).iter().any(|phase| phase.key == "client"));
-        assert!(for_loader(LoaderType::Fabric).iter().any(|phase| phase.key == "client"));
+    fn every_loader_downloads_the_vanilla_client() {
+        for loader in [LoaderType::Vanilla, LoaderType::Fabric, LoaderType::Forge] {
+            assert!(for_loader(loader).iter().any(|phase| phase.key == "client"), "{loader:?}");
+        }
+    }
+
+    #[test]
+    fn forge_builds_the_client_after_downloading_its_libraries() {
+        let keys: Vec<_> = for_loader(LoaderType::Forge).iter().map(|phase| phase.key).collect();
+
+        let libraries = keys.iter().position(|key| *key == "forge-libraries").unwrap();
+        let patch = keys.iter().position(|key| *key == "forge-patch").unwrap();
+
+        assert!(keys.iter().position(|key| *key == "forge-installer").unwrap() < libraries);
+        assert!(libraries < patch);
     }
 
     #[test]

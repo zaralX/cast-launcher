@@ -92,7 +92,7 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     },
     FORGE_INSTALL_FAILED: {
         title: "Не удалось установить Forge",
-        hint: "Официальный установщик Forge завершился с ошибкой. Подробности — в деталях.",
+        hint: "Сборка клиента Forge не удалась. Подробности — в деталях.",
         severity: "error",
         icon: "i-lucide-hammer"
     },

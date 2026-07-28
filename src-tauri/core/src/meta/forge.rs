@@ -1,7 +1,12 @@
+use std::collections::HashSet;
+
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::read_json;
 use crate::instance::Instance;
-use crate::mojang::profile::{resolve_libraries, ResolvedArguments, ResolvedProfile};
+use crate::mojang::maven::Gradle;
+use crate::mojang::profile::{
+    resolve_libraries, ResolvedArguments, ResolvedLibrary, ResolvedProfile,
+};
 use crate::mojang::rules::RuntimeContext;
 use crate::mojang::version::VersionPackage;
 use crate::paths::LauncherPaths;
@@ -48,26 +53,52 @@ pub fn profile(
     forge: &VersionPackage,
     ctx: &RuntimeContext,
 ) -> CommandResult<ResolvedProfile> {
-    let forge_version = instance.loader_version.as_deref().ok_or_else(|| {
-        CommandError::forge("У сборки не указана версия Forge")
-    })?;
-
     let mut profile = super::vanilla::profile(paths, instance, vanilla, ctx)?;
 
     let main_class = forge.main_class.clone().ok_or_else(|| {
         CommandError::forge("В манифесте Forge нет mainClass")
     })?;
 
-    let mut merged = resolve_libraries(&forge.libraries, ctx);
-    merged.extend(resolve_libraries(&vanilla.libraries, ctx));
-
     profile.version_type = "Forge".into();
     profile.main_class = main_class;
-    profile.libraries = merged;
+    profile.libraries = merge_libraries(
+        resolve_libraries(&forge.libraries, ctx),
+        resolve_libraries(&vanilla.libraries, ctx),
+    );
     profile.arguments = merge_arguments(&profile.arguments, forge);
-    profile.main_jar = paths.forge_cache(forge_version).client_jar();
 
     Ok(profile)
+}
+
+fn merge_libraries(
+    forge: Vec<ResolvedLibrary>,
+    vanilla: Vec<ResolvedLibrary>,
+) -> Vec<ResolvedLibrary> {
+    let mut seen = HashSet::new();
+    let mut merged = Vec::with_capacity(forge.len() + vanilla.len());
+
+    for library in forge.into_iter().chain(vanilla) {
+        if let Some(key) = library_key(&library) {
+            if !seen.insert(key) {
+                continue;
+            }
+        }
+
+        merged.push(library);
+    }
+
+    merged
+}
+
+fn library_key(library: &ResolvedLibrary) -> Option<String> {
+    let gradle = Gradle::parse(library.name.as_deref()?).ok()?;
+
+    Some(format!(
+        "{}:{}:{}",
+        gradle.group,
+        gradle.artifact,
+        gradle.classifier.unwrap_or_default()
+    ))
 }
 
 fn merge_arguments(vanilla: &ResolvedArguments, forge: &VersionPackage) -> ResolvedArguments {
@@ -153,6 +184,70 @@ mod tests {
         assert_eq!(merged.game.len(), 4);
         assert_eq!(merged.jvm.len(), 3);
         assert!(merged.legacy_game.is_none());
+    }
+
+    #[test]
+    fn forge_wins_over_vanilla_for_the_same_artifact() {
+        let ctx = RuntimeContext {
+            os: crate::mojang::rules::MojangOs::Windows,
+            arch: "x86_64".into(),
+            os_version: "10.0".into(),
+        };
+
+        let forge = package(json!({
+            "id": "forge",
+            "libraries": [
+                { "name": "net.minecraftforge:forge:1.21.11-61.1.14:client", "downloads": { "artifact": { "path": "forge-client.jar", "url": "" } } },
+                { "name": "org.ow2.asm:asm:9.7", "downloads": { "artifact": { "path": "asm-9.7.jar", "url": "u" } } }
+            ]
+        }));
+
+        let vanilla = package(json!({
+            "id": "1.21.11",
+            "libraries": [
+                { "name": "org.ow2.asm:asm:9.5", "downloads": { "artifact": { "path": "asm-9.5.jar", "url": "u" } } },
+                { "name": "com.mojang:logging:1.5.10", "downloads": { "artifact": { "path": "logging.jar", "url": "u" } } },
+                { "name": "org.lwjgl:lwjgl:3.3.3:natives-windows", "downloads": { "artifact": { "path": "lwjgl-natives.jar", "url": "u" } } }
+            ]
+        }));
+
+        let merged = merge_libraries(
+            resolve_libraries(&forge.libraries, &ctx),
+            resolve_libraries(&vanilla.libraries, &ctx),
+        );
+
+        let paths: Vec<_> = merged
+            .iter()
+            .filter_map(|library| library.artifact.as_ref())
+            .map(|artifact| artifact.path.as_str())
+            .collect();
+
+        assert_eq!(
+            paths,
+            vec!["forge-client.jar", "asm-9.7.jar", "logging.jar", "lwjgl-natives.jar"]
+        );
+    }
+
+    #[test]
+    fn libraries_without_a_readable_name_are_never_dropped() {
+        let unnamed = ResolvedLibrary {
+            name: None,
+            artifact: None,
+            native: None,
+        };
+
+        let broken = ResolvedLibrary {
+            name: Some("не координата".into()),
+            artifact: None,
+            native: None,
+        };
+
+        let merged = merge_libraries(
+            vec![unnamed.clone(), broken.clone()],
+            vec![unnamed, broken],
+        );
+
+        assert_eq!(merged.len(), 4);
     }
 
     #[test]

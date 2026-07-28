@@ -13,7 +13,7 @@ use serde::Serialize;
 ///   libraries/<maven path>
 ///   assets/indexes/<id>.json
 ///   assets/objects/<ab>/<hash>
-///   cache/forge/<forge>/{installer.jar, client.jar, client.json}
+///   cache/forge/<forge>/{installer.jar, client.json}
 ///   cache/meta/<hash>.json + .etag        кэш сетевых манифестов
 ///   runtime/<component>/                  рантаймы Java от Mojang
 ///   logs/<instance id>/<timestamp>.log    логи запусков
@@ -175,16 +175,8 @@ impl ForgePaths {
         self.root.join("installer.jar")
     }
 
-    pub fn client_jar(&self) -> PathBuf {
-        self.root.join("client.jar")
-    }
-
     pub fn client_json(&self) -> PathBuf {
         self.root.join("client.json")
-    }
-
-    pub fn is_installed(&self) -> bool {
-        self.client_jar().is_file() && self.client_json().is_file()
     }
 }
 

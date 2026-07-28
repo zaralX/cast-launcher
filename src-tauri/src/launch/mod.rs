@@ -60,6 +60,20 @@ pub async fn launch(
     let ctx = java.runtime_context();
     let profile = resolver.profile(&instance, &base, &ctx).await?;
 
+    if !profile.main_jar.is_file() {
+        state
+            .instances
+            .update(&paths, &instance.id, |instance| instance.installed = false)
+            .await
+            .ok();
+
+        return Err(CommandError::launch(format!(
+            "Файлы сборки «{}» неполные, установите её заново",
+            instance.name
+        ))
+        .with_details(profile.main_jar.display().to_string()));
+    }
+
     let instance_paths = paths.instance(&instance.id);
     ensure_dir(&instance_paths.minecraft()).await?;
 

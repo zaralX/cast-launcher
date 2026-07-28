@@ -263,6 +263,7 @@ impl DownloadRegistry {
         on_progress: Option<ProgressSink>,
     ) -> CommandResult<()> {
         let job_id = job_id.into();
+        let tasks = unique_destinations(tasks);
 
         if tasks.is_empty() {
             return Ok(());
@@ -365,6 +366,15 @@ impl DownloadRegistry {
 
         outcome
     }
+}
+
+fn unique_destinations(tasks: Vec<DownloadTask>) -> Vec<DownloadTask> {
+    let mut seen = HashSet::new();
+
+    tasks
+        .into_iter()
+        .filter(|task| seen.insert(task.destination.clone()))
+        .collect()
 }
 
 async fn download_one(
@@ -640,6 +650,21 @@ mod tests {
     fn hex_matches_lowercase_sha1_format() {
         assert_eq!(hex(&[0x00, 0x0f, 0xa9, 0xff]), "000fa9ff");
         assert_eq!(hex(&[]), "");
+    }
+
+    #[test]
+    fn one_destination_is_fetched_once() {
+        let tasks = vec![
+            DownloadTask::new("https://a/text2speech.jar", PathBuf::from("/libs/text2speech.jar")),
+            DownloadTask::new("https://b/text2speech.jar", PathBuf::from("/libs/text2speech.jar")),
+            DownloadTask::new("https://a/lwjgl.jar", PathBuf::from("/libs/lwjgl.jar")),
+        ];
+
+        let unique = unique_destinations(tasks);
+
+        assert_eq!(unique.len(), 2);
+        assert_eq!(unique[0].url, "https://a/text2speech.jar");
+        assert_eq!(unique[1].url, "https://a/lwjgl.jar");
     }
 
     #[test]

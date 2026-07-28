@@ -1,12 +1,15 @@
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use tauri::AppHandle;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::fs_util::ensure_dir;
+use cast_core::install::forge::{Installer, ProcessorEnv};
 use cast_core::instance::{Instance, LoaderType};
+use cast_core::java::detect::JavaRuntime;
 use cast_core::java::{self, ResolveOptions};
 use cast_core::meta::{self, Resolver};
 use cast_core::mojang::profile::{resolve_libraries, ResolvedLibrary};
@@ -26,6 +29,7 @@ pub use cast_core::install::progress::{InstallSnapshot, ProgressReporter, Stage}
 #[derive(Default)]
 pub struct InstallRegistry {
     jobs: RwLock<HashMap<String, Arc<ProgressReporter>>>,
+    forge: Mutex<HashMap<String, Arc<Mutex<()>>>>,
 }
 
 impl InstallRegistry {
@@ -45,6 +49,16 @@ impl InstallRegistry {
         if let Some(job) = self.jobs.read().await.get(instance_id) {
             job.request_cancel();
         }
+    }
+
+    async fn forge_lock(&self, forge_version: &str) -> Arc<Mutex<()>> {
+        Arc::clone(
+            self.forge
+                .lock()
+                .await
+                .entry(forge_version.to_string())
+                .or_default(),
+        )
     }
 
     async fn register(&self, reporter: Arc<ProgressReporter>) {
@@ -152,15 +166,14 @@ async fn run(
     let base = resolver.base_package(instance).await?;
     check_cancelled(reporter)?;
 
-    let ctx = ensure_java(state, &paths, instance, &base, reporter).await?;
+    let java = ensure_java(state, &paths, instance, &base, reporter).await?;
+    let ctx = java.runtime_context();
     check_cancelled(reporter)?;
 
     reporter.set_stage(Stage::Download);
 
-    if instance.loader != LoaderType::Forge {
-        download_client(state, &paths, instance, &base, reporter).await?;
-        check_cancelled(reporter)?;
-    }
+    download_client(state, &paths, instance, &base, reporter).await?;
+    check_cancelled(reporter)?;
 
     download_libraries(state, &paths, instance, &base, &ctx, reporter).await?;
     check_cancelled(reporter)?;
@@ -174,7 +187,7 @@ async fn run(
             install_fabric(state, &paths, instance, &resolver, reporter).await?;
         }
         LoaderType::Forge => {
-            install_forge(state, &paths, instance, &base, reporter).await?;
+            install_forge(state, &paths, instance, &java, &ctx, reporter).await?;
         }
     }
 
@@ -209,7 +222,7 @@ async fn ensure_java(
     instance: &Instance,
     base: &VersionPackage,
     reporter: &Arc<ProgressReporter>,
-) -> CommandResult<RuntimeContext> {
+) -> CommandResult<JavaRuntime> {
     reporter.begin_phase("java", "Проверка Java");
 
     let requirement = cast_core::mojang::profile::JavaRequirement::from_package(base);
@@ -232,7 +245,7 @@ async fn ensure_java(
 
     reporter.set_fraction(1.0);
 
-    Ok(java.runtime_context())
+    Ok(java)
 }
 
 async fn download_client(
@@ -362,65 +375,123 @@ async fn install_forge(
     state: &Arc<AppState>,
     paths: &LauncherPaths,
     instance: &Instance,
-    base: &VersionPackage,
+    java: &JavaRuntime,
+    ctx: &RuntimeContext,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
     let forge_version = instance.require_loader_version()?.to_string();
     let cache = paths.forge_cache(&forge_version);
+    let installer_jar = cache.installer_jar();
 
-    if cache.is_installed() {
-        return Ok(());
-    }
+    let guard = state.installs.forge_lock(&forge_version).await;
+    let _guard = guard.lock().await;
 
     reporter.begin_phase("forge-installer", "Установщик Forge");
 
-    let installer_jar = cache.installer_jar();
+    let installer = open_installer(state, instance, &forge_version, &installer_jar, reporter).await?;
+    check_cancelled(reporter)?;
 
-    if !installer_jar.is_file() {
-        let task = DownloadTask::new(meta::forge::installer_url(&forge_version), installer_jar.clone());
-        download(state, instance, "forge-installer", vec![task], reporter).await?;
-    }
+    reporter.begin_phase("forge-libraries", "Библиотеки Forge");
+
+    installer.unpack(paths).await?;
+    let tasks = installer.downloads(paths, ctx);
+    download(state, instance, "forge-libraries", tasks, reporter).await?;
+    check_cancelled(reporter)?;
 
     reporter.set_stage(Stage::Install);
-    reporter.begin_phase("forge-install", "Установщик Forge работает");
+    reporter.begin_phase("forge-patch", "Сборка клиента Forge");
 
-    let java = resolve_java_for_forge(state, paths, instance, base).await?;
+    build_forge_client(paths, instance, java, &installer, &installer_jar, cache.root(), reporter).await?;
 
-    cast_core::install::forge::install(
-        paths,
-        &java,
-        &forge_version,
-        &installer_jar,
-        |line| reporter.set_message(cast_core::install::forge::trim_log_line(line)),
-    )
-    .await?;
+    let missing = installer.missing(paths, ctx);
 
+    if !missing.is_empty() {
+        return Err(
+            CommandError::forge("После установки Forge не хватает файлов").with_details(missing.join("\n"))
+        );
+    }
+
+    installer.save(&cache).await?;
     reporter.set_fraction(1.0);
 
     Ok(())
 }
 
-async fn resolve_java_for_forge(
+async fn open_installer(
     state: &Arc<AppState>,
+    instance: &Instance,
+    forge_version: &str,
+    installer_jar: &Path,
+    reporter: &Arc<ProgressReporter>,
+) -> CommandResult<Installer> {
+    for attempt in 1..=2 {
+        if !installer_jar.is_file() {
+            let task = DownloadTask::new(
+                meta::forge::installer_url(forge_version),
+                installer_jar.to_path_buf(),
+            );
+
+            download(state, instance, "forge-installer", vec![task], reporter).await?;
+        }
+
+        match Installer::open(installer_jar.to_path_buf()).await {
+            Ok(installer) => return Ok(installer),
+            Err(error) if attempt == 1 && is_damaged(&error) => {
+                cast_core::fs_util::remove_file_if_exists(installer_jar).await;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+
+    Err(CommandError::forge("Не удалось прочитать установщик Forge"))
+}
+
+fn is_damaged(error: &CommandError) -> bool {
+    matches!(error.code, "ARCHIVE_INVALID" | "MANIFEST_INVALID")
+}
+
+async fn build_forge_client(
     paths: &LauncherPaths,
     instance: &Instance,
-    base: &VersionPackage,
-) -> CommandResult<String> {
-    let config = instance.effective_config(&state.config().await);
-    let requirement = cast_core::mojang::profile::JavaRequirement::from_package(base);
+    java: &JavaRuntime,
+    installer: &Installer,
+    installer_jar: &Path,
+    root: &Path,
+    reporter: &Arc<ProgressReporter>,
+) -> CommandResult<()> {
+    if installer.processors().is_empty() {
+        reporter.set_fraction(1.0);
+        return Ok(());
+    }
 
-    let java = java::resolve(
-        &state.java,
-        &state.downloads,
-        &state.meta,
-        &config,
-        paths.java_runtimes(),
-        &requirement,
-        ResolveOptions::default(),
+    let libraries = paths.libraries();
+    let minecraft_jar = paths.instance(&instance.id).client_jar();
+    let scratch = paths.scratch("forge");
+
+    let env = ProcessorEnv {
+        java: &java.path,
+        libraries: &libraries,
+        installer: installer_jar,
+        minecraft_jar: &minecraft_jar,
+        minecraft_version: installer.minecraft_version(),
+        root,
+        scratch: &scratch,
+    };
+
+    let result = cast_core::install::forge::build_client(
+        installer,
+        &env,
+        |index, total, name| {
+            reporter.set_fraction(index as f64 / total as f64);
+            reporter.set_message(format!("{name} ({}/{total})", index + 1));
+        },
+        || reporter.is_cancelled(),
     )
-    .await?;
+    .await;
 
-    Ok(java.path)
+    cast_core::fs_util::remove_dir_if_exists(&scratch).await;
+
+    result
 }
 
 async fn download(

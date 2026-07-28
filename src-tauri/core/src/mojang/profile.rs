@@ -50,13 +50,7 @@ pub fn resolve_libraries(libraries: &[Library], ctx: &RuntimeContext) -> Vec<Res
             continue;
         }
 
-        let artifact = library
-            .downloads
-            .as_ref()
-            .and_then(|downloads| downloads.artifact.as_ref())
-            .map(ResolvedArtifact::from_library_artifact)
-            .or_else(|| resolve_by_coordinate(library));
-
+        let artifact = resolve_artifact(library);
         let native = resolve_native(library, ctx);
 
         if artifact.is_none() && native.is_none() {
@@ -74,6 +68,15 @@ pub fn resolve_libraries(libraries: &[Library], ctx: &RuntimeContext) -> Vec<Res
 }
 
 const DEFAULT_MAVEN: &str = "https://libraries.minecraft.net/";
+
+pub fn resolve_artifact(library: &Library) -> Option<ResolvedArtifact> {
+    library
+        .downloads
+        .as_ref()
+        .and_then(|downloads| downloads.artifact.as_ref())
+        .map(ResolvedArtifact::from_library_artifact)
+        .or_else(|| resolve_by_coordinate(library))
+}
 
 fn resolve_by_coordinate(library: &Library) -> Option<ResolvedArtifact> {
     if library.downloads.is_some() || library.natives.is_some() {
