@@ -5,7 +5,8 @@ import type { Account } from "~/types/account";
 import {v4} from "uuid";
 import {VanillaClient} from "~/lib/client/VanillaClient";
 import {getMavenLibraryPath} from "~/utils/mavenUtils";
-import type {LivingInstance, MojangLibraryArtifact} from "~/types/instance";
+import type {LivingInstance} from "~/types/instance";
+import {resolveLibraries} from "~/utils/mojangUtils";
 
 export class ForgeClient extends VanillaClient {
     private loaderPackage: any
@@ -50,10 +51,9 @@ export class ForgeClient extends VanillaClient {
     protected override async generateCP(libraries: any[]): Promise<string[]> {
         const forgeCp: string[] = []
 
-        const forgeLibs: MojangLibraryArtifact[] = this.loaderPackage.libraries.map((lib: any) => lib.downloads.artifact)
-
-        for (const library of forgeLibs) {
-            forgeCp.push(await path.join(this.librariesDir!, library.path))
+        for (const library of resolveLibraries(this.loaderPackage.libraries)) {
+            if (!library.artifact) continue
+            forgeCp.push(await path.join(this.librariesDir!, library.artifact.path))
         }
 
         const vanillaCp = await super.generateCP(libraries)

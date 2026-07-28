@@ -92,14 +92,6 @@ export interface MojangLibraryArtifact extends MojangObject {
     path: string
 }
 
-export interface MojangLibraryObject extends MojangLibraryArtifact {
-    native?: MojangLibraryNative
-}
-
-export interface MojangLibraryNative extends MojangLibraryArtifact {
-
-}
-
 export interface MojangAssetIndexObject extends MojangObject {
     totalSize: number
     id: string

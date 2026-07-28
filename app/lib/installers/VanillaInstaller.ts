@@ -2,21 +2,19 @@ import type {
     DownloadTask,
     InstallPhase,
     MojangAssetIndexObject,
-    MojangLibraryArtifact,
-    MojangLibraryObject,
     MojangObject
 } from "~/types/instance"
 import {InstallerBase} from "./InstallerBase"
 import {path} from "@tauri-apps/api";
-import {arch, platform} from "@tauri-apps/plugin-os";
 import {exists, mkdir, readFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import {LauncherError} from "~/types/error";
 import {javaRequirementFromPackage} from "~/utils/javaUtils";
+import {resolveLibraries, type ResolvedLibrary} from "~/utils/mojangUtils";
 
 export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
     protected versionPackage?: any
-    private libs?: MojangLibraryObject[]
+    private libs?: ResolvedLibrary[]
 
     protected override definePhases(): InstallPhase[] {
         return [
@@ -114,28 +112,22 @@ export class VanillaInstaller extends InstallerBase {
 
     protected async downloadLibraries() {
         this.beginPhase("libraries", "Библиотеки")
-        this.libs = await this.getLibraries(this.versionPackage?.libraries)
+        this.libs = this.getLibraries(this.versionPackage?.libraries)
 
-        const librariesTasks: DownloadTask[] = await Promise.all(this.libs
-            .filter(lib => lib.path)
-            .map(async lib => ({
-                url: lib.url,
-                destination: await path.join(this.librariesDir!, lib.path),
-                size: lib.size,
-                verificationType: 'sha1',
-                hash: lib.sha1
-            } as DownloadTask)));
+        const librariesTasks: DownloadTask[] = []
 
-        // add natives tasks
-        for (const lib of this.libs!.filter(lib => lib.native)) {
-            console.log("Appended native " + lib.native?.path + " to download tasks")
-            librariesTasks.push({
-                url: lib.native!.url,
-                destination: await path.join(this.librariesDir!, lib.native!.path),
-                size: lib.native!.size,
-                verificationType: 'sha1',
-                hash: lib.native!.sha1,
-            })
+        for (const lib of this.libs) {
+            for (const object of [lib.artifact, lib.native]) {
+                if (!object) continue
+
+                librariesTasks.push({
+                    url: object.url,
+                    destination: await path.join(this.librariesDir!, object.path),
+                    size: object.size,
+                    verificationType: "sha1",
+                    hash: object.sha1
+                })
+            }
         }
 
         await this.downloader.download(
@@ -205,7 +197,7 @@ export class VanillaInstaller extends InstallerBase {
         )
     }
 
-    private async getLibraries(rawLibraries: any[] | undefined): Promise<MojangLibraryObject[]> {
+    private getLibraries(rawLibraries: any[] | undefined): ResolvedLibrary[] {
         if (!Array.isArray(rawLibraries)) {
             throw new LauncherError("MANIFEST_INVALID", {
                 message: "В манифесте версии нет списка библиотек",
@@ -213,27 +205,7 @@ export class VanillaInstaller extends InstallerBase {
             })
         }
 
-        const libs: MojangLibraryObject[] = []
-
-        const os = platform();
-        const architecture = arch();
-
-        for (const lib of rawLibraries) {
-            const rules = lib?.rules
-
-            if (!checkRules(rules, os.toLowerCase(), architecture.toLowerCase()))
-                continue
-
-            const nativeId = lib?.natives?.[os]
-            const native = lib?.downloads?.classifiers?.[nativeId]
-
-            libs.push({
-                ...lib?.downloads?.artifact,
-                native: native
-            } as MojangLibraryObject)
-        }
-
-        return libs
+        return resolveLibraries(rawLibraries)
     }
 
     protected async installFiles() {
@@ -241,10 +213,15 @@ export class VanillaInstaller extends InstallerBase {
         this.beginPhase("natives", "Нативные библиотеки")
 
         // Installing natives
-        const natives = this.libs!.filter(lib => lib.native)
+        const natives = this.libs!.flatMap(lib => lib.native ? [lib.native] : [])
 
-        for (const [index, lib] of natives.entries()) {
-            await this.installNative(lib.native!, this.nativesDir!)
+        if (!natives.length) {
+            this.reportPhase(1)
+            return
+        }
+
+        for (const [index, native] of natives.entries()) {
+            await this.installNative(native, this.nativesDir!)
             this.reportPhase((index + 1) / natives.length)
         }
     }

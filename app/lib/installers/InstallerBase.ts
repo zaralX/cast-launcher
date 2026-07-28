@@ -5,7 +5,7 @@ import type {
     InstallPhase,
     Instance,
     LivingInstance,
-    MojangLibraryNative
+    MojangLibraryArtifact
 } from "~/types/instance"
 import { ParallelDownloader } from "../ParallelDownloader"
 import { path } from "@tauri-apps/api"
@@ -230,7 +230,7 @@ export abstract class InstallerBase {
     }
 
     protected async installNative(
-        native: MojangLibraryNative,
+        native: MojangLibraryArtifact,
         destination: string
     ) {
         const nativeJarPath = await path.join(this.librariesDir!, native.path)

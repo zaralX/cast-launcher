@@ -12,13 +12,13 @@ import { path } from "@tauri-apps/api"
 import {exists, mkdir, readTextFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import {$fetch} from "ofetch";
 import {dirname} from "@tauri-apps/api/path";
-import {arch, platform} from "@tauri-apps/plugin-os";
 import type {Account} from "~/types/account";
 import {invoke} from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {v4} from "uuid";
 import {type ErrorContext, LauncherError, toLauncherError} from "~/types/error";
 import {javaRequirementForMinecraft, type JavaRequirement} from "~/utils/javaUtils";
+import {checkRules, getRuntimeContext, resolveLibraries} from "~/utils/mojangUtils";
 
 const LOG_TAIL = 60;
 
@@ -106,10 +106,12 @@ export abstract class ClientBase {
 
     protected async generateCP(libraries: any[]): Promise<string[]> {
         const cp: string[] = []
-        for (const library of libraries) {
-            if (!library?.downloads?.artifact?.path) continue // Skips only native libs
-            cp.push(await path.join(this.librariesDir!, library.downloads.artifact.path))
+
+        for (const library of resolveLibraries(libraries)) {
+            if (!library.artifact) continue // Пропускает только нативные библиотеки
+            cp.push(await path.join(this.librariesDir!, library.artifact.path))
         }
+
         cp.push(await path.join(this.minecraftDir!, "client.jar"))
 
         return cp
@@ -119,26 +121,22 @@ export abstract class ClientBase {
         return []
     }
 
-    public static getMojangRuleFilteredArgs(args: any[]): string[] {
+    public static getMojangRuleFilteredArgs(args: any[] | undefined, features: Record<string, boolean> = {}): string[] {
         const filteredArgs: string[] = []
+        const ctx = getRuntimeContext()
 
-        const os = platform();
-        const architecture = arch();
-
-        for (const arg of args as any[]) {
+        for (const arg of args ?? []) {
             if (typeof arg == 'string') {
                 filteredArgs.push(arg)
-            } else {
-                if (arg.rules) {
-                    const allow = checkRules(arg.rules, os, architecture)
-                    if (allow) {
-                        if (typeof arg.value == 'string') {
-                            filteredArgs.push(arg.value)
-                        } else if (Array.isArray(arg.value)) {
-                            filteredArgs.push(...arg.value)
-                        }
-                    }
-                }
+                continue
+            }
+
+            if (!checkRules(arg?.rules, ctx, features)) continue
+
+            if (typeof arg?.value == 'string') {
+                filteredArgs.push(arg.value)
+            } else if (Array.isArray(arg?.value)) {
+                filteredArgs.push(...arg.value)
             }
         }
 
