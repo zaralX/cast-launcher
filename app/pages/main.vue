@@ -26,59 +26,17 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
 
 <template>
   <div class="min-h-full w-full px-8 pb-16 pt-10 xl:px-14">
-    <header class="grid gap-8 border-b border-line pb-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+    <header class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
       <div class="animate-rise">
-        <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">Cast Launcher</p>
         <h1 class="mt-4 font-unbounded text-[clamp(30px,4.2vw,46px)] font-bold leading-[0.92] tracking-[-0.055em] text-fg">
-          Библиотека<span class="text-acid">.</span>
+          Привет здоровяк<span class="text-acid">!</span>
         </h1>
       </div>
-
-      <dl class="flex items-stretch gap-8 animate-rise [animation-delay:120ms]">
-        <div>
-          <dt class="font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">Сборок</dt>
-          <dd class="mt-2 font-unbounded text-[26px] font-semibold leading-none tracking-[-0.05em] text-fg">
-            {{ String(instances.length).padStart(2, "0") }}
-          </dd>
-        </div>
-        <div class="w-px bg-line"/>
-        <div>
-          <dt class="font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">Готово</dt>
-          <dd class="mt-2 font-unbounded text-[26px] font-semibold leading-none tracking-[-0.05em] text-fg">
-            {{ String(installedCount).padStart(2, "0") }}
-          </dd>
-        </div>
-        <div class="w-px bg-line"/>
-        <div>
-          <dt class="font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">В игре</dt>
-          <dd
-              class="mt-2 font-unbounded text-[26px] font-semibold leading-none tracking-[-0.05em]"
-              :class="running.length ? 'text-acid' : 'text-fg'"
-          >
-            {{ String(running.length).padStart(2, "0") }}
-          </dd>
-        </div>
-      </dl>
     </header>
-
-    <section v-if="myPacks.length" class="mt-14">
-      <SectionHeading index="01" title="Сборки от zaralX" :meta="`${myPacks.length} шт.`"/>
-
-      <div class="mt-7 grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
-        <PackCard
-            v-for="([packId, pack], i) in myPacks"
-            :key="packId"
-            :pack="pack"
-            :pack-id="packId"
-            class="animate-rise"
-            :style="{ animationDelay: `${i * 60}ms` }"
-        />
-      </div>
-    </section>
 
     <section :class="myPacks.length ? 'mt-16' : 'mt-14'">
       <SectionHeading
-          :index="myPacks.length ? '02' : '01'"
+          index="01"
           title="Ваши сборки"
           :meta="`${installedCount} / ${instances.length} установлено`"
       >
@@ -128,6 +86,21 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
             <span class="font-mono text-[10px] uppercase tracking-[0.2em]">Новая сборка</span>
           </span>
         </button>
+      </div>
+    </section>
+
+    <section v-if="myPacks.length" class="mt-14">
+      <SectionHeading index="02" title="Сборки от zaralX" :meta="`${myPacks.length} шт.`"/>
+
+      <div class="mt-7 grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+        <PackCard
+            v-for="([packId, pack], i) in myPacks"
+            :key="packId"
+            :pack="pack"
+            :pack-id="packId"
+            class="animate-rise"
+            :style="{ animationDelay: `${i * 60}ms` }"
+        />
       </div>
     </section>
 
