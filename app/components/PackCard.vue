@@ -18,23 +18,23 @@ const emit = defineEmits<{ install: [packId: string] }>()
         aria-hidden="true"
     />
 
-    <div class="p-6 pl-7">
+    <div class="p-4 pl-5">
       <div class="flex items-center gap-3">
         <span class="font-mono text-[9px] uppercase tracking-[0.28em] text-acid">Подборка</span>
         <span class="h-px w-6 bg-acid/40"/>
         <span class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ packId }}</span>
       </div>
 
-      <h3 class="mt-4 font-unbounded text-[22px] font-semibold leading-[1.05] tracking-[-0.045em] text-fg">
+      <h3 class="mt-2.5 font-unbounded text-[16px] font-semibold leading-[1.1] tracking-[-0.045em] text-fg">
         {{ pack.name }}
       </h3>
-      <p class="mt-3 max-w-[34ch] text-[13px] leading-relaxed text-fg-muted">
+      <p class="mt-2 line-clamp-2 max-w-[42ch] text-[12px] leading-relaxed text-fg-muted">
         {{ pack.description }}
       </p>
     </div>
 
-    <div class="flex items-center justify-between border-t border-line px-6 py-3 pl-7">
-      <div class="flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-faint">
+    <div class="flex items-center justify-between border-t border-line px-4 py-2 pl-5">
+      <div class="flex items-center gap-3 font-mono text-[9px] uppercase tracking-[0.14em] text-fg-faint">
         <span>{{ pack.minecraftVersion }}</span>
         <span class="h-3 w-px bg-line"/>
         <span>{{ pack.type }}</span>
@@ -42,11 +42,11 @@ const emit = defineEmits<{ install: [packId: string] }>()
         <span>rev {{ pack.version }}</span>
       </div>
 
-      <AppButton tone="quiet" class="group/act tracking-[0.18em]" @click="emit('install', packId)">
+      <AppButton tone="quiet" class="group/act text-[10px] tracking-[0.18em]" @click="emit('install', packId)">
         Загрузить
         <UIcon
             name="i-lucide-arrow-right"
-            class="size-3.5 transition-transform duration-500 ease-deck group-hover/act:translate-x-1"
+            class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-1"
         />
       </AppButton>
     </div>
