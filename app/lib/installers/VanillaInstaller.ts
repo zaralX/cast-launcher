@@ -11,6 +11,7 @@ import {path} from "@tauri-apps/api";
 import {arch, platform} from "@tauri-apps/plugin-os";
 import {exists, mkdir, readFile, writeTextFile} from "@tauri-apps/plugin-fs";
 import {LauncherError} from "~/types/error";
+import {javaRequirementFromPackage} from "~/utils/javaUtils";
 
 export class VanillaInstaller extends InstallerBase {
     private tasks: DownloadTask[] = []
@@ -19,6 +20,7 @@ export class VanillaInstaller extends InstallerBase {
 
     protected override definePhases(): InstallPhase[] {
         return [
+            {key: "java", label: "Java", weight: 8},
             {key: "client", label: "Клиент", weight: 12},
             {key: "libraries", label: "Библиотеки", weight: 20},
             {key: "assets", label: "Ресурсы", weight: 58},
@@ -58,6 +60,22 @@ export class VanillaInstaller extends InstallerBase {
         }
 
         this.versionPackage = versionPackage
+    }
+
+    protected override async ensureJava(): Promise<void> {
+        this.beginPhase("java", "Проверка Java")
+
+        await this.resolveJava(
+            javaRequirementFromPackage(this.versionPackage, this.instance.minecraftVersion),
+            {
+                component: this.versionPackage?.javaVersion?.component,
+                downloader: this.downloader,
+                onFile: (file) => this.emitFile(file, "Java"),
+                onProgress: (progress) => this.reportPhase(progress, "Загрузка Java")
+            }
+        )
+
+        this.reportPhase(1)
     }
 
     protected async download() {

@@ -220,7 +220,7 @@ export const useInstanceStore = defineStore('instance', {
         async createInstaller(instance: LivingInstance) {
             const appStore = useAppStore()
             const launcherDir = appStore?.config?.launcher?.dir ?? await appConfigDir();
-            const resolveJava: JavaResolver = requirement => appStore.resolveJavaPath(requirement)
+            const resolveJava: JavaResolver = (requirement, options) => appStore.resolveJavaPath(requirement, options)
 
             switch (instance.type) {
                 case "vanilla":

@@ -15,8 +15,9 @@ import {dirname} from "@tauri-apps/api/path";
 import {invoke} from "@tauri-apps/api/core";
 import {type ErrorContext, LauncherError, toLauncherError} from "~/types/error";
 import type {JavaRequirement} from "~/utils/javaUtils";
+import type {JavaResolveOptions} from "~/lib/JavaRuntimeInstaller";
 
-export type JavaResolver = (requirement: JavaRequirement | null) => Promise<string>
+export type JavaResolver = (requirement: JavaRequirement | null, options?: JavaResolveOptions) => Promise<string>
 
 export abstract class InstallerBase {
     protected instance: LivingInstance
@@ -55,6 +56,9 @@ export abstract class InstallerBase {
 
         try {
             await this.prepare()
+            this.checkAbort()
+
+            await this.ensureJava()
             this.checkAbort()
 
             await this.download()
@@ -188,6 +192,9 @@ export abstract class InstallerBase {
             }
         }
     }
+    // Убеждается, что для сборки есть подходящая Java, до того как она понадобится
+    protected async ensureJava(): Promise<void> {}
+
     protected abstract download(): Promise<void>
     protected abstract installFiles(): Promise<void>
 

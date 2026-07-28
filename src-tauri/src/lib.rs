@@ -172,7 +172,8 @@ pub fn run() {
             commands::extract::extract_everything_jar,
             commands::forge::install_forge,
             commands::java::list_java,
-            commands::java::probe_java
+            commands::java::probe_java,
+            commands::java::finalize_java_runtime
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

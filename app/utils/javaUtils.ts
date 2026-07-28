@@ -29,6 +29,15 @@ export function javaRequirementFromPackage(versionPackage: any, minecraftVersion
     return typeof major === "number" ? {major} : javaRequirementForMinecraft(minecraftVersion)
 }
 
+export function describeJavaRequirement(requirement: JavaRequirement): string {
+    return `Java ${requirement.major}${requirement.atLeast ? " или новее" : ""}`
+}
+
+export function describeInstalledJava(runtimes: JavaRuntime[]): string {
+    const majors = [...new Set(runtimes.map(runtime => runtime.major))].sort((a, b) => a - b)
+    return majors.length ? `установлены только ${majors.join(", ")}` : "в системе не найдено ни одной"
+}
+
 function maxCompatibleMajor(required: number): number {
     return required <= 8 ? 11 : Number.MAX_SAFE_INTEGER
 }

@@ -10,7 +10,14 @@ import type {MyPacksConfig} from "~/types/pack";
 import {fetch} from "@tauri-apps/plugin-http";
 import {LauncherError, toLauncherError} from "~/types/error";
 import {captureError, safeRun} from "~/composables/useErrorHandler";
-import {pickJavaRuntime, pickSystemJavaRuntime, type JavaRequirement} from "~/utils/javaUtils";
+import {installJavaRuntime, type JavaResolveOptions} from "~/lib/JavaRuntimeInstaller";
+import {
+    describeInstalledJava,
+    describeJavaRequirement,
+    pickJavaRuntime,
+    pickSystemJavaRuntime,
+    type JavaRequirement
+} from "~/utils/javaUtils";
 
 let javaScan: Promise<JavaRuntime[]> | null = null
 
@@ -142,12 +149,19 @@ export const useAppStore = defineStore('app', {
         },
 
 
+        async javaRuntimeDir(component = ""): Promise<string> {
+            const launcherDir = this.config?.launcher?.dir ?? await appConfigDir()
+            return component
+                ? await path.join(launcherDir, "runtime", component)
+                : await path.join(launcherDir, "runtime")
+        },
+
         async scanJava(force = false): Promise<JavaRuntime[]> {
             if (javaScan) return await javaScan
             if (this.javaScanned && !force) return this.javaRuntimes
 
             this.javaScanning = true
-            javaScan = invoke<JavaRuntime[]>("list_java")
+            javaScan = invoke<JavaRuntime[]>("list_java", {extraDirs: [await this.javaRuntimeDir()]})
 
             try {
                 this.javaRuntimes = await javaScan
@@ -168,8 +182,20 @@ export const useAppStore = defineStore('app', {
             return await invoke<JavaRuntime | null>("probe_java", {path})
         },
 
-        // required — какая Java нужна сборке; учитывается только в режиме auto
-        async resolveJavaPath(required: JavaRequirement | null = null): Promise<string> {
+        // Скачивает рантайм Mojang и добавляет его к найденным
+        async downloadJavaRuntime(component: string, options: JavaResolveOptions = {}): Promise<boolean> {
+            const targetDir = await this.javaRuntimeDir(component)
+
+            const version = await installJavaRuntime(component, targetDir, options)
+            if (!version) return false
+
+            console.log(`Installed java runtime ${component} (${version}) to ${targetDir}`)
+            await this.scanJava(true)
+
+            return true
+        },
+
+        async resolveJavaPath(required: JavaRequirement | null = null, options: JavaResolveOptions = {}): Promise<string> {
             const mode = this.config?.java?.java_mode ?? "auto"
             const manual = this.config?.java?.java_path?.trim()
 
@@ -179,12 +205,20 @@ export const useAppStore = defineStore('app', {
                 await safeRun(() => this.scanJava())
             }
 
-            if (mode === "auto") {
+            if (mode === "auto" && required) {
                 const picked = pickJavaRuntime(this.javaRuntimes, required)
                 if (picked) return picked.path
 
-                // Подходящей нет — берём системную, чтобы дойти хотя бы до понятной ошибки запуска
-                console.warn(`Java ${required?.major} для сборки не найдена, используем системную`)
+                // Компонент передаёт только установщик — при запуске игры ничего не качаем
+                if (options.component && await this.downloadJavaRuntime(options.component, options)) {
+                    const downloaded = pickJavaRuntime(this.javaRuntimes, required)
+                    if (downloaded) return downloaded.path
+                }
+
+                throw new LauncherError("JAVA_NOT_FOUND", {
+                    message: `Для этой сборки нужна ${describeJavaRequirement(required)}, ${describeInstalledJava(this.javaRuntimes)}`,
+                    context: {requiredJava: required.major}
+                })
             }
 
             return this.systemJavaRuntime?.path ?? "java"

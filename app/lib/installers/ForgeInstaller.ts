@@ -12,6 +12,7 @@ export class ForgeInstaller extends VanillaInstaller {
 
     protected override definePhases(): InstallPhase[] {
         return [
+            {key: "java", label: "Java", weight: 8},
             {key: "libraries", label: "Библиотеки", weight: 18},
             {key: "assets", label: "Ресурсы", weight: 45},
             {key: "forge-installer", label: "Установщик Forge", weight: 12},

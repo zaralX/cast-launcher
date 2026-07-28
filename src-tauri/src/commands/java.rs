@@ -20,6 +20,13 @@ pub struct JavaRuntime {
     pub source: &'static str,
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[cfg_attr(not(unix), allow(dead_code))]
+pub struct JavaRuntimeLink {
+    pub path: String,
+    pub target: String,
+}
+
 #[derive(Debug, Clone)]
 struct Candidate {
     probe: PathBuf,
@@ -30,9 +37,9 @@ struct Candidate {
 type Found = HashMap<PathBuf, Candidate>;
 
 #[tauri::command]
-pub async fn list_java() -> Result<Vec<JavaRuntime>, CommandError> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let mut runtimes = probe_all(collect_candidates());
+pub async fn list_java(extra_dirs: Vec<String>) -> Result<Vec<JavaRuntime>, CommandError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut runtimes = probe_all(collect_candidates(&extra_dirs));
 
         runtimes.sort_by(|a, b| {
             b.major
@@ -75,8 +82,73 @@ pub async fn probe_java(path: String) -> Result<Option<JavaRuntime>, CommandErro
     .map_err(|e| CommandError::launch("Не удалось проверить путь к Java").with_details(e.to_string()))
 }
 
-fn collect_candidates() -> Vec<Candidate> {
+#[tauri::command]
+pub async fn finalize_java_runtime(
+    root: String,
+    executables: Vec<String>,
+    links: Vec<JavaRuntimeLink>,
+) -> Result<(), CommandError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let root = Path::new(&root);
+
+            for link in &links {
+                let path = root.join(&link.path);
+                if path.symlink_metadata().is_ok() {
+                    continue;
+                }
+
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| {
+                        CommandError::fs(format!("Не удалось создать каталог: {}", parent.display()))
+                            .with_details(e.to_string())
+                    })?;
+                }
+
+                std::os::unix::fs::symlink(&link.target, &path).map_err(|e| {
+                    CommandError::fs(format!("Не удалось создать ссылку: {}", path.display()))
+                        .with_details(e.to_string())
+                })?;
+            }
+
+            for executable in &executables {
+                let path = root.join(executable);
+                let Ok(meta) = std::fs::metadata(&path) else {
+                    continue;
+                };
+
+                let mut perms = meta.permissions();
+                perms.set_mode(perms.mode() | 0o111);
+
+                std::fs::set_permissions(&path, perms).map_err(|e| {
+                    CommandError::fs(format!("Не удалось сделать файл исполняемым: {}", path.display()))
+                        .with_details(e.to_string())
+                })?;
+            }
+        }
+
+        #[cfg(not(unix))]
+        let _ = (&root, &executables, &links);
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| {
+        CommandError::fs("Не удалось подготовить рантайм Java").with_details(e.to_string())
+    })?
+}
+
+fn collect_candidates(extra_dirs: &[String]) -> Vec<Candidate> {
     let mut found: Found = HashMap::new();
+
+    for dir in extra_dirs {
+        let dir = Path::new(dir);
+        add_home(&mut found, dir, "launcher");
+        scan_dir(&mut found, dir, 3, "launcher");
+    }
 
     scan_path_env(&mut found);
 
