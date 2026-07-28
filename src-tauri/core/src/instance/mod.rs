@@ -76,6 +76,8 @@ pub struct Instance {
     #[serde(default)]
     pub description: String,
     pub minecraft_version: String,
+    #[serde(default)]
+    pub icon: String,
     #[serde(rename = "type")]
     pub loader: LoaderType,
     #[serde(default)]

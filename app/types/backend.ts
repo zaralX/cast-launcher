@@ -3,6 +3,7 @@ import {listen} from "@tauri-apps/api/event"
 import type {Account, AccountConfig} from "~/types/account"
 import type {AppConfig, JavaRuntime, LauncherPaths} from "~/types/app"
 import type {Instance, InstanceLogFile, InstanceSettings, InstallSnapshot, RunningGame} from "~/types/instance"
+import type {IconFile, ItemCatalog} from "~/types/icon"
 import type {MyPacksConfig} from "~/types/pack"
 import {toLauncherError} from "~/types/error"
 
@@ -44,6 +45,14 @@ interface Commands {
     read_instance_log: [{ instanceId: string, name: string }, string]
     delete_instance_log: [{ instanceId: string, name: string }, InstanceLogFile[]]
 
+    list_icons: [void, IconFile[]]
+    read_icon: [{ name: string }, string]
+    import_icon: [{ path?: string }, IconFile | null]
+    delete_icon: [{ name: string }, IconFile[]]
+    list_item_icons: [void, ItemCatalog]
+    item_icons: [{ items: string[] }, Record<string, string>]
+    save_item_icon: [{ item: string }, IconFile]
+
     install_instance: [{ instanceId: string }, InstallSnapshot]
     cancel_install: [{ instanceId: string }, void]
     list_installs: [void, InstallSnapshot[]]
@@ -83,6 +92,7 @@ export interface NewInstance {
 export interface InstanceUpdate {
     name?: string
     description?: string
+    icon?: string
     settings?: InstanceSettings
 }
 

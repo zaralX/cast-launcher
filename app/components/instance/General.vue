@@ -7,6 +7,9 @@ const props = defineProps<{ instance: Instance }>()
 
 const name = defineModel<string>("name", {required: true})
 const description = defineModel<string>("description", {required: true})
+const icon = defineModel<string>("icon", {required: true})
+
+const pickerOpen = ref(false)
 
 const instanceStore = useInstanceStore()
 const router = useRouter()
@@ -77,6 +80,37 @@ async function remove() {
         icon="i-lucide-box"
     >
       <div class="space-y-7">
+        <div class="flex items-center gap-5">
+          <InstanceIcon :icon="icon" :type="instance.type" size="lg"/>
+
+          <div class="min-w-0 flex-1">
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Иконка</p>
+            <p class="mt-2 truncate font-mono text-[11px] text-fg-muted" :title="icon">
+              {{ icon || "Метка по типу загрузчика" }}
+            </p>
+
+            <div class="mt-3 flex items-center gap-3">
+              <AppButton
+                  class="h-8 px-3.5 text-[10px] tracking-[0.18em]"
+                  icon="i-lucide-image"
+                  @click="pickerOpen = true"
+              >
+                Выбрать иконку
+              </AppButton>
+
+              <AppButton
+                  v-if="icon"
+                  tone="quiet"
+                  class="text-[10px] tracking-[0.18em]"
+                  icon="i-lucide-x"
+                  @click="icon = ''"
+              >
+                Убрать
+              </AppButton>
+            </div>
+          </div>
+        </div>
+
         <SettingsField label="Название">
           <UInput
               v-model="name"
@@ -169,6 +203,12 @@ async function remove() {
         </p>
       </div>
     </SettingsPanel>
+
+    <UModal v-model:open="pickerOpen" title="Иконка сборки" :ui="{ content: 'max-w-3xl' }">
+      <template #body>
+        <InstanceIconPicker v-model="icon"/>
+      </template>
+    </UModal>
 
     <UModal v-model:open="removeOpen" title="Удаление сборки">
       <template #body>

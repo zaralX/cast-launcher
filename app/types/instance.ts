@@ -33,6 +33,7 @@ export interface Instance {
     name: string
     description: string
     minecraftVersion: string
+    icon: string
     type: InstanceType
     installed: boolean
     version: number

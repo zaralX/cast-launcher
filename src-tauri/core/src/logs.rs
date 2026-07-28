@@ -55,13 +55,7 @@ pub async fn list(dir: &Path) -> CommandResult<Vec<LogFile>> {
 }
 
 pub fn resolve(dir: &Path, name: &str) -> CommandResult<PathBuf> {
-    let clean = Path::new(name)
-        .file_name()
-        .map(|file| file.to_string_lossy().to_string())
-        .filter(|file| file == name && !name.is_empty() && name != "." && name != "..")
-        .ok_or_else(|| CommandError::fs(format!("Недопустимое имя файла лога: {name}")))?;
-
-    Ok(dir.join(clean))
+    crate::fs_util::child_file(dir, name)
 }
 
 pub async fn read_tail(path: &Path, max_bytes: usize) -> CommandResult<String> {

@@ -41,6 +41,7 @@ const stop = () => safeRun(
 const draft = ref({
   name: "",
   description: "",
+  icon: "",
   settings: emptyInstanceSettings()
 })
 
@@ -48,6 +49,7 @@ function snapshot(source: Instance) {
   return {
     name: source.name,
     description: source.description ?? "",
+    icon: source.icon ?? "",
     settings: {...emptyInstanceSettings(), ...(source.settings ?? {})} as InstanceSettings
   }
 }
@@ -75,6 +77,7 @@ async function save() {
   const result = await attempt(() => instanceStore.updateInstance(instanceId.value, {
     name: draft.value.name.trim(),
     description: draft.value.description.trim(),
+    icon: draft.value.icon,
     settings: draft.value.settings
   }), {context: {instanceId: instanceId.value, action: "Сохранение настроек сборки"}})
 
@@ -115,16 +118,22 @@ function reset() {
           Библиотека
         </NuxtLink>
 
-        <h1
-            class="mt-4 break-words font-unbounded text-[clamp(22px,2.4vw,30px)] font-bold leading-[0.95] tracking-[-0.055em] text-fg"
-            :title="instance.name"
-        >
-          {{ instance.name }}<span class="text-acid">.</span>
-        </h1>
+        <div class="mt-4 flex items-start gap-4">
+          <InstanceIcon :icon="draft.icon" :type="instance.type" size="md"/>
 
-        <p class="mt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-          {{ INSTANCE_TYPE_LABELS[instance.type] ?? instance.type }} · {{ instance.minecraftVersion }}
-        </p>
+          <div class="min-w-0">
+            <h1
+                class="break-words font-unbounded text-[clamp(18px,2vw,24px)] font-bold leading-[1] tracking-[-0.055em] text-fg"
+                :title="instance.name"
+            >
+              {{ instance.name }}<span class="text-acid">.</span>
+            </h1>
+
+            <p class="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
+              {{ INSTANCE_TYPE_LABELS[instance.type] ?? instance.type }} · {{ instance.minecraftVersion }}
+            </p>
+          </div>
+        </div>
 
         <nav class="mt-7 border-t border-line">
           <button
@@ -200,6 +209,7 @@ function reset() {
             :instance="instance"
             v-model:name="draft.name"
             v-model:description="draft.description"
+            v-model:icon="draft.icon"
             class="animate-rise"
         />
 

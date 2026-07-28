@@ -24,6 +24,7 @@ export interface LauncherPaths {
     root: string
     configRoot: string
     instancesRoot: string
+    icons: string
     libraries: string
     assets: string
     javaRuntimes: string

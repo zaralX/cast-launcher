@@ -1,13 +1,18 @@
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
+use tokio::task::JoinSet;
 
 use cast_core::account::{Account, AccountConfig};
+use cast_core::assets::{self, ItemCategories};
 use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
+use cast_core::icons::{self, IconFile};
 use cast_core::instance::{Instance, InstanceSettings};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
@@ -132,6 +137,7 @@ pub async fn delete_instance(app: AppHandle, state: Ctx<'_>, instance_id: String
 pub struct InstanceUpdate {
     pub name: Option<String>,
     pub description: Option<String>,
+    pub icon: Option<String>,
     pub settings: Option<InstanceSettings>,
 }
 
@@ -160,6 +166,21 @@ pub async fn update_instance(
 
     let paths = state.paths().await;
 
+    let icon = match update.icon {
+        Some(icon) if !icon.trim().is_empty() => {
+            let icon = icon.trim().to_string();
+            let path = icons::resolve(&paths.icons(), &icon)?;
+
+            if !path.is_file() {
+                return Err(CommandError::fs(format!("Иконка не найдена: {icon}")));
+            }
+
+            Some(icon)
+        }
+        Some(_) => Some(String::new()),
+        None => None,
+    };
+
     let updated = state
         .instances
         .update(&paths, &instance_id, move |instance| {
@@ -168,6 +189,9 @@ pub async fn update_instance(
             }
             if let Some(description) = description {
                 instance.description = description;
+            }
+            if let Some(icon) = icon {
+                instance.icon = icon;
             }
             if let Some(settings) = settings {
                 instance.settings = settings;
@@ -243,6 +267,126 @@ pub async fn delete_instance_log(
     logs::remove(&logs::resolve(&dir, &name)?).await?;
 
     logs::list(&dir).await
+}
+
+#[tauri::command]
+pub async fn list_icons(state: Ctx<'_>) -> CommandResult<Vec<IconFile>> {
+    let paths = state.paths().await;
+    icons::list(&paths.icons()).await
+}
+
+#[tauri::command]
+pub async fn read_icon(state: Ctx<'_>, name: String) -> CommandResult<String> {
+    let paths = state.paths().await;
+    icons::data_url(&icons::resolve(&paths.icons(), &name)?).await
+}
+
+#[tauri::command]
+pub async fn import_icon(
+    app: AppHandle,
+    state: Ctx<'_>,
+    path: Option<String>,
+) -> CommandResult<Option<IconFile>> {
+    let source = match path {
+        Some(path) => Some(PathBuf::from(path)),
+        None => pick_image(&app).await,
+    };
+
+    let Some(source) = source else { return Ok(None) };
+
+    let paths = state.paths().await;
+
+    icons::import(&paths.icons(), &source).await.map(Some)
+}
+
+async fn pick_image(app: &AppHandle) -> Option<PathBuf> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Иконка сборки")
+        .add_filter("Картинки", &icons::extensions())
+        .pick_file(move |picked| {
+            let _ = sender.send(picked);
+        });
+
+    receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok())
+}
+
+#[tauri::command]
+pub async fn delete_icon(state: Ctx<'_>, name: String) -> CommandResult<Vec<IconFile>> {
+    let paths = state.paths().await;
+
+    icons::remove(&paths.icons(), &name).await?;
+    icons::list(&paths.icons()).await
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemCatalog {
+    pub categories: ItemCategories,
+    pub names: BTreeMap<String, String>,
+}
+
+#[tauri::command]
+pub async fn list_item_icons(state: Ctx<'_>) -> CommandResult<ItemCatalog> {
+    let categories = assets::item_categories(&state.meta).await?;
+    let language = state.config().await.launcher.language;
+
+    let names = assets::item_names(&state.meta, &language).await.unwrap_or_default();
+
+    Ok(ItemCatalog { categories, names })
+}
+
+const CATALOG_CONCURRENCY: usize = 8;
+
+#[tauri::command]
+pub async fn item_icons(state: Ctx<'_>, items: Vec<String>) -> CommandResult<BTreeMap<String, String>> {
+    let state = state.inner().clone();
+    let mut queue = items.into_iter().filter(|item| assets::is_item_id(item));
+
+    let mut tasks = JoinSet::new();
+    let mut fetched = BTreeMap::new();
+
+    for _ in 0..CATALOG_CONCURRENCY {
+        match queue.next() {
+            Some(item) => fetch_item_icon(&mut tasks, &state, item),
+            None => break,
+        }
+    }
+
+    while let Some(joined) = tasks.join_next().await {
+        if let Ok((item, Some(url))) = joined {
+            fetched.insert(item, url);
+        }
+
+        if let Some(item) = queue.next() {
+            fetch_item_icon(&mut tasks, &state, item);
+        }
+    }
+
+    Ok(fetched)
+}
+
+fn fetch_item_icon(tasks: &mut JoinSet<(String, Option<String>)>, state: &Arc<AppState>, item: String) {
+    let state = Arc::clone(state);
+
+    tasks.spawn(async move {
+        let url = assets::item_icon(&state.meta, &item)
+            .await
+            .map(|bytes| icons::to_data_url("image/webp", &bytes))
+            .ok();
+
+        (item, url)
+    });
+}
+
+#[tauri::command]
+pub async fn save_item_icon(state: Ctx<'_>, item: String) -> CommandResult<IconFile> {
+    let bytes = assets::item_icon(&state.meta, &item).await?;
+    let paths = state.paths().await;
+
+    icons::save_once(&paths.icons(), &assets::item_icon_file(&item), &bytes).await
 }
 
 #[tauri::command]

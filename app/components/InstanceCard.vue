@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type {Instance, InstanceType} from "~/types/instance";
+import type {Instance} from "~/types/instance";
 
 const props = defineProps<{
   instance: Instance
@@ -13,14 +13,6 @@ const emit = defineEmits<{
   install: [id: string]
   run: [id: string]
 }>()
-
-const TYPE_MARK: Record<InstanceType, string> = {
-  vanilla: "VA",
-  fabric: "FA",
-  forge: "FO"
-}
-
-const mark = computed(() => TYPE_MARK[props.instance.type] ?? "??")
 
 const state = computed<"running" | "installing" | "ready" | "absent">(() => {
   if (props.running) return "running"
@@ -39,11 +31,11 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
     />
 
     <header class="flex items-start justify-between gap-3">
-      <span
-          class="grid size-8 shrink-0 place-items-center border border-line font-mono text-[10px] tracking-[0.08em] text-fg-faint transition-colors duration-500 group-hover:border-acid/40 group-hover:text-acid"
-      >
-        {{ mark }}
-      </span>
+      <InstanceIcon
+          :icon="instance.icon"
+          :type="instance.type"
+          class="text-fg-faint transition-colors duration-500 group-hover:border-acid/40 group-hover:text-acid"
+      />
 
       <div class="flex items-start gap-3 pr-3.5">
         <div class="flex flex-col items-end gap-1">

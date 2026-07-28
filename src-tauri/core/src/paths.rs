@@ -55,6 +55,10 @@ impl LauncherPaths {
         self.config_root.join("instances")
     }
 
+    pub fn icons(&self) -> PathBuf {
+        self.config_root.join("icons")
+    }
+
     pub fn instance(&self, id: &str) -> InstancePaths {
         InstancePaths::new(self.instances_root().join(id))
     }
@@ -194,6 +198,7 @@ pub struct PathsSnapshot {
     pub root: String,
     pub config_root: String,
     pub instances_root: String,
+    pub icons: String,
     pub libraries: String,
     pub assets: String,
     pub java_runtimes: String,
@@ -206,6 +211,7 @@ impl From<&LauncherPaths> for PathsSnapshot {
             root: paths.root().display().to_string(),
             config_root: paths.config_root().display().to_string(),
             instances_root: paths.instances_root().display().to_string(),
+            icons: paths.icons().display().to_string(),
             libraries: paths.libraries().display().to_string(),
             assets: paths.assets().display().to_string(),
             java_runtimes: paths.java_runtimes().display().to_string(),

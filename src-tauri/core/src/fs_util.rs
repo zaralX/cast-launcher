@@ -10,6 +10,14 @@ pub async fn ensure_dir(dir: &Path) -> CommandResult<()> {
         .map_err(|e| CommandError::io(format!("Не удалось создать каталог: {}", dir.display()), dir, e))
 }
 
+pub fn child_file(dir: &Path, name: &str) -> CommandResult<PathBuf> {
+    Path::new(name)
+        .file_name()
+        .filter(|file| *file == name && name != "." && name != "..")
+        .map(|file| dir.join(file))
+        .ok_or_else(|| CommandError::fs(format!("Недопустимое имя файла: {name}")))
+}
+
 pub async fn read_text(path: &Path) -> CommandResult<String> {
     tokio::fs::read_to_string(path)
         .await
@@ -184,6 +192,17 @@ mod tests {
     async fn merging_a_missing_directory_is_not_an_error() {
         let root = std::env::temp_dir().join(format!("cast-merge-{}", uuid::Uuid::new_v4()));
         merge_dir(&root.join("nope"), &root.join("to")).await.unwrap();
+    }
+
+    #[test]
+    fn child_file_stays_inside_the_directory() {
+        let dir = Path::new("/data/icons");
+
+        assert!(child_file(dir, "../../config.json").is_err());
+        assert!(child_file(dir, "nested/icon.png").is_err());
+        assert!(child_file(dir, "").is_err());
+        assert!(child_file(dir, "..").is_err());
+        assert_eq!(child_file(dir, "icon.png").unwrap(), dir.join("icon.png"));
     }
 
     #[tokio::test]

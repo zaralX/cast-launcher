@@ -13,6 +13,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -41,6 +42,13 @@ pub fn run() {
             commands::list_instance_logs,
             commands::read_instance_log,
             commands::delete_instance_log,
+            commands::list_icons,
+            commands::read_icon,
+            commands::import_icon,
+            commands::delete_icon,
+            commands::list_item_icons,
+            commands::item_icons,
+            commands::save_item_icon,
             commands::install_instance,
             commands::cancel_install,
             commands::list_installs,
