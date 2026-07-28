@@ -6,7 +6,16 @@ export default defineAppConfig({
         },
         button: {
             slots: {
-                base: 'rounded-none font-mono text-[11px] uppercase tracking-[0.16em] transition-all duration-300'
+                base: 'rounded-none font-mono uppercase tracking-[0.16em] transition-all duration-300'
+            },
+            variants: {
+                size: {
+                    xs: {base: 'px-2 py-1 text-[9px] gap-1.5', leadingIcon: 'size-3', trailingIcon: 'size-3'},
+                    sm: {base: 'px-2.5 py-1.5 text-[10px] gap-1.5', leadingIcon: 'size-3.5', trailingIcon: 'size-3.5'},
+                    md: {base: 'px-3 py-2 text-[11px] gap-2', leadingIcon: 'size-3.5', trailingIcon: 'size-3.5'},
+                    lg: {base: 'px-3.5 py-2.5 text-[12px] gap-2', leadingIcon: 'size-4', trailingIcon: 'size-4'},
+                    xl: {base: 'px-4 py-3 text-[13px] gap-2.5', leadingIcon: 'size-4', trailingIcon: 'size-4'}
+                }
             }
         },
         input: {

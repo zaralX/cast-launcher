@@ -47,17 +47,18 @@ function copyAll() {
 <template>
   <UModal v-model:open="open" title="Журнал ошибок">
     <UChip :show="unseenCount > 0" :text="unseenCount" size="lg" color="error" class="flex">
-      <button
-          type="button"
+      <UButton
+          color="neutral"
+          variant="ghost"
           aria-label="Журнал ошибок"
-          class="group grid h-11 w-11 place-items-center transition-colors duration-200 hover:bg-ink-600"
+          class="group h-11 w-11 justify-center hover:bg-ink-600"
           :class="unseenCount > 0 ? 'text-red-400' : 'text-fg-faint hover:text-fg'"
       >
         <UIcon
             name="i-lucide-triangle-alert"
             class="size-4 transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
         />
-      </button>
+      </UButton>
     </UChip>
 
     <template #body>
@@ -114,22 +115,22 @@ function copyAll() {
           </div>
 
           <div class="mt-3 flex gap-5 pl-7">
-            <button
-                type="button"
-                class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-faint transition-colors duration-300 hover:text-acid"
+            <AppButton
+                tone="quiet"
+                class="text-[10px] tracking-[0.16em] text-fg-faint"
+                :icon="copiedId === entry.id ? 'i-lucide-check' : 'i-lucide-copy'"
                 @click="copy(entry.id, entry.report)"
             >
-              <UIcon :name="copiedId === entry.id ? 'i-lucide-check' : 'i-lucide-copy'" class="size-3"/>
               {{ copiedId === entry.id ? 'Скопировано' : 'Копировать' }}
-            </button>
-            <button
-                type="button"
-                class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-faint transition-colors duration-300 hover:text-fg"
+            </AppButton>
+            <AppButton
+                tone="quiet"
+                class="text-[10px] tracking-[0.16em] text-fg-faint hover:text-fg"
+                icon="i-lucide-x"
                 @click="errorStore.dismiss(entry.id)"
             >
-              <UIcon name="i-lucide-x" class="size-3"/>
               Скрыть
-            </button>
+            </AppButton>
           </div>
         </article>
       </div>
@@ -137,25 +138,25 @@ function copyAll() {
 
     <template #footer>
       <div class="flex w-full items-center gap-6">
-        <button
-            type="button"
+        <AppButton
+            tone="quiet"
+            class="text-[10px] tracking-[0.18em]"
+            :icon="copiedId === 'all' ? 'i-lucide-check' : 'i-lucide-clipboard-list'"
             :disabled="!entries.length"
-            class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted transition-colors duration-300 hover:text-acid disabled:pointer-events-none disabled:opacity-30"
             @click="copyAll"
         >
-          <UIcon :name="copiedId === 'all' ? 'i-lucide-check' : 'i-lucide-clipboard-list'" class="size-3.5"/>
           Скопировать всё
-        </button>
+        </AppButton>
 
-        <button
-            type="button"
+        <AppButton
+            tone="quiet"
+            class="ml-auto text-[10px] tracking-[0.18em] hover:text-red-400"
+            icon="i-lucide-trash-2"
             :disabled="!entries.length"
-            class="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted transition-colors duration-300 hover:text-red-400 disabled:pointer-events-none disabled:opacity-30"
             @click="errorStore.clear()"
         >
-          <UIcon name="i-lucide-trash-2" class="size-3.5"/>
           Очистить
-        </button>
+        </AppButton>
       </div>
     </template>
   </UModal>

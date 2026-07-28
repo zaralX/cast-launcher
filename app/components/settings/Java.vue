@@ -116,19 +116,15 @@ onBeforeUnmount(() => {
         <div class="mb-2 flex items-center justify-between gap-4">
           <span class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Среда выполнения</span>
 
-          <button
-              type="button"
-              :disabled="javaScanning"
-              class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted transition-colors duration-300 hover:text-acid disabled:pointer-events-none disabled:opacity-40"
+          <AppButton
+              tone="quiet"
+              class="text-[10px] tracking-[0.18em]"
+              icon="i-lucide-refresh-cw"
+              :loading="javaScanning"
               @click="rescan"
           >
-            <UIcon
-                :name="javaScanning ? 'i-lucide-loader-circle' : 'i-lucide-refresh-cw'"
-                class="size-3.5"
-                :class="javaScanning ? 'animate-spin' : ''"
-            />
             {{ javaScanning ? 'Поиск' : 'Обновить' }}
-          </button>
+          </AppButton>
         </div>
 
         <ul class="border-t border-line">

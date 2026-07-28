@@ -57,32 +57,35 @@ onMounted(async () => {
       <div class="flex items-stretch">
         <ErrorCenter/>
 
-        <button
-            type="button"
+        <UButton
+            color="neutral"
+            variant="ghost"
             aria-label="Свернуть"
-            class="group grid h-11 w-11 place-items-center text-fg-faint transition-colors duration-200 hover:bg-ink-600 hover:text-fg"
+            class="group h-11 w-11 justify-center text-fg-faint hover:bg-ink-600 hover:text-fg"
             @click="appWindow?.minimize()"
         >
           <span class="h-px w-3.5 bg-current transition-transform duration-300 group-hover:scale-x-75"/>
-        </button>
+        </UButton>
 
-        <button
-            type="button"
+        <UButton
+            color="neutral"
+            variant="ghost"
             aria-label="Развернуть"
-            class="group grid h-11 w-11 place-items-center text-fg-faint transition-colors duration-200 hover:bg-ink-600 hover:text-fg"
+            class="group h-11 w-11 justify-center text-fg-faint hover:bg-ink-600 hover:text-fg"
             @click="appWindow?.toggleMaximize()"
         >
           <span class="size-2.5 border border-current transition-all duration-300 group-hover:size-3"/>
-        </button>
+        </UButton>
 
-        <button
-            type="button"
+        <UButton
+            color="neutral"
+            variant="ghost"
             aria-label="Закрыть"
-            class="group grid h-11 w-11 place-items-center text-fg-faint transition-colors duration-200 hover:bg-red-500 hover:text-white"
+            class="group h-11 w-11 justify-center text-fg-faint hover:bg-red-500 hover:text-white"
             @click="appWindow?.close()"
         >
           <UIcon name="i-lucide-x" class="size-3.5 transition-transform duration-300 group-hover:rotate-90"/>
-        </button>
+        </UButton>
       </div>
     </header>
 

@@ -99,19 +99,16 @@ watch(installs, (value) => {
 
           <p v-else class="mt-4 truncate font-mono text-[10px] text-fg-faint">{{ install.message }}</p>
 
-          <button
-              type="button"
+          <AppButton
+              tone="quiet"
+              class="mt-4 text-[10px] tracking-[0.16em] text-fg-faint hover:text-red-400"
+              icon="i-lucide-circle-stop"
+              :loading="install.aborting"
               :disabled="install.aborting"
-              class="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-faint transition-colors duration-300 hover:text-red-400 disabled:pointer-events-none disabled:opacity-40"
               @click="instanceStore.abortInstall(install.instanceId)"
           >
-            <UIcon
-                :name="install.aborting ? 'i-lucide-loader-circle' : 'i-lucide-circle-stop'"
-                class="size-3"
-                :class="install.aborting ? 'animate-spin' : ''"
-            />
             {{ install.aborting ? 'Останавливаем' : 'Прервать' }}
-          </button>
+          </AppButton>
         </section>
       </div>
     </template>

@@ -102,24 +102,20 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
         </span>
       </div>
 
-      <button
+      <AppButton
           v-else
-          type="button"
-          class="group/act relative flex h-9 w-full items-center justify-center overflow-hidden border border-line font-mono text-[11px] uppercase tracking-[0.18em] text-fg transition-colors duration-300 hover:border-acid hover:text-on-acid"
+          block
+          class="group/act h-9 tracking-[0.18em]"
           @click="state === 'ready' ? emit('run', instance.id) : emit('install', instance.id)"
       >
-        <span
-            class="absolute inset-0 origin-left scale-x-0 bg-acid transition-transform duration-500 ease-deck group-hover/act:scale-x-100"
-            aria-hidden="true"
-        />
-        <span class="relative flex items-center gap-2">
+        <template #leading>
           <UIcon
               :name="state === 'ready' ? 'i-lucide-play' : 'i-lucide-arrow-down-to-line'"
               class="size-3.5 transition-transform duration-500 ease-deck group-hover/act:translate-x-0.5"
           />
-          {{ state === 'ready' ? 'Играть' : 'Загрузить' }}
-        </span>
-      </button>
+        </template>
+        {{ state === 'ready' ? 'Играть' : 'Загрузить' }}
+      </AppButton>
     </footer>
   </article>
 </template>

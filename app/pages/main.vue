@@ -22,6 +22,10 @@ const isRunning = (id: string) => running.value.some(game => game.instanceId ===
 const isInstalling = (id: string) => installs.value.some(install => install.instanceId === id)
 
 const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
+
+const openCreateModal = () => {
+  createModalOpen.value = true
+}
 </script>
 
 <template>
@@ -41,20 +45,12 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
           :meta="`${installedCount} / ${instances.length} установлено`"
       >
         <template #action>
-          <button
-              type="button"
-              class="group/new relative ml-2 flex h-8 items-center gap-2 overflow-hidden border border-line px-3.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg transition-colors duration-300 hover:border-acid hover:text-on-acid"
-              @click="createModalOpen = true"
-          >
-            <span
-                class="absolute inset-0 origin-left scale-x-0 bg-acid transition-transform duration-500 ease-deck group-hover/new:scale-x-100"
-                aria-hidden="true"
-            />
-            <span class="relative flex items-center gap-2">
+          <AppButton class="group/new ml-2 h-8 px-3.5 text-[10px]" @click="openCreateModal">
+            <template #leading>
               <UIcon name="i-lucide-plus" class="size-3.5 transition-transform duration-500 group-hover/new:rotate-90"/>
-              Создать
-            </span>
-          </button>
+            </template>
+            Создать
+          </AppButton>
         </template>
       </SectionHeading>
 
@@ -73,19 +69,20 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
             @run="runInstance"
         />
 
-        <button
-            type="button"
-            class="group grid min-h-[13.5rem] place-items-center border border-dashed border-line text-fg-faint transition-all duration-500 ease-deck hover:-translate-y-1 hover:border-acid/50 hover:text-acid"
-            @click="createModalOpen = true"
+        <UButton
+            color="neutral"
+            variant="ghost"
+            class="group min-h-[13.5rem] justify-center border border-dashed border-line text-fg-faint transition-all duration-500 ease-deck hover:-translate-y-1 hover:border-acid/50 hover:bg-transparent hover:text-acid"
+            @click="openCreateModal"
         >
           <span class="flex flex-col items-center gap-3">
             <UIcon
                 name="i-lucide-plus"
                 class="size-5 transition-transform duration-500 ease-deck group-hover:rotate-90"
             />
-            <span class="font-mono text-[10px] uppercase tracking-[0.2em]">Новая сборка</span>
+            <span class="tracking-[0.2em]">Новая сборка</span>
           </span>
-        </button>
+        </UButton>
       </div>
     </section>
 

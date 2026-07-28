@@ -109,14 +109,14 @@ const createInstance = async () => {
         <div class="min-w-0">
           <p class="text-[13px] font-medium text-fg">{{ loadError.title }}</p>
           <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">{{ loadError.hint ?? loadError.message }}</p>
-          <button
-              type="button"
-              class="mt-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted transition-colors duration-300 hover:text-acid"
+          <AppButton
+              tone="quiet"
+              class="mt-4 text-[10px] tracking-[0.18em]"
+              icon="i-lucide-rotate-cw"
               @click="loadMetadata"
           >
-            <UIcon name="i-lucide-rotate-cw" class="size-3"/>
             Повторить
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -153,11 +153,13 @@ const createInstance = async () => {
 
       <div>
         <span class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузчик</span>
-        <div class="grid grid-cols-3 border border-line">
+        <div role="radiogroup" aria-label="Загрузчик" class="grid grid-cols-3 border border-line">
           <button
               v-for="(type, i) in TYPES"
               :key="type.value"
               type="button"
+              role="radio"
+              :aria-checked="instanceType === type.value"
               class="group relative flex flex-col items-center gap-1.5 py-4 transition-colors duration-300"
               :class="[
                 i > 0 ? 'border-l border-line' : '',
@@ -197,24 +199,21 @@ const createInstance = async () => {
         </div>
       </div>
 
-      <button
+      <AppButton
+          block
           type="submit"
+          class="group/act h-11 tracking-[0.2em]"
+          :loading="creating"
           :disabled="!canCreate"
-          class="group/act relative flex h-11 w-full items-center justify-center overflow-hidden border border-line font-mono text-[11px] uppercase tracking-[0.2em] text-fg transition-colors duration-300 hover:border-acid hover:text-on-acid disabled:pointer-events-none disabled:opacity-30"
       >
-        <span
-            class="absolute inset-0 origin-left scale-x-0 bg-acid transition-transform duration-500 ease-deck group-hover/act:scale-x-100"
-            aria-hidden="true"
-        />
-        <span class="relative flex items-center gap-2">
+        <template #leading>
           <UIcon
-              :name="creating ? 'i-lucide-loader-circle' : 'i-lucide-plus'"
-              class="size-3.5"
-              :class="creating ? 'animate-spin' : 'transition-transform duration-500 group-hover/act:rotate-90'"
+              name="i-lucide-plus"
+              class="size-3.5 transition-transform duration-500 group-hover/act:rotate-90"
           />
-          {{ creating ? 'Создание' : 'Создать сборку' }}
-        </span>
-      </button>
+        </template>
+        {{ creating ? 'Создание' : 'Создать сборку' }}
+      </AppButton>
     </form>
   </div>
 </template>

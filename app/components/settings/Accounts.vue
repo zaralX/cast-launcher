@@ -72,51 +72,40 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
       </p>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <button
-            type="button"
-            class="group/act relative flex h-10 items-center justify-center overflow-hidden border border-line font-mono text-[10px] uppercase tracking-[0.18em] text-fg transition-colors duration-300 hover:border-acid hover:text-on-acid"
+        <AppButton
+            block
+            class="h-10 text-[10px] tracking-[0.18em]"
+            icon="mdi:microsoft"
+            :loading="loggingIn"
             @click="createMicrosoftAccount"
         >
-          <span
-              class="absolute inset-0 origin-left scale-x-0 bg-acid transition-transform duration-500 ease-deck group-hover/act:scale-x-100"
-              aria-hidden="true"
-          />
-          <span class="relative flex items-center gap-2">
-            <UIcon
-                :name="loggingIn ? 'i-lucide-loader-circle' : 'mdi:microsoft'"
-                class="size-3.5"
-                :class="loggingIn ? 'animate-spin' : ''"
-            />
-            Microsoft
-          </span>
-        </button>
+          Microsoft
+        </AppButton>
 
         <UPopover mode="hover">
-          <button
-              type="button"
-              class="flex h-10 w-full items-center justify-center gap-2 border border-line font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted transition-colors duration-300 hover:border-line-strong hover:text-fg"
+          <UButton
+              block
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-globe"
+              class="h-10 justify-center border border-line text-[10px] tracking-[0.18em] text-fg-muted hover:border-line-strong hover:bg-transparent hover:text-fg"
           >
-            <UIcon name="i-lucide-globe" class="size-3.5"/>
             Оффлайн
-          </button>
+          </UButton>
 
           <template #content>
             <div class="w-64 space-y-4 p-5">
               <SettingsField label="Никнейм">
                 <UInput v-model="offlineNickname" placeholder="nickname" class="w-full"/>
               </SettingsField>
-              <button
-                  type="button"
-                  class="group/act relative flex h-9 w-full items-center justify-center overflow-hidden border border-line font-mono text-[10px] uppercase tracking-[0.18em] text-fg transition-colors duration-300 hover:border-acid hover:text-on-acid disabled:pointer-events-none disabled:opacity-30"
+              <AppButton
+                  block
+                  class="h-9 text-[10px] tracking-[0.18em]"
                   :disabled="!offlineNickname.trim()"
                   @click="createOfflineAccount"
               >
-                <span
-                    class="absolute inset-0 origin-left scale-x-0 bg-acid transition-transform duration-500 ease-deck group-hover/act:scale-x-100"
-                    aria-hidden="true"
-                />
-                <span class="relative">Добавить</span>
-              </button>
+                Добавить
+              </AppButton>
             </div>
           </template>
         </UPopover>

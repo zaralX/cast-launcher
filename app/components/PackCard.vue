@@ -42,17 +42,13 @@ const emit = defineEmits<{ install: [packId: string] }>()
         <span>rev {{ pack.version }}</span>
       </div>
 
-      <button
-          type="button"
-          class="group/act relative -mr-2 flex items-center gap-2 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-fg-muted transition-colors duration-300 hover:text-acid"
-          @click="emit('install', packId)"
-      >
+      <AppButton tone="quiet" class="group/act tracking-[0.18em]" @click="emit('install', packId)">
         Загрузить
         <UIcon
             name="i-lucide-arrow-right"
             class="size-3.5 transition-transform duration-500 ease-deck group-hover/act:translate-x-1"
         />
-      </button>
+      </AppButton>
     </div>
   </article>
 </template>

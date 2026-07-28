@@ -47,25 +47,16 @@ async function saveConfig() {
           Изменения применяются после сохранения и хранятся в config.json.
         </p>
 
-        <button
-            type="button"
-            :disabled="!config || saving"
-            class="group/act relative mt-8 flex h-11 w-full items-center justify-center overflow-hidden border border-line font-mono text-[11px] uppercase tracking-[0.2em] text-fg transition-colors duration-300 hover:border-acid hover:text-on-acid disabled:pointer-events-none disabled:opacity-30"
+        <AppButton
+            block
+            class="mt-8 h-11 tracking-[0.2em]"
+            icon="i-lucide-save"
+            :loading="saving"
+            :disabled="!config"
             @click="saveConfig"
         >
-          <span
-              class="absolute inset-0 origin-left scale-x-0 bg-acid transition-transform duration-500 ease-deck group-hover/act:scale-x-100"
-              aria-hidden="true"
-          />
-          <span class="relative flex items-center gap-2">
-            <UIcon
-                :name="saving ? 'i-lucide-loader-circle' : 'i-lucide-save'"
-                class="size-3.5"
-                :class="saving ? 'animate-spin' : ''"
-            />
-            {{ saving ? 'Сохранение' : 'Сохранить' }}
-          </span>
-        </button>
+          {{ saving ? 'Сохранение' : 'Сохранить' }}
+        </AppButton>
       </aside>
 
       <div v-if="config" class="space-y-6">
