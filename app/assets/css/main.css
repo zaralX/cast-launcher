@@ -55,7 +55,6 @@ code, kbd, pre, samp {
     color: var(--cast-on-acid);
 }
 
-/* Волосяной скроллбар вместо системного бруска */
 * {
     scrollbar-width: thin;
     scrollbar-color: var(--cast-line-strong) transparent;

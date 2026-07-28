@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type {InstanceType} from "~/types/instance";
-import {$fetch} from "ofetch";
-import {XMLParser} from "fast-xml-parser";
 import {v4} from "uuid";
+import {call} from "~/types/backend";
 import {LauncherError} from "~/types/error";
 
 const emit = defineEmits<{ created: [] }>()
@@ -30,20 +29,6 @@ const TYPES: { value: InstanceType; label: string; mark: string }[] = [
   {value: "forge", label: "Forge", mark: "FO"}
 ]
 
-function compareForgeVersions(a: string, b: string) {
-  const splitVersion = (v: string) => v.split(/[\.-]/).map(Number);
-  const aParts = splitVersion(a);
-  const bParts = splitVersion(b);
-
-  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-    const aNum = aParts[i] || 0;
-    const bNum = bParts[i] || 0;
-    if (aNum > bNum) return -1;
-    if (aNum < bNum) return 1;
-  }
-  return 0;
-}
-
 const filteredForgeVersions = computed(() =>
     forgeVersions.value.filter((v: string) => v.startsWith(minecraftVersion.value))
 )
@@ -57,23 +42,22 @@ async function loadMetadata() {
   loadError.value = null
 
   try {
-    const versionManifest = await $fetch<any>("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
-    minecraftVersions.value = (versionManifest?.versions ?? [])
-        .filter((v: any) => v.type == 'release')
-        .map((v: any) => v.id)
-    minecraftVersion.value = versionManifest?.latest?.release ?? minecraftVersions.value[0] ?? ""
+    const [manifest, fabric, forge] = await Promise.all([
+      call("list_minecraft_versions"),
+      call("list_fabric_versions"),
+      call("list_forge_versions")
+    ])
 
-    const fabricLoaders = await $fetch<{ version: string }[]>("https://meta.fabricmc.net/v2/versions/loader/")
-    fabricLoaderVersions.value = (fabricLoaders ?? []).map(loader => loader.version)
-    fabricLoader.value = fabricLoaderVersions.value[0] ?? "latest"
+    minecraftVersions.value = manifest.versions
+        .filter(version => version.type === "release")
+        .map(version => version.id)
+    minecraftVersion.value = manifest.latest.release ?? minecraftVersions.value[0] ?? ""
 
-    const forgeXml = await $fetch<string>("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
-    const parsedXml = new XMLParser().parse(forgeXml)
-    const versions = parsedXml?.metadata?.versioning?.versions?.version
+    fabricLoaderVersions.value = fabric
+    fabricLoader.value = fabric[0] ?? "latest"
 
-    forgeVersions.value = Array.isArray(versions) ? [...versions] : []
-    forgeVersions.value.sort(compareForgeVersions)
-    forgeLoader.value = forgeVersions.value[0] ?? "latest"
+    forgeVersions.value = forge
+    forgeLoader.value = forge[0] ?? "latest"
   } catch (e) {
     loadError.value = captureError(e, {code: "NETWORK", context: {action: "Загрузка списка версий"}})
   } finally {
@@ -82,6 +66,12 @@ async function loadMetadata() {
 }
 
 onMounted(loadMetadata)
+
+function loaderVersion(): string | undefined {
+  if (instanceType.value === "fabric") return fabricLoader.value
+  if (instanceType.value === "forge") return forgeLoader.value
+  return undefined
+}
 
 const createInstance = async () => {
   if (!canCreate.value) return
@@ -94,9 +84,8 @@ const createInstance = async () => {
     description: description.value.trim(),
     type: instanceType.value,
     minecraftVersion: minecraftVersion.value,
-    loaderVersion: instanceType.value == 'fabric' ? fabricLoader.value : instanceType.value == 'forge' ? forgeLoader.value : undefined,
-    version: 1,
-    installed: false
+    loaderVersion: loaderVersion(),
+    version: 1
   }))
 
   creating.value = false
@@ -133,7 +122,6 @@ const createInstance = async () => {
     </div>
 
     <form v-else class="space-y-8" @submit.prevent="createInstance">
-      <!-- Идентификация -->
       <div class="space-y-5">
         <div>
           <label
@@ -163,7 +151,6 @@ const createInstance = async () => {
         </div>
       </div>
 
-      <!-- Загрузчик: сегментированный переключатель вместо выпадающего списка -->
       <div>
         <span class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузчик</span>
         <div class="grid grid-cols-3 border border-line">
@@ -193,7 +180,6 @@ const createInstance = async () => {
         </div>
       </div>
 
-      <!-- Версии -->
       <div class="grid gap-5" :class="instanceType === 'vanilla' ? 'grid-cols-1' : 'grid-cols-2'">
         <div>
           <label class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Minecraft</label>

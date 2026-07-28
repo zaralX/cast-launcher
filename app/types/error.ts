@@ -252,7 +252,6 @@ function stringify(value: unknown): string {
 function describeCause(error: Error): string | undefined {
     const parts: string[] = []
 
-    // ofetch/FetchError несёт HTTP-статус отдельно от текста
     const status = (error as { statusCode?: number, status?: number }).statusCode
         ?? (error as { status?: number }).status
     if (typeof status === "number") parts.push(`HTTP ${status}`)

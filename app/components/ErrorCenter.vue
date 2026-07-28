@@ -72,7 +72,6 @@ function copyAll() {
             :key="entry.id"
             class="group relative border border-line bg-ink-900 p-4 pl-5 transition-colors duration-300 hover:border-line-strong"
         >
-          <!-- Цветовой кант вместо цветной заливки карточки -->
           <span class="absolute inset-y-0 left-0 w-[2px]" :class="severityRule[entry.severity]"/>
 
           <div class="flex items-start gap-3">

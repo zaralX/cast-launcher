@@ -3,30 +3,19 @@ import {storeToRefs} from "pinia";
 import {useAccountStore} from "~/stores/account";
 
 const accountStore = useAccountStore();
-const {accountConfig} = storeToRefs(accountStore)
+const {accountConfig, loggingIn} = storeToRefs(accountStore)
 
 const offlineNickname = ref("")
-const loggingIn = ref(false)
 
 const createOfflineAccount = async () => {
   const name = offlineNickname.value.trim()
   if (!name) return
 
-  accountConfig.value!.accounts.push({
-    type: 'offline',
-    name
-  })
-  accountConfig.value!.selected = accountConfig.value!.accounts.length - 1
-
-  await safeRun(() => accountStore.updateConfig(accountConfig.value!))
+  await safeRun(() => accountStore.addOfflineAccount(name))
   offlineNickname.value = ""
 }
 
-const createMicrosoftAccount = async () => {
-  loggingIn.value = true
-  await safeRun(() => accountStore.microsoftLogin(), {code: "AUTH_FAILED"})
-  loggingIn.value = false
-}
+const createMicrosoftAccount = () => safeRun(() => accountStore.microsoftLogin(), {code: "AUTH_FAILED"})
 
 const selectAccount = (index: number) => safeRun(() => accountStore.selectAccount(index))
 </script>
@@ -46,7 +35,6 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
             class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 pr-1 transition-colors duration-300 hover:bg-ink-700"
             @click="selectAccount(i)"
         >
-          <!-- Активный профиль отмечен кантом, а не рамкой вокруг всей строки -->
           <span
               class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
               :class="accountConfig?.selected === i ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"

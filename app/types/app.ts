@@ -1,9 +1,7 @@
-export const CONFIG_VERSION = 3
-
 export interface AppConfig {
+    version: number
     launcher: LauncherConfig
     java: JavaConfig
-    version: number
 }
 
 export interface LauncherConfig {
@@ -17,12 +15,29 @@ export type JavaMode = "auto" | "system" | "manual"
 
 export interface JavaConfig {
     java_mode: JavaMode
-    java_path?: string
+    java_path: string
     min_ram: number
     max_ram: number
 }
 
-export type JavaSource = "path" | "java_home" | "registry" | "system" | "minecraft" | "launcher" | "manual"
+export interface LauncherPaths {
+    root: string
+    configRoot: string
+    instancesRoot: string
+    libraries: string
+    assets: string
+    javaRuntimes: string
+    logs: string
+}
+
+export type JavaSource =
+    | "path"
+    | "java_home"
+    | "registry"
+    | "system"
+    | "minecraft"
+    | "launcher"
+    | "manual"
 
 export interface JavaRuntime {
     path: string
@@ -30,6 +45,7 @@ export interface JavaRuntime {
     major: number
     vendor: string
     arch: string
+    os_version: string
     is_64bit: boolean
     source: JavaSource
 }

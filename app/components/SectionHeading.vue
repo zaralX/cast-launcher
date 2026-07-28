@@ -1,9 +1,7 @@
 <script setup lang="ts">
 defineProps<{
-  /** Порядковый номер секции, например "01" */
   index: string
   title: string
-  /** Техническая приписка справа: счётчики, статусы */
   meta?: string
 }>()
 </script>

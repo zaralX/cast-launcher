@@ -20,14 +20,12 @@ const mode = computed(() => config.value?.java.java_mode ?? "auto")
 
 const javaPath = computed({
   get: () => config.value?.java.java_path ?? "",
-  // Ручной ввод сам переводит настройку в manual, пустое поле возвращает к подбору
   set: (value: string) => setMode(value.trim() ? "manual" : "auto", value)
 })
 
 const isManual = computed(() => mode.value === "manual" && !!javaPath.value.trim())
 const isDetected = computed(() => javaRuntimes.value.some(r => r.path === javaPath.value))
 
-// Мажорные версии, из которых есть из чего выбирать в режиме auto
 const majors = computed(() => [...new Set(javaRuntimes.value.map(r => r.major))].sort((a, b) => a - b))
 
 const describe = (runtime: JavaRuntime) => [

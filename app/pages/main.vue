@@ -9,7 +9,7 @@ definePageMeta({
 const appStore = useAppStore()
 const instanceStore = useInstanceStore()
 const {installInstance, runInstance} = instanceStore
-const {runningClients, instances, installs} = storeToRefs(instanceStore)
+const {running, instances, installs} = storeToRefs(instanceStore)
 
 const createModalOpen = ref(false)
 
@@ -17,14 +17,15 @@ const myPacks = computed(() => Object.entries(appStore.myPacksConfig?.packs ?? {
 
 const installedCount = computed(() => instances.value.filter(i => i.installed).length)
 
-const isRunning = (id: string) => runningClients.value.some(c => c.instance.id === id)
+const isRunning = (id: string) => running.value.some(game => game.instanceId === id)
+
+const isInstalling = (id: string) => installs.value.some(install => install.instanceId === id)
 
 const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
 </script>
 
 <template>
   <div class="min-h-full w-full px-8 pb-16 pt-10 xl:px-14">
-    <!-- ── Заголовок страницы: асимметрия «дисплей / телеметрия» ──────── -->
     <header class="grid gap-8 border-b border-line pb-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
       <div class="animate-rise">
         <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">Cast Launcher</p>
@@ -52,15 +53,14 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
           <dt class="font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">В игре</dt>
           <dd
               class="mt-2 font-unbounded text-[26px] font-semibold leading-none tracking-[-0.05em]"
-              :class="runningClients.length ? 'text-acid' : 'text-fg'"
+              :class="running.length ? 'text-acid' : 'text-fg'"
           >
-            {{ String(runningClients.length).padStart(2, "0") }}
+            {{ String(running.length).padStart(2, "0") }}
           </dd>
         </div>
       </dl>
     </header>
 
-    <!-- ── Подборка автора ──────────────────────────────────────────────── -->
     <section v-if="myPacks.length" class="mt-14">
       <SectionHeading index="01" title="Сборки от zaralX" :meta="`${myPacks.length} шт.`"/>
 
@@ -76,7 +76,6 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
       </div>
     </section>
 
-    <!-- ── Личные сборки ────────────────────────────────────────────────── -->
     <section :class="myPacks.length ? 'mt-16' : 'mt-14'">
       <SectionHeading
           :index="myPacks.length ? '02' : '01'"
@@ -107,6 +106,7 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
             :key="instance.id"
             :instance="instance"
             :running="isRunning(instance.id)"
+            :installing="isInstalling(instance.id)"
             :progress="installOf(instance.id)?.progress"
             :phase="installOf(instance.id)?.phase"
             class="animate-rise"
@@ -115,7 +115,6 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
             @run="runInstance"
         />
 
-        <!-- Пустая ячейка-приглашение: продолжает сетку, а не выпадает из неё -->
         <button
             type="button"
             class="group grid min-h-[13.5rem] place-items-center border border-dashed border-line text-fg-faint transition-all duration-500 ease-deck hover:-translate-y-1 hover:border-acid/50 hover:text-acid"

@@ -36,7 +36,6 @@ const config = defineModel<AppConfig | null>()
         />
       </SettingsField>
 
-      <!-- Тумблер-строка: описание слева, управление справа, разделено волосяной линией -->
       <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
         <div class="min-w-0">
           <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Автообновление</p>

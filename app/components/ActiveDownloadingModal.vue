@@ -80,7 +80,6 @@ watch(installs, (value) => {
             />
           </div>
 
-          <!-- Активные файлы этой установки: строка на файл, обновляется на месте -->
           <ul v-if="install.files.length" class="mt-4 space-y-2.5">
             <li v-for="file in install.files" :key="file.url" class="flex items-center gap-3">
               <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-fg-muted">{{ file.name }}</span>

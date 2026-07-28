@@ -1,37 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Права главного окна. Файловая система, сеть и запуск процессов фронту недоступны: всё это делают команды в Rust.",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
-    "opener:default",
-    "fs:default",
-    "fs:write-all",
-    {
-      "identifier": "fs:scope-appdata",
-      "allow": [
-        {
-          "path": "$APPDATA/**"
-        }
-      ]
-    },
-    "os:default",
-    {
-      "identifier": "http:default",
-      "allow": [
-        {
-          "url": "https://**"
-        },
-        {
-          "url": "http://**"
-        }
-      ]
-    },
-    "process:default",
-    "shell:default",
     "core:window:default",
     "core:window:allow-start-dragging",
     "core:window:allow-toggle-maximize",

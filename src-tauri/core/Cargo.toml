@@ -1,0 +1,24 @@
+[package]
+name = "cast-core"
+version = "0.4.0"
+description = "Логика лаунчера: метаданные версий, загрузки, установка, сборка запуска"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.13.1", features = ["json", "form"] }
+tokio = { version = "1", features = ["sync", "fs", "io-util", "time", "process", "rt", "macros"] }
+zip = "7.2.0"
+sha1 = "0.10"
+sha2 = "0.10"
+regex = "1"
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+tiny_http = "0.12"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55.0"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

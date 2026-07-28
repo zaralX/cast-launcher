@@ -13,7 +13,6 @@ const emit = defineEmits<{ install: [packId: string] }>()
   <article
       class="group relative flex flex-col justify-between overflow-hidden border border-line bg-ink-800 transition-all duration-500 ease-deck hover:border-acid/40 hover:bg-ink-700"
   >
-    <!-- Кислотный кант слева: раскрывается сверху вниз при наведении -->
     <span
         class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-acid transition-transform duration-700 ease-deck group-hover:scale-y-100"
         aria-hidden="true"

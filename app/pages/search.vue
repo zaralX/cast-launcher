@@ -18,7 +18,6 @@ const modPlatforms = ref([
       </h1>
     </header>
 
-    <!-- Честная заглушка: раздел выключен, но интерфейс объясняет, что здесь будет -->
     <section class="mt-16 grid gap-14 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
       <div class="animate-rise">
         <div class="flex items-center gap-3">

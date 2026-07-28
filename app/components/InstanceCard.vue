@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import type {InstanceType, LivingInstance} from "~/types/instance";
+import type {Instance, InstanceType} from "~/types/instance";
 
 const props = defineProps<{
-  instance: LivingInstance
+  instance: Instance
   running?: boolean
-  /** Общий прогресс установки, 0..1 */
+  installing?: boolean
   progress?: number
-  /** Текущий этап установки */
   phase?: string
 }>()
 
@@ -25,7 +24,7 @@ const mark = computed(() => TYPE_MARK[props.instance.type] ?? "??")
 
 const state = computed<"running" | "installing" | "ready" | "absent">(() => {
   if (props.running) return "running"
-  if (props.instance.installing) return "installing"
+  if (props.installing) return "installing"
   return props.instance.installed ? "ready" : "absent"
 })
 </script>
@@ -34,13 +33,11 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
   <article
       class="cut-16 group relative flex flex-col border border-line bg-ink-800 p-5 transition-all duration-500 ease-deck hover:-translate-y-1 hover:border-acid/40 hover:bg-ink-700"
   >
-    <!-- Диагональная фаска: clip-path срезает угол, эта линия его прорисовывает -->
     <span
         class="pointer-events-none absolute right-0 top-0 h-[23px] w-px origin-top-right rotate-45 bg-line transition-colors duration-500 group-hover:bg-acid/40"
         aria-hidden="true"
     />
 
-    <!-- Техническая шапка -->
     <header class="flex items-start justify-between gap-3">
       <span
           class="grid size-8 shrink-0 place-items-center border border-line font-mono text-[10px] tracking-[0.08em] text-fg-faint transition-colors duration-500 group-hover:border-acid/40 group-hover:text-acid"
@@ -59,7 +56,6 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
       </div>
     </header>
 
-    <!-- Смысловой блок -->
     <div class="mt-6 min-w-0">
       <h3
           class="truncate font-unbounded text-[15px] font-semibold leading-tight tracking-[-0.035em] text-fg"
@@ -74,7 +70,6 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
 
     <div class="mt-5 h-px w-full bg-line transition-colors duration-500 group-hover:bg-line-strong"/>
 
-    <!-- Состояние / действие -->
     <footer class="mt-4">
       <div v-if="state === 'running'" class="flex h-9 items-center gap-2.5 px-1">
         <span class="relative grid size-2 place-items-center">

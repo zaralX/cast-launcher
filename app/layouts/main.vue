@@ -141,7 +141,6 @@ onMounted(async () => {
         </NuxtLink>
       </nav>
 
-      <!-- ── Рабочая область ────────────────────────────────────────────── -->
       <main class="relative min-w-0 flex-1">
         <div
             class="pointer-events-none absolute -left-32 -top-32 z-10 h-96 w-96 rounded-full bg-acid/[0.05] blur-[130px]"
