@@ -70,16 +70,20 @@ pub async fn extract_dir(
     archive_path: PathBuf,
     prefix: String,
     output_dir: PathBuf,
-) -> CommandResult<usize> {
+) -> CommandResult<Vec<String>> {
     tokio::task::spawn_blocking(move || extract_dir_blocking(&archive_path, &prefix, &output_dir))
         .await
         .map_err(|e| CommandError::task_panicked("распаковка каталога архива", e))?
 }
 
-fn extract_dir_blocking(archive_path: &Path, prefix: &str, output_dir: &Path) -> CommandResult<usize> {
+fn extract_dir_blocking(
+    archive_path: &Path,
+    prefix: &str,
+    output_dir: &Path,
+) -> CommandResult<Vec<String>> {
     let mut archive = open(archive_path)?;
     let prefix = format!("{}/", prefix.trim_end_matches('/'));
-    let mut extracted = 0;
+    let mut extracted = Vec::new();
 
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(|e| {
@@ -94,7 +98,8 @@ fn extract_dir_blocking(archive_path: &Path, prefix: &str, output_dir: &Path) ->
             continue;
         }
 
-        let out_path = crate::fs_util::safe_join(output_dir, relative)?;
+        let key = crate::fs_util::relative_key(relative)?;
+        let out_path = crate::fs_util::safe_join(output_dir, &key)?;
 
         if let Some(parent) = out_path.parent() {
             std::fs::create_dir_all(parent)
@@ -107,7 +112,7 @@ fn extract_dir_blocking(archive_path: &Path, prefix: &str, output_dir: &Path) ->
         io::copy(&mut entry, &mut out)
             .map_err(|e| CommandError::io("Не удалось распаковать файл", &out_path, e))?;
 
-        extracted += 1;
+        extracted.push(key);
     }
 
     Ok(extracted)
@@ -181,9 +186,10 @@ mod tests {
         ]);
 
         let target = dir.join("minecraft");
-        let count = extract_dir(pack.clone(), "overrides".into(), target.clone()).await.unwrap();
+        let mut extracted = extract_dir(pack.clone(), "overrides".into(), target.clone()).await.unwrap();
+        extracted.sort();
 
-        assert_eq!(count, 2);
+        assert_eq!(extracted, vec!["config/a.toml", "options.txt"]);
         assert_eq!(std::fs::read(target.join("config").join("a.toml")).unwrap(), b"a");
         assert_eq!(std::fs::read(target.join("options.txt")).unwrap(), b"b");
         assert!(!target.join("servers.dat").exists());
@@ -202,8 +208,8 @@ mod tests {
         let pack = dir.join("pack.mrpack");
         write_zip(&pack, &[("modrinth.index.json", b"{}")]);
 
-        let count = extract_dir(pack.clone(), "client-overrides".into(), dir.join("mc")).await.unwrap();
-        assert_eq!(count, 0);
+        let extracted = extract_dir(pack.clone(), "client-overrides".into(), dir.join("mc")).await.unwrap();
+        assert!(extracted.is_empty());
 
         assert!(read_entry(pack, "нет.json".into()).await.is_err());
 

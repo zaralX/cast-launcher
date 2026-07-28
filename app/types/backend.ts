@@ -89,6 +89,7 @@ interface Commands {
     search_modrinth_packs: [{ query: ModrinthSearchQuery }, ModrinthSearchPage]
     list_modrinth_pack_versions: [{ projectId: string }, ModrinthVersion[]]
     modrinth_filters: [void, ModrinthFilters]
+    set_instance_pack_version: [{ instanceId: string, versionId: string }, Instance]
     save_pack_icon: [{ projectId: string, url: string }, IconFile]
 
     list_minecraft_versions: [void, VersionManifest]

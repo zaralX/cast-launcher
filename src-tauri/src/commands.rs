@@ -13,7 +13,7 @@ use cast_core::assets::{self, ItemCategories};
 use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
-use cast_core::instance::{Instance, InstanceSettings};
+use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::vanilla;
@@ -506,6 +506,78 @@ pub async fn list_modrinth_pack_versions(
 #[tauri::command]
 pub async fn modrinth_filters(state: Ctx<'_>) -> CommandResult<modrinth::Filters> {
     modrinth::filters(&state.meta).await
+}
+
+#[tauri::command]
+pub async fn set_instance_pack_version(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+    version_id: String,
+) -> CommandResult<Instance> {
+    if state.processes.is_running(&instance_id).await {
+        return Err(CommandError::launch("Сначала закройте запущенную игру"));
+    }
+
+    if state.installs.snapshot(&instance_id).await.is_some() {
+        return Err(CommandError::launch("Дождитесь окончания текущей установки"));
+    }
+
+    let instance = state.instances.get(&instance_id).await?;
+
+    let current = instance
+        .pack
+        .clone()
+        .ok_or_else(|| CommandError::manifest("Эта сборка создана вручную, у неё нет версий пака"))?;
+
+    let version = match current.provider {
+        PackProvider::Modrinth => modrinth::version(&version_id).await?,
+    };
+
+    if !version.project_id.is_empty() && version.project_id != current.project_id {
+        return Err(CommandError::manifest("Эта версия принадлежит другому модпаку"));
+    }
+
+    let (Some(loader), Some(minecraft_version), Some(file)) = (
+        version.loader,
+        version.minecraft_version.clone(),
+        version.file.clone(),
+    ) else {
+        return Err(CommandError::manifest(format!(
+            "Версию «{}» лаунчер установить не сможет",
+            version.version_number
+        )));
+    };
+
+    let pack = PackSource {
+        provider: current.provider,
+        project_id: current.project_id,
+        version_id: version.id,
+        version_number: version.version_number,
+        file_url: file.url,
+        file_name: file.filename,
+        file_sha1: file.hashes.sha1,
+        file_size: file.size,
+    };
+
+    let paths = state.paths().await;
+
+    let updated = state
+        .instances
+        .update(&paths, &instance_id, move |instance| {
+            instance.pack = Some(pack);
+            instance.loader = loader;
+            instance.minecraft_version = minecraft_version;
+            instance.loader_version = None;
+        })
+        .await?;
+
+    LauncherEvent::Instances {
+        instances: state.instances.all().await,
+    }
+    .emit(&app);
+
+    Ok(updated)
 }
 
 #[tauri::command]

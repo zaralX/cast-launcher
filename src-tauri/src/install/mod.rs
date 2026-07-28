@@ -134,16 +134,14 @@ async fn run(
     reporter.set_message("Подготовка");
     prepare_dirs(&paths, instance).await?;
 
-    // Точные версии игры и загрузчика лежат в манифесте пака, поэтому сначала
-    // забираем его и подтягиваем сборку под него.
-    let (instance, modpack) = match &instance.pack {
+    let (instance, modpack) = match instance.pack.clone() {
         Some(pack) => {
-            let modpack = modpack::prepare(state, &paths, instance, pack, reporter).await?;
+            let modpack = modpack::prepare(state, &paths, instance, &pack, reporter).await?;
             check_cancelled(reporter)?;
 
             let synced = modpack::sync_instance(state, &paths, instance, modpack.index()).await?;
 
-            (synced, Some(modpack))
+            (synced, Some((pack, modpack)))
         }
         None => (instance.clone(), None),
     };
@@ -182,8 +180,8 @@ async fn run(
 
     check_cancelled(reporter)?;
 
-    if let Some(modpack) = &modpack {
-        modpack::apply(state, &paths, instance, modpack, reporter).await?;
+    if let Some((pack, modpack)) = &modpack {
+        modpack::apply(state, &paths, instance, pack, modpack, reporter).await?;
     }
 
     reporter.set_stage(Stage::Finalize);

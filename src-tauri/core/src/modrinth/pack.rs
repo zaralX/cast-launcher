@@ -4,7 +4,7 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::error::{CommandError, CommandResult};
-use crate::fs_util::safe_join;
+use crate::fs_util::{relative_key, safe_join};
 use crate::instance::LoaderType;
 use crate::net::download::DownloadTask;
 
@@ -54,13 +54,32 @@ pub struct FileEnv {
     pub server: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClientState {
+    Required,
+    Optional,
+    Unsupported,
+}
+
 impl PackFile {
+    /// Поле `env` необязательное: если его нет, файл считается нужным.
+    pub fn client_state(&self) -> ClientState {
+        match self.env.as_ref().and_then(|env| env.client.as_deref()) {
+            Some("unsupported") => ClientState::Unsupported,
+            Some("optional") => ClientState::Optional,
+            _ => ClientState::Required,
+        }
+    }
+
     pub fn needed_on_client(&self) -> bool {
-        self.env
-            .as_ref()
-            .and_then(|env| env.client.as_deref())
-            .map(|state| state != "unsupported")
-            .unwrap_or(true)
+        self.client_state() != ClientState::Unsupported
+    }
+
+    pub fn client_path(&self) -> String {
+        match self.client_state() {
+            ClientState::Optional => format!("{}.disabled", self.path),
+            _ => self.path.clone(),
+        }
     }
 
     pub fn sha1(&self) -> Option<String> {
@@ -70,10 +89,29 @@ impl PackFile {
 
 impl PackIndex {
     pub fn parse(bytes: &[u8]) -> CommandResult<Self> {
-        serde_json::from_slice(bytes).map_err(|e| {
+        let index: Self = serde_json::from_slice(bytes).map_err(|e| {
             CommandError::manifest(format!("Повреждённый {INDEX_ENTRY} внутри модпака"))
                 .with_details(e.to_string())
-        })
+        })?;
+
+        index.validate()?;
+
+        Ok(index)
+    }
+
+    fn validate(&self) -> CommandResult<()> {
+        if self.format_version != 1 {
+            return Err(CommandError::manifest(format!(
+                "Неизвестная версия формата модпака: {}",
+                self.format_version
+            )));
+        }
+
+        if self.game != "minecraft" {
+            return Err(CommandError::manifest(format!("Модпак не для Minecraft: {}", self.game)));
+        }
+
+        Ok(())
     }
 
     pub fn minecraft_version(&self) -> CommandResult<&str> {
@@ -86,25 +124,33 @@ impl PackIndex {
 
     pub fn loader(&self) -> CommandResult<(LoaderType, Option<String>)> {
         let minecraft = self.minecraft_version()?;
+        let mut found = None;
 
         for (name, version) in &self.dependencies {
-            match name.as_str() {
-                "fabric-loader" => return Ok((LoaderType::Fabric, Some(version.clone()))),
-                "forge" => return Ok((LoaderType::Forge, Some(forge_version(minecraft, version)))),
+            let loader = match name.as_str() {
+                "minecraft" => continue,
+                "fabric-loader" => (LoaderType::Fabric, Some(version.clone())),
+                "forge" => (LoaderType::Forge, Some(forge_version(minecraft, version))),
                 "quilt-loader" => return Err(unsupported("Quilt")),
                 "neoforge" => return Err(unsupported("NeoForge")),
-                _ => {}
-            }
+                other => {
+                    return Err(CommandError::manifest(format!(
+                        "Модпак требует неизвестную зависимость: {other}"
+                    )))
+                }
+            };
+
+            found.get_or_insert(loader);
         }
 
-        Ok((LoaderType::Vanilla, None))
+        Ok(found.unwrap_or((LoaderType::Vanilla, None)))
     }
 
     pub fn client_tasks(&self, minecraft_dir: &Path) -> CommandResult<Vec<DownloadTask>> {
         let mut tasks = Vec::new();
 
-        for file in self.files.iter().filter(|file| file.needed_on_client()) {
-            let destination = safe_join(minecraft_dir, &file.path)?;
+        for file in self.client_files() {
+            let destination = safe_join(minecraft_dir, &file.client_path())?;
 
             let url = file.downloads.first().ok_or_else(|| {
                 CommandError::manifest(format!("В модпаке нет ссылки на файл: {}", file.path))
@@ -119,6 +165,14 @@ impl PackIndex {
         }
 
         Ok(tasks)
+    }
+
+    pub fn client_paths(&self) -> CommandResult<Vec<String>> {
+        self.client_files().map(|file| relative_key(&file.client_path())).collect()
+    }
+
+    fn client_files(&self) -> impl Iterator<Item = &PackFile> {
+        self.files.iter().filter(|file| file.needed_on_client())
     }
 }
 
@@ -140,7 +194,17 @@ mod tests {
     use std::path::PathBuf;
 
     fn index(json: serde_json::Value) -> PackIndex {
+        let mut json = json;
+        let object = json.as_object_mut().unwrap();
+
+        object.entry("formatVersion").or_insert(serde_json::json!(1));
+        object.entry("game").or_insert(serde_json::json!("minecraft"));
+
         PackIndex::parse(&serde_json::to_vec(&json).unwrap()).unwrap()
+    }
+
+    fn parse(json: serde_json::Value) -> CommandResult<PackIndex> {
+        PackIndex::parse(&serde_json::to_vec(&json).unwrap())
     }
 
     fn fabric_pack() -> PackIndex {
@@ -175,6 +239,53 @@ mod tests {
         assert_eq!(tasks[0].destination, PathBuf::from("/mc").join("mods").join("jei.jar"));
         assert_eq!(tasks[0].sha1.as_deref(), Some("aaa"));
         assert_eq!(tasks[0].size, Some(1024));
+    }
+
+    #[test]
+    fn a_manifest_of_another_format_or_game_is_rejected() {
+        assert!(parse(serde_json::json!({"formatVersion": 2, "game": "minecraft"})).is_err());
+        assert!(parse(serde_json::json!({"formatVersion": 1, "game": "terraria"})).is_err());
+        assert!(parse(serde_json::json!({"game": "minecraft"})).is_err(), "версия формата обязательна");
+        assert!(parse(serde_json::json!({"formatVersion": 1, "game": "minecraft"})).is_ok());
+    }
+
+    #[test]
+    fn an_unknown_dependency_is_an_error_not_a_silent_vanilla_install() {
+        let future = index(serde_json::json!({
+            "dependencies": {"minecraft": "1.21", "babric-loader": "1.0"}
+        }));
+
+        let error = future.loader().unwrap_err();
+        assert!(error.message.contains("babric-loader"), "в тексте должно быть имя зависимости");
+    }
+
+    #[test]
+    fn optional_files_are_installed_switched_off() {
+        let pack = index(serde_json::json!({
+            "dependencies": {"minecraft": "1.20.1"},
+            "files": [
+                {"path": "mods/extra.jar", "env": {"client": "optional", "server": "optional"},
+                 "downloads": ["https://cdn.modrinth.com/extra.jar"]},
+                {"path": "mods/core.jar", "env": {"client": "required", "server": "required"},
+                 "downloads": ["https://cdn.modrinth.com/core.jar"]}
+            ]
+        }));
+
+        let paths = pack.client_paths().unwrap();
+
+        assert!(paths.contains(&"mods/extra.jar.disabled".to_string()));
+        assert!(paths.contains(&"mods/core.jar".to_string()));
+
+        let tasks = pack.client_tasks(Path::new("/mc")).unwrap();
+        assert!(tasks.iter().any(|task| task.destination.ends_with("extra.jar.disabled")));
+    }
+
+    #[test]
+    fn client_paths_match_the_files_that_get_downloaded() {
+        let pack = fabric_pack();
+
+        assert_eq!(pack.client_paths().unwrap(), vec!["mods/jei.jar"]);
+        assert_eq!(pack.client_paths().unwrap().len(), pack.client_tasks(Path::new("/mc")).unwrap().len());
     }
 
     #[test]

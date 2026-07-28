@@ -165,6 +165,9 @@ async function remove() {
             </p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
               Скачивает клиент, библиотеки и ресурсы заново. Сохранения и конфиги в minecraft остаются на месте.
+              <template v-if="instance.pack">
+                Файлы модпака тоже проверяются — сменить его версию можно на вкладке «Модпак».
+              </template>
             </p>
           </div>
 

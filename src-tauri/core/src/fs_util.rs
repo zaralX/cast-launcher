@@ -18,24 +18,24 @@ pub fn child_file(dir: &Path, name: &str) -> CommandResult<PathBuf> {
         .ok_or_else(|| CommandError::fs(format!("Недопустимое имя файла: {name}")))
 }
 
-pub fn safe_join(base: &Path, relative: &str) -> CommandResult<PathBuf> {
-    let mut path = base.to_path_buf();
-    let mut parts = 0;
+pub fn relative_key(relative: &str) -> CommandResult<String> {
+    let parts: Vec<&str> = relative
+        .split(['/', '\\'])
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
 
-    for part in relative.split(['/', '\\']) {
-        match part {
-            "" | "." => continue,
-            ".." => return Err(escapes(relative)),
-            part if part.contains(':') => return Err(escapes(relative)),
-            part => {
-                path.push(part);
-                parts += 1;
-            }
-        }
+    if parts.is_empty() || parts.iter().any(|part| *part == ".." || part.contains(':')) {
+        return Err(escapes(relative));
     }
 
-    if parts == 0 {
-        return Err(escapes(relative));
+    Ok(parts.join("/"))
+}
+
+pub fn safe_join(base: &Path, relative: &str) -> CommandResult<PathBuf> {
+    let mut path = base.to_path_buf();
+
+    for part in relative_key(relative)?.split('/') {
+        path.push(part);
     }
 
     Ok(path)
@@ -239,6 +239,13 @@ mod tests {
         assert_eq!(safe_join(base, "mods/jei.jar").unwrap(), base.join("mods").join("jei.jar"));
         assert_eq!(safe_join(base, "./config//a.toml").unwrap(), base.join("config").join("a.toml"));
         assert_eq!(safe_join(base, "mods\\jei.jar").unwrap(), base.join("mods").join("jei.jar"));
+    }
+
+    #[test]
+    fn relative_keys_are_canonical_and_comparable() {
+        assert_eq!(relative_key("mods\\jei.jar").unwrap(), "mods/jei.jar");
+        assert_eq!(relative_key("./config//a.toml").unwrap(), "config/a.toml");
+        assert_eq!(relative_key("mods/jei.jar").unwrap(), relative_key("mods\\jei.jar").unwrap());
     }
 
     #[test]

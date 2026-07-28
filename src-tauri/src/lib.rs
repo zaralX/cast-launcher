@@ -67,6 +67,7 @@ pub fn run() {
             commands::search_modrinth_packs,
             commands::list_modrinth_pack_versions,
             commands::modrinth_filters,
+            commands::set_instance_pack_version,
             commands::save_pack_icon,
             commands::list_minecraft_versions,
             commands::list_fabric_versions,

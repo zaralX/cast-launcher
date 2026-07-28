@@ -6,13 +6,7 @@ definePageMeta({
   layout: "main"
 })
 
-type Tab = "general" | "java" | "logs"
-
-const TABS: { key: Tab, label: string, icon: string, index: string }[] = [
-  {key: "general", label: "Общее", icon: "i-lucide-box", index: "01"},
-  {key: "java", label: "Java", icon: "i-lucide-cpu", index: "02"},
-  {key: "logs", label: "Логи", icon: "i-lucide-scroll-text", index: "03"}
-]
+type Tab = "general" | "pack" | "java" | "logs"
 
 const route = useRoute()
 const toast = useToast()
@@ -24,6 +18,23 @@ const instance = computed(() => instanceStore.getInstance(instanceId.value))
 
 const tab = ref<Tab>("general")
 const saving = ref(false)
+
+const TABS = computed(() => {
+  const items: { key: Tab, label: string, icon: string }[] = [
+    {key: "general", label: "Общее", icon: "i-lucide-box"}
+  ]
+
+  if (instance.value?.pack) items.push({key: "pack", label: "Модпак", icon: "i-lucide-package"})
+
+  items.push({key: "java", label: "Java", icon: "i-lucide-cpu"})
+  items.push({key: "logs", label: "Логи", icon: "i-lucide-scroll-text"})
+
+  return items.map((item, i) => ({...item, index: String(i + 1).padStart(2, "0")}))
+})
+
+watch(TABS, items => {
+  if (!items.some(item => item.key === tab.value)) tab.value = "general"
+})
 
 const running = computed(() => instanceStore.isRunning(instanceId.value))
 const installing = computed(() => !!instanceStore.getInstall(instanceId.value))
@@ -212,6 +223,8 @@ function reset() {
             v-model:icon="draft.icon"
             class="animate-rise"
         />
+
+        <InstancePack v-if="tab === 'pack' && instance.pack" :instance="instance" class="animate-rise"/>
 
         <InstanceJava v-show="tab === 'java'" v-model="draft.settings" class="animate-rise"/>
 

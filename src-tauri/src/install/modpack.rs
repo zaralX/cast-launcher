@@ -1,9 +1,11 @@
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use cast_core::archive;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::fs_util::child_file;
+use cast_core::install::pack_files::{self, PackFiles};
 use cast_core::instance::{Instance, PackSource};
 use cast_core::modrinth::pack::{PackIndex, INDEX_ENTRY, OVERRIDES};
 use cast_core::net::download::{DownloadOptions, DownloadTask};
@@ -93,13 +95,19 @@ pub async fn apply(
     state: &Arc<AppState>,
     paths: &LauncherPaths,
     instance: &Instance,
+    pack: &PackSource,
     modpack: &Modpack,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
     reporter.begin_phase("modpack", "Файлы модпака");
 
-    let minecraft = paths.instance(&instance.id).minecraft();
+    let instance_paths = paths.instance(&instance.id);
+    let minecraft = instance_paths.minecraft();
+
+    let previous = PackFiles::load(&instance_paths.pack_files()).await;
+
     let tasks = modpack.index.client_tasks(&minecraft)?;
+    let mut owned: BTreeSet<String> = modpack.index.client_paths()?.into_iter().collect();
 
     if !tasks.is_empty() {
         state
@@ -116,8 +124,22 @@ pub async fn apply(
     reporter.set_message("Распаковка модпака");
 
     for prefix in OVERRIDES {
-        archive::extract_dir(modpack.archive.clone(), (*prefix).to_string(), minecraft.clone()).await?;
+        let extracted =
+            archive::extract_dir(modpack.archive.clone(), (*prefix).to_string(), minecraft.clone()).await?;
+
+        owned.extend(extracted);
     }
+
+    let stale = previous.stale(&owned);
+
+    if !stale.is_empty() {
+        reporter.set_message(format!("Удаление файлов прошлой версии: {}", stale.len()));
+        pack_files::remove(&minecraft, &stale).await;
+    }
+
+    PackFiles::new(pack.version_id.clone(), owned)
+        .save(&instance_paths.pack_files())
+        .await?;
 
     reporter.set_fraction(1.0);
 

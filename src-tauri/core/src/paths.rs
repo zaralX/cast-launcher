@@ -140,6 +140,10 @@ impl InstancePaths {
         self.root.join("instance.json")
     }
 
+    pub fn pack_files(&self) -> PathBuf {
+        self.root.join("pack-files.json")
+    }
+
     pub fn minecraft(&self) -> PathBuf {
         self.root.join("minecraft")
     }
