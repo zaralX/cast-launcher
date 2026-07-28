@@ -45,14 +45,28 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
         {{ mark }}
       </span>
 
-      <div class="flex flex-col items-end gap-1 pr-3.5">
-        <span class="font-mono text-[10px] leading-none text-fg-muted">{{ instance.minecraftVersion }}</span>
-        <span
-            v-if="instance.loaderVersion"
-            class="max-w-[9rem] truncate font-mono text-[9px] leading-none text-fg-faint"
+      <div class="flex items-start gap-3 pr-3.5">
+        <div class="flex flex-col items-end gap-1">
+          <span class="font-mono text-[10px] leading-none text-fg-muted">{{ instance.minecraftVersion }}</span>
+          <span
+              v-if="instance.loaderVersion"
+              class="max-w-[9rem] truncate font-mono text-[9px] leading-none text-fg-faint"
+          >
+            {{ instance.loaderVersion }}
+          </span>
+        </div>
+
+        <NuxtLink
+            :to="`/instance/${instance.id}`"
+            :aria-label="`Настройки сборки ${instance.name}`"
+            :title="`Настройки сборки ${instance.name}`"
+            class="grid size-6 shrink-0 place-items-center text-fg-faint transition-colors duration-300 hover:text-acid"
         >
-          {{ instance.loaderVersion }}
-        </span>
+          <UIcon
+              name="i-lucide-settings"
+              class="size-4 transition-transform duration-500 ease-deck hover:rotate-90"
+          />
+        </NuxtLink>
       </div>
     </header>
 

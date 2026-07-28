@@ -1,20 +1,24 @@
 import {defineStore} from 'pinia'
-import type {Instance, InstallSnapshot, RunningGame} from '~/types/instance'
+import type {GameLogLine, Instance, InstallSnapshot, RunningGame} from '~/types/instance'
 import {isTerminalStage} from '~/types/instance'
-import {call, type NewInstance} from '~/types/backend'
+import {call, type InstanceUpdate, type NewInstance} from '~/types/backend'
 import {captureError} from '~/composables/useErrorHandler'
 import {LauncherError} from '~/types/error'
+
+const LOG_BUFFER = 3000
 
 export const useInstanceStore = defineStore('instance', {
     state: () => ({
         instances: [] as Instance[],
         installs: [] as InstallSnapshot[],
-        running: [] as RunningGame[]
+        running: [] as RunningGame[],
+        logs: {} as Record<string, GameLogLine[]>
     }),
     getters: {
         getInstance: (state) => (id: string) => state.instances.find(instance => instance.id === id),
         getInstall: (state) => (id: string) => state.installs.find(install => install.instanceId === id),
-        isRunning: (state) => (id: string) => state.running.some(game => game.instanceId === id)
+        isRunning: (state) => (id: string) => state.running.some(game => game.instanceId === id),
+        getLogs: (state) => (id: string): GameLogLine[] => state.logs[id] ?? []
     },
     actions: {
         applyBootstrap(instances: Instance[], installs: InstallSnapshot[], running: RunningGame[]) {
@@ -49,6 +53,20 @@ export const useInstanceStore = defineStore('instance', {
             if (!this.running.some(running => running.runId === game.runId)) {
                 this.running.push(game)
             }
+
+            this.logs[game.instanceId] = []
+        },
+
+        applyGameLog(instanceId: string, line: GameLogLine) {
+            const lines = this.logs[instanceId] ??= []
+
+            lines.push(line)
+
+            if (lines.length > LOG_BUFFER) lines.splice(0, lines.length - LOG_BUFFER)
+        },
+
+        clearLogs(instanceId: string) {
+            this.logs[instanceId] = []
         },
 
         applyGameStatus(runId: string, status: RunningGame["status"]) {
@@ -74,8 +92,18 @@ export const useInstanceStore = defineStore('instance', {
             return await call("create_instance", {instance})
         },
 
+        async updateInstance(instanceId: string, update: InstanceUpdate) {
+            const instance = await call("update_instance", {instanceId, update})
+            const index = this.instances.findIndex(item => item.id === instanceId)
+
+            if (index >= 0) this.instances[index] = instance
+
+            return instance
+        },
+
         async deleteInstance(instanceId: string) {
             await call("delete_instance", {instanceId})
+            delete this.logs[instanceId]
         },
 
         async installInstance(instanceId: string) {

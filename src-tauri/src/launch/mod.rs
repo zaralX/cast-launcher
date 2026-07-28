@@ -40,7 +40,7 @@ pub async fn launch(
 
     let account = state.accounts.active_for_launch().await?;
     let paths = state.paths().await;
-    let config = state.config().await;
+    let config = instance.effective_config(&state.config().await);
 
     let resolver = Resolver::new(&paths, &state.meta);
     let base = resolver.base_package(&instance).await?;

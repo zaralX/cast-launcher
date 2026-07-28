@@ -4,6 +4,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
+use crate::config::{AppConfig, JavaMode};
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::{read_json_opt, write_json_atomic};
 use crate::paths::LauncherPaths;
@@ -26,6 +27,47 @@ impl LoaderType {
     }
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct InstanceSettings {
+    pub override_memory: bool,
+    pub min_ram: u32,
+    pub max_ram: u32,
+    pub override_java: bool,
+    pub java_mode: JavaMode,
+    pub java_path: String,
+}
+
+impl InstanceSettings {
+    pub fn apply(&self, base: &AppConfig) -> AppConfig {
+        let mut config = base.clone();
+
+        if self.override_memory {
+            if self.min_ram > 0 {
+                config.java.min_ram = self.min_ram;
+            }
+            if self.max_ram > 0 {
+                config.java.max_ram = self.max_ram;
+            }
+        }
+
+        if self.override_java {
+            config.java.java_mode = self.java_mode;
+            config.java.java_path = self.java_path.trim().to_string();
+
+            if config.java.java_mode == JavaMode::Manual && config.java.java_path.is_empty() {
+                config.java.java_mode = JavaMode::Auto;
+            }
+        }
+
+        config
+    }
+
+    pub fn overrides_anything(&self) -> bool {
+        self.override_memory || self.override_java
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Instance {
@@ -44,6 +86,8 @@ pub struct Instance {
     pub loader_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_id: Option<String>,
+    #[serde(default)]
+    pub settings: InstanceSettings,
     #[serde(skip)]
     pub dir: String,
 }
@@ -53,6 +97,10 @@ fn default_version() -> u32 {
 }
 
 impl Instance {
+    pub fn effective_config(&self, base: &AppConfig) -> AppConfig {
+        self.settings.apply(base)
+    }
+
     pub fn require_loader_version(&self) -> CommandResult<&str> {
         self.loader_version.as_deref().filter(|v| !v.is_empty()).ok_or_else(|| {
             CommandError::manifest(format!(
@@ -220,6 +268,117 @@ mod tests {
         assert!(written.get("pendingInstall").is_none());
         assert_eq!(written["type"], "forge");
         assert_eq!(written["minecraftVersion"], "1.20.1");
+    }
+
+    #[test]
+    fn settings_are_empty_for_instances_written_before_they_existed() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Старая сборка",
+            "minecraftVersion": "1.20.1",
+            "type": "vanilla"
+        }))
+        .unwrap();
+
+        assert!(!instance.settings.overrides_anything());
+
+        let base = base_config();
+        let effective = instance.effective_config(&base);
+
+        assert_eq!(effective.java.min_ram, base.java.min_ram);
+        assert_eq!(effective.java.java_mode, base.java.java_mode);
+    }
+
+    #[test]
+    fn instance_overrides_replace_only_enabled_groups() {
+        let settings = InstanceSettings {
+            override_memory: true,
+            min_ram: 2048,
+            max_ram: 8192,
+            ..Default::default()
+        };
+
+        let base = base_config();
+        let effective = settings.apply(&base);
+
+        assert_eq!(effective.heap_args(), vec!["-Xms2048M", "-Xmx8192M"]);
+        assert_eq!(effective.java.java_path, base.java.java_path);
+        assert_eq!(effective.java.java_mode, base.java.java_mode);
+    }
+
+    #[test]
+    fn zero_memory_values_fall_back_to_global_config() {
+        let settings = InstanceSettings {
+            override_memory: true,
+            max_ram: 6144,
+            ..Default::default()
+        };
+
+        let effective = settings.apply(&base_config());
+
+        assert_eq!(effective.java.min_ram, 1024);
+        assert_eq!(effective.java.max_ram, 6144);
+    }
+
+    #[test]
+    fn instance_java_override_switches_runtime() {
+        let settings = InstanceSettings {
+            override_java: true,
+            java_mode: JavaMode::Manual,
+            java_path: "  C:\\jdk21\\bin\\javaw.exe  ".into(),
+            ..Default::default()
+        };
+
+        let effective = settings.apply(&base_config());
+
+        assert_eq!(effective.java.java_mode, JavaMode::Manual);
+        assert_eq!(effective.manual_java_path(), Some("C:\\jdk21\\bin\\javaw.exe"));
+    }
+
+    #[test]
+    fn manual_override_without_path_falls_back_to_auto() {
+        let settings = InstanceSettings {
+            override_java: true,
+            java_mode: JavaMode::Manual,
+            java_path: "   ".into(),
+            ..Default::default()
+        };
+
+        let effective = settings.apply(&base_config());
+
+        assert_eq!(effective.java.java_mode, JavaMode::Auto);
+        assert_eq!(effective.manual_java_path(), None);
+    }
+
+    #[test]
+    fn settings_survive_a_json_round_trip() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Сборка",
+            "minecraftVersion": "1.20.1",
+            "type": "fabric",
+            "settings": {
+                "overrideMemory": true,
+                "minRam": 3072,
+                "maxRam": 6144,
+                "overrideJava": true,
+                "javaMode": "system"
+            }
+        }))
+        .unwrap();
+
+        let written = serde_json::to_value(&instance).unwrap();
+
+        assert_eq!(written["settings"]["minRam"], 3072);
+        assert_eq!(written["settings"]["javaMode"], "system");
+        assert_eq!(written["settings"]["javaPath"], "");
+
+        let parsed: Instance = serde_json::from_value(written).unwrap();
+        assert_eq!(parsed.settings, instance.settings);
+    }
+
+    fn base_config() -> AppConfig {
+        AppConfig::defaults(std::path::Path::new("/cfg"))
     }
 
     #[test]

@@ -45,7 +45,11 @@ async function connect() {
                 instanceStore.applyGameExited(event.runId, event.code, event.logTail)
                 break
             case "gameLog":
-                console.debug(`[${event.instanceId}]`, event.line)
+                instanceStore.applyGameLog(event.instanceId, {
+                    runId: event.runId,
+                    line: event.line,
+                    isError: event.isError
+                })
                 break
         }
     })

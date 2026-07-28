@@ -2,7 +2,7 @@ import {invoke} from "@tauri-apps/api/core"
 import {listen} from "@tauri-apps/api/event"
 import type {Account, AccountConfig} from "~/types/account"
 import type {AppConfig, JavaRuntime, LauncherPaths} from "~/types/app"
-import type {Instance, InstallSnapshot, RunningGame} from "~/types/instance"
+import type {Instance, InstanceLogFile, InstanceSettings, InstallSnapshot, RunningGame} from "~/types/instance"
 import type {MyPacksConfig} from "~/types/pack"
 import {toLauncherError} from "~/types/error"
 
@@ -36,7 +36,13 @@ interface Commands {
     list_instances: [void, Instance[]]
     reload_instances: [void, Instance[]]
     create_instance: [{ instance: NewInstance }, Instance]
+    update_instance: [{ instanceId: string, update: InstanceUpdate }, Instance]
     delete_instance: [{ instanceId: string }, void]
+    open_instance_dir: [{ instanceId: string, target: InstanceDir }, void]
+
+    list_instance_logs: [{ instanceId: string }, InstanceLogFile[]]
+    read_instance_log: [{ instanceId: string, name: string }, string]
+    delete_instance_log: [{ instanceId: string, name: string }, InstanceLogFile[]]
 
     install_instance: [{ instanceId: string }, InstallSnapshot]
     cancel_install: [{ instanceId: string }, void]
@@ -71,7 +77,16 @@ export interface NewInstance {
     version: number
     loaderVersion?: string
     customId?: string
+    settings?: InstanceSettings
 }
+
+export interface InstanceUpdate {
+    name?: string
+    description?: string
+    settings?: InstanceSettings
+}
+
+export type InstanceDir = "root" | "minecraft" | "logs"
 
 export interface VersionManifest {
     latest: { release?: string, snapshot?: string }

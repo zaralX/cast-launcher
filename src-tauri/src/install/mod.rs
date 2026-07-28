@@ -191,7 +191,7 @@ async fn ensure_java(
     reporter.begin_phase("java", "Проверка Java");
 
     let requirement = cast_core::mojang::profile::JavaRequirement::from_package(base);
-    let config = state.config().await;
+    let config = instance.effective_config(&state.config().await);
 
     let java = java::resolve(
         &state.java,
@@ -362,7 +362,7 @@ async fn install_forge(
     reporter.set_stage(Stage::Install);
     reporter.begin_phase("forge-install", "Установщик Forge работает");
 
-    let java = resolve_java_for_forge(state, paths, base).await?;
+    let java = resolve_java_for_forge(state, paths, instance, base).await?;
 
     cast_core::install::forge::install(
         paths,
@@ -381,9 +381,10 @@ async fn install_forge(
 async fn resolve_java_for_forge(
     state: &Arc<AppState>,
     paths: &LauncherPaths,
+    instance: &Instance,
     base: &VersionPackage,
 ) -> CommandResult<String> {
-    let config = state.config().await;
+    let config = instance.effective_config(&state.config().await);
     let requirement = cast_core::mojang::profile::JavaRequirement::from_package(base);
 
     let java = java::resolve(

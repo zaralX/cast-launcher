@@ -1,14 +1,16 @@
+use std::path::Path;
 use std::sync::Arc;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
 use cast_core::account::{Account, AccountConfig};
 use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
-use cast_core::instance::Instance;
+use cast_core::instance::{Instance, InstanceSettings};
 use cast_core::java::detect::JavaRuntime;
+use cast_core::logs::{self, LogFile};
 use cast_core::meta::vanilla;
 use cast_core::mojang::version::VersionManifest;
 use cast_core::paths::PathsSnapshot;
@@ -62,9 +64,13 @@ pub async fn get_paths(state: Ctx<'_>) -> CommandResult<PathsSnapshot> {
 
 #[tauri::command]
 pub async fn open_path(app: AppHandle, path: String) -> CommandResult<()> {
-    app.opener()
-        .open_path(&path, None::<&str>)
-        .map_err(|e| CommandError::fs(format!("Не удалось открыть {path}")).with_details(e.to_string()))
+    open(&app, Path::new(&path))
+}
+
+fn open(app: &AppHandle, path: &Path) -> CommandResult<()> {
+    app.opener().open_path(path.to_string_lossy(), None::<&str>).map_err(|e| {
+        CommandError::fs(format!("Не удалось открыть {}", path.display())).with_details(e.to_string())
+    })
 }
 
 #[tauri::command]
@@ -119,6 +125,124 @@ pub async fn delete_instance(app: AppHandle, state: Ctx<'_>, instance_id: String
     .emit(&app);
 
     Ok(())
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstanceUpdate {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub settings: Option<InstanceSettings>,
+}
+
+#[tauri::command]
+pub async fn update_instance(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+    update: InstanceUpdate,
+) -> CommandResult<Instance> {
+    let name = match update.name {
+        Some(name) => {
+            let name = name.trim().to_string();
+
+            if name.is_empty() {
+                return Err(CommandError::fs("Название сборки не может быть пустым"));
+            }
+
+            Some(name)
+        }
+        None => None,
+    };
+
+    let description = update.description.map(|text| text.trim().to_string());
+    let settings = update.settings;
+
+    let paths = state.paths().await;
+
+    let updated = state
+        .instances
+        .update(&paths, &instance_id, move |instance| {
+            if let Some(name) = name {
+                instance.name = name;
+            }
+            if let Some(description) = description {
+                instance.description = description;
+            }
+            if let Some(settings) = settings {
+                instance.settings = settings;
+            }
+        })
+        .await?;
+
+    LauncherEvent::Instances {
+        instances: state.instances.all().await,
+    }
+    .emit(&app);
+
+    Ok(updated)
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum InstanceDir {
+    #[default]
+    Root,
+    Minecraft,
+    Logs,
+}
+
+#[tauri::command]
+pub async fn open_instance_dir(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+    target: InstanceDir,
+) -> CommandResult<()> {
+    let paths = state.paths().await;
+    let instance = paths.instance(&instance_id);
+
+    let dir = match target {
+        InstanceDir::Root => instance.root().to_path_buf(),
+        InstanceDir::Minecraft => instance.minecraft(),
+        InstanceDir::Logs => paths.instance_logs(&instance_id),
+    };
+
+    cast_core::fs_util::ensure_dir(&dir).await?;
+
+    open(&app, &dir)
+}
+
+#[tauri::command]
+pub async fn list_instance_logs(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<LogFile>> {
+    let paths = state.paths().await;
+    logs::list(&paths.instance_logs(&instance_id)).await
+}
+
+#[tauri::command]
+pub async fn read_instance_log(
+    state: Ctx<'_>,
+    instance_id: String,
+    name: String,
+) -> CommandResult<String> {
+    let paths = state.paths().await;
+    let path = logs::resolve(&paths.instance_logs(&instance_id), &name)?;
+
+    logs::read_tail(&path, logs::TAIL_LIMIT).await
+}
+
+#[tauri::command]
+pub async fn delete_instance_log(
+    state: Ctx<'_>,
+    instance_id: String,
+    name: String,
+) -> CommandResult<Vec<LogFile>> {
+    let paths = state.paths().await;
+    let dir = paths.instance_logs(&instance_id);
+
+    logs::remove(&logs::resolve(&dir, &name)?).await?;
+
+    logs::list(&dir).await
 }
 
 #[tauri::command]
