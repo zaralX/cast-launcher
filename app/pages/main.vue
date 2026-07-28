@@ -34,9 +34,6 @@ const openCreateModal = () => {
       <h1 class="font-unbounded text-lg font-bold leading-none tracking-[-0.055em] text-fg xl:text-xl">
         Привет здоровяк<span class="text-acid">!</span>
       </h1>
-      <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-        {{ installedCount }} / {{ instances.length }} установлено
-      </p>
     </header>
 
     <section class="mt-6">
