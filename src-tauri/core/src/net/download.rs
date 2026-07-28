@@ -17,6 +17,7 @@ const EMIT_INTERVAL: Duration = Duration::from_millis(100);
 const FILE_PROGRESS_EPS: f64 = 0.02;
 const LARGE_THRESHOLD: u64 = 4 * 1024 * 1024;
 const MAX_ATTEMPTS: usize = 3;
+const STALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -490,9 +491,16 @@ async fn fetch_to_file(
             return Ok(FetchOutcome::Stopped);
         }
 
-        let chunk = response.chunk().await.map_err(|e| {
-            CommandError::download(format!("Обрыв загрузки: {}", task.url)).with_details(e.to_string())
-        })?;
+        let chunk = tokio::time::timeout(STALL_TIMEOUT, response.chunk())
+            .await
+            .map_err(|_| {
+                CommandError::network(format!("Загрузка встала: {}", task.url))
+                    .with_details(format!("нет данных дольше {} с", STALL_TIMEOUT.as_secs()))
+            })?
+            .map_err(|e| {
+                CommandError::download(format!("Обрыв загрузки: {}", task.url))
+                    .with_details(e.to_string())
+            })?;
 
         let Some(chunk) = chunk else { break };
 
@@ -572,7 +580,7 @@ async fn is_already_valid(destination: &Path, task: &DownloadTask, deep_verify: 
     }
 
     let Some(expected) = &task.sha1 else {
-        return task.size.is_some();
+        return true;
     };
 
     if !deep_verify && task.size.is_some() {
@@ -652,6 +660,22 @@ mod tests {
 
         let wrong_size = DownloadTask::verified("http://example/lib.jar", file.clone(), Some(5), None);
         assert!(!is_already_valid(&file, &wrong_size, false).await);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn file_without_size_and_hash_is_trusted_as_is() {
+        let dir = std::env::temp_dir().join(format!("cast-dl-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("fabric-loader.jar");
+        std::fs::write(&file, b"1234").unwrap();
+
+        let task = DownloadTask::new("http://example/fabric-loader.jar", file.clone());
+        assert!(is_already_valid(&file, &task, false).await);
+
+        let missing = DownloadTask::new("http://example/nope.jar", dir.join("nope.jar"));
+        assert!(!is_already_valid(&missing.destination, &missing, false).await);
 
         std::fs::remove_dir_all(&dir).ok();
     }

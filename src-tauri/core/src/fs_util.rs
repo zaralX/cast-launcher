@@ -18,6 +18,33 @@ pub fn child_file(dir: &Path, name: &str) -> CommandResult<PathBuf> {
         .ok_or_else(|| CommandError::fs(format!("Недопустимое имя файла: {name}")))
 }
 
+pub fn safe_join(base: &Path, relative: &str) -> CommandResult<PathBuf> {
+    let mut path = base.to_path_buf();
+    let mut parts = 0;
+
+    for part in relative.split(['/', '\\']) {
+        match part {
+            "" | "." => continue,
+            ".." => return Err(escapes(relative)),
+            part if part.contains(':') => return Err(escapes(relative)),
+            part => {
+                path.push(part);
+                parts += 1;
+            }
+        }
+    }
+
+    if parts == 0 {
+        return Err(escapes(relative));
+    }
+
+    Ok(path)
+}
+
+fn escapes(relative: &str) -> CommandError {
+    CommandError::archive(format!("Недопустимый путь внутри пакета: {relative}"))
+}
+
 pub async fn read_text(path: &Path) -> CommandResult<String> {
     tokio::fs::read_to_string(path)
         .await
@@ -203,6 +230,26 @@ mod tests {
         assert!(child_file(dir, "").is_err());
         assert!(child_file(dir, "..").is_err());
         assert_eq!(child_file(dir, "icon.png").unwrap(), dir.join("icon.png"));
+    }
+
+    #[test]
+    fn safe_join_keeps_nested_paths_inside_the_base() {
+        let base = Path::new("/instances/abc/minecraft");
+
+        assert_eq!(safe_join(base, "mods/jei.jar").unwrap(), base.join("mods").join("jei.jar"));
+        assert_eq!(safe_join(base, "./config//a.toml").unwrap(), base.join("config").join("a.toml"));
+        assert_eq!(safe_join(base, "mods\\jei.jar").unwrap(), base.join("mods").join("jei.jar"));
+    }
+
+    #[test]
+    fn safe_join_rejects_escapes_and_absolute_paths() {
+        let base = Path::new("/instances/abc/minecraft");
+
+        assert!(safe_join(base, "../../config.json").is_err());
+        assert!(safe_join(base, "mods/../../etc/passwd").is_err());
+        assert!(safe_join(base, "C:\\Windows\\system32").is_err());
+        assert!(safe_join(base, "").is_err());
+        assert!(safe_join(base, "./").is_err());
     }
 
     #[tokio::test]

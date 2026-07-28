@@ -28,6 +28,19 @@ export function emptyInstanceSettings(): InstanceSettings {
     }
 }
 
+export type PackProvider = "modrinth"
+
+export interface PackSource {
+    provider: PackProvider
+    projectId: string
+    versionId: string
+    versionNumber: string
+    fileUrl: string
+    fileName: string
+    fileSha1?: string
+    fileSize?: number
+}
+
 export interface Instance {
     id: string
     name: string
@@ -39,6 +52,7 @@ export interface Instance {
     version: number
     loaderVersion?: string
     customId?: string
+    pack?: PackSource
     settings: InstanceSettings
 }
 

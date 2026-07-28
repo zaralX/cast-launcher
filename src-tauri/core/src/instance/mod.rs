@@ -27,6 +27,37 @@ impl LoaderType {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PackProvider {
+    Modrinth,
+}
+
+impl PackProvider {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Modrinth => "Modrinth",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackSource {
+    pub provider: PackProvider,
+    pub project_id: String,
+    pub version_id: String,
+    #[serde(default)]
+    pub version_number: String,
+    pub file_url: String,
+    #[serde(default)]
+    pub file_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_sha1: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_size: Option<u64>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct InstanceSettings {
@@ -88,6 +119,8 @@ pub struct Instance {
     pub loader_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pack: Option<PackSource>,
     #[serde(default)]
     pub settings: InstanceSettings,
     #[serde(skip)]
@@ -270,6 +303,52 @@ mod tests {
         assert!(written.get("pendingInstall").is_none());
         assert_eq!(written["type"], "forge");
         assert_eq!(written["minecraftVersion"], "1.20.1");
+    }
+
+    #[test]
+    fn pack_source_survives_a_json_round_trip() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Fabulously Optimized",
+            "minecraftVersion": "1.20.1",
+            "type": "fabric",
+            "pack": {
+                "provider": "modrinth",
+                "projectId": "1KVo5zza",
+                "versionId": "abcdefgh",
+                "versionNumber": "5.4.0",
+                "fileUrl": "https://cdn.modrinth.com/pack.mrpack",
+                "fileName": "pack.mrpack",
+                "fileSha1": "aaa",
+                "fileSize": 4096
+            }
+        }))
+        .unwrap();
+
+        let pack = instance.pack.clone().unwrap();
+        assert_eq!(pack.provider, PackProvider::Modrinth);
+        assert_eq!(pack.project_id, "1KVo5zza");
+
+        let written = serde_json::to_value(&instance).unwrap();
+        assert_eq!(written["pack"]["provider"], "modrinth");
+        assert_eq!(written["pack"]["fileUrl"], "https://cdn.modrinth.com/pack.mrpack");
+
+        let parsed: Instance = serde_json::from_value(written).unwrap();
+        assert_eq!(parsed.pack, instance.pack);
+    }
+
+    #[test]
+    fn instances_without_a_pack_do_not_gain_the_field() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Своя сборка",
+            "minecraftVersion": "1.20.1",
+            "type": "vanilla"
+        }))
+        .unwrap();
+
+        assert!(instance.pack.is_none());
+        assert!(serde_json::to_value(&instance).unwrap().get("pack").is_none());
     }
 
     #[test]

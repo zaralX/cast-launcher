@@ -2,9 +2,22 @@ import {invoke} from "@tauri-apps/api/core"
 import {listen} from "@tauri-apps/api/event"
 import type {Account, AccountConfig} from "~/types/account"
 import type {AppConfig, JavaRuntime, LauncherPaths} from "~/types/app"
-import type {Instance, InstanceLogFile, InstanceSettings, InstallSnapshot, RunningGame} from "~/types/instance"
+import type {
+    Instance,
+    InstanceLogFile,
+    InstanceSettings,
+    InstallSnapshot,
+    PackSource,
+    RunningGame
+} from "~/types/instance"
 import type {IconFile, ItemCatalog} from "~/types/icon"
 import type {MyPacksConfig} from "~/types/pack"
+import type {
+    ModrinthFilters,
+    ModrinthSearchPage,
+    ModrinthSearchQuery,
+    ModrinthVersion
+} from "~/types/modrinth"
 import {toLauncherError} from "~/types/error"
 
 const LAUNCHER_EVENT = "launcher://event"
@@ -72,6 +85,12 @@ interface Commands {
     refresh_account: [{ uuid: string }, Account]
 
     load_my_packs: [void, MyPacksConfig]
+
+    search_modrinth_packs: [{ query: ModrinthSearchQuery }, ModrinthSearchPage]
+    list_modrinth_pack_versions: [{ projectId: string }, ModrinthVersion[]]
+    modrinth_filters: [void, ModrinthFilters]
+    save_pack_icon: [{ projectId: string, url: string }, IconFile]
+
     list_minecraft_versions: [void, VersionManifest]
     list_fabric_versions: [void, string[]]
     list_forge_versions: [void, string[]]
@@ -84,8 +103,10 @@ export interface NewInstance {
     minecraftVersion: string
     type: Instance["type"]
     version: number
+    icon?: string
     loaderVersion?: string
     customId?: string
+    pack?: PackSource
     settings?: InstanceSettings
 }
 

@@ -12,6 +12,7 @@ pub mod java;
 pub mod launch;
 pub mod logs;
 pub mod meta;
+pub mod modrinth;
 pub mod mojang;
 pub mod net;
 pub mod paths;

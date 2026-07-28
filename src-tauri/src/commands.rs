@@ -17,6 +17,7 @@ use cast_core::instance::{Instance, InstanceSettings};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::vanilla;
+use cast_core::modrinth;
 use cast_core::mojang::version::VersionManifest;
 use cast_core::paths::PathsSnapshot;
 
@@ -488,6 +489,31 @@ pub async fn load_my_packs(state: Ctx<'_>) -> CommandResult<serde_json::Value> {
         .meta
         .fetch_json("https://s3.zaralx.ru/launcher/my_packs.json")
         .await
+}
+
+#[tauri::command]
+pub async fn search_modrinth_packs(query: modrinth::SearchQuery) -> CommandResult<modrinth::SearchPage> {
+    modrinth::search(&query).await
+}
+
+#[tauri::command]
+pub async fn list_modrinth_pack_versions(
+    project_id: String,
+) -> CommandResult<Vec<modrinth::VersionSummary>> {
+    modrinth::versions(&project_id).await
+}
+
+#[tauri::command]
+pub async fn modrinth_filters(state: Ctx<'_>) -> CommandResult<modrinth::Filters> {
+    modrinth::filters(&state.meta).await
+}
+
+#[tauri::command]
+pub async fn save_pack_icon(state: Ctx<'_>, project_id: String, url: String) -> CommandResult<IconFile> {
+    let bytes = modrinth::icon(&url).await?;
+    let paths = state.paths().await;
+
+    icons::save_once(&paths.icons(), &modrinth::icon_file_name(&project_id, &url), &bytes).await
 }
 
 #[tauri::command]

@@ -18,6 +18,8 @@ use cast_core::paths::LauncherPaths;
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
 
+mod modpack;
+
 pub use cast_core::install::phases::{self, job_id, job_prefix};
 pub use cast_core::install::progress::{InstallSnapshot, ProgressReporter, Stage};
 
@@ -72,7 +74,7 @@ pub async fn start(
         install_publisher(app.clone()),
         instance.id.clone(),
         instance.name.clone(),
-        phases::for_loader(instance.loader),
+        phases::for_install(instance.loader, instance.pack.is_some()),
     ));
 
     state.installs.register(Arc::clone(&reporter)).await;
@@ -132,6 +134,22 @@ async fn run(
     reporter.set_message("Подготовка");
     prepare_dirs(&paths, instance).await?;
 
+    // Точные версии игры и загрузчика лежат в манифесте пака, поэтому сначала
+    // забираем его и подтягиваем сборку под него.
+    let (instance, modpack) = match &instance.pack {
+        Some(pack) => {
+            let modpack = modpack::prepare(state, &paths, instance, pack, reporter).await?;
+            check_cancelled(reporter)?;
+
+            let synced = modpack::sync_instance(state, &paths, instance, modpack.index()).await?;
+
+            (synced, Some(modpack))
+        }
+        None => (instance.clone(), None),
+    };
+
+    let instance = &instance;
+
     let resolver = Resolver::new(&paths, &state.meta);
     let base = resolver.base_package(instance).await?;
     check_cancelled(reporter)?;
@@ -160,6 +178,12 @@ async fn run(
         LoaderType::Forge => {
             install_forge(state, &paths, instance, &base, reporter).await?;
         }
+    }
+
+    check_cancelled(reporter)?;
+
+    if let Some(modpack) = &modpack {
+        modpack::apply(state, &paths, instance, modpack, reporter).await?;
     }
 
     reporter.set_stage(Stage::Finalize);

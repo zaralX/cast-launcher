@@ -24,12 +24,52 @@ const FORGE: &[Phase] = &[
     Phase::new("forge-install", "Установка Forge", 15),
 ];
 
+const MODPACK: Phase = Phase::new("modpack", "Файлы модпака", 25);
+
 pub fn for_loader(loader: LoaderType) -> Vec<Phase> {
     match loader {
         LoaderType::Vanilla => VANILLA.to_vec(),
         LoaderType::Fabric => FABRIC.to_vec(),
         LoaderType::Forge => FORGE.to_vec(),
     }
+}
+
+pub fn for_install(loader: LoaderType, with_modpack: bool) -> Vec<Phase> {
+    let base = for_loader(loader);
+
+    if !with_modpack {
+        return base;
+    }
+
+    let mut phases = rescale(&base, 100 - MODPACK.weight);
+    phases.push(MODPACK);
+    phases
+}
+
+fn rescale(phases: &[Phase], target: u32) -> Vec<Phase> {
+    let total: u32 = phases.iter().map(|phase| phase.weight).sum();
+
+    if total == 0 {
+        return phases.to_vec();
+    }
+
+    let mut used = 0;
+
+    phases
+        .iter()
+        .enumerate()
+        .map(|(index, phase)| {
+            let weight = if index + 1 == phases.len() {
+                target.saturating_sub(used)
+            } else {
+                phase.weight * target / total
+            };
+
+            used += weight;
+
+            Phase::new(phase.key, phase.label, weight)
+        })
+        .collect()
 }
 
 pub fn job_id(instance_id: &str, phase: &str) -> String {
@@ -50,6 +90,27 @@ mod tests {
             let total: u32 = for_loader(loader).iter().map(|phase| phase.weight).sum();
             assert_eq!(total, 100, "фазы {loader:?} должны в сумме давать 100");
         }
+    }
+
+    #[test]
+    fn a_modpack_install_still_adds_up_to_a_full_scale() {
+        for loader in [LoaderType::Vanilla, LoaderType::Fabric, LoaderType::Forge] {
+            let phases = for_install(loader, true);
+            let total: u32 = phases.iter().map(|phase| phase.weight).sum();
+
+            assert_eq!(total, 100, "фазы {loader:?} с модпаком должны в сумме давать 100");
+            assert_eq!(phases.last().unwrap().key, "modpack");
+            assert_eq!(phases.len(), for_loader(loader).len() + 1);
+        }
+    }
+
+    #[test]
+    fn without_a_modpack_the_phases_are_untouched() {
+        let plain = for_install(LoaderType::Fabric, false);
+        let base = for_loader(LoaderType::Fabric);
+
+        assert_eq!(plain.len(), base.len());
+        assert!(plain.iter().zip(&base).all(|(a, b)| a.key == b.key && a.weight == b.weight));
     }
 
     #[test]

@@ -43,6 +43,76 @@ fn extract_natives_blocking(jar_path: &Path, output_dir: &Path) -> CommandResult
     Ok(())
 }
 
+pub async fn read_entry(archive_path: PathBuf, entry: String) -> CommandResult<Vec<u8>> {
+    tokio::task::spawn_blocking(move || read_entry_blocking(&archive_path, &entry))
+        .await
+        .map_err(|e| CommandError::task_panicked("чтение записи архива", e))?
+}
+
+fn read_entry_blocking(archive_path: &Path, entry: &str) -> CommandResult<Vec<u8>> {
+    let mut archive = open(archive_path)?;
+
+    let mut file = archive.by_name(entry).map_err(|e| {
+        CommandError::archive(format!("В архиве нет файла {entry}: {}", archive_path.display()))
+            .with_details(e.to_string())
+    })?;
+
+    let mut bytes = Vec::with_capacity(file.size() as usize);
+
+    io::copy(&mut file, &mut bytes).map_err(|e| {
+        CommandError::archive(format!("Не удалось прочитать {entry}")).with_details(e.to_string())
+    })?;
+
+    Ok(bytes)
+}
+
+pub async fn extract_dir(
+    archive_path: PathBuf,
+    prefix: String,
+    output_dir: PathBuf,
+) -> CommandResult<usize> {
+    tokio::task::spawn_blocking(move || extract_dir_blocking(&archive_path, &prefix, &output_dir))
+        .await
+        .map_err(|e| CommandError::task_panicked("распаковка каталога архива", e))?
+}
+
+fn extract_dir_blocking(archive_path: &Path, prefix: &str, output_dir: &Path) -> CommandResult<usize> {
+    let mut archive = open(archive_path)?;
+    let prefix = format!("{}/", prefix.trim_end_matches('/'));
+    let mut extracted = 0;
+
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index).map_err(|e| {
+            CommandError::archive(format!("Не удалось прочитать запись архива: {}", archive_path.display()))
+                .with_details(e.to_string())
+        })?;
+
+        let name = entry.name().to_string();
+
+        let Some(relative) = name.strip_prefix(&prefix) else { continue };
+        if relative.is_empty() || name.ends_with('/') {
+            continue;
+        }
+
+        let out_path = crate::fs_util::safe_join(output_dir, relative)?;
+
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| CommandError::io("Не удалось создать каталог", parent, e))?;
+        }
+
+        let mut out = File::create(&out_path)
+            .map_err(|e| CommandError::io("Не удалось создать файл", &out_path, e))?;
+
+        io::copy(&mut entry, &mut out)
+            .map_err(|e| CommandError::io("Не удалось распаковать файл", &out_path, e))?;
+
+        extracted += 1;
+    }
+
+    Ok(extracted)
+}
+
 fn is_native(name: &str) -> bool {
     let lowercase = name.to_ascii_lowercase();
     [".dll", ".so", ".dylib", ".jnilib"]
@@ -80,5 +150,63 @@ mod tests {
         assert!(!is_native("org/lwjgl/Sys.class"));
         assert!(!is_native("module-info.class"));
         assert!(!is_native("LICENSE"));
+    }
+
+    fn write_zip(path: &Path, entries: &[(&str, &[u8])]) {
+        use std::io::Write;
+
+        let file = File::create(path).unwrap();
+        let mut writer = zip::ZipWriter::new(file);
+        let options = zip::write::SimpleFileOptions::default();
+
+        for (name, bytes) in entries {
+            writer.start_file(*name, options).unwrap();
+            writer.write_all(bytes).unwrap();
+        }
+
+        writer.finish().unwrap();
+    }
+
+    #[tokio::test]
+    async fn overrides_are_unpacked_with_their_structure() {
+        let dir = std::env::temp_dir().join(format!("cast-zip-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let pack = dir.join("pack.mrpack");
+        write_zip(&pack, &[
+            ("modrinth.index.json", br#"{"name":"Pack"}"#),
+            ("overrides/config/a.toml", b"a"),
+            ("overrides/options.txt", b"b"),
+            ("client-overrides/servers.dat", b"c"),
+        ]);
+
+        let target = dir.join("minecraft");
+        let count = extract_dir(pack.clone(), "overrides".into(), target.clone()).await.unwrap();
+
+        assert_eq!(count, 2);
+        assert_eq!(std::fs::read(target.join("config").join("a.toml")).unwrap(), b"a");
+        assert_eq!(std::fs::read(target.join("options.txt")).unwrap(), b"b");
+        assert!(!target.join("servers.dat").exists());
+
+        let index = read_entry(pack, "modrinth.index.json".into()).await.unwrap();
+        assert_eq!(index, br#"{"name":"Pack"}"#);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn a_missing_override_directory_is_not_an_error() {
+        let dir = std::env::temp_dir().join(format!("cast-zip-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let pack = dir.join("pack.mrpack");
+        write_zip(&pack, &[("modrinth.index.json", b"{}")]);
+
+        let count = extract_dir(pack.clone(), "client-overrides".into(), dir.join("mc")).await.unwrap();
+        assert_eq!(count, 0);
+
+        assert!(read_entry(pack, "нет.json".into()).await.is_err());
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 }
