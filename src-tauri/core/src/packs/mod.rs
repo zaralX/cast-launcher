@@ -413,7 +413,7 @@ mod tests {
         assert_eq!(
             icon_file_name(PackProvider::CurseForge, "925200", "https://media.forgecdn.net/avatars/x"),
             "curseforge-925200.png",
-            "без расширения — считаем png"
+            "без расширения - считаем png"
         );
     }
 

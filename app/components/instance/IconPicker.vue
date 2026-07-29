@@ -172,7 +172,7 @@ onMounted(async () => {
       </div>
 
       <p v-else class="border border-dashed border-line py-12 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-        Библиотека пуста — загрузите файл или выберите иконку из каталога
+        Библиотека пуста - загрузите файл или выберите иконку из каталога
       </p>
     </div>
 
@@ -244,9 +244,5 @@ onMounted(async () => {
         </div>
       </template>
     </div>
-
-    <p class="border-t border-line pt-4 font-mono text-[10px] leading-relaxed text-fg-faint/70">
-      Иконки предметов берутся с ассетов zaralX и сохраняются в библиотеку лаунчера — дальше они работают без сети.
-    </p>
   </div>
 </template>

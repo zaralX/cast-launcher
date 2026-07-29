@@ -165,9 +165,8 @@ onMounted(async () => {
 
 <template>
   <SettingsPanel
-      index="05"
+      index="01"
       title="Логи"
-      description="Вывод игры за текущий сеанс и записи прошлых запусков."
       icon="i-lucide-scroll-text"
   >
     <div class="space-y-5">
@@ -269,7 +268,7 @@ onMounted(async () => {
             ]"
         >{{ line.text || " " }}</p>
 
-        <p v-if="!lines.length" class="py-10 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+        <p v-if="!lines.length" class="flex justify-center items-center h-full font-mono text-xs uppercase tracking-[0.24em] text-fg-faint">
           <template v-if="loading">Загрузка</template>
           <template v-else-if="filter.trim()">Ничего не найдено</template>
           <template v-else-if="isLive">Лог появится после запуска игры</template>

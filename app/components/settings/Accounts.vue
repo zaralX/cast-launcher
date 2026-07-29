@@ -24,7 +24,6 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
   <SettingsPanel
       index="02"
       title="Аккаунты"
-      description="С каким профилем запускается игра."
       icon="i-lucide-user-round"
   >
     <div class="space-y-7">
@@ -32,7 +31,7 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
         <li
             v-for="(account, i) in accountConfig!.accounts"
             :key="`${account.type}-${account.name}-${i}`"
-            class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 pr-1 transition-colors duration-300 hover:bg-ink-700"
+            class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 px-4 transition-colors duration-300 hover:bg-ink-700"
             @click="selectAccount(i)"
         >
           <span
@@ -59,11 +58,6 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
           >
             Активен
           </span>
-
-          <UIcon
-              :name="account.type === 'microsoft' ? 'mdi:microsoft' : 'i-lucide-globe'"
-              class="size-4 shrink-0 text-fg-faint"
-          />
         </li>
       </ul>
 

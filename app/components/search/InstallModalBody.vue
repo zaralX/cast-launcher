@@ -210,7 +210,7 @@ const install = async () => {
         <div class="px-4 py-3">
           <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Minecraft</p>
           <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
-            {{ selected?.minecraftVersion ?? "—" }}
+            {{ selected?.minecraftVersion ?? "-" }}
           </p>
         </div>
         <div class="border-l border-line px-4 py-3">
@@ -227,13 +227,13 @@ const install = async () => {
       <p v-else-if="selected?.blocked" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-hand" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
         Автор запретил сторонним лаунчерам скачивать архив этого пака. Установка начнётся и остановится
-        на окне со ссылкой: скачайте архив сами и укажите папку — дальше лаунчер справится.
+        на окне со ссылкой: скачайте архив сами и укажите папку - дальше лаунчер справится.
       </p>
 
       <p v-else-if="!hit.distributionAllowed" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
         Автор запретил сторонним лаунчерам раздавать файлы этого пака. Лаунчер поищет замену на Modrinth,
-        а то, что не найдётся, попросит скачать вручную — со ссылками и поиском по папке загрузок.
+        а то, что не найдётся, попросит скачать вручную - со ссылками и поиском по папке загрузок.
       </p>
 
       <AppButton

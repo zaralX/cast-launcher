@@ -151,8 +151,7 @@ onBeforeUnmount(() => unlisten?.())
 <template>
   <SettingsPanel
       index="04"
-      title="Перенос из другого лаунчера"
-      description="Копирует сборки вместе с мирами, модами, ассетами и библиотеками. Исходный лаунчер не меняется."
+      title="Копирование из другого лаунчера"
       icon="i-lucide-import"
   >
     <div class="space-y-7">
@@ -190,7 +189,7 @@ onBeforeUnmount(() => unlisten?.())
       <template v-if="source === 'prism'">
         <SettingsField
             label="Каталог данных PrismLauncher"
-            :hint="detected ? `Найден автоматически: ${detected.instances} сборок` : 'PrismLauncher не найден — укажите папку вручную'"
+            :hint="detected ? `Найдено автоматически: ${detected.instances} сборок` : 'PrismLauncher не найден - укажите папку вручную'"
         >
           <div class="flex gap-2">
             <UInput
@@ -261,7 +260,7 @@ onBeforeUnmount(() => unlisten?.())
               <div class="min-w-0 flex-1">
                 <p class="truncate text-[13px] text-fg">{{ instance.name }}</p>
                 <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-                  {{ instance.minecraftVersion || '—' }} · {{ instance.loaderLabel }}
+                  {{ instance.minecraftVersion || '-' }} · {{ instance.loaderLabel }}
                   <template v-if="instance.pack"> · {{ instance.pack.provider }}</template>
                   <template v-if="formatPlaytime(instance.playtime?.totalSeconds ?? 0)">
                     · наиграно {{ formatPlaytime(instance.playtime.totalSeconds) }}
@@ -282,7 +281,7 @@ onBeforeUnmount(() => unlisten?.())
           </p>
 
           <p v-else-if="blocked.length" class="mt-3 font-mono text-[10px] leading-relaxed text-fg-faint/70">
-            {{ blocked.length }} сборок перенести нельзя — они останутся в PrismLauncher.
+            {{ blocked.length }} сборок перенести нельзя - они останутся в PrismLauncher.
           </p>
         </div>
 
@@ -290,10 +289,10 @@ onBeforeUnmount(() => unlisten?.())
           <div
               v-for="row in [
                 { key: 'libraries' as const, title: 'Библиотеки', hint: 'Библиотеки игры и загрузчиков, включая уже собранные Forge и NeoForge.' },
-                { key: 'assets' as const, title: 'Ассеты', hint: 'Звуки и языки. Самая объёмная часть — зато качать заново не придётся.' },
-                { key: 'java' as const, title: 'Java', hint: 'Рантаймы, которые Prism скачал у Mojang.' },
+                { key: 'assets' as const, title: 'Ассеты', hint: 'Рекомендовано при первом переносе чтобы не скачивать гигабайты снова.' },
+                { key: 'java' as const, title: 'Java', hint: 'Рекомендовано при первом переносе. Скопируем уже скачанные java runtimes.' },
                 { key: 'icons' as const, title: 'Иконки', hint: 'Иконки перенесённых сборок.' },
-                { key: 'linkPacks' as const, title: 'Привязать модпаки', hint: 'Для паков с Modrinth и CurseForge останутся обновления версий.' }
+                { key: 'linkPacks' as const, title: 'Привязать модпаки', hint: 'Для паков с Modrinth и CurseForge останется связь для обновления версий.' }
               ]"
               :key="row.key"
               class="flex items-center justify-between gap-6"
@@ -351,7 +350,7 @@ onBeforeUnmount(() => unlisten?.())
                 :key="skipped.name"
                 class="font-mono text-[10px] leading-relaxed text-amber-400"
             >
-              {{ skipped.name }} — {{ skipped.reason }}
+              {{ skipped.name }} - {{ skipped.reason }}
             </li>
           </ul>
         </div>

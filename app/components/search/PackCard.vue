@@ -72,15 +72,6 @@ const latestVersion = computed(() => props.hit.versions.at(-1) ?? "")
           {{ latestVersion }}
         </span>
 
-        <span
-            v-if="!hit.distributionAllowed"
-            class="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.12em] text-amber-400"
-            title="Автор запретил сторонним лаунчерам скачивать файлы этого пака — часть модов придётся положить руками"
-        >
-          <UIcon name="i-lucide-triangle-alert" class="size-3"/>
-          Не всё скачается
-        </span>
-
         <span class="h-3 w-px bg-line"/>
 
         <span

@@ -36,15 +36,15 @@ async function saveConfig() {
 </script>
 
 <template>
-  <div class="min-h-full w-full px-8 pb-16 pt-10 xl:px-14">
+  <div class="min-h-full w-full px-8 pb-16 xl:px-14">
     <div class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14">
-      <aside class="lg:sticky lg:top-0 lg:self-start">
+      <aside class="lg:sticky pt-10 lg:top-0 lg:self-start">
         <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">Конфигурация</p>
         <h1 class="mt-4 font-unbounded text-[clamp(26px,3vw,34px)] font-bold leading-[0.95] tracking-[-0.055em] text-fg">
-          Система<span class="text-acid">.</span>
+          Настройки<span class="text-acid">.</span>
         </h1>
         <p class="mt-5 text-[12px] leading-relaxed text-fg-muted">
-          Изменения применяются после сохранения и хранятся в config.json.
+          Не забудь нажать кнопочку ниже для сохранения
         </p>
 
         <AppButton
@@ -59,7 +59,7 @@ async function saveConfig() {
         </AppButton>
       </aside>
 
-      <div v-if="config" class="space-y-6">
+      <div v-if="config" class="space-y-6 pt-10">
         <SettingsLauncher v-model="config" class="animate-rise"/>
         <SettingsAccounts class="animate-rise [animation-delay:80ms]"/>
         <SettingsJava v-model="config" class="animate-rise [animation-delay:160ms]"/>

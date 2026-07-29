@@ -17,7 +17,7 @@ const links = [{
   icon: "i-lucide-search",
   to: "/search"
 }, {
-  name: "Система",
+  name: "Настройки",
   icon: "i-lucide-sliders-horizontal",
   to: "/settings"
 }]
@@ -96,25 +96,18 @@ onMounted(async () => {
     </header>
 
     <div class="flex min-h-0 flex-1">
-      <nav class="relative z-30 flex w-16 shrink-0 flex-col justify-between border-r border-line bg-ink-800/60 py-5">
+      <nav class="relative z-30 flex w-14 shrink-0 flex-col justify-between border-r border-line bg-ink-800/60">
         <div class="flex flex-col">
           <NuxtLink
               v-for="(link, i) in links"
               :key="link.to"
               :to="link.to"
-              class="group relative grid h-16 w-16 place-items-center"
+              class="group relative grid h-14 w-14 place-items-center"
           >
             <span
                 class="absolute left-0 top-1/2 w-px -translate-y-1/2 bg-acid transition-all duration-500 ease-deck"
                 :class="route.path === link.to ? 'h-8 opacity-100' : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-60'"
             />
-
-            <span
-                class="absolute right-2.5 top-3.5 font-mono text-[9px] leading-none transition-colors duration-300"
-                :class="route.path === link.to ? 'text-acid' : 'text-fg-faint/50 group-hover:text-fg-faint'"
-            >
-              {{ String(i + 1).padStart(2, "0") }}
-            </span>
 
             <UIcon
                 :name="link.icon"
@@ -135,7 +128,7 @@ onMounted(async () => {
         <NuxtLink
             v-if="currentAccount"
             to="/settings"
-            class="group relative mx-auto grid size-10 place-items-center border border-line bg-ink-700 transition-colors duration-300 hover:border-acid/50"
+            class="mb-2 group relative mx-auto grid size-10 place-items-center border border-line bg-ink-700 transition-colors duration-300 hover:border-acid/50"
         >
           <NuxtImg
               :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${currentAccount.name}/full`"

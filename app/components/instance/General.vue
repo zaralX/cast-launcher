@@ -22,13 +22,13 @@ const facts = computed(() => [
   {label: "Идентификатор", value: props.instance.id},
   {label: "Загрузчик", value: INSTANCE_TYPE_LABELS[props.instance.type] ?? props.instance.type},
   {label: "Minecraft", value: props.instance.minecraftVersion},
-  {label: "Версия загрузчика", value: props.instance.loaderVersion || "—"},
-  {label: "Наиграно", value: formatPlaytime(props.instance.playtime?.totalSeconds ?? 0) || "—"},
+  {label: "Версия загрузчика", value: props.instance.loaderVersion || "-"},
+  {label: "Наиграно", value: formatPlaytime(props.instance.playtime?.totalSeconds ?? 0) || "-"},
   {
     label: "Последний запуск",
-    value: formatLastPlayed(props.instance.playtime?.lastPlayedAt ?? 0) || "—"
+    value: formatLastPlayed(props.instance.playtime?.lastPlayedAt ?? 0) || "-"
   },
-  {label: "Последняя сессия", value: formatPlaytime(props.instance.playtime?.lastSeconds ?? 0) || "—"}
+  {label: "Последняя сессия", value: formatPlaytime(props.instance.playtime?.lastSeconds ?? 0) || "-"}
 ])
 
 const status = computed(() => {
@@ -82,7 +82,6 @@ async function remove() {
     <SettingsPanel
         index="01"
         title="Общее"
-        description="Название и описание видны в библиотеке сборок."
         icon="i-lucide-box"
     >
       <div class="space-y-7">
@@ -121,15 +120,13 @@ async function remove() {
           <UInput
               v-model="name"
               placeholder="Например, Hardcore Survival"
-              size="lg"
               class="w-full"
-              :ui="{ base: 'font-unbounded text-[15px] tracking-[-0.03em]' }"
           />
         </SettingsField>
 
-        <SettingsField label="Описание">
-          <UInput v-model="description" placeholder="Необязательно" class="w-full"/>
-        </SettingsField>
+<!--        <SettingsField label="Описание">-->
+<!--          <UInput v-model="description" placeholder="Необязательно" class="w-full"/>-->
+<!--        </SettingsField>-->
 
         <dl class="grid gap-x-6 gap-y-4 border-t border-line pt-6 sm:grid-cols-2">
           <div v-for="fact in facts" :key="fact.label" class="min-w-0">
@@ -148,7 +145,6 @@ async function remove() {
     <SettingsPanel
         index="02"
         title="Файлы и обслуживание"
-        description="Каталоги сборки на диске и переустановка её файлов."
         icon="i-lucide-hard-drive"
     >
       <div class="space-y-7">
@@ -170,9 +166,9 @@ async function remove() {
               {{ instance.installed ? 'Переустановка' : 'Установка' }}
             </p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              Скачивает клиент, библиотеки и ресурсы заново. Сохранения и конфиги в minecraft остаются на месте.
+              Скачивает клиент, библиотеки и ресурсы заново. Миры и конфиги в minecraft остаются на месте.
               <template v-if="instance.pack">
-                Файлы модпака тоже проверяются — сменить его версию можно на вкладке «Модпак».
+                Файлы модпака тоже проверяются - сменить его версию можно на вкладке "Модпак".
               </template>
             </p>
           </div>
@@ -208,7 +204,7 @@ async function remove() {
         </div>
 
         <p v-if="running" class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-          Сборка запущена — сначала закройте игру
+          Сборка запущена - сначала закройте игру
         </p>
       </div>
     </SettingsPanel>

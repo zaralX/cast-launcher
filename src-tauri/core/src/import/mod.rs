@@ -207,7 +207,7 @@ mod tests {
 
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].folder, "b");
-        assert!(report.skipped.is_empty(), "невыбранное — не пропущенное");
+        assert!(report.skipped.is_empty(), "невыбранное - не пропущенное");
     }
 
     #[test]

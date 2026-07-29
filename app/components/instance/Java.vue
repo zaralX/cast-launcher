@@ -49,9 +49,8 @@ watch(() => settings.value.overrideJava, (enabled) => {
 <template>
   <div class="space-y-6">
     <SettingsPanel
-        index="03"
+        index="01"
         title="Память"
-        description="Сколько оперативной памяти получает игра этой сборки."
         icon="i-lucide-memory-stick"
     >
       <div class="space-y-7">
@@ -103,7 +102,7 @@ watch(() => settings.value.overrideJava, (enabled) => {
     </SettingsPanel>
 
     <SettingsPanel
-        index="04"
+        index="02"
         title="Java"
         description="С какой Java запускать и устанавливать именно эту сборку."
         icon="i-lucide-cpu"

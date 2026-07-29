@@ -68,8 +68,6 @@ impl SearchQuery {
         url.into()
     }
 
-    /// Группы фасетов складываются по И, значения внутри группы — по ИЛИ.
-    /// Как на самом Modrinth: загрузчики и версии игры — ИЛИ, категории — И.
     fn facets(&self) -> String {
         let mut groups: Vec<Vec<String>> = vec![vec!["project_type:modpack".into()]];
 

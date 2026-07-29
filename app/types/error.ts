@@ -51,7 +51,7 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     },
     HASH_MISMATCH: {
         title: "Файл скачался повреждённым",
-        hint: "Контрольная сумма не совпала. Повторите установку — файл будет скачан заново.",
+        hint: "Контрольная сумма не совпала. Повторите установку - файл будет скачан заново.",
         severity: "error",
         icon: "i-lucide-file-x"
     },
@@ -92,7 +92,7 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
     },
     FORGE_INSTALL_FAILED: {
         title: "Не удалось установить Forge",
-        hint: "Сборка клиента Forge не удалась. Подробности — в деталях.",
+        hint: "Сборка клиента Forge не удалась. Подробности - в деталях.",
         severity: "error",
         icon: "i-lucide-hammer"
     },

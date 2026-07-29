@@ -549,7 +549,7 @@ async fn read_json<T: DeserializeOwned>(response: reqwest::Response, url: &str) 
 
         if status == reqwest::StatusCode::FORBIDDEN || status == reqwest::StatusCode::UNAUTHORIZED {
             error = CommandError::network(
-                "CurseForge отклонил ключ API — лаунчер собран со старым или недействительным ключом",
+                "CurseForge отклонил ключ API - лаунчер собран со старым или недействительным ключом",
             );
         }
 
@@ -747,7 +747,7 @@ mod tests {
             "downloadUrl": null
         }));
 
-        assert!(version.blocked, "ссылки нет — качать будет пользователь");
+        assert!(version.blocked, "ссылки нет - качать будет пользователь");
         assert!(
             version.supported,
             "отказывать в установке нельзя: архив можно скачать вручную"

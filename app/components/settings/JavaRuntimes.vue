@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
         </AppButton>
       </div>
 
-      <ul class="border-t border-line">
+      <ul class="border border-line max-h-64 overflow-y-scroll">
         <li
             class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 pr-1 transition-colors duration-300 hover:bg-ink-700"
             @click="setMode('auto')"
@@ -187,7 +187,7 @@ onBeforeUnmount(() => {
 
     <SettingsField
         label="Свой путь к Java"
-        hint="Заполняется при выборе из списка. Можно указать вручную — файл java/javaw или папку JDK."
+        hint="Не трогайте если не знаете что это."
     >
       <UInput
           v-model="javaPath"

@@ -189,7 +189,7 @@ const HEADER_LABELS: Record<string, string> = {
     </template>
 
     <p v-else class="text-[12px] leading-relaxed text-fg-muted">
-      Список фильтров не загрузился — поиск работает и без него.
+      Список фильтров не загрузился.
     </p>
   </aside>
 </template>

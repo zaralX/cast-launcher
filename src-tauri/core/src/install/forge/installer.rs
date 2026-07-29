@@ -756,8 +756,6 @@ mod tests {
 
         let paths = LauncherPaths::new(dir.clone(), None);
 
-        // Собранного клиента нет ни в манифесте версии, ни в outputs процессоров —
-        // без отдельной проверки поломка вылезла бы только при запуске игры.
         assert_eq!(
             installer.missing(&paths, &ctx()),
             vec![

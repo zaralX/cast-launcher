@@ -184,7 +184,6 @@ pub fn client_jar(root: &Path, minecraft_version: &str) -> PathBuf {
         .join(format!("minecraft-{minecraft_version}-client.jar"))
 }
 
-/// Куда лёг бы установщик Forge/NeoForge в нашем кэше — остальным загрузчикам он не нужен.
 pub fn loader_installer_target(paths: &LauncherPaths, instance: &Instance) -> Option<PathBuf> {
     let family = Family::of(instance.loader)?;
     let version = instance.loader_version.as_deref().filter(|version| !version.is_empty())?;
@@ -192,7 +191,6 @@ pub fn loader_installer_target(paths: &LauncherPaths, instance: &Instance) -> Op
     Some(paths.loader_cache(family.key(), version).installer_jar())
 }
 
-/// Prism держит установщик среди библиотек, по обычной maven-координате.
 pub fn loader_installer(root: &Path, family: Family, version: &str) -> Option<PathBuf> {
     let path = Gradle::parse(&family.coordinate(version, "installer")).ok()?.path();
 
@@ -933,7 +931,6 @@ totalTimePlayed=705341
             std::fs::write(dir.join(PACK_FILE), pack).unwrap();
         }
 
-        // Каталог без instance.cfg — не сборка.
         std::fs::create_dir_all(instances.join("мусор")).unwrap();
         std::fs::write(instances.join("instgroups.json"), b"{}").unwrap();
 
@@ -1144,7 +1141,6 @@ totalTimePlayed=705341
         let first = Progress::new(&on_change, &cancelled);
         copy_instance(&root, &scanned, &targets, &first).await.unwrap();
 
-        // Пользователь поменял настройки уже в нашей сборке — перенос их не затрёт.
         std::fs::write(targets.minecraft.join("options.txt"), "fov:110").unwrap();
 
         let second = Progress::new(&on_change, &cancelled);

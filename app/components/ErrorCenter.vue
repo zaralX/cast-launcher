@@ -40,26 +40,24 @@ async function copy(id: string, text: string) {
 }
 
 function copyAll() {
-  copy("all", entries.value.map(e => e.report).join("\n\n———\n\n"))
+  copy("all", entries.value.map(e => e.report).join("\n\n-------\n\n"))
 }
 </script>
 
 <template>
   <UModal v-model:open="open" title="Журнал ошибок">
-    <UChip :show="unseenCount > 0" :text="unseenCount" size="lg" color="error" class="flex">
-      <UButton
-          color="neutral"
-          variant="ghost"
-          aria-label="Журнал ошибок"
-          class="group h-11 w-11 justify-center hover:bg-ink-600"
-          :class="unseenCount > 0 ? 'text-red-400' : 'text-fg-faint hover:text-fg'"
-      >
-        <UIcon
-            name="i-lucide-triangle-alert"
-            class="size-4 transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
-        />
-      </UButton>
-    </UChip>
+    <UButton
+        color="neutral"
+        variant="ghost"
+        aria-label="Журнал ошибок"
+        class="group h-11 w-11 justify-center hover:bg-ink-600"
+        :class="unseenCount > 0 ? 'text-red-400' : 'text-fg-faint hover:text-fg'"
+    >
+      <UIcon
+          name="i-lucide-triangle-alert"
+          class="size-4 transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
+      />
+    </UButton>
 
     <template #body>
       <div v-if="!entries.length" class="flex flex-col items-center gap-3 py-12">

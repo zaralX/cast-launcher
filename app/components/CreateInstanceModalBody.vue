@@ -233,7 +233,7 @@ const createInstance = async () => {
       </div>
 
       <p v-if="missingLoader" class="-mt-4 text-[12px] leading-relaxed text-fg-muted">
-        NeoForge не выпускался под Minecraft {{ minecraftVersion }} — выберите другую версию игры.
+        NeoForge не выпускался под Minecraft {{ minecraftVersion }} - выберите другую версию игры.
       </p>
 
       <AppButton

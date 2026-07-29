@@ -75,8 +75,6 @@ pub async fn open_path(app: AppHandle, path: String) -> CommandResult<()> {
     open(&app, Path::new(&path))
 }
 
-/// Открывает страницу в браузере. Ссылки приходят из ответов каталогов, поэтому
-/// пускаем только http(s) — не всё подряд в обработчики схем системы.
 #[tauri::command]
 pub async fn open_url(app: AppHandle, url: String) -> CommandResult<()> {
     let parsed = url::Url::parse(url.trim())
@@ -760,8 +758,6 @@ pub async fn list_forge_versions(state: Ctx<'_>) -> CommandResult<Vec<String>> {
     Ok(cast_core::meta::forge::parse_maven_versions(&String::from_utf8_lossy(&xml)))
 }
 
-/// Версия NeoForge не содержит версии игры, поэтому фильтровать список по ней
-/// фронтенд сам не может — считаем соответствие здесь.
 #[tauri::command]
 pub async fn list_neoforge_versions(state: Ctx<'_>) -> CommandResult<Vec<neoforge::Release>> {
     let (metadata, legacy) = tokio::try_join!(

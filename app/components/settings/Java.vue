@@ -10,7 +10,6 @@ const gb = (mb?: number) => ((mb ?? 0) / 1024).toFixed(1).replace(".", ",")
   <SettingsPanel
       index="03"
       title="Java"
-      description="Параметры виртуальной машины, с которыми стартует игра."
       icon="i-lucide-cpu"
   >
     <div class="space-y-7">

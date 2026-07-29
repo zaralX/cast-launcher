@@ -9,7 +9,6 @@ const config = defineModel<AppConfig | null>()
   <SettingsPanel
       index="01"
       title="Лаунчер"
-      description="Язык интерфейса, оформление и расположение файлов."
       icon="i-lucide-app-window"
   >
     <div class="space-y-7">
@@ -27,7 +26,7 @@ const config = defineModel<AppConfig | null>()
         </SettingsField>
       </div>
 
-      <SettingsField label="Файлы лаунчера" hint="Сюда попадают версии, библиотеки, ассеты и сами сборки.">
+      <SettingsField label="Файлы лаунчера" hint="Сюда попадают все файлы связанные с игрой.">
         <UInput
             v-model="config!.launcher.dir"
             placeholder="/path/to/launcher"

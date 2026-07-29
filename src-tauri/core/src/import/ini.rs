@@ -154,7 +154,7 @@ mods_Page\Columns=@ByteArray(\0\0\0\xff\0\0)
         let ini = Ini::parse("lastLaunchTime=1761212747241\ntotalTimePlayed=-5");
 
         assert_eq!(ini.general().number::<u64>("lastLaunchTime"), Some(1_761_212_747_241));
-        assert_eq!(ini.general().number::<u64>("totalTimePlayed"), None, "минус — это мусор");
+        assert_eq!(ini.general().number::<u64>("totalTimePlayed"), None, "минус - это мусор");
     }
 
     #[test]

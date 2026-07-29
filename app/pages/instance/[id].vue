@@ -115,9 +115,9 @@ function reset() {
 </script>
 
 <template>
-  <div class="min-h-full w-full px-8 pb-16 pt-10 xl:px-14">
+  <div class="min-h-full w-full px-8 pb-16 xl:px-14">
     <div v-if="instance" class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14">
-      <aside class="lg:sticky lg:top-0 lg:self-start">
+      <aside class="lg:sticky pt-10 lg:top-0 lg:self-start">
         <NuxtLink
             to="/main"
             class="group inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint transition-colors duration-300 hover:text-acid"
@@ -129,8 +129,9 @@ function reset() {
           Библиотека
         </NuxtLink>
 
-        <div class="mt-4 flex items-start gap-4">
-          <InstanceIcon :icon="draft.icon" :type="instance.type" size="md"/>
+        <div class="mt-4 flex lg:block lg:space-y-4 items-start gap-4">
+          <InstanceIcon :icon="draft.icon" :type="instance.type" size="md" class="lg:hidden"/>
+          <InstanceIcon :icon="draft.icon" :type="instance.type" size="lg" class="hidden lg:block"/>
 
           <div class="min-w-0">
             <h1
@@ -214,7 +215,7 @@ function reset() {
         </p>
       </aside>
 
-      <div class="min-w-0">
+      <div class="min-w-0 pt-10">
         <InstanceGeneral
             v-show="tab === 'general'"
             :instance="instance"

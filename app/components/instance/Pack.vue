@@ -41,7 +41,7 @@ const updateAvailable = computed(() =>
 const changed = computed(() => !!pack.value && versionId.value !== pack.value.versionId)
 
 const blocked = computed(() => {
-  if (running.value) return "Сборка запущена — сначала закройте игру"
+  if (running.value) return "Сборка запущена - сначала закройте игру"
   if (installing.value) return "Дождитесь окончания текущей установки"
   return null
 })
@@ -51,10 +51,10 @@ const canApply = computed(() =>
 )
 
 const facts = computed(() => [
-  {label: "Источник", value: pack.value ? PACK_PROVIDER_LABELS[pack.value.provider] : "—"},
-  {label: "Проект", value: pack.value?.projectId ?? "—"},
-  {label: "Текущая версия", value: pack.value?.versionNumber || pack.value?.versionId || "—"},
-  {label: "Архив пака", value: pack.value?.fileName || "—"}
+  {label: "Источник", value: pack.value ? PACK_PROVIDER_LABELS[pack.value.provider] : "-"},
+  {label: "Проект", value: pack.value?.projectId ?? "-"},
+  {label: "Текущая версия", value: pack.value?.versionNumber || pack.value?.versionId || "-"},
+  {label: "Архив пака", value: pack.value?.fileName || "-"}
 ])
 
 async function loadVersions() {
@@ -141,7 +141,6 @@ async function apply() {
     <SettingsPanel
         index="01"
         title="Версия модпака"
-        description="Смена версии как в Prism: выберите нужную и нажмите «Обновить»."
         icon="i-lucide-package"
     >
       <div v-if="!pack" class="text-[12px] leading-relaxed text-fg-muted">
@@ -223,8 +222,8 @@ async function apply() {
 
         <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
           <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            Моды, конфиги и ресурспаки пака будут заменены на файлы выбранной версии, а то, что осталось от прошлой,
-            лаунчер уберёт. Миры, скриншоты и всё, что вы добавили сами, останутся на месте.
+            Моды, конфиги и ресурспаки паки будут заменены на файлы выбранной версии, а то, что осталось от прошлой,
+            лаунчер уберёт. Миры, скриншоты и всё, что вы добавили сами, останется на месте.
           </p>
 
           <AppButton
@@ -241,12 +240,6 @@ async function apply() {
         <p v-if="blocked" class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
           {{ blocked }}
         </p>
-        <p
-            v-else-if="!changed"
-            class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
-        >
-          Выбрана текущая версия
-        </p>
       </div>
     </SettingsPanel>
 
@@ -254,12 +247,11 @@ async function apply() {
         v-if="blockedFiles.length"
         index="02"
         title="Скачать вручную"
-        description="Автор этих модов запретил сторонним лаунчерам их раздавать."
         icon="i-lucide-hand"
     >
       <p class="text-[12px] leading-relaxed text-fg-muted">
-        Замену на Modrinth лаунчер не нашёл. Откройте страницу каждого файла, скачайте его и положите
-        в папку сборки по указанному пути — после этого пак заработает полностью.
+        Откройте страницу каждого файла, скачайте его и положите
+        в папку сборки по указанному пути - после этого пак заработает полностью.
       </p>
 
       <ul class="mt-5 divide-y divide-line border border-line">
@@ -296,7 +288,6 @@ async function apply() {
     <SettingsPanel
         :index="blockedFiles.length ? '03' : '02'"
         title="Состав пака"
-        description="Что лаунчер считает файлами модпака."
         icon="i-lucide-list"
     >
       <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
@@ -305,11 +296,6 @@ async function apply() {
           <dd class="mt-1.5 truncate font-mono text-[12px] text-fg-muted" :title="fact.value">{{ fact.value }}</dd>
         </div>
       </dl>
-
-      <p class="mt-6 border-t border-line pt-6 text-[12px] leading-relaxed text-fg-muted">
-        Список файлов установленной версии лежит в <span class="font-mono text-fg-faint">pack-files.json</span>
-        в папке сборки. По нему при обновлении убирается ровно то, что положил пак, — остальное не трогается.
-      </p>
     </SettingsPanel>
   </div>
 </template>

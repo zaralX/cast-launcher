@@ -26,7 +26,6 @@ const SIZES = {
 const mark = computed(() => (props.type && TYPE_MARK[props.type]) || "??")
 const url = computed(() => iconStore.urlOf(props.icon))
 
-/** Иконки предметов Minecraft — пиксель-арт, сглаживать их нельзя. */
 const pixelated = computed(() => props.icon.startsWith("mc-"))
 
 watch(() => props.icon, (name) => {

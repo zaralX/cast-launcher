@@ -549,7 +549,7 @@ mod tests {
             ]
         }));
 
-        assert!(pack.files[0].required, "молчание — значит обязательный");
+        assert!(pack.files[0].required, "молчание - значит обязательный");
         assert!(!pack.files[1].required);
     }
 
