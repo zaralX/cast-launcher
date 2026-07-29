@@ -26,6 +26,16 @@ const FORGE: &[Phase] = &[
     Phase::new("forge-patch", "Сборка Forge", 8),
 ];
 
+const NEOFORGE: &[Phase] = &[
+    Phase::new("java", "Java", 8),
+    Phase::new("client", "Клиент", 10),
+    Phase::new("libraries", "Библиотеки", 18),
+    Phase::new("assets", "Ресурсы", 40),
+    Phase::new("neoforge-installer", "Установщик NeoForge", 4),
+    Phase::new("neoforge-libraries", "Библиотеки NeoForge", 12),
+    Phase::new("neoforge-patch", "Сборка NeoForge", 8),
+];
+
 const MODPACK: Phase = Phase::new("modpack", "Файлы модпака", 25);
 
 pub fn for_loader(loader: LoaderType) -> Vec<Phase> {
@@ -33,6 +43,7 @@ pub fn for_loader(loader: LoaderType) -> Vec<Phase> {
         LoaderType::Vanilla => VANILLA.to_vec(),
         LoaderType::Fabric => FABRIC.to_vec(),
         LoaderType::Forge => FORGE.to_vec(),
+        LoaderType::NeoForge => NEOFORGE.to_vec(),
     }
 }
 
@@ -88,7 +99,7 @@ mod tests {
 
     #[test]
     fn every_loader_has_a_full_scale() {
-        for loader in [LoaderType::Vanilla, LoaderType::Fabric, LoaderType::Forge] {
+        for loader in LoaderType::ALL {
             let total: u32 = for_loader(loader).iter().map(|phase| phase.weight).sum();
             assert_eq!(total, 100, "фазы {loader:?} должны в сумме давать 100");
         }
@@ -96,7 +107,7 @@ mod tests {
 
     #[test]
     fn a_modpack_install_still_adds_up_to_a_full_scale() {
-        for loader in [LoaderType::Vanilla, LoaderType::Fabric, LoaderType::Forge] {
+        for loader in LoaderType::ALL {
             let phases = for_install(loader, true);
             let total: u32 = phases.iter().map(|phase| phase.weight).sum();
 
@@ -117,25 +128,38 @@ mod tests {
 
     #[test]
     fn every_loader_downloads_the_vanilla_client() {
-        for loader in [LoaderType::Vanilla, LoaderType::Fabric, LoaderType::Forge] {
+        for loader in LoaderType::ALL {
             assert!(for_loader(loader).iter().any(|phase| phase.key == "client"), "{loader:?}");
         }
     }
 
     #[test]
-    fn forge_builds_the_client_after_downloading_its_libraries() {
-        let keys: Vec<_> = for_loader(LoaderType::Forge).iter().map(|phase| phase.key).collect();
+    fn an_installer_driven_loader_builds_the_client_after_downloading_its_libraries() {
+        for (loader, prefix) in [(LoaderType::Forge, "forge"), (LoaderType::NeoForge, "neoforge")] {
+            let phases = for_loader(loader);
+            let keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
+            let at = |suffix: &str| {
+                keys.iter()
+                    .position(|key| *key == format!("{prefix}-{suffix}"))
+                    .unwrap_or_else(|| panic!("у {loader:?} нет фазы {prefix}-{suffix}"))
+            };
 
-        let libraries = keys.iter().position(|key| *key == "forge-libraries").unwrap();
-        let patch = keys.iter().position(|key| *key == "forge-patch").unwrap();
+            assert!(at("installer") < at("libraries"));
+            assert!(at("libraries") < at("patch"));
+        }
+    }
 
-        assert!(keys.iter().position(|key| *key == "forge-installer").unwrap() < libraries);
-        assert!(libraries < patch);
+    #[test]
+    fn loaders_installed_the_same_way_still_report_their_own_phases() {
+        let forge: Vec<_> = for_loader(LoaderType::Forge).iter().map(|phase| phase.key).collect();
+        let neoforge: Vec<_> = for_loader(LoaderType::NeoForge).iter().map(|phase| phase.key).collect();
+
+        assert!(forge.iter().all(|key| !neoforge.contains(key) || !key.contains('-')));
     }
 
     #[test]
     fn phase_keys_are_unique_within_a_loader() {
-        for loader in [LoaderType::Vanilla, LoaderType::Fabric, LoaderType::Forge] {
+        for loader in LoaderType::ALL {
             let phases = for_loader(loader);
             let mut keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
             keys.sort_unstable();

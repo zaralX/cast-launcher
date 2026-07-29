@@ -13,7 +13,8 @@ const iconStore = useIconStore()
 const TYPE_MARK: Record<InstanceType, string> = {
   vanilla: "VA",
   fabric: "FA",
-  forge: "FO"
+  forge: "FO",
+  neoforge: "NF"
 }
 
 const SIZES = {

@@ -245,7 +245,7 @@ where
     let targets = prism::InstanceTargets {
         minecraft: instance_paths.minecraft(),
         client_jar: instance_paths.client_jar(),
-        forge_installer: prism::forge_installer_target(paths, &created),
+        loader_installer: prism::loader_installer_target(paths, &created),
     };
 
     if let Err(error) = prism::copy_instance(root, scanned, &targets, &progress).await {

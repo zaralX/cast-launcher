@@ -186,6 +186,29 @@ impl JavaRequirement {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GameJar {
+    pub path: PathBuf,
+    pub on_classpath: bool,
+}
+
+impl GameJar {
+    pub fn classpath(path: PathBuf) -> Self {
+        Self {
+            path,
+            on_classpath: true,
+        }
+    }
+
+    pub fn found_by_loader(path: PathBuf) -> Self {
+        Self {
+            path,
+            on_classpath: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResolvedProfile {
     pub version_id: String,
     pub version_type: String,
@@ -194,7 +217,7 @@ pub struct ResolvedProfile {
     pub asset_index: Option<AssetIndexRef>,
     pub client_download: Option<MojangArtifact>,
     pub libraries: Vec<ResolvedLibrary>,
-    pub main_jar: PathBuf,
+    pub main_jar: GameJar,
     pub java: JavaRequirement,
     #[serde(skip)]
     pub arguments: ResolvedArguments,

@@ -1,11 +1,12 @@
 import type {JavaMode} from "~/types/app"
 
-export type InstanceType = "vanilla" | "fabric" | "forge"
+export type InstanceType = "vanilla" | "fabric" | "forge" | "neoforge"
 
 export const INSTANCE_TYPE_LABELS: Record<InstanceType, string> = {
     vanilla: "Vanilla",
     fabric: "Fabric",
-    forge: "Forge"
+    forge: "Forge",
+    neoforge: "NeoForge"
 }
 
 export interface InstanceSettings {

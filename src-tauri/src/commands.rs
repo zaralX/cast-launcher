@@ -17,7 +17,7 @@ use cast_core::import::{prism, ImportReport};
 use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
-use cast_core::meta::vanilla;
+use cast_core::meta::{neoforge, vanilla};
 use cast_core::modrinth;
 use cast_core::mojang::version::VersionManifest;
 use cast_core::paths::PathsSnapshot;
@@ -654,10 +654,22 @@ pub async fn list_fabric_versions(state: Ctx<'_>) -> CommandResult<Vec<String>> 
 
 #[tauri::command]
 pub async fn list_forge_versions(state: Ctx<'_>) -> CommandResult<Vec<String>> {
-    let xml = state
-        .meta
-        .fetch_bytes("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
-        .await?;
+    let xml = state.meta.fetch_bytes(cast_core::meta::forge::FORGE_METADATA).await?;
 
     Ok(cast_core::meta::forge::parse_maven_versions(&String::from_utf8_lossy(&xml)))
+}
+
+/// Версия NeoForge не содержит версии игры, поэтому фильтровать список по ней
+/// фронтенд сам не может — считаем соответствие здесь.
+#[tauri::command]
+pub async fn list_neoforge_versions(state: Ctx<'_>) -> CommandResult<Vec<neoforge::Release>> {
+    let (metadata, legacy) = tokio::try_join!(
+        state.meta.fetch_bytes(neoforge::METADATA),
+        state.meta.fetch_bytes(neoforge::LEGACY_METADATA),
+    )?;
+
+    Ok(neoforge::releases(
+        &String::from_utf8_lossy(&metadata),
+        &String::from_utf8_lossy(&legacy),
+    ))
 }

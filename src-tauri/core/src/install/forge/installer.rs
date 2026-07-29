@@ -9,17 +9,19 @@ use zip::ZipArchive;
 
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::{ensure_dir, safe_join, write_json_atomic};
+use crate::meta::forge::InstalledLoader;
 use crate::mojang::maven::Gradle;
 use crate::mojang::profile::{resolve_artifact, resolve_libraries, ResolvedArtifact};
 use crate::mojang::rules::RuntimeContext;
 use crate::mojang::version::{Library, VersionPackage};
 use crate::net::download::DownloadTask;
-use crate::paths::{ForgePaths, LauncherPaths};
+use crate::paths::{LauncherPaths, LoaderPaths};
 
 const INSTALL_PROFILE: &str = "install_profile.json";
 const DEFAULT_VERSION_JSON: &str = "/version.json";
 const BUNDLED_PREFIX: &str = "maven/";
 const CLIENT: &str = "client";
+const PATCHED: &str = "PATCHED";
 
 #[derive(Debug, Clone)]
 pub struct Processor {
@@ -72,6 +74,12 @@ impl Installer {
         &self.data
     }
 
+    pub fn patched_client(&self) -> Option<&str> {
+        let value = self.data.get(PATCHED)?.as_str();
+
+        value.strip_prefix('[')?.strip_suffix(']')
+    }
+
     pub async fn unpack(&self, paths: &LauncherPaths) -> CommandResult<usize> {
         let pending: Vec<Bundled> = self
             .bundled
@@ -118,6 +126,14 @@ impl Installer {
         let mut missing = Vec::new();
         let mut seen = HashSet::new();
 
+        if let Some(patched) = self.patched_client().and_then(|c| Gradle::parse(c).ok()) {
+            let path = patched.path();
+
+            if seen.insert(path.clone()) && !paths.library(&path).is_file() {
+                missing.push(path);
+            }
+        }
+
         for library in resolve_libraries(&self.package.libraries, ctx) {
             for artifact in library.artifacts() {
                 if !seen.insert(artifact.path.clone()) {
@@ -133,9 +149,16 @@ impl Installer {
         missing
     }
 
-    pub async fn save(&self, cache: &ForgePaths) -> CommandResult<()> {
+    pub async fn save(&self, cache: &LoaderPaths) -> CommandResult<()> {
         ensure_dir(cache.root()).await?;
-        write_json_atomic(&cache.client_json(), &self.version_json).await
+        write_json_atomic(&cache.client_json(), &self.version_json).await?;
+
+        let installed = InstalledLoader {
+            minecraft_version: self.minecraft.clone(),
+            patched_client: self.patched_client().map(str::to_string),
+        };
+
+        write_json_atomic(&cache.installed_json(), &installed).await
     }
 
     fn artifacts(&self, ctx: &RuntimeContext) -> Vec<ResolvedArtifact> {
@@ -652,12 +675,120 @@ mod tests {
 
         let installer = Installer::open(jar).await.unwrap();
         let paths = LauncherPaths::new(dir.clone(), None);
-        let cache = paths.forge_cache("1.21.11-61.1.14");
+        let cache = paths.loader_cache("forge", "1.21.11-61.1.14");
 
         installer.save(&cache).await.unwrap();
 
         let saved: Value = crate::fs_util::read_json(&cache.client_json()).await.unwrap();
         assert_eq!(saved, modern_version());
+
+        let installed: InstalledLoader = crate::fs_util::read_json(&cache.installed_json()).await.unwrap();
+        assert_eq!(installed.minecraft_version, "1.21.11");
+        assert_eq!(
+            installed.patched_client.as_deref(),
+            Some("net.minecraftforge:forge:1.21.11-61.1.14:client")
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn a_neoforge_installer_is_read_the_same_way_as_a_forge_one() {
+        let dir = scratch();
+        let jar = dir.join("installer.jar");
+
+        let profile = json!({
+            "spec": 1,
+            "profile": "NeoForge",
+            "version": "neoforge-26.1.2.86",
+            "json": "/version.json",
+            "minecraft": "26.1.2",
+            "data": {
+                "BINPATCH": { "client": "/data/client.lzma", "server": "/data/client.lzma" },
+                "PATCHED": {
+                    "client": "[net.neoforged:minecraft-client-patched:26.1.2.86]",
+                    "server": "[net.neoforged:minecraft-server-patched:26.1.2.86]"
+                }
+            },
+            "processors": [
+                {
+                    "sides": ["server"],
+                    "jar": "net.neoforged.installertools:installertools:4.0.12:fatjar",
+                    "args": ["--task", "EXTRACT_FILES"]
+                },
+                {
+                    "jar": "net.neoforged.installertools:installertools:4.0.12:fatjar",
+                    "args": ["--task", "PROCESS_MINECRAFT_JAR", "--output", "{PATCHED}"]
+                }
+            ],
+            "libraries": [{
+                "name": "net.neoforged.installertools:installertools:4.0.12:fatjar",
+                "downloads": { "artifact": {
+                    "path": "net/neoforged/installertools/installertools/4.0.12/installertools-4.0.12-fatjar.jar",
+                    "url": "https://maven.neoforged.net/releases/net/neoforged/installertools/installertools/4.0.12/installertools-4.0.12-fatjar.jar",
+                    "sha1": "aaa", "size": 10
+                }}
+            }]
+        });
+
+        let version = json!({
+            "id": "neoforge-26.1.2.86",
+            "inheritsFrom": "26.1.2",
+            "mainClass": "net.neoforged.fml.startup.Client",
+            "arguments": { "game": ["--fml.neoForgeVersion", "26.1.2.86"], "jvm": [] },
+            "libraries": []
+        });
+
+        write_installer(&jar, &[
+            ("install_profile.json", profile.to_string().as_bytes()),
+            ("version.json", version.to_string().as_bytes()),
+        ]);
+
+        let installer = Installer::open(jar).await.unwrap();
+
+        assert_eq!(installer.minecraft_version(), "26.1.2");
+        assert_eq!(installer.version_id(), "neoforge-26.1.2.86");
+        assert_eq!(installer.processors().len(), 1, "серверные процессоры отброшены");
+        assert_eq!(
+            installer.patched_client(),
+            Some("net.neoforged:minecraft-client-patched:26.1.2.86")
+        );
+
+        let paths = LauncherPaths::new(dir.clone(), None);
+
+        // Собранного клиента нет ни в манифесте версии, ни в outputs процессоров —
+        // без отдельной проверки поломка вылезла бы только при запуске игры.
+        assert_eq!(
+            installer.missing(&paths, &ctx()),
+            vec![
+                "net/neoforged/minecraft-client-patched/26.1.2.86/minecraft-client-patched-26.1.2.86.jar"
+            ]
+        );
+
+        let cache = paths.loader_cache("neoforge", "26.1.2.86");
+
+        installer.save(&cache).await.unwrap();
+
+        let installed: InstalledLoader = crate::fs_util::read_json(&cache.installed_json()).await.unwrap();
+        assert_eq!(
+            installed.patched_client.as_deref(),
+            Some("net.neoforged:minecraft-client-patched:26.1.2.86")
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn an_installer_without_processors_builds_nothing_to_point_at() {
+        let dir = scratch();
+        let jar = dir.join("installer.jar");
+
+        write_installer(&jar, &[
+            ("install_profile.json", legacy_profile().to_string().as_bytes()),
+            ("forge-1.7.10-10.13.4.1614-1.7.10-universal.jar", b"universal"),
+        ]);
+
+        assert!(Installer::open(jar).await.unwrap().patched_client().is_none());
 
         std::fs::remove_dir_all(&dir).ok();
     }

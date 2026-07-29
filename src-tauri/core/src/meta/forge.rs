@@ -1,37 +1,133 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
 use crate::error::{CommandError, CommandResult};
-use crate::fs_util::read_json;
-use crate::instance::Instance;
+use crate::fs_util::{read_json, read_json_opt};
+use crate::instance::{Instance, LoaderType};
 use crate::mojang::maven::Gradle;
 use crate::mojang::profile::{
-    resolve_libraries, ResolvedArguments, ResolvedLibrary, ResolvedProfile,
+    resolve_libraries, GameJar, ResolvedArguments, ResolvedLibrary, ResolvedProfile,
 };
 use crate::mojang::rules::RuntimeContext;
 use crate::mojang::version::VersionPackage;
 use crate::paths::LauncherPaths;
 
 pub const FORGE_MAVEN: &str = "https://maven.minecraftforge.net";
+pub const NEOFORGE_MAVEN: &str = "https://maven.neoforged.net/releases";
 
-pub fn installer_url(forge_version: &str) -> String {
-    format!("{FORGE_MAVEN}/net/minecraftforge/forge/{forge_version}/forge-{forge_version}-installer.jar")
+pub const FORGE_METADATA: &str =
+    "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Family {
+    Forge,
+    NeoForge,
 }
 
-pub async fn client_package(
-    paths: &LauncherPaths,
-    forge_version: &str,
-) -> CommandResult<VersionPackage> {
-    let file = paths.forge_cache(forge_version).client_json();
-
-    if !file.is_file() {
-        return Err(CommandError::forge(
-            "Forge для этой сборки ещё не установлен. Запустите установку заново.",
-        )
-        .with_details(file.display().to_string()));
+impl Family {
+    pub fn of(loader: LoaderType) -> Option<Self> {
+        match loader {
+            LoaderType::Forge => Some(Self::Forge),
+            LoaderType::NeoForge => Some(Self::NeoForge),
+            LoaderType::Vanilla | LoaderType::Fabric => None,
+        }
     }
 
-    read_json(&file).await
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Forge => "Forge",
+            Self::NeoForge => "NeoForge",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Forge => "forge",
+            Self::NeoForge => "neoforge",
+        }
+    }
+
+    pub fn maven(self) -> &'static str {
+        match self {
+            Self::Forge => FORGE_MAVEN,
+            Self::NeoForge => NEOFORGE_MAVEN,
+        }
+    }
+
+    pub fn module(self, version: &str) -> (&'static str, &'static str) {
+        match self {
+            Self::Forge => ("net.minecraftforge", "forge"),
+            Self::NeoForge if super::neoforge::is_legacy(version) => ("net.neoforged", "forge"),
+            Self::NeoForge => ("net.neoforged", "neoforge"),
+        }
+    }
+
+    pub fn coordinate(self, version: &str, classifier: &str) -> String {
+        let (group, artifact) = self.module(version);
+
+        format!("{group}:{artifact}:{version}:{classifier}")
+    }
+
+    pub fn installer_url(self, version: &str) -> String {
+        let (group, artifact) = self.module(version);
+        let group = group.replace('.', "/");
+
+        format!(
+            "{maven}/{group}/{artifact}/{version}/{artifact}-{version}-installer.jar",
+            maven = self.maven()
+        )
+    }
+
+    fn not_installed(self, file: &std::path::Path) -> CommandError {
+        CommandError::forge(format!(
+            "{} для этой сборки ещё не установлен. Запустите установку заново.",
+            self.label()
+        ))
+        .with_details(file.display().to_string())
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledLoader {
+    #[serde(default)]
+    pub minecraft_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patched_client: Option<String>,
+}
+
+impl InstalledLoader {
+    fn patched_client(&self, family: Family, version: &str) -> String {
+        self.patched_client
+            .clone()
+            .unwrap_or_else(|| family.coordinate(version, "client"))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Installed {
+    pub package: VersionPackage,
+    pub loader: InstalledLoader,
+}
+
+pub async fn installed(
+    paths: &LauncherPaths,
+    family: Family,
+    version: &str,
+) -> CommandResult<Installed> {
+    let cache = paths.loader_cache(family.key(), version);
+    let file = cache.client_json();
+
+    if !file.is_file() {
+        return Err(family.not_installed(&file));
+    }
+
+    Ok(Installed {
+        package: read_json(&file).await?,
+        loader: read_json_opt(&cache.installed_json()).await.unwrap_or_default(),
+    })
 }
 
 pub fn parse_maven_versions(xml: &str) -> Vec<String> {
@@ -51,16 +147,18 @@ pub fn profile(
     paths: &LauncherPaths,
     instance: &Instance,
     vanilla: &VersionPackage,
-    forge: &VersionPackage,
+    installed: &Installed,
+    family: Family,
     ctx: &RuntimeContext,
 ) -> CommandResult<ResolvedProfile> {
     let mut profile = super::vanilla::profile(paths, instance, vanilla, ctx)?;
+    let forge = &installed.package;
 
     let main_class = forge.main_class.clone().ok_or_else(|| {
-        CommandError::forge("В манифесте Forge нет mainClass")
+        CommandError::forge(format!("В манифесте {} нет mainClass", family.label()))
     })?;
 
-    profile.version_type = "Forge".into();
+    profile.version_type = family.label().into();
     profile.main_class = main_class;
     profile.libraries = merge_libraries(
         resolve_libraries(&forge.libraries, ctx),
@@ -69,7 +167,10 @@ pub fn profile(
     profile.arguments = merge_arguments(&profile.arguments, forge);
 
     if brings_own_client(forge) {
-        profile.main_jar = patched_client(paths, instance.require_loader_version()?)?;
+        let version = instance.require_loader_version()?;
+        let coordinate = installed.loader.patched_client(family, version);
+
+        profile.main_jar = GameJar::found_by_loader(patched_client(paths, &coordinate)?);
     }
 
     Ok(profile)
@@ -79,10 +180,8 @@ fn brings_own_client(forge: &VersionPackage) -> bool {
     forge.arguments.is_some()
 }
 
-fn patched_client(paths: &LauncherPaths, forge_version: &str) -> CommandResult<PathBuf> {
-    let coordinate = format!("net.minecraftforge:forge:{forge_version}:client");
-
-    Ok(paths.library(&Gradle::parse(&coordinate)?.path()))
+fn patched_client(paths: &LauncherPaths, coordinate: &str) -> CommandResult<PathBuf> {
+    Ok(paths.library(&Gradle::parse(coordinate)?.path()))
 }
 
 fn merge_libraries(
@@ -170,6 +269,23 @@ mod tests {
         .unwrap()
     }
 
+    fn legacy_cache(package: VersionPackage) -> Installed {
+        Installed {
+            package,
+            loader: InstalledLoader::default(),
+        }
+    }
+
+    fn cache(package: VersionPackage, patched_client: &str) -> Installed {
+        Installed {
+            package,
+            loader: InstalledLoader {
+                minecraft_version: "1.20.1".into(),
+                patched_client: Some(patched_client.into()),
+            },
+        }
+    }
+
     fn vanilla_package() -> VersionPackage {
         package(json!({
             "id": "1.20.1",
@@ -190,16 +306,28 @@ mod tests {
             "libraries": []
         }));
 
-        let profile = profile(&paths, &instance, &vanilla_package(), &forge, &windows()).unwrap();
+        let profile = profile(
+            &paths,
+            &instance,
+            &vanilla_package(),
+            &legacy_cache(forge),
+            Family::Forge,
+            &windows(),
+        )
+        .unwrap();
 
         assert_eq!(
-            profile.main_jar,
+            profile.main_jar.path,
             paths.library("net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-client.jar")
         );
         assert_ne!(
-            profile.main_jar,
+            profile.main_jar.path,
             paths.instance("abc").client_jar(),
             "ванильный клиент вторым модулем с теми же пакетами роняет игру"
+        );
+        assert!(
+            !profile.main_jar.on_classpath,
+            "собранный клиент FML находит сам, из classpath он попал бы в слой модулей второй раз"
         );
     }
 
@@ -215,9 +343,59 @@ mod tests {
             "libraries": []
         }));
 
-        let profile = profile(&paths, &instance, &vanilla_package(), &forge, &windows()).unwrap();
+        let profile = profile(
+            &paths,
+            &instance,
+            &vanilla_package(),
+            &legacy_cache(forge),
+            Family::Forge,
+            &windows(),
+        )
+        .unwrap();
 
-        assert_eq!(profile.main_jar, paths.instance("abc").client_jar());
+        assert_eq!(profile.main_jar.path, paths.instance("abc").client_jar());
+        assert!(profile.main_jar.on_classpath, "launchwrapper патчит клиент из classpath");
+    }
+
+    #[test]
+    fn neoforge_takes_the_patched_jar_name_from_its_installer() {
+        let paths = LauncherPaths::new(std::path::PathBuf::from("/cfg"), None);
+
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Сборка",
+            "minecraftVersion": "26.1.2",
+            "type": "neoforge",
+            "loaderVersion": "26.1.2.86"
+        }))
+        .unwrap();
+
+        let neoforge = package(json!({
+            "id": "neoforge-26.1.2.86",
+            "mainClass": "net.neoforged.fml.startup.Client",
+            "arguments": { "game": [], "jvm": [] },
+            "libraries": []
+        }));
+
+        let installed = cache(neoforge, "net.neoforged:minecraft-client-patched:26.1.2.86");
+        let profile = profile(
+            &paths,
+            &instance,
+            &vanilla_package(),
+            &installed,
+            Family::NeoForge,
+            &windows(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            profile.main_jar.path,
+            paths.library(
+                "net/neoforged/minecraft-client-patched/26.1.2.86/minecraft-client-patched-26.1.2.86.jar"
+            )
+        );
+        assert!(!profile.main_jar.on_classpath);
+        assert_eq!(profile.version_type, "NeoForge");
     }
 
     #[test]
@@ -235,7 +413,8 @@ mod tests {
             &paths,
             &forge_instance("1.20.1-47.4.13"),
             &vanilla_package(),
-            &forge,
+            &legacy_cache(forge),
+            Family::Forge,
             &windows(),
         )
         .unwrap();
@@ -264,16 +443,67 @@ mod tests {
             "libraries": []
         }));
 
-        let error = profile(&paths, &instance, &vanilla_package(), &forge, &windows()).unwrap_err();
+        let error = profile(
+            &paths,
+            &instance,
+            &vanilla_package(),
+            &legacy_cache(forge),
+            Family::Forge,
+            &windows(),
+        )
+        .unwrap_err();
 
         assert!(error.message.contains("Без версии"));
     }
 
     #[test]
-    fn installer_url_follows_forge_maven_layout() {
+    fn installer_url_follows_the_maven_layout_of_each_family() {
         assert_eq!(
-            installer_url("1.20.1-47.2.0"),
+            Family::Forge.installer_url("1.20.1-47.2.0"),
             "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.2.0/forge-1.20.1-47.2.0-installer.jar"
+        );
+
+        assert_eq!(
+            Family::NeoForge.installer_url("21.1.243"),
+            "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.243/neoforge-21.1.243-installer.jar"
+        );
+
+        assert_eq!(
+            Family::NeoForge.installer_url("1.20.1-47.1.106"),
+            "https://maven.neoforged.net/releases/net/neoforged/forge/1.20.1-47.1.106/forge-1.20.1-47.1.106-installer.jar",
+            "под 1.20.1 NeoForge выкладывался как форк Forge"
+        );
+    }
+
+    #[test]
+    fn a_family_is_only_defined_for_installer_driven_loaders() {
+        assert_eq!(Family::of(LoaderType::Forge), Some(Family::Forge));
+        assert_eq!(Family::of(LoaderType::NeoForge), Some(Family::NeoForge));
+        assert_eq!(Family::of(LoaderType::Fabric), None);
+        assert_eq!(Family::of(LoaderType::Vanilla), None);
+    }
+
+    #[test]
+    fn an_old_cache_without_installed_json_keeps_the_forge_naming() {
+        let loader = InstalledLoader::default();
+
+        assert_eq!(
+            loader.patched_client(Family::Forge, "1.20.1-47.4.13"),
+            "net.minecraftforge:forge:1.20.1-47.4.13:client"
+        );
+        assert_eq!(
+            loader.patched_client(Family::NeoForge, "21.1.243"),
+            "net.neoforged:neoforge:21.1.243:client"
+        );
+
+        let saved = InstalledLoader {
+            minecraft_version: "26.1.2".into(),
+            patched_client: Some("net.neoforged:minecraft-client-patched:26.1.2.86".into()),
+        };
+
+        assert_eq!(
+            saved.patched_client(Family::NeoForge, "26.1.2.86"),
+            "net.neoforged:minecraft-client-patched:26.1.2.86"
         );
     }
 

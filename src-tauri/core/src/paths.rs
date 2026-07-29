@@ -13,7 +13,7 @@ use serde::Serialize;
 ///   libraries/<maven path>
 ///   assets/indexes/<id>.json
 ///   assets/objects/<ab>/<hash>
-///   cache/forge/<forge>/{installer.jar, client.json}
+///   cache/<loader>/<version>/{installer.jar, client.json, installed.json}
 ///   cache/meta/<hash>.json + .etag        кэш сетевых манифестов
 ///   runtime/<component>/                  рантаймы Java от Mojang
 ///   logs/<instance id>/<timestamp>.log    логи запусков
@@ -99,8 +99,8 @@ impl LauncherPaths {
         self.cache().join("meta")
     }
 
-    pub fn forge_cache(&self, forge_version: &str) -> ForgePaths {
-        ForgePaths::new(self.cache().join("forge").join(forge_version))
+    pub fn loader_cache(&self, loader: &str, version: &str) -> LoaderPaths {
+        LoaderPaths::new(self.cache().join(loader).join(version))
     }
 
     pub fn java_runtimes(&self) -> PathBuf {
@@ -158,11 +158,11 @@ impl InstancePaths {
 }
 
 #[derive(Debug, Clone)]
-pub struct ForgePaths {
+pub struct LoaderPaths {
     root: PathBuf,
 }
 
-impl ForgePaths {
+impl LoaderPaths {
     fn new(root: PathBuf) -> Self {
         Self { root }
     }
@@ -177,6 +177,10 @@ impl ForgePaths {
 
     pub fn client_json(&self) -> PathBuf {
         self.root.join("client.json")
+    }
+
+    pub fn installed_json(&self) -> PathBuf {
+        self.root.join("installed.json")
     }
 }
 
@@ -256,5 +260,15 @@ mod tests {
     #[test]
     fn scratch_dirs_are_unique() {
         assert_ne!(paths().scratch("forge"), paths().scratch("forge"));
+    }
+
+    #[test]
+    fn every_loader_caches_its_installer_apart() {
+        let forge = paths().loader_cache("forge", "1.20.1-47.4.13");
+        let neoforge = paths().loader_cache("neoforge", "21.1.243");
+
+        assert!(forge.installer_jar().ends_with(Path::new("forge/1.20.1-47.4.13/installer.jar")));
+        assert!(neoforge.client_json().ends_with(Path::new("neoforge/21.1.243/client.json")));
+        assert_ne!(forge.root(), neoforge.root());
     }
 }

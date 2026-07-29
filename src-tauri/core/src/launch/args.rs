@@ -66,7 +66,10 @@ pub fn classpath(paths: &LauncherPaths, profile: &ResolvedProfile) -> Vec<PathBu
         .map(|artifact| paths.library(&artifact.path))
         .collect();
 
-    entries.push(profile.main_jar.clone());
+    if profile.main_jar.on_classpath {
+        entries.push(profile.main_jar.path.clone());
+    }
+
     entries
 }
 
@@ -262,6 +265,44 @@ mod tests {
         let filtered = filter(&arguments, &ctx(), &Features::new());
 
         assert_eq!(filtered, vec!["--always", "--on-windows", "--no-rules"]);
+    }
+
+    #[test]
+    fn the_game_jar_joins_the_classpath_only_when_the_loader_does_not_find_it_itself() {
+        use crate::mojang::profile::{GameJar, JavaRequirement, ResolvedLibrary};
+
+        let paths = LauncherPaths::new(PathBuf::from("/cfg"), None);
+
+        let profile = |main_jar: GameJar| ResolvedProfile {
+            version_id: "1.21.1".into(),
+            version_type: "NeoForge".into(),
+            main_class: "cpw.mods.bootstraplauncher.BootstrapLauncher".into(),
+            assets_id: "17".into(),
+            asset_index: None,
+            client_download: None,
+            libraries: vec![ResolvedLibrary {
+                name: Some("org.ow2.asm:asm:9.7".into()),
+                artifact: Some(crate::mojang::profile::ResolvedArtifact {
+                    path: "org/ow2/asm/asm/9.7/asm-9.7.jar".into(),
+                    url: None,
+                    sha1: None,
+                    size: None,
+                }),
+                native: None,
+            }],
+            main_jar,
+            java: JavaRequirement::default(),
+            arguments: ResolvedArguments::default(),
+        };
+
+        let patched = paths.library("net/neoforged/neoforge/21.1.243/neoforge-21.1.243-client.jar");
+
+        let vanilla = classpath(&paths, &profile(GameJar::classpath(patched.clone())));
+        assert_eq!(vanilla.len(), 2);
+        assert_eq!(vanilla[1], patched);
+
+        let neoforge = classpath(&paths, &profile(GameJar::found_by_loader(patched)));
+        assert_eq!(neoforge.len(), 1, "клиент загрузчика в classpath не идёт");
     }
 
     #[test]

@@ -109,6 +109,12 @@ interface Commands {
     list_minecraft_versions: [void, VersionManifest]
     list_fabric_versions: [void, string[]]
     list_forge_versions: [void, string[]]
+    list_neoforge_versions: [void, NeoForgeRelease[]]
+}
+
+export interface NeoForgeRelease {
+    version: string
+    minecraftVersion: string
 }
 
 export interface NewInstance {

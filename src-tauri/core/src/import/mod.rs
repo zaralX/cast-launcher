@@ -176,10 +176,10 @@ mod tests {
         ]
     }"#;
 
-    const NEOFORGE_PACK: &str = r#"{
+    const QUILT_PACK: &str = r#"{
         "components": [
             { "uid": "net.minecraft", "version": "1.21.1" },
-            { "uid": "net.neoforged", "version": "21.1.213" }
+            { "uid": "org.quiltmc.quilt-loader", "version": "0.28.1" }
         ]
     }"#;
 
@@ -213,14 +213,14 @@ mod tests {
     #[test]
     fn unsupported_instances_end_up_in_the_report_with_a_reason() {
         let (selected, report) = select(
-            vec![scanned("a", FABRIC_PACK), scanned("Create Azure", NEOFORGE_PACK)],
+            vec![scanned("a", FABRIC_PACK), scanned("Beyond", QUILT_PACK)],
             &[],
         );
 
         assert_eq!(selected.len(), 1);
         assert_eq!(report.skipped.len(), 1);
-        assert_eq!(report.skipped[0].name, "Create Azure");
-        assert!(report.skipped[0].reason.contains("NeoForge"));
+        assert_eq!(report.skipped[0].name, "Beyond");
+        assert!(report.skipped[0].reason.contains("Quilt"));
     }
 
     #[test]

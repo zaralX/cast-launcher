@@ -255,6 +255,7 @@ pub fn loader_from_tags(loaders: &[String]) -> Option<LoaderType> {
     loaders.iter().find_map(|loader| match loader.trim().to_ascii_lowercase().as_str() {
         "fabric" => Some(LoaderType::Fabric),
         "forge" => Some(LoaderType::Forge),
+        "neoforge" => Some(LoaderType::NeoForge),
         "minecraft" | "vanilla" => Some(LoaderType::Vanilla),
         _ => None,
     })

@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::config::JavaMode;
 use crate::error::{CommandError, CommandResult};
 use crate::instance::{Instance, InstanceSettings, LoaderType};
+use crate::meta::forge::Family;
+use crate::meta::neoforge;
+use crate::mojang::maven::Gradle;
 use crate::paths::LauncherPaths;
 
 use super::copy::{self, Progress};
@@ -25,7 +28,7 @@ const MINECRAFT_UID: &str = "net.minecraft";
 const LOADERS: &[(&str, &str, Option<LoaderType>)] = &[
     ("net.fabricmc.fabric-loader", "Fabric", Some(LoaderType::Fabric)),
     ("net.minecraftforge", "Forge", Some(LoaderType::Forge)),
-    ("net.neoforged", "NeoForge", None),
+    ("net.neoforged", "NeoForge", Some(LoaderType::NeoForge)),
     ("org.quiltmc.quilt-loader", "Quilt", None),
     ("com.mumfrey.liteloader", "LiteLoader", None),
 ];
@@ -179,24 +182,19 @@ pub fn client_jar(root: &Path, minecraft_version: &str) -> PathBuf {
         .join(format!("minecraft-{minecraft_version}-client.jar"))
 }
 
-pub fn forge_installer_target(paths: &LauncherPaths, instance: &Instance) -> Option<PathBuf> {
-    if instance.loader != LoaderType::Forge {
-        return None;
-    }
+/// Куда лёг бы установщик Forge/NeoForge в нашем кэше — остальным загрузчикам он не нужен.
+pub fn loader_installer_target(paths: &LauncherPaths, instance: &Instance) -> Option<PathBuf> {
+    let family = Family::of(instance.loader)?;
+    let version = instance.loader_version.as_deref().filter(|version| !version.is_empty())?;
 
-    instance
-        .loader_version
-        .as_deref()
-        .map(|version| paths.forge_cache(version).installer_jar())
+    Some(paths.loader_cache(family.key(), version).installer_jar())
 }
 
-pub fn forge_installer(root: &Path, forge_version: &str) -> PathBuf {
-    root.join(LIBRARIES)
-        .join("net")
-        .join("minecraftforge")
-        .join("forge")
-        .join(forge_version)
-        .join(format!("forge-{forge_version}-installer.jar"))
+/// Prism держит установщик среди библиотек, по обычной maven-координате.
+pub fn loader_installer(root: &Path, family: Family, version: &str) -> Option<PathBuf> {
+    let path = Gradle::parse(&family.coordinate(version, "installer")).ok()?.path();
+
+    Some(path.split('/').fold(root.join(LIBRARIES), |dir, part| dir.join(part)))
 }
 
 #[derive(Debug, Clone)]
@@ -211,7 +209,7 @@ pub struct SharedTargets {
 pub struct InstanceTargets {
     pub minecraft: PathBuf,
     pub client_jar: PathBuf,
-    pub forge_installer: Option<PathBuf>,
+    pub loader_installer: Option<PathBuf>,
 }
 
 pub async fn copy_shared(
@@ -259,11 +257,19 @@ pub async fn copy_instance(
     )
     .await?;
 
-    if let (Some(target), Some(version)) = (&targets.forge_installer, &scanned.loader_version) {
-        copy::copy_file(&forge_installer(root, version), target, progress).await?;
+    if let Some(source) = installer_source(root, scanned) {
+        if let Some(target) = &targets.loader_installer {
+            copy::copy_file(&source, target, progress).await?;
+        }
     }
 
     Ok(())
+}
+
+fn installer_source(root: &Path, scanned: &ScannedInstance) -> Option<PathBuf> {
+    let family = Family::of(scanned.loader?)?;
+
+    loader_installer(root, family, scanned.loader_version.as_deref()?)
 }
 
 pub async fn scan(root: &Path) -> CommandResult<Vec<ScannedInstance>> {
@@ -381,6 +387,7 @@ pub fn parse(folder: &str, config: &str, pack: &str) -> ScannedInstance {
     scanned.loader = Some(kind);
     scanned.loader_version = Some(match kind {
         LoaderType::Forge => forge_maven_version(&minecraft, &version),
+        LoaderType::NeoForge => neoforge::maven_version(&minecraft, &version),
         _ => version,
     });
 
@@ -582,6 +589,13 @@ notes=Мой любимый пак
         ]
     }"#;
 
+    const QUILT_PACK: &str = r#"{
+        "components": [
+            { "uid": "net.minecraft", "version": "1.21.1" },
+            { "cachedName": "Quilt Loader", "uid": "org.quiltmc.quilt-loader", "version": "0.28.1" }
+        ]
+    }"#;
+
     #[test]
     fn a_fabric_instance_is_mapped_field_by_field() {
         let scanned = parse("Fabulously Optimized", FABRIC_CONFIG, FABRIC_PACK);
@@ -656,13 +670,28 @@ notes=Мой любимый пак
     }
 
     #[test]
-    fn neoforge_is_recognised_but_refused() {
+    fn a_neoforge_instance_comes_over_with_its_maven_version() {
         let scanned = parse("Create Azure", "[General]\nname=Create Azure", NEOFORGE_PACK);
 
-        assert!(!scanned.is_importable());
+        assert!(scanned.is_importable());
+        assert_eq!(scanned.loader, Some(LoaderType::NeoForge));
         assert_eq!(scanned.loader_label, "NeoForge 21.1.213");
-        assert!(scanned.blocked.unwrap().contains("NeoForge"));
+        assert_eq!(scanned.loader_version.as_deref(), Some("21.1.213"));
         assert_eq!(scanned.minecraft_version, "1.21.1");
+    }
+
+    #[test]
+    fn neoforge_for_1_20_1_gains_the_game_version_prism_leaves_out() {
+        let pack = r#"{
+            "components": [
+                { "uid": "net.minecraft", "version": "1.20.1" },
+                { "cachedName": "NeoForge", "uid": "net.neoforged", "version": "47.1.106" }
+            ]
+        }"#;
+
+        let scanned = parse("Neo 1.20.1", "[General]\nname=Neo", pack);
+
+        assert_eq!(scanned.loader_version.as_deref(), Some("1.20.1-47.1.106"));
     }
 
     #[test]
@@ -746,11 +775,11 @@ notes=Мой любимый пак
 
     #[test]
     fn a_blocked_instance_refuses_to_convert() {
-        let scanned = parse("Create Azure", "[General]\nname=Create Azure", NEOFORGE_PACK);
+        let scanned = parse("Beyond", "[General]\nname=Beyond", QUILT_PACK);
         let error = scanned.to_instance("abc".into(), String::new()).unwrap_err();
 
-        assert!(error.message.contains("Create Azure"));
-        assert!(error.message.contains("NeoForge"));
+        assert!(error.message.contains("Beyond"));
+        assert!(error.message.contains("Quilt"));
     }
 
     #[test]
@@ -813,32 +842,46 @@ notes=Мой любимый пак
 
         assert!(client_jar(root, "1.20.1")
             .ends_with(Path::new("com/mojang/minecraft/1.20.1/minecraft-1.20.1-client.jar")));
-        assert!(forge_installer(root, "1.20.1-47.4.13").ends_with(Path::new(
-            "net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-installer.jar"
-        )));
     }
 
     #[test]
-    fn only_a_forge_instance_gets_a_cache_slot_for_its_installer() {
+    fn only_an_installer_driven_loader_gets_a_cache_slot() {
         let paths = LauncherPaths::new(PathBuf::from("/cfg"), None);
+        let instance = |pack: &str| {
+            parse("x", "[General]\nname=x", pack)
+                .to_instance("abc".into(), String::new())
+                .unwrap()
+        };
 
-        let forge = parse("x", "[General]\nname=x", FORGE_PACK)
-            .to_instance("abc".into(), String::new())
-            .unwrap();
-
-        let target = forge_installer_target(&paths, &forge).expect("forge-сборке нужен установщик");
+        let forge = instance(FORGE_PACK);
+        let target = loader_installer_target(&paths, &forge).expect("forge-сборке нужен установщик");
         assert!(target.ends_with(Path::new("forge/1.20.1-47.4.13/installer.jar")));
 
-        let fabric = parse("x", "[General]\nname=x", FABRIC_PACK)
-            .to_instance("abc".into(), String::new())
-            .unwrap();
+        let neoforge = instance(NEOFORGE_PACK);
+        let target = loader_installer_target(&paths, &neoforge).expect("neoforge-сборке тоже");
+        assert!(target.ends_with(Path::new("neoforge/21.1.213/installer.jar")));
 
-        assert!(forge_installer_target(&paths, &fabric).is_none());
+        assert!(loader_installer_target(&paths, &instance(FABRIC_PACK)).is_none());
 
         let mut without_version = forge.clone();
         without_version.loader_version = None;
 
-        assert!(forge_installer_target(&paths, &without_version).is_none());
+        assert!(loader_installer_target(&paths, &without_version).is_none());
+    }
+
+    #[test]
+    fn the_installer_is_picked_up_from_the_prism_library_tree() {
+        let root = Path::new("/prism");
+
+        assert!(loader_installer(root, Family::Forge, "1.20.1-47.4.13").unwrap().ends_with(
+            Path::new("net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-installer.jar")
+        ));
+        assert!(loader_installer(root, Family::NeoForge, "21.1.243").unwrap().ends_with(
+            Path::new("net/neoforged/neoforge/21.1.243/neoforge-21.1.243-installer.jar")
+        ));
+        assert!(loader_installer(root, Family::NeoForge, "1.20.1-47.1.106").unwrap().ends_with(
+            Path::new("net/neoforged/forge/1.20.1-47.1.106/forge-1.20.1-47.1.106-installer.jar")
+        ));
     }
 
     #[tokio::test]
@@ -872,7 +915,7 @@ notes=Мой любимый пак
 
         assert_eq!(found.len(), 3);
         assert_eq!(found[0].name, "Create Azure");
-        assert!(!found[0].is_importable());
+        assert_eq!(found[0].loader, Some(LoaderType::NeoForge));
 
         let fabulously = &found[1];
         assert_eq!(fabulously.name, "Fabulously Optimized 12.0.5");
@@ -1017,7 +1060,7 @@ notes=Мой любимый пак
     }
 
     #[tokio::test]
-    async fn an_instance_arrives_with_its_world_client_and_forge_installer() {
+    async fn an_instance_arrives_with_its_world_client_and_loader_installer() {
         let root = prism_tree();
         let to = root.join("наш").join("instances").join("abc");
 
@@ -1027,7 +1070,7 @@ notes=Мой любимый пак
         let targets = InstanceTargets {
             minecraft: to.join("minecraft"),
             client_jar: to.join("minecraft").join("client.jar"),
-            forge_installer: Some(root.join("наш").join("cache").join("installer.jar")),
+            loader_installer: Some(root.join("наш").join("cache").join("installer.jar")),
         };
 
         let on_change = silent();
@@ -1042,7 +1085,7 @@ notes=Мой любимый пак
         );
         assert_eq!(std::fs::read_to_string(&targets.client_jar).unwrap(), "client");
         assert_eq!(
-            std::fs::read_to_string(targets.forge_installer.as_ref().unwrap()).unwrap(),
+            std::fs::read_to_string(targets.loader_installer.as_ref().unwrap()).unwrap(),
             "installer"
         );
 
@@ -1059,7 +1102,7 @@ notes=Мой любимый пак
         let targets = InstanceTargets {
             minecraft: to.join("minecraft"),
             client_jar: to.join("minecraft").join("client.jar"),
-            forge_installer: None,
+            loader_installer: None,
         };
 
         let on_change = silent();
@@ -1085,7 +1128,7 @@ notes=Мой любимый пак
     }
 
     #[tokio::test]
-    async fn a_vanilla_instance_needs_no_forge_installer() {
+    async fn a_vanilla_instance_needs_no_loader_installer() {
         let root = prism_tree();
         let to = root.join("наш");
 
@@ -1096,7 +1139,7 @@ notes=Мой любимый пак
         let targets = InstanceTargets {
             minecraft: to.join("minecraft"),
             client_jar: to.join("client.jar"),
-            forge_installer: Some(to.join("cache").join("installer.jar")),
+            loader_installer: Some(to.join("cache").join("installer.jar")),
         };
 
         let on_change = silent();
@@ -1105,7 +1148,7 @@ notes=Мой любимый пак
 
         copy_instance(&root, &scanned, &targets, &progress).await.unwrap();
 
-        assert!(!targets.forge_installer.unwrap().exists());
+        assert!(!targets.loader_installer.unwrap().exists());
 
         std::fs::remove_dir_all(&root).ok();
     }

@@ -285,7 +285,7 @@ onBeforeUnmount(() => unlisten?.())
         <div v-if="scanned?.length" class="space-y-4 border-t border-line pt-6">
           <div
               v-for="row in [
-                { key: 'libraries' as const, title: 'Библиотеки', hint: 'Библиотеки игры и загрузчиков, включая уже собранный Forge.' },
+                { key: 'libraries' as const, title: 'Библиотеки', hint: 'Библиотеки игры и загрузчиков, включая уже собранные Forge и NeoForge.' },
                 { key: 'assets' as const, title: 'Ассеты', hint: 'Звуки и языки. Самая объёмная часть — зато качать заново не придётся.' },
                 { key: 'java' as const, title: 'Java', hint: 'Рантаймы, которые Prism скачал у Mojang.' },
                 { key: 'icons' as const, title: 'Иконки', hint: 'Иконки перенесённых сборок.' },

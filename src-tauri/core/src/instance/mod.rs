@@ -15,14 +15,18 @@ pub enum LoaderType {
     Vanilla,
     Fabric,
     Forge,
+    NeoForge,
 }
 
 impl LoaderType {
+    pub const ALL: [Self; 4] = [Self::Vanilla, Self::Fabric, Self::Forge, Self::NeoForge];
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Vanilla => "Vanilla",
             Self::Fabric => "Fabric",
             Self::Forge => "Forge",
+            Self::NeoForge => "NeoForge",
         }
     }
 }

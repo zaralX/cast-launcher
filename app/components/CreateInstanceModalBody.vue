@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type {InstanceType} from "~/types/instance";
 import {v4} from "uuid";
-import {call} from "~/types/backend";
+import {call, type NeoForgeRelease} from "~/types/backend";
 import {LauncherError} from "~/types/error";
 
 const emit = defineEmits<{ created: [] }>()
@@ -15,6 +15,7 @@ const creating = ref(false)
 const minecraftVersions = ref<string[]>([])
 const fabricLoaderVersions = ref<string[]>([])
 const forgeVersions = ref<string[]>([])
+const neoforgeVersions = ref<NeoForgeRelease[]>([])
 
 const name = ref("")
 const description = ref("")
@@ -22,19 +23,36 @@ const instanceType = ref<InstanceType>("vanilla")
 const minecraftVersion = ref<string>("")
 const fabricLoader = ref<string>("latest")
 const forgeLoader = ref<string>("latest")
+const neoforgeLoader = ref<string>("")
 
 const TYPES: { value: InstanceType; label: string; mark: string }[] = [
   {value: "vanilla", label: "Vanilla", mark: "VA"},
   {value: "fabric", label: "Fabric", mark: "FA"},
-  {value: "forge", label: "Forge", mark: "FO"}
+  {value: "forge", label: "Forge", mark: "FO"},
+  {value: "neoforge", label: "NeoForge", mark: "NF"}
 ]
 
 const filteredForgeVersions = computed(() =>
     forgeVersions.value.filter((v: string) => v.startsWith(minecraftVersion.value))
 )
 
+const filteredNeoforgeVersions = computed(() =>
+    neoforgeVersions.value
+        .filter(release => release.minecraftVersion === minecraftVersion.value)
+        .map(release => release.version)
+)
+
+const missingLoader = computed(() =>
+    instanceType.value === "neoforge" && filteredNeoforgeVersions.value.length === 0
+)
+
+watch(filteredNeoforgeVersions, versions => {
+  if (!versions.includes(neoforgeLoader.value)) neoforgeLoader.value = versions[0] ?? ""
+}, {immediate: true})
+
 const canCreate = computed(() =>
-    !loading.value && !loadError.value && !creating.value && name.value.trim().length > 0
+    !loading.value && !loadError.value && !creating.value && !missingLoader.value
+    && name.value.trim().length > 0
 )
 
 async function loadMetadata() {
@@ -42,10 +60,11 @@ async function loadMetadata() {
   loadError.value = null
 
   try {
-    const [manifest, fabric, forge] = await Promise.all([
+    const [manifest, fabric, forge, neoforge] = await Promise.all([
       call("list_minecraft_versions"),
       call("list_fabric_versions"),
-      call("list_forge_versions")
+      call("list_forge_versions"),
+      call("list_neoforge_versions")
     ])
 
     minecraftVersions.value = manifest.versions
@@ -58,6 +77,8 @@ async function loadMetadata() {
 
     forgeVersions.value = forge
     forgeLoader.value = forge[0] ?? "latest"
+
+    neoforgeVersions.value = neoforge
   } catch (e) {
     loadError.value = captureError(e, {code: "NETWORK", context: {action: "Загрузка списка версий"}})
   } finally {
@@ -70,6 +91,7 @@ onMounted(loadMetadata)
 function loaderVersion(): string | undefined {
   if (instanceType.value === "fabric") return fabricLoader.value
   if (instanceType.value === "forge") return forgeLoader.value
+  if (instanceType.value === "neoforge") return neoforgeLoader.value
   return undefined
 }
 
@@ -153,7 +175,7 @@ const createInstance = async () => {
 
       <div>
         <span class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузчик</span>
-        <div role="radiogroup" aria-label="Загрузчик" class="grid grid-cols-3 border border-line">
+        <div role="radiogroup" aria-label="Загрузчик" class="grid grid-cols-4 border border-line">
           <button
               v-for="(type, i) in TYPES"
               :key="type.value"
@@ -197,7 +219,22 @@ const createInstance = async () => {
           <label class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Forge</label>
           <USelect v-model="forgeLoader" :items="filteredForgeVersions" class="w-full"/>
         </div>
+
+        <div v-if="instanceType === 'neoforge'">
+          <label class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">NeoForge</label>
+          <USelect
+              v-model="neoforgeLoader"
+              :items="filteredNeoforgeVersions"
+              :disabled="missingLoader"
+              placeholder="Нет сборок"
+              class="w-full"
+          />
+        </div>
       </div>
+
+      <p v-if="missingLoader" class="-mt-4 text-[12px] leading-relaxed text-fg-muted">
+        NeoForge не выпускался под Minecraft {{ minecraftVersion }} — выберите другую версию игры.
+      </p>
 
       <AppButton
           block

@@ -1,5 +1,6 @@
 pub mod fabric;
 pub mod forge;
+pub mod neoforge;
 pub mod vanilla;
 
 use crate::error::CommandResult;
@@ -34,17 +35,20 @@ impl<'a> Resolver<'a> {
         base: &VersionPackage,
         ctx: &RuntimeContext,
     ) -> CommandResult<ResolvedProfile> {
-        match instance.loader {
-            LoaderType::Vanilla => vanilla::profile(self.paths, instance, base, ctx),
-            LoaderType::Fabric => {
-                let loader = self.fabric_loader(instance).await?;
-                fabric::profile(self.paths, instance, base, &loader, ctx)
+        match forge::Family::of(instance.loader) {
+            Some(family) => {
+                let version = instance.require_loader_version()?;
+                let installed = forge::installed(self.paths, family, version).await?;
+
+                forge::profile(self.paths, instance, base, &installed, family, ctx)
             }
-            LoaderType::Forge => {
-                let forge_version = instance.require_loader_version()?;
-                let forge = forge::client_package(self.paths, forge_version).await?;
-                forge::profile(self.paths, instance, base, &forge, ctx)
-            }
+            None => match instance.loader {
+                LoaderType::Fabric => {
+                    let loader = self.fabric_loader(instance).await?;
+                    fabric::profile(self.paths, instance, base, &loader, ctx)
+                }
+                _ => vanilla::profile(self.paths, instance, base, ctx),
+            },
         }
     }
 

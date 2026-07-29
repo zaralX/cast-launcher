@@ -131,8 +131,11 @@ impl PackIndex {
                 "minecraft" => continue,
                 "fabric-loader" => (LoaderType::Fabric, Some(version.clone())),
                 "forge" => (LoaderType::Forge, Some(forge_version(minecraft, version))),
+                "neoforge" => (
+                    LoaderType::NeoForge,
+                    Some(crate::meta::neoforge::maven_version(minecraft, version)),
+                ),
                 "quilt-loader" => return Err(unsupported("Quilt")),
-                "neoforge" => return Err(unsupported("NeoForge")),
                 other => {
                     return Err(CommandError::manifest(format!(
                         "Модпак требует неизвестную зависимость: {other}"
@@ -320,12 +323,23 @@ mod tests {
         }));
 
         assert!(quilt.loader().unwrap_err().message.contains("Quilt"));
+    }
 
-        let neoforge = index(serde_json::json!({
-            "dependencies": {"minecraft": "1.21", "neoforge": "21.0.0"}
+    #[test]
+    fn neoforge_version_is_taken_as_written_except_on_the_1_20_1_branch() {
+        let modern = index(serde_json::json!({
+            "dependencies": {"minecraft": "1.21.1", "neoforge": "21.1.243"}
         }));
+        assert_eq!(modern.loader().unwrap(), (LoaderType::NeoForge, Some("21.1.243".into())));
 
-        assert!(neoforge.loader().unwrap_err().message.contains("NeoForge"));
+        let legacy = index(serde_json::json!({
+            "dependencies": {"minecraft": "1.20.1", "neoforge": "47.1.106"}
+        }));
+        assert_eq!(
+            legacy.loader().unwrap(),
+            (LoaderType::NeoForge, Some("1.20.1-47.1.106".into())),
+            "в maven эта ветка лежит под именем с версией игры"
+        );
     }
 
     #[test]

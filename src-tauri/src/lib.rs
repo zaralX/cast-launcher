@@ -75,6 +75,7 @@ pub fn run() {
             commands::list_minecraft_versions,
             commands::list_fabric_versions,
             commands::list_forge_versions,
+            commands::list_neoforge_versions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,8 @@
 use crate::error::{CommandError, CommandResult};
 use crate::instance::Instance;
-use crate::mojang::profile::{resolve_libraries, JavaRequirement, ResolvedArguments, ResolvedProfile};
+use crate::mojang::profile::{
+    resolve_libraries, GameJar, JavaRequirement, ResolvedArguments, ResolvedProfile,
+};
 use crate::mojang::rules::RuntimeContext;
 use crate::mojang::version::{VersionManifest, VersionPackage};
 use crate::net::meta_cache::MetaCache;
@@ -43,7 +45,7 @@ pub fn profile(
         asset_index: package.asset_index.clone(),
         client_download: package.downloads.as_ref().and_then(|d| d.client.clone()),
         libraries: resolve_libraries(&package.libraries, ctx),
-        main_jar: paths.instance(&instance.id).client_jar(),
+        main_jar: GameJar::classpath(paths.instance(&instance.id).client_jar()),
         java: JavaRequirement::from_package(package),
         arguments: arguments(package),
     })
