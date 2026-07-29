@@ -1,4 +1,4 @@
-import type {InstanceSettings, InstanceType} from "~/types/instance"
+import type {InstanceSettings, InstanceType, Playtime} from "~/types/instance"
 
 export type LauncherKind = "prism" | "modrinth"
 
@@ -27,6 +27,7 @@ export interface ScannedInstance {
     loaderLabel: string
     icon?: string
     settings: InstanceSettings
+    playtime: Playtime
     pack?: ScannedPack
     blocked?: string
 }

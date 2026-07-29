@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::JavaMode;
 use crate::error::{CommandError, CommandResult};
-use crate::instance::{Instance, InstanceSettings, LoaderType};
+use crate::instance::{Instance, InstanceSettings, LoaderType, Playtime};
 use crate::meta::forge::Family;
 use crate::meta::neoforge;
 use crate::mojang::maven::Gradle;
@@ -57,6 +57,7 @@ pub struct ScannedInstance {
     #[serde(skip)]
     pub icon_key: String,
     pub settings: InstanceSettings,
+    pub playtime: Playtime,
     pub pack: Option<ManagedPack>,
     pub blocked: Option<String>,
 }
@@ -91,6 +92,7 @@ impl ScannedInstance {
             custom_id: None,
             pack: None,
             settings: self.settings.clone(),
+            playtime: self.playtime,
             dir: String::new(),
         })
     }
@@ -343,6 +345,7 @@ pub fn parse(folder: &str, config: &str, pack: &str) -> ScannedInstance {
         icon: None,
         icon_key: general.string("iconKey"),
         settings: settings(&ini),
+        playtime: playtime(&ini),
         pack: managed_pack(&ini),
         blocked: None,
     };
@@ -410,6 +413,16 @@ fn settings(ini: &Ini) -> InstanceSettings {
         override_java,
         java_mode: if override_java { JavaMode::Manual } else { JavaMode::default() },
         java_path: if override_java { java_path } else { String::new() },
+    }
+}
+
+fn playtime(ini: &Ini) -> Playtime {
+    let general = ini.general();
+
+    Playtime {
+        total_seconds: general.number("totalTimePlayed").unwrap_or(0),
+        last_seconds: general.number("lastTimePlayed").unwrap_or(0),
+        last_played_at: general.number("lastLaunchTime").unwrap_or(0),
     }
 }
 
@@ -571,6 +584,9 @@ JavaPath=C:/Users/admin/AppData/Roaming/PrismLauncher/java/java-runtime-delta/bi
 OverrideJavaLocation=true
 OverrideMemory=false
 notes=Мой любимый пак
+lastLaunchTime=1761212747241
+lastTimePlayed=1826
+totalTimePlayed=705341
 "#;
 
     const FORGE_PACK: &str = r#"{
@@ -761,6 +777,22 @@ notes=Мой любимый пак
     }
 
     #[test]
+    fn playtime_comes_over_exactly_as_prism_counted_it() {
+        let playtime = parse("Fabulously Optimized", FABRIC_CONFIG, FABRIC_PACK).playtime;
+
+        assert_eq!(playtime.total_seconds, 705_341);
+        assert_eq!(playtime.last_seconds, 1826);
+        assert_eq!(playtime.last_played_at, 1_761_212_747_241);
+    }
+
+    #[test]
+    fn an_instance_prism_never_launched_arrives_with_a_zeroed_counter() {
+        let scanned = parse("x", "[General]\nname=x", FORGE_PACK);
+
+        assert_eq!(scanned.playtime, Playtime::default());
+    }
+
+    #[test]
     fn conversion_produces_an_uninstalled_instance() {
         let scanned = parse("Fabulously Optimized", FABRIC_CONFIG, FABRIC_PACK);
         let instance = scanned.to_instance("abc".into(), "fo.webp".into()).unwrap();
@@ -771,6 +803,7 @@ notes=Мой любимый пак
         assert_eq!(instance.minecraft_version, "1.21.11");
         assert!(!instance.installed, "перенесённое всегда доустанавливается заново");
         assert!(instance.pack.is_none(), "пак проставляется отдельно");
+        assert_eq!(instance.playtime.total_seconds, 705_341, "наигранное едет со сборкой");
     }
 
     #[test]

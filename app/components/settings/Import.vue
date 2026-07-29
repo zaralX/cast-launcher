@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {call, onLauncherEvent} from "~/types/backend"
+import {formatPlaytime} from "~/types/instance"
 import {
   defaultImportOptions,
   formatBytes,
@@ -262,6 +263,9 @@ onBeforeUnmount(() => unlisten?.())
                 <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
                   {{ instance.minecraftVersion || '—' }} · {{ instance.loaderLabel }}
                   <template v-if="instance.pack"> · {{ instance.pack.provider }}</template>
+                  <template v-if="formatPlaytime(instance.playtime?.totalSeconds ?? 0)">
+                    · наиграно {{ formatPlaytime(instance.playtime.totalSeconds) }}
+                  </template>
                 </p>
                 <p v-if="instance.blocked" class="mt-1 truncate font-mono text-[10px] text-amber-400">
                   {{ instance.blocked }}

@@ -103,6 +103,29 @@ impl InstanceSettings {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Playtime {
+    pub total_seconds: u64,
+    pub last_seconds: u64,
+    pub last_played_at: u64,
+}
+
+impl Playtime {
+    pub fn started(&mut self, at_millis: u64) {
+        self.last_played_at = at_millis;
+    }
+
+    pub fn finished(&mut self, seconds: u64) {
+        self.last_seconds = seconds;
+        self.total_seconds = self.total_seconds.saturating_add(seconds);
+    }
+
+    pub fn session_seconds(started_at: u64, ended_at: u64) -> u64 {
+        ended_at.saturating_sub(started_at) / 1000
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Instance {
@@ -127,6 +150,8 @@ pub struct Instance {
     pub pack: Option<PackSource>,
     #[serde(default)]
     pub settings: InstanceSettings,
+    #[serde(default)]
+    pub playtime: Playtime,
     #[serde(skip)]
     pub dir: String,
 }
@@ -251,6 +276,26 @@ impl InstanceRegistry {
 
     pub async fn mark_installed(&self, paths: &LauncherPaths, id: &str) -> CommandResult<Instance> {
         self.update(paths, id, |instance| instance.installed = true).await
+    }
+
+    pub async fn record_launch(
+        &self,
+        paths: &LauncherPaths,
+        id: &str,
+        at_millis: u64,
+    ) -> CommandResult<Instance> {
+        self.update(paths, id, |instance| instance.playtime.started(at_millis))
+            .await
+    }
+
+    pub async fn record_session(
+        &self,
+        paths: &LauncherPaths,
+        id: &str,
+        seconds: u64,
+    ) -> CommandResult<Instance> {
+        self.update(paths, id, |instance| instance.playtime.finished(seconds))
+            .await
     }
 
     pub async fn remove(&self, paths: &LauncherPaths, id: &str) -> CommandResult<()> {
@@ -464,6 +509,72 @@ mod tests {
 
     fn base_config() -> AppConfig {
         AppConfig::defaults(std::path::Path::new("/cfg"))
+    }
+
+    #[test]
+    fn instances_written_before_the_counter_existed_start_from_zero() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Старая сборка",
+            "minecraftVersion": "1.20.1",
+            "type": "vanilla"
+        }))
+        .unwrap();
+
+        assert_eq!(instance.playtime, Playtime::default());
+        assert_eq!(serde_json::to_value(&instance).unwrap()["playtime"]["totalSeconds"], 0);
+    }
+
+    #[test]
+    fn every_session_adds_up_to_the_total() {
+        let mut playtime = Playtime::default();
+
+        playtime.started(1_700_000_000_000);
+        playtime.finished(3600);
+
+        assert_eq!(playtime.total_seconds, 3600);
+        assert_eq!(playtime.last_seconds, 3600);
+
+        playtime.finished(600);
+
+        assert_eq!(playtime.total_seconds, 4200);
+        assert_eq!(playtime.last_seconds, 600, "последняя сессия перезаписывается");
+        assert_eq!(playtime.last_played_at, 1_700_000_000_000, "запуск отмечен один раз");
+    }
+
+    #[test]
+    fn a_session_is_measured_in_whole_seconds() {
+        assert_eq!(Playtime::session_seconds(1_000, 91_500), 90);
+        assert_eq!(Playtime::session_seconds(1_000, 1_400), 0);
+        assert_eq!(
+            Playtime::session_seconds(5_000, 1_000),
+            0,
+            "переведённые назад часы не должны отматывать счётчик"
+        );
+    }
+
+    #[test]
+    fn playtime_survives_a_json_round_trip() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Сборка",
+            "minecraftVersion": "1.20.1",
+            "type": "fabric",
+            "playtime": {
+                "totalSeconds": 123456,
+                "lastSeconds": 780,
+                "lastPlayedAt": 1_700_000_000_000u64
+            }
+        }))
+        .unwrap();
+
+        let written = serde_json::to_value(&instance).unwrap();
+
+        assert_eq!(written["playtime"]["totalSeconds"], 123456);
+        assert_eq!(written["playtime"]["lastPlayedAt"], 1_700_000_000_000u64);
+
+        let parsed: Instance = serde_json::from_value(written).unwrap();
+        assert_eq!(parsed.playtime, instance.playtime);
     }
 
     #[test]

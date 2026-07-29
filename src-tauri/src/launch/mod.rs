@@ -15,6 +15,7 @@ use cast_core::java::{self, ResolveOptions};
 use cast_core::launch::args;
 use cast_core::meta::Resolver;
 
+use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
 
 pub async fn launch(
@@ -90,10 +91,10 @@ pub async fn launch(
         natives_dir: &natives_dir,
     });
 
-    state
+    let game = state
         .processes
         .spawn(
-            app,
+            app.clone(),
             instance.id.clone(),
             instance.name.clone(),
             command,
@@ -106,7 +107,22 @@ pub async fn launch(
                 cleanup_dir: Some(natives_dir),
             },
         )
+        .await?;
+
+    if let Err(error) = state
+        .instances
+        .record_launch(&paths, &instance.id, game.started_at)
         .await
+    {
+        eprintln!("Не удалось отметить запуск сборки: {}", error.message);
+    }
+
+    LauncherEvent::Instances {
+        instances: state.instances.all().await,
+    }
+    .emit(&app);
+
+    Ok(game)
 }
 
 async fn prepare_natives(

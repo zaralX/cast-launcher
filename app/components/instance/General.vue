@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type {Instance} from "~/types/instance";
-import {INSTANCE_TYPE_LABELS} from "~/types/instance";
+import {formatLastPlayed, formatPlaytime, INSTANCE_TYPE_LABELS} from "~/types/instance";
 import {call, type InstanceDir} from "~/types/backend";
 
 const props = defineProps<{ instance: Instance }>()
@@ -22,7 +22,13 @@ const facts = computed(() => [
   {label: "Идентификатор", value: props.instance.id},
   {label: "Загрузчик", value: INSTANCE_TYPE_LABELS[props.instance.type] ?? props.instance.type},
   {label: "Minecraft", value: props.instance.minecraftVersion},
-  {label: "Версия загрузчика", value: props.instance.loaderVersion || "—"}
+  {label: "Версия загрузчика", value: props.instance.loaderVersion || "—"},
+  {label: "Наиграно", value: formatPlaytime(props.instance.playtime?.totalSeconds ?? 0) || "—"},
+  {
+    label: "Последний запуск",
+    value: formatLastPlayed(props.instance.playtime?.lastPlayedAt ?? 0) || "—"
+  },
+  {label: "Последняя сессия", value: formatPlaytime(props.instance.playtime?.lastSeconds ?? 0) || "—"}
 ])
 
 const status = computed(() => {

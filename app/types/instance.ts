@@ -42,6 +42,45 @@ export interface PackSource {
     fileSize?: number
 }
 
+export interface Playtime {
+    totalSeconds: number
+    lastSeconds: number
+    lastPlayedAt: number
+}
+
+export function emptyPlaytime(): Playtime {
+    return {totalSeconds: 0, lastSeconds: 0, lastPlayedAt: 0}
+}
+
+export function formatPlaytime(seconds: number): string {
+    if (!seconds || seconds < 0) return ""
+    if (seconds < 60) return "меньше минуты"
+
+    const days = Math.floor(seconds / 86400)
+    const hours = Math.floor(seconds / 3600) % 24
+    const minutes = Math.floor(seconds / 60) % 60
+
+    const parts: string[] = []
+
+    if (days) parts.push(`${days} д`)
+    if (hours) parts.push(`${hours} ч`)
+    if (minutes && !days) parts.push(`${minutes} мин`)
+
+    return parts.join(" ")
+}
+
+export function formatLastPlayed(millis: number): string {
+    if (!millis) return ""
+
+    return new Date(millis).toLocaleString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    })
+}
+
 export interface Instance {
     id: string
     name: string
@@ -55,6 +94,7 @@ export interface Instance {
     customId?: string
     pack?: PackSource
     settings: InstanceSettings
+    playtime: Playtime
 }
 
 export interface InstanceLogFile {

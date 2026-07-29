@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {Instance} from "~/types/instance";
+import {formatPlaytime} from "~/types/instance";
 
 const props = defineProps<{
   instance: Instance
@@ -19,6 +20,8 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
   if (props.installing) return "installing"
   return props.instance.installed ? "ready" : "absent"
 })
+
+const playtime = computed(() => formatPlaytime(props.instance.playtime?.totalSeconds ?? 0) || "не запускалась")
 </script>
 
 <template>
@@ -47,6 +50,13 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
         <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint">
           {{ instance.minecraftVersion }}
           <template v-if="instance.loaderVersion"> · {{ instance.loaderVersion }}</template>
+        </p>
+        <p
+            class="mt-1 flex items-center gap-1.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+            :title="`Наиграно: ${playtime}`"
+        >
+          <UIcon name="i-lucide-timer" class="size-2.5 shrink-0"/>
+          <span class="truncate">{{ playtime }}</span>
         </p>
       </div>
     </header>

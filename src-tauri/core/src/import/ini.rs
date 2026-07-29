@@ -68,14 +68,11 @@ impl Section<'_> {
         )
     }
 
-    pub fn number(&self, key: &str) -> Option<u32> {
+    pub fn number<T: std::str::FromStr>(&self, key: &str) -> Option<T> {
         self.get(key).map(str::trim).and_then(|value| value.parse().ok())
     }
 }
 
-/// QSettings оборачивает значения в кавычки и экранирует служебные символы,
-/// когда те есть в строке. Разворачиваем ровно то, что может встретиться
-/// в `name`/`notes`/`JavaPath`.
 fn unescape(value: &str) -> String {
     let value = match (value.starts_with('"'), value.ends_with('"'), value.len()) {
         (true, true, length) if length >= 2 => &value[1..length - 1],
@@ -137,7 +134,7 @@ mods_Page\Columns=@ByteArray(\0\0\0\xff\0\0)
         assert_eq!(general.string("name"), "Fabulously Optimized 12.0.5");
         assert_eq!(general.string("iconKey"), "modrinth_fabulously-optimized");
         assert_eq!(general.string("notes"), "");
-        assert_eq!(general.number("MaxMemAlloc"), Some(12544));
+        assert_eq!(general.number::<u32>("MaxMemAlloc"), Some(12544));
         assert!(general.flag("OverrideMemory"));
         assert!(general.flag("AutomaticJava"));
     }
@@ -147,9 +144,17 @@ mods_Page\Columns=@ByteArray(\0\0\0\xff\0\0)
         let ini = Ini::parse(SAMPLE);
 
         assert_eq!(ini.general().string("НетТакого"), "");
-        assert_eq!(ini.general().number("name"), None);
+        assert_eq!(ini.general().number::<u32>("name"), None);
         assert!(!ini.general().flag("НетТакого"));
         assert_eq!(ini.section("Нет").string("name"), "");
+    }
+
+    #[test]
+    fn numbers_are_read_in_the_size_the_caller_asks_for() {
+        let ini = Ini::parse("lastLaunchTime=1761212747241\ntotalTimePlayed=-5");
+
+        assert_eq!(ini.general().number::<u64>("lastLaunchTime"), Some(1_761_212_747_241));
+        assert_eq!(ini.general().number::<u64>("totalTimePlayed"), None, "минус — это мусор");
     }
 
     #[test]

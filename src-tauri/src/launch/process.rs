@@ -11,6 +11,7 @@ use tokio::sync::{oneshot, Mutex, RwLock};
 use tokio::task::JoinHandle;
 
 use cast_core::error::{CommandError, CommandResult};
+use cast_core::instance::Playtime;
 use cast_core::launch::args::LaunchCommand;
 use cast_core::launch::game::{GameStatus, RunningGame};
 
@@ -206,14 +207,14 @@ fn watch(
 
         let code = status.and_then(|status| status.code());
 
-        let (instance_id, next) = {
+        let (instance_id, started_at, next) = {
             let mut info = process.info.write().await;
             info.status = if code == Some(0) {
                 GameStatus::Exited
             } else {
                 GameStatus::Crashed
             };
-            (info.instance_id.clone(), info.status)
+            (info.instance_id.clone(), info.started_at, info.status)
         };
 
         LauncherEvent::GameStatus {
@@ -227,7 +228,7 @@ fn watch(
 
         LauncherEvent::GameExited {
             run_id: run_id.clone(),
-            instance_id,
+            instance_id: instance_id.clone(),
             code,
             log_tail,
         }
@@ -238,9 +239,30 @@ fn watch(
         }
 
         if let Some(state) = app.try_state::<Arc<crate::state::AppState>>() {
+            record_playtime(&app, &state, &instance_id, started_at).await;
             state.processes.forget(&run_id).await;
         }
     });
+}
+
+async fn record_playtime(
+    app: &AppHandle,
+    state: &Arc<crate::state::AppState>,
+    instance_id: &str,
+    started_at: u64,
+) {
+    let seconds = Playtime::session_seconds(started_at, now_millis());
+    let paths = state.paths().await;
+
+    if let Err(error) = state.instances.record_session(&paths, instance_id, seconds).await {
+        eprintln!("Не удалось записать наигранное время: {}", error.message);
+        return;
+    }
+
+    LauncherEvent::Instances {
+        instances: state.instances.all().await,
+    }
+    .emit(app);
 }
 
 fn pump<R>(app: AppHandle, process: Arc<Process>, reader: R, is_error: bool) -> JoinHandle<()>
