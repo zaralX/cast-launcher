@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::read_json;
@@ -67,7 +68,21 @@ pub fn profile(
     );
     profile.arguments = merge_arguments(&profile.arguments, forge);
 
+    if brings_own_client(forge) {
+        profile.main_jar = patched_client(paths, instance.require_loader_version()?)?;
+    }
+
     Ok(profile)
+}
+
+fn brings_own_client(forge: &VersionPackage) -> bool {
+    forge.arguments.is_some()
+}
+
+fn patched_client(paths: &LauncherPaths, forge_version: &str) -> CommandResult<PathBuf> {
+    let coordinate = format!("net.minecraftforge:forge:{forge_version}:client");
+
+    Ok(paths.library(&Gradle::parse(&coordinate)?.path()))
 }
 
 fn merge_libraries(
@@ -134,6 +149,124 @@ mod tests {
 
     fn package(value: serde_json::Value) -> VersionPackage {
         serde_json::from_value(value).unwrap()
+    }
+
+    fn windows() -> RuntimeContext {
+        RuntimeContext {
+            os: crate::mojang::rules::MojangOs::Windows,
+            arch: "x86_64".into(),
+            os_version: "10.0".into(),
+        }
+    }
+
+    fn forge_instance(loader_version: &str) -> Instance {
+        serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Сборка",
+            "minecraftVersion": "1.20.1",
+            "type": "forge",
+            "loaderVersion": loader_version
+        }))
+        .unwrap()
+    }
+
+    fn vanilla_package() -> VersionPackage {
+        package(json!({
+            "id": "1.20.1",
+            "mainClass": "net.minecraft.client.main.Main",
+            "libraries": []
+        }))
+    }
+
+    #[test]
+    fn modern_forge_launches_from_the_patched_jar_instead_of_the_vanilla_one() {
+        let paths = LauncherPaths::new(std::path::PathBuf::from("/cfg"), None);
+        let instance = forge_instance("1.20.1-47.4.13");
+
+        let forge = package(json!({
+            "id": "1.20.1-forge-47.4.13",
+            "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+            "arguments": { "game": ["--launchTarget", "forge_client"], "jvm": [] },
+            "libraries": []
+        }));
+
+        let profile = profile(&paths, &instance, &vanilla_package(), &forge, &windows()).unwrap();
+
+        assert_eq!(
+            profile.main_jar,
+            paths.library("net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-client.jar")
+        );
+        assert_ne!(
+            profile.main_jar,
+            paths.instance("abc").client_jar(),
+            "ванильный клиент вторым модулем с теми же пакетами роняет игру"
+        );
+    }
+
+    #[test]
+    fn legacy_forge_keeps_patching_the_vanilla_jar_at_runtime() {
+        let paths = LauncherPaths::new(std::path::PathBuf::from("/cfg"), None);
+        let instance = forge_instance("1.7.10-10.13.4.1614-1.7.10");
+
+        let forge = package(json!({
+            "id": "1.7.10-Forge10.13.4.1614",
+            "mainClass": "net.minecraft.launchwrapper.Launch",
+            "minecraftArguments": "--username ${auth_player_name} --tweakClass fml",
+            "libraries": []
+        }));
+
+        let profile = profile(&paths, &instance, &vanilla_package(), &forge, &windows()).unwrap();
+
+        assert_eq!(profile.main_jar, paths.instance("abc").client_jar());
+    }
+
+    #[test]
+    fn the_launcher_only_swaps_the_jar_and_leaves_the_rest_of_the_profile_alone() {
+        let paths = LauncherPaths::new(std::path::PathBuf::from("/cfg"), None);
+
+        let forge = package(json!({
+            "id": "1.20.1-forge-47.4.13",
+            "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+            "arguments": { "game": [], "jvm": [] },
+            "libraries": []
+        }));
+
+        let profile = profile(
+            &paths,
+            &forge_instance("1.20.1-47.4.13"),
+            &vanilla_package(),
+            &forge,
+            &windows(),
+        )
+        .unwrap();
+
+        assert_eq!(profile.version_id, "1.20.1", "ассеты и версия остаются ванильными");
+        assert_eq!(profile.version_type, "Forge");
+        assert_eq!(profile.main_class, "cpw.mods.bootstraplauncher.BootstrapLauncher");
+    }
+
+    #[test]
+    fn a_forge_instance_without_a_version_cannot_name_its_patched_jar() {
+        let paths = LauncherPaths::new(std::path::PathBuf::from("/cfg"), None);
+
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Без версии",
+            "minecraftVersion": "1.20.1",
+            "type": "forge"
+        }))
+        .unwrap();
+
+        let forge = package(json!({
+            "id": "1.20.1-forge-47.4.13",
+            "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+            "arguments": { "game": [], "jvm": [] },
+            "libraries": []
+        }));
+
+        let error = profile(&paths, &instance, &vanilla_package(), &forge, &windows()).unwrap_err();
+
+        assert!(error.message.contains("Без версии"));
     }
 
     #[test]
