@@ -63,6 +63,7 @@ async function saveConfig() {
         <SettingsLauncher v-model="config" class="animate-rise"/>
         <SettingsAccounts class="animate-rise [animation-delay:80ms]"/>
         <SettingsJava v-model="config" class="animate-rise [animation-delay:160ms]"/>
+        <SettingsImport class="animate-rise [animation-delay:240ms]"/>
       </div>
 
       <div v-else class="flex items-center gap-3 py-14">

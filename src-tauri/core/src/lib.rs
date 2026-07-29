@@ -6,6 +6,7 @@ pub mod error;
 pub mod events;
 pub mod fs_util;
 pub mod icons;
+pub mod import;
 pub mod install;
 pub mod instance;
 pub mod java;

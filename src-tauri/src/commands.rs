@@ -13,6 +13,7 @@ use cast_core::assets::{self, ItemCategories};
 use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
+use cast_core::import::{prism, ImportReport};
 use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
@@ -22,6 +23,7 @@ use cast_core::mojang::version::VersionManifest;
 use cast_core::paths::PathsSnapshot;
 
 use crate::events::{EmitExt, LauncherEvent};
+use crate::import;
 use crate::install::{self, InstallSnapshot};
 use cast_core::launch::game::RunningGame;
 use crate::state::AppState;
@@ -586,6 +588,48 @@ pub async fn save_pack_icon(state: Ctx<'_>, project_id: String, url: String) -> 
     let paths = state.paths().await;
 
     icons::save_once(&paths.icons(), &modrinth::icon_file_name(&project_id, &url), &bytes).await
+}
+
+#[tauri::command]
+pub async fn detect_launchers() -> CommandResult<Vec<import::DetectedLauncher>> {
+    Ok(import::detect())
+}
+
+#[tauri::command]
+pub async fn pick_launcher_dir(app: AppHandle) -> CommandResult<Option<String>> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Каталог данных лаунчера")
+        .pick_folder(move |picked| {
+            let _ = sender.send(picked);
+        });
+
+    let picked = receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok());
+
+    Ok(picked.map(|path| path.display().to_string()))
+}
+
+#[tauri::command]
+pub async fn scan_prism_instances(path: String) -> CommandResult<Vec<prism::ScannedInstance>> {
+    import::scan(&path).await
+}
+
+#[tauri::command]
+pub async fn import_prism_instances(
+    app: AppHandle,
+    state: Ctx<'_>,
+    request: import::ImportRequest,
+) -> CommandResult<ImportReport> {
+    import::run(app, state.inner().clone(), request).await
+}
+
+#[tauri::command]
+pub async fn cancel_import(state: Ctx<'_>) -> CommandResult<()> {
+    state.imports.cancel();
+
+    Ok(())
 }
 
 #[tauri::command]

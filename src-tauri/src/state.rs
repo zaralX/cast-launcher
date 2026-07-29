@@ -13,6 +13,8 @@ use cast_core::net::download::DownloadRegistry;
 use cast_core::net::meta_cache::MetaCache;
 use cast_core::paths::LauncherPaths;
 
+use cast_core::import::ImportRegistry;
+
 use crate::install::InstallRegistry;
 use crate::launch::process::ProcessRegistry;
 
@@ -23,6 +25,7 @@ pub struct AppState {
     pub meta: MetaCache,
     pub downloads: DownloadRegistry,
     pub installs: InstallRegistry,
+    pub imports: Arc<ImportRegistry>,
     pub instances: InstanceRegistry,
     pub processes: ProcessRegistry,
     pub java: JavaRegistry,
@@ -51,6 +54,7 @@ impl AppState {
             paths: RwLock::new(paths),
             downloads: DownloadRegistry::new(),
             installs: InstallRegistry::new(),
+            imports: Arc::new(ImportRegistry::new()),
             instances: InstanceRegistry::new(),
             processes: ProcessRegistry::new(),
             java: JavaRegistry::new(),

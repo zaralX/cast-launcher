@@ -1,8 +1,6 @@
-//! Обвязка Tauri поверх `cast-core`: команды, события во фронт, состояние
-//! приложения и надзор за процессом игры. Логика лежит в core и тестируется там.
-
 mod commands;
 mod events;
+mod import;
 mod install;
 mod launch;
 mod state;
@@ -69,6 +67,11 @@ pub fn run() {
             commands::modrinth_filters,
             commands::set_instance_pack_version,
             commands::save_pack_icon,
+            commands::detect_launchers,
+            commands::pick_launcher_dir,
+            commands::scan_prism_instances,
+            commands::import_prism_instances,
+            commands::cancel_import,
             commands::list_minecraft_versions,
             commands::list_fabric_versions,
             commands::list_forge_versions,

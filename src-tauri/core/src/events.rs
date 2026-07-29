@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::import::ImportProgress;
 use crate::install::progress::InstallSnapshot;
 use crate::instance::Instance;
 use crate::launch::game::{GameStatus, RunningGame};
@@ -10,6 +11,7 @@ pub const LAUNCHER_EVENT: &str = "launcher://event";
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "type")]
 pub enum LauncherEvent {
     Install(InstallSnapshot),
+    Import(ImportProgress),
     Instances { instances: Vec<Instance> },
     GameStarted {
         game: RunningGame,
@@ -130,5 +132,22 @@ mod tests {
         assert_eq!(event["instanceId"], "instance");
         assert_eq!(event["startedAt"], 1);
         assert_eq!(event["stage"], "download");
+    }
+
+    #[test]
+    fn import_progress_is_flattened_into_the_event() {
+        let event = wire(LauncherEvent::Import(ImportProgress {
+            source: crate::import::LauncherKind::Prism,
+            stage: crate::import::ImportStage::Instances,
+            step: "Fabulously Optimized".into(),
+            done: 2,
+            total: 5,
+            stats: Default::default(),
+        }));
+
+        assert_eq!(event["type"], "import");
+        assert_eq!(event["stage"], "instances");
+        assert_eq!(event["step"], "Fabulously Optimized");
+        assert_eq!(event["total"], 5);
     }
 }

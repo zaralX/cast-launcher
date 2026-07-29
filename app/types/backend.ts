@@ -11,6 +11,13 @@ import type {
     RunningGame
 } from "~/types/instance"
 import type {IconFile, ItemCatalog} from "~/types/icon"
+import type {
+    DetectedLauncher,
+    ImportProgress,
+    ImportReport,
+    ImportRequest,
+    ScannedInstance
+} from "~/types/import"
 import type {MyPacksConfig} from "~/types/pack"
 import type {
     ModrinthFilters,
@@ -24,6 +31,7 @@ const LAUNCHER_EVENT = "launcher://event"
 
 export type LauncherEvent =
     | (InstallSnapshot & { type: "install" })
+    | (ImportProgress & { type: "import" })
     | { type: "instances", instances: Instance[] }
     | { type: "gameStarted", game: RunningGame }
     | { type: "gameStatus", runId: string, instanceId: string, status: RunningGame["status"] }
@@ -91,6 +99,12 @@ interface Commands {
     modrinth_filters: [void, ModrinthFilters]
     set_instance_pack_version: [{ instanceId: string, versionId: string }, Instance]
     save_pack_icon: [{ projectId: string, url: string }, IconFile]
+
+    detect_launchers: [void, DetectedLauncher[]]
+    pick_launcher_dir: [void, string | null]
+    scan_prism_instances: [{ path: string }, ScannedInstance[]]
+    import_prism_instances: [{ request: ImportRequest }, ImportReport]
+    cancel_import: [void, void]
 
     list_minecraft_versions: [void, VersionManifest]
     list_fabric_versions: [void, string[]]
