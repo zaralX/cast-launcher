@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import {v4} from "uuid";
-import type {ModrinthHit, ModrinthVersion} from "~/types/modrinth";
-import {versionLabel} from "~/types/modrinth";
-import {INSTANCE_TYPE_LABELS} from "~/types/instance";
+import type {PackHit, PackVersion} from "~/types/catalog";
+import {unsupportedReason, versionLabel} from "~/types/catalog";
+import {INSTANCE_TYPE_LABELS, PACK_PROVIDER_LABELS} from "~/types/instance";
 import {call} from "~/types/backend";
 import {LauncherError} from "~/types/error";
 
-const props = defineProps<{ hit: ModrinthHit }>()
+const props = defineProps<{ hit: PackHit }>()
 
 const emit = defineEmits<{ installed: [instanceId: string] }>()
 
@@ -16,7 +16,7 @@ const loading = ref(true)
 const loadError = ref<LauncherError | null>(null)
 const creating = ref(false)
 
-const versions = ref<ModrinthVersion[]>([])
+const versions = ref<PackVersion[]>([])
 const versionId = ref("")
 
 const name = ref(props.hit.title)
@@ -48,7 +48,10 @@ async function loadVersions() {
   loadError.value = null
 
   try {
-    versions.value = await call("list_modrinth_pack_versions", {projectId: props.hit.projectId})
+    versions.value = await call("list_pack_versions", {
+      provider: props.hit.provider,
+      projectId: props.hit.projectId
+    })
     versionId.value = (versions.value.find(version => version.supported) ?? versions.value[0])?.id ?? ""
   } catch (e) {
     loadError.value = captureError(e, {code: "NETWORK", context: {action: "Загрузка версий модпака"}})
@@ -63,7 +66,11 @@ async function packIcon(): Promise<string | undefined> {
   const url = props.hit.iconUrl
   if (!url) return undefined
 
-  const saved = await safeRun(() => call("save_pack_icon", {projectId: props.hit.projectId, url}))
+  const saved = await safeRun(() => call("save_pack_icon", {
+    provider: props.hit.provider,
+    projectId: props.hit.projectId,
+    url
+  }))
 
   return saved?.name
 }
@@ -89,7 +96,7 @@ const install = async () => {
     icon,
     version: 1,
     pack: {
-      provider: "modrinth",
+      provider: props.hit.provider,
       projectId: props.hit.projectId,
       versionId: version.id,
       versionNumber: version.versionNumber || version.name,
@@ -124,7 +131,9 @@ const install = async () => {
       </span>
 
       <div class="min-w-0">
-        <p class="font-mono text-[9px] uppercase tracking-[0.24em] text-acid">Modrinth</p>
+        <p class="font-mono text-[9px] uppercase tracking-[0.24em] text-acid">
+          {{ PACK_PROVIDER_LABELS[hit.provider] }}
+        </p>
         <h3 class="mt-1.5 truncate font-unbounded text-[15px] font-semibold tracking-[-0.04em] text-fg">
           {{ hit.title }}
         </h3>
@@ -212,8 +221,19 @@ const install = async () => {
 
       <p v-if="selected && !selected.supported" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-        Эту версию лаунчер установить не сможет: она собрана под неподдерживаемый загрузчик
-        ({{ selected.loaders.join(", ") || "не указан" }}) либо в ней нет архива пака. Выберите другую версию.
+        Эту версию лаунчер установить не сможет: {{ unsupportedReason(selected) }}. Выберите другую версию.
+      </p>
+
+      <p v-else-if="selected?.blocked" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
+        <UIcon name="i-lucide-hand" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
+        Автор запретил сторонним лаунчерам скачивать архив этого пака. Установка начнётся и остановится
+        на окне со ссылкой: скачайте архив сами и укажите папку — дальше лаунчер справится.
+      </p>
+
+      <p v-else-if="!hit.distributionAllowed" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
+        <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
+        Автор запретил сторонним лаунчерам раздавать файлы этого пака. Лаунчер поищет замену на Modrinth,
+        а то, что не найдётся, попросит скачать вручную — со ссылками и поиском по папке загрузок.
       </p>
 
       <AppButton

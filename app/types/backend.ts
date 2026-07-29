@@ -19,12 +19,15 @@ import type {
     ScannedInstance
 } from "~/types/import"
 import type {MyPacksConfig} from "~/types/pack"
+import type {PackProvider} from "~/types/instance"
 import type {
-    ModrinthFilters,
-    ModrinthSearchPage,
-    ModrinthSearchQuery,
-    ModrinthVersion
-} from "~/types/modrinth"
+    BlockedFile,
+    PackFilters,
+    PackProviderInfo,
+    PackSearchPage,
+    PackSearchQuery,
+    PackVersion
+} from "~/types/catalog"
 import {toLauncherError} from "~/types/error"
 
 const LAUNCHER_EVENT = "launcher://event"
@@ -54,6 +57,7 @@ interface Commands {
     update_config: [{ config: AppConfig }, AppConfig]
     get_paths: [void, LauncherPaths]
     open_path: [{ path: string }, void]
+    open_url: [{ url: string }, void]
 
     list_instances: [void, Instance[]]
     reload_instances: [void, Instance[]]
@@ -78,6 +82,12 @@ interface Commands {
     cancel_install: [{ instanceId: string }, void]
     list_installs: [void, InstallSnapshot[]]
 
+    awaited_files: [{ instanceId: string }, BlockedFile[]]
+    downloads_dir: [void, string | null]
+    scan_for_files: [{ instanceId: string, folder: string }, BlockedFile[]]
+    pick_folder: [{ title?: string }, string | null]
+    resume_install: [{ instanceId: string }, void]
+
     launch_instance: [{ instanceId: string }, RunningGame]
     list_running: [void, RunningGame[]]
     stop_instance: [{ instanceId: string }, number]
@@ -94,11 +104,13 @@ interface Commands {
 
     load_my_packs: [void, MyPacksConfig]
 
-    search_modrinth_packs: [{ query: ModrinthSearchQuery }, ModrinthSearchPage]
-    list_modrinth_pack_versions: [{ projectId: string }, ModrinthVersion[]]
-    modrinth_filters: [void, ModrinthFilters]
+    pack_providers: [void, PackProviderInfo[]]
+    search_packs: [{ query: PackSearchQuery }, PackSearchPage]
+    list_pack_versions: [{ provider: PackProvider, projectId: string }, PackVersion[]]
+    pack_filters: [{ provider: PackProvider }, PackFilters]
     set_instance_pack_version: [{ instanceId: string, versionId: string }, Instance]
-    save_pack_icon: [{ projectId: string, url: string }, IconFile]
+    list_pack_blocked: [{ instanceId: string }, BlockedFile[]]
+    save_pack_icon: [{ provider: PackProvider, projectId: string, url: string }, IconFile]
 
     detect_launchers: [void, DetectedLauncher[]]
     pick_launcher_dir: [void, string | null]

@@ -18,8 +18,8 @@ use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::{neoforge, vanilla};
-use cast_core::modrinth;
 use cast_core::mojang::version::VersionManifest;
+use cast_core::packs;
 use cast_core::paths::PathsSnapshot;
 
 use crate::events::{EmitExt, LauncherEvent};
@@ -73,6 +73,22 @@ pub async fn get_paths(state: Ctx<'_>) -> CommandResult<PathsSnapshot> {
 #[tauri::command]
 pub async fn open_path(app: AppHandle, path: String) -> CommandResult<()> {
     open(&app, Path::new(&path))
+}
+
+/// Открывает страницу в браузере. Ссылки приходят из ответов каталогов, поэтому
+/// пускаем только http(s) — не всё подряд в обработчики схем системы.
+#[tauri::command]
+pub async fn open_url(app: AppHandle, url: String) -> CommandResult<()> {
+    let parsed = url::Url::parse(url.trim())
+        .map_err(|e| CommandError::fs(format!("Некорректная ссылка: {url}")).with_details(e.to_string()))?;
+
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(CommandError::fs(format!("Ссылку такого вида лаунчер не открывает: {url}")));
+    }
+
+    app.opener().open_url(parsed.as_str(), None::<&str>).map_err(|e| {
+        CommandError::fs(format!("Не удалось открыть {url}")).with_details(e.to_string())
+    })
 }
 
 fn open(app: &AppHandle, path: &Path) -> CommandResult<()> {
@@ -405,6 +421,61 @@ pub async fn install_instance(
 pub async fn cancel_install(state: Ctx<'_>, instance_id: String) -> CommandResult<()> {
     state.installs.cancel(&instance_id).await;
     state.downloads.cancel_prefix(&install::job_prefix(&instance_id));
+    state.blocked.resume(&instance_id).await;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn awaited_files(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<packs::BlockedFile>> {
+    Ok(state.blocked.files(&instance_id).await)
+}
+
+#[tauri::command]
+pub async fn downloads_dir() -> CommandResult<Option<String>> {
+    Ok(install::blocked::default_downloads_dir().map(|dir| dir.display().to_string()))
+}
+
+#[tauri::command]
+pub async fn scan_for_files(
+    state: Ctx<'_>,
+    instance_id: String,
+    folder: String,
+) -> CommandResult<Vec<packs::BlockedFile>> {
+    let folder = folder.trim();
+
+    if folder.is_empty() {
+        return Err(CommandError::fs("Не указана папка для поиска"));
+    }
+
+    state.blocked.scan(&instance_id, Path::new(folder)).await
+}
+
+#[tauri::command]
+pub async fn pick_folder(app: AppHandle, title: Option<String>) -> CommandResult<Option<String>> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_title(title.unwrap_or_else(|| "Выберите папку".into()));
+
+    if let Some(downloads) = install::blocked::default_downloads_dir() {
+        dialog = dialog.set_directory(downloads);
+    }
+
+    dialog.pick_folder(move |picked| {
+        let _ = sender.send(picked);
+    });
+
+    let picked = receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok());
+
+    Ok(picked.map(|path| path.display().to_string()))
+}
+
+#[tauri::command]
+pub async fn resume_install(state: Ctx<'_>, instance_id: String) -> CommandResult<()> {
+    state.blocked.resume(&instance_id).await;
 
     Ok(())
 }
@@ -494,20 +565,29 @@ pub async fn load_my_packs(state: Ctx<'_>) -> CommandResult<serde_json::Value> {
 }
 
 #[tauri::command]
-pub async fn search_modrinth_packs(query: modrinth::SearchQuery) -> CommandResult<modrinth::SearchPage> {
-    modrinth::search(&query).await
+pub async fn pack_providers() -> CommandResult<Vec<packs::ProviderInfo>> {
+    Ok(packs::providers())
 }
 
 #[tauri::command]
-pub async fn list_modrinth_pack_versions(
+pub async fn search_packs(query: packs::SearchQuery) -> CommandResult<packs::PackPage> {
+    packs::search(&query).await
+}
+
+#[tauri::command]
+pub async fn list_pack_versions(
+    provider: PackProvider,
     project_id: String,
-) -> CommandResult<Vec<modrinth::VersionSummary>> {
-    modrinth::versions(&project_id).await
+) -> CommandResult<Vec<packs::PackVersion>> {
+    packs::versions(provider, &project_id).await
 }
 
 #[tauri::command]
-pub async fn modrinth_filters(state: Ctx<'_>) -> CommandResult<modrinth::Filters> {
-    modrinth::filters(&state.meta).await
+pub async fn pack_filters(
+    state: Ctx<'_>,
+    provider: PackProvider,
+) -> CommandResult<packs::PackFilters> {
+    packs::filters(provider, &state.meta).await
 }
 
 #[tauri::command]
@@ -532,12 +612,17 @@ pub async fn set_instance_pack_version(
         .clone()
         .ok_or_else(|| CommandError::manifest("Эта сборка создана вручную, у неё нет версий пака"))?;
 
-    let version = match current.provider {
-        PackProvider::Modrinth => modrinth::version(&version_id).await?,
-    };
+    let version = packs::version(current.provider, &current.project_id, &version_id).await?;
 
     if !version.project_id.is_empty() && version.project_id != current.project_id {
         return Err(CommandError::manifest("Эта версия принадлежит другому модпаку"));
+    }
+
+    if let Some(reason) = version.unsupported_reason() {
+        return Err(CommandError::manifest(format!(
+            "Версию «{}» лаунчер установить не сможет: {reason}",
+            version.version_number
+        )));
     }
 
     let (Some(loader), Some(minecraft_version), Some(file)) = (
@@ -583,11 +668,27 @@ pub async fn set_instance_pack_version(
 }
 
 #[tauri::command]
-pub async fn save_pack_icon(state: Ctx<'_>, project_id: String, url: String) -> CommandResult<IconFile> {
-    let bytes = modrinth::icon(&url).await?;
+pub async fn list_pack_blocked(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<Vec<packs::BlockedFile>> {
     let paths = state.paths().await;
 
-    icons::save_once(&paths.icons(), &modrinth::icon_file_name(&project_id, &url), &bytes).await
+    Ok(cast_core::install::pack_files::load_blocked(&paths.instance(&instance_id).pack_blocked()).await)
+}
+
+#[tauri::command]
+pub async fn save_pack_icon(
+    state: Ctx<'_>,
+    provider: PackProvider,
+    project_id: String,
+    url: String,
+) -> CommandResult<IconFile> {
+    let bytes = packs::icon(provider, &url).await?;
+    let paths = state.paths().await;
+    let name = packs::icon_file_name(provider, &project_id, &url);
+
+    icons::save_once(&paths.icons(), &name, &bytes).await
 }
 
 #[tauri::command]

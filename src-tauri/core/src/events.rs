@@ -124,6 +124,8 @@ mod tests {
             started_at: 1,
             aborting: false,
             error: None,
+            blocked: Vec::new(),
+            awaiting_files: false,
         };
 
         let event = wire(LauncherEvent::Install(snapshot));
@@ -132,6 +134,7 @@ mod tests {
         assert_eq!(event["instanceId"], "instance");
         assert_eq!(event["startedAt"], 1);
         assert_eq!(event["stage"], "download");
+        assert!(event.get("blocked").is_none(), "пустой список не занимает место в событии");
     }
 
     #[test]

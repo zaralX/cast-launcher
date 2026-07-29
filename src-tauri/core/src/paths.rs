@@ -144,6 +144,10 @@ impl InstancePaths {
         self.root.join("pack-files.json")
     }
 
+    pub fn pack_blocked(&self) -> PathBuf {
+        self.root.join("pack-blocked.json")
+    }
+
     pub fn minecraft(&self) -> PathBuf {
         self.root.join("minecraft")
     }

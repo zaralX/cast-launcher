@@ -22,6 +22,7 @@ use cast_core::paths::LauncherPaths;
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
 
+pub mod blocked;
 mod modpack;
 
 pub use cast_core::install::phases::{self, job_id, job_prefix};
@@ -89,7 +90,7 @@ pub async fn start(
         install_publisher(app.clone()),
         instance.id.clone(),
         instance.name.clone(),
-        phases::for_install(instance.loader, instance.pack.is_some()),
+        phases::for_install(instance.loader, instance.pack.as_ref().map(|pack| pack.provider)),
     ));
 
     state.installs.register(Arc::clone(&reporter)).await;
@@ -154,7 +155,7 @@ async fn run(
             let modpack = modpack::prepare(state, &paths, instance, &pack, reporter).await?;
             check_cancelled(reporter)?;
 
-            let synced = modpack::sync_instance(state, &paths, instance, modpack.index()).await?;
+            let synced = modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
 
             (synced, Some((pack, modpack)))
         }

@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import type {ModrinthFilters, PackEnvironment} from "~/types/modrinth";
-import {categoryLabel} from "~/types/modrinth";
+import type {PackCapabilities, PackCategory, PackFilters, PackEnvironment} from "~/types/catalog";
+import {categoryLabel} from "~/types/catalog";
 
 const props = defineProps<{
-  filters: ModrinthFilters | null
+  filters: PackFilters | null
+  capabilities?: PackCapabilities | null
   loading?: boolean
 }>()
+
+const can = computed<PackCapabilities>(() => props.capabilities ?? {
+  multipleGameVersions: true,
+  environment: true,
+  blockableFiles: false
+})
 
 const loaders = defineModel<string[]>("loaders", {required: true})
 const gameVersions = defineModel<string[]>("gameVersions", {required: true})
@@ -19,14 +26,28 @@ const ENVIRONMENTS: { value: PackEnvironment | null, label: string }[] = [
 ]
 
 const groups = computed(() => {
-  const byHeader = new Map<string, string[]>()
+  const byHeader = new Map<string, PackCategory[]>()
 
   for (const category of props.filters?.categories ?? []) {
     const header = category.header || "categories"
-    byHeader.set(header, [...(byHeader.get(header) ?? []), category.name])
+    byHeader.set(header, [...(byHeader.get(header) ?? []), category])
   }
 
-  return [...byHeader.entries()].map(([header, names]) => ({header, names}))
+  return [...byHeader.entries()].map(([header, items]) => ({header, items}))
+})
+
+const ANY_VERSION = "any"
+
+const gameVersionItems = computed(() => [
+  {label: "Любая", value: ANY_VERSION},
+  ...(props.filters?.gameVersions ?? []).map(version => ({label: version, value: version}))
+])
+
+const singleGameVersion = computed({
+  get: () => gameVersions.value[0] ?? ANY_VERSION,
+  set: (value: string) => {
+    gameVersions.value = value && value !== ANY_VERSION ? [value] : []
+  }
 })
 
 const selectedCount = computed(() =>
@@ -105,15 +126,27 @@ const HEADER_LABELS: Record<string, string> = {
       <section v-if="filters.gameVersions.length">
         <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">Версия игры</p>
         <USelectMenu
+            v-if="can.multipleGameVersions"
             v-model="gameVersions"
             :items="filters.gameVersions"
             multiple
             placeholder="Любая"
             class="w-full"
         />
+        <template v-else>
+          <USelectMenu
+              v-model="singleGameVersion"
+              :items="gameVersionItems"
+              value-key="value"
+              class="w-full"
+          />
+          <p class="mt-2 text-[11px] leading-relaxed text-fg-faint">
+            CurseForge ищет только по одной версии за раз.
+          </p>
+        </template>
       </section>
 
-      <section>
+      <section v-if="can.environment">
         <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">Окружение</p>
         <div class="grid grid-cols-3 border border-line">
           <button
@@ -139,17 +172,17 @@ const HEADER_LABELS: Record<string, string> = {
         </p>
         <div class="flex flex-wrap gap-2">
           <button
-              v-for="name in group.names"
-              :key="name"
+              v-for="category in group.items"
+              :key="category.id"
               type="button"
-              :aria-pressed="categories.includes(name)"
+              :aria-pressed="categories.includes(category.id)"
               class="border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors duration-300"
-              :class="categories.includes(name)
+              :class="categories.includes(category.id)
                 ? 'border-acid text-acid'
                 : 'border-line text-fg-faint hover:border-line-strong hover:text-fg-muted'"
-              @click="toggleCategory(name)"
+              @click="toggleCategory(category.id)"
           >
-            {{ categoryLabel(name) }}
+            {{ categoryLabel(category) }}
           </button>
         </div>
       </section>

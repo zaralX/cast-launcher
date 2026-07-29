@@ -4,7 +4,8 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::error::CommandResult;
-use crate::fs_util::{read_json_opt, safe_join, write_json_atomic};
+use crate::fs_util::{read_json_opt, remove_file_if_exists, safe_join, write_json_atomic};
+use crate::packs::BlockedFile;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -32,6 +33,19 @@ impl PackFiles {
     pub fn stale(&self, current: &BTreeSet<String>) -> Vec<String> {
         self.paths.difference(current).cloned().collect()
     }
+}
+
+pub async fn save_blocked(path: &Path, blocked: &[BlockedFile]) -> CommandResult<()> {
+    if blocked.is_empty() {
+        remove_file_if_exists(path).await;
+        return Ok(());
+    }
+
+    write_json_atomic(path, &blocked.to_vec()).await
+}
+
+pub async fn load_blocked(path: &Path) -> Vec<BlockedFile> {
+    read_json_opt(path).await.unwrap_or_default()
 }
 
 pub async fn remove(minecraft_dir: &Path, paths: &[String]) -> usize {
@@ -135,6 +149,29 @@ mod tests {
         assert!(root.join("instance.json").is_file());
 
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn the_blocked_list_is_cleared_once_nothing_is_blocked() {
+        let dir = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let file = dir.join("pack-blocked.json");
+
+        let blocked = vec![BlockedFile {
+            file_name: "entityculling.jar".into(),
+            target_path: "mods/entityculling.jar".into(),
+            website_url: "https://www.curseforge.com/minecraft/mc-mods/entityculling/download/8287120".into(),
+            sha1: Some("62ac7ed3bbc0b920428bcfc18d1962836b84c391".into()),
+            local_path: None,
+        }];
+
+        save_blocked(&file, &blocked).await.unwrap();
+        assert_eq!(load_blocked(&file).await, blocked);
+
+        save_blocked(&file, &[]).await.unwrap();
+        assert!(load_blocked(&file).await.is_empty());
+        assert!(!file.exists(), "пустой список не должен оставлять файл");
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[tokio::test]

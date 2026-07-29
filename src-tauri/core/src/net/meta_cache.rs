@@ -42,7 +42,15 @@ impl MetaCache {
     }
 
     pub async fn fetch_json<T: DeserializeOwned>(&self, url: &str) -> CommandResult<T> {
-        let bytes = self.fetch_bytes(url).await?;
+        self.fetch_json_with(url, &[]).await
+    }
+
+    pub async fn fetch_json_with<T: DeserializeOwned>(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+    ) -> CommandResult<T> {
+        let bytes = self.fetch_bytes_with(url, headers).await?;
 
         serde_json::from_slice(&bytes).map_err(|e| {
             CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(e.to_string())
@@ -50,6 +58,10 @@ impl MetaCache {
     }
 
     pub async fn fetch_bytes(&self, url: &str) -> CommandResult<Vec<u8>> {
+        self.fetch_bytes_with(url, &[]).await
+    }
+
+    pub async fn fetch_bytes_with(&self, url: &str, headers: &[(&str, &str)]) -> CommandResult<Vec<u8>> {
         let key = cache_key(url);
         let dir = self.dir().await;
         let body_path = dir.join(format!("{key}.body"));
@@ -65,6 +77,10 @@ impl MetaCache {
         }
 
         let mut request = http::client().get(url);
+
+        for (name, value) in headers {
+            request = request.header(*name, *value);
+        }
 
         if cached.is_some() {
             if let Some(entry) = &entry {
@@ -95,7 +111,7 @@ impl MetaCache {
                 self.touch(&meta_path, entry, url, &response).await;
                 return Ok(body);
             }
-            return self.fetch_uncached(url, &body_path, &meta_path).await;
+            return self.fetch_uncached(url, headers, &body_path, &meta_path).await;
         }
 
         if !status.is_success() {
@@ -128,10 +144,17 @@ impl MetaCache {
     async fn fetch_uncached(
         &self,
         url: &str,
+        headers: &[(&str, &str)],
         body_path: &Path,
         meta_path: &Path,
     ) -> CommandResult<Vec<u8>> {
-        let response = http::client().get(url).send().await.map_err(|e| {
+        let mut request = http::client().get(url);
+
+        for (name, value) in headers {
+            request = request.header(*name, *value);
+        }
+
+        let response = request.send().await.map_err(|e| {
             CommandError::network(format!("Не удалось подключиться к {url}")).with_details(e.to_string())
         })?;
 

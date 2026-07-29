@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type {ModrinthHit} from "~/types/modrinth";
-import {categoryLabel, formatDownloads} from "~/types/modrinth";
+import type {PackHit} from "~/types/catalog";
+import {categoryName, formatDownloads} from "~/types/catalog";
 
-const props = defineProps<{ hit: ModrinthHit }>()
+const props = defineProps<{ hit: PackHit }>()
 
-const emit = defineEmits<{ install: [hit: ModrinthHit] }>()
+const emit = defineEmits<{ install: [hit: PackHit] }>()
 
 const categories = computed(() => {
   const list = props.hit.displayCategories.length ? props.hit.displayCategories : props.hit.categories
@@ -72,6 +72,15 @@ const latestVersion = computed(() => props.hit.versions.at(-1) ?? "")
           {{ latestVersion }}
         </span>
 
+        <span
+            v-if="!hit.distributionAllowed"
+            class="flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.12em] text-amber-400"
+            title="Автор запретил сторонним лаунчерам скачивать файлы этого пака — часть модов придётся положить руками"
+        >
+          <UIcon name="i-lucide-triangle-alert" class="size-3"/>
+          Не всё скачается
+        </span>
+
         <span class="h-3 w-px bg-line"/>
 
         <span
@@ -79,7 +88,7 @@ const latestVersion = computed(() => props.hit.versions.at(-1) ?? "")
             :key="category"
             class="border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-fg-faint"
         >
-          {{ categoryLabel(category) }}
+          {{ categoryName(category) }}
         </span>
       </div>
     </div>

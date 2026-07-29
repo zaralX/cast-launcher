@@ -293,7 +293,7 @@ onBeforeUnmount(() => unlisten?.())
                 { key: 'assets' as const, title: 'Ассеты', hint: 'Звуки и языки. Самая объёмная часть — зато качать заново не придётся.' },
                 { key: 'java' as const, title: 'Java', hint: 'Рантаймы, которые Prism скачал у Mojang.' },
                 { key: 'icons' as const, title: 'Иконки', hint: 'Иконки перенесённых сборок.' },
-                { key: 'linkPacks' as const, title: 'Привязать модпаки', hint: 'Для паков с Modrinth останутся обновления версий.' }
+                { key: 'linkPacks' as const, title: 'Привязать модпаки', hint: 'Для паков с Modrinth и CurseForge останутся обновления версий.' }
               ]"
               :key="row.key"
               class="flex items-center justify-between gap-6"

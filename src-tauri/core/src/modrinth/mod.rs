@@ -1,22 +1,26 @@
 pub mod pack;
 
+use std::collections::BTreeMap;
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::error::{CommandError, CommandResult};
-use crate::instance::LoaderType;
+use crate::instance::{LoaderType, PackProvider};
 use crate::net::http;
 use crate::net::meta_cache::MetaCache;
+use crate::packs::{Category, FileHashes, PackFile, PackFilters, PackHit, PackPage, PackVersion};
 
 pub const API: &str = "https://api.modrinth.com/v2";
 
 pub const MAX_LIMIT: u32 = 100;
 
+pub const ICON_HOSTS: &[&str] = &["cdn.modrinth.com"];
+
 const SORTS: &[&str] = &["relevance", "downloads", "follows", "newest", "updated"];
 
-#[derive(Debug, Clone, Default, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
+#[derive(Debug, Clone, Default)]
 pub struct SearchQuery {
     pub query: String,
     pub categories: Vec<String>,
@@ -26,6 +30,21 @@ pub struct SearchQuery {
     pub sort: Option<String>,
     pub offset: u32,
     pub limit: u32,
+}
+
+impl From<&crate::packs::SearchQuery> for SearchQuery {
+    fn from(query: &crate::packs::SearchQuery) -> Self {
+        Self {
+            query: query.query.clone(),
+            categories: query.categories.clone(),
+            loaders: query.loaders.clone(),
+            game_versions: query.game_versions.clone(),
+            environment: query.environment.clone(),
+            sort: Some(query.sort_key().to_string()),
+            offset: query.offset,
+            limit: query.limit,
+        }
+    }
 }
 
 impl SearchQuery {
@@ -98,8 +117,8 @@ fn clean(values: &[String]) -> impl Iterator<Item = &str> {
     values.iter().map(|value| value.trim()).filter(|value| !value.is_empty())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct SearchHit {
     pub project_id: String,
     #[serde(default)]
@@ -130,8 +149,32 @@ pub struct SearchHit {
     pub date_modified: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
+impl From<SearchHit> for PackHit {
+    fn from(hit: SearchHit) -> Self {
+        Self {
+            provider: PackProvider::Modrinth,
+            website_url: Some(format!("https://modrinth.com/modpack/{}", hit.slug)),
+            project_id: hit.project_id,
+            slug: hit.slug,
+            title: hit.title,
+            description: hit.description,
+            icon_url: hit.icon_url,
+            author: hit.author,
+            downloads: hit.downloads,
+            follows: hit.follows,
+            categories: hit.categories,
+            display_categories: hit.display_categories,
+            versions: hit.versions,
+            client_side: hit.client_side,
+            server_side: hit.server_side,
+            date_modified: hit.date_modified,
+            distribution_allowed: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct SearchPage {
     #[serde(default)]
     pub hits: Vec<SearchHit>,
@@ -143,8 +186,8 @@ pub struct SearchPage {
     pub total_hits: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct Version {
     pub id: String,
     #[serde(default)]
@@ -167,8 +210,8 @@ pub struct Version {
     pub files: Vec<VersionFile>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct VersionFile {
     pub url: String,
     #[serde(default)]
@@ -178,16 +221,30 @@ pub struct VersionFile {
     #[serde(default)]
     pub primary: bool,
     #[serde(default)]
-    pub hashes: FileHashes,
+    pub hashes: RawHashes,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all(serialize = "camelCase", deserialize = "snake_case"))]
-pub struct FileHashes {
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RawHashes {
     #[serde(default)]
     pub sha1: Option<String>,
     #[serde(default)]
     pub sha512: Option<String>,
+}
+
+impl From<VersionFile> for PackFile {
+    fn from(file: VersionFile) -> Self {
+        Self {
+            url: file.url,
+            filename: file.filename,
+            size: file.size,
+            hashes: FileHashes {
+                sha1: file.hashes.sha1,
+                sha512: file.hashes.sha512,
+            },
+        }
+    }
 }
 
 impl Version {
@@ -200,6 +257,13 @@ impl Version {
             .or_else(|| self.files.iter().find(mrpack))
     }
 
+    fn primary_file(&self) -> Option<&VersionFile> {
+        self.files
+            .iter()
+            .find(|file| file.primary)
+            .or_else(|| self.files.first())
+    }
+
     pub fn loader(&self) -> Option<LoaderType> {
         loader_from_tags(&self.loaders)
     }
@@ -209,31 +273,14 @@ impl Version {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VersionSummary {
-    pub id: String,
-    pub project_id: String,
-    pub name: String,
-    pub version_number: String,
-    pub version_type: String,
-    pub downloads: u64,
-    pub date_published: Option<String>,
-    pub game_versions: Vec<String>,
-    pub loaders: Vec<String>,
-    pub minecraft_version: Option<String>,
-    pub loader: Option<LoaderType>,
-    pub file: Option<VersionFile>,
-    pub supported: bool,
-}
-
-impl From<Version> for VersionSummary {
+impl From<Version> for PackVersion {
     fn from(version: Version) -> Self {
         let loader = version.loader();
         let minecraft_version = version.minecraft_version().map(str::to_string);
-        let file = version.pack_file().cloned();
+        let file = version.pack_file().cloned().map(PackFile::from);
 
         Self {
+            provider: PackProvider::Modrinth,
             supported: loader.is_some() && minecraft_version.is_some() && file.is_some(),
             id: version.id,
             project_id: version.project_id,
@@ -247,6 +294,7 @@ impl From<Version> for VersionSummary {
             minecraft_version,
             loader,
             file,
+            blocked: false,
         }
     }
 }
@@ -261,40 +309,71 @@ pub fn loader_from_tags(loaders: &[String]) -> Option<LoaderType> {
     })
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Filters {
-    pub categories: Vec<Category>,
-    pub loaders: Vec<String>,
-    pub game_versions: Vec<String>,
+pub async fn search(query: &crate::packs::SearchQuery) -> CommandResult<PackPage> {
+    let page: SearchPage = get_json(&SearchQuery::from(query).url()).await?;
+
+    Ok(PackPage {
+        hits: page.hits.into_iter().map(PackHit::from).collect(),
+        offset: page.offset,
+        limit: page.limit,
+        total_hits: page.total_hits,
+    })
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Category {
-    pub name: String,
-    pub header: String,
-}
-
-pub async fn search(query: &SearchQuery) -> CommandResult<SearchPage> {
-    get_json(&query.url()).await
-}
-
-pub async fn versions(project_id: &str) -> CommandResult<Vec<VersionSummary>> {
+pub async fn versions(project_id: &str) -> CommandResult<Vec<PackVersion>> {
     let id = segment(project_id)?;
     let raw: Vec<Version> = get_json(&format!("{API}/project/{id}/version")).await?;
 
-    Ok(raw.into_iter().map(VersionSummary::from).collect())
+    Ok(raw.into_iter().map(PackVersion::from).collect())
 }
 
-pub async fn version(version_id: &str) -> CommandResult<VersionSummary> {
+pub async fn version(version_id: &str) -> CommandResult<PackVersion> {
     let id = segment(version_id)?;
     let raw: Version = get_json(&format!("{API}/version/{id}")).await?;
 
-    Ok(VersionSummary::from(raw))
+    Ok(PackVersion::from(raw))
 }
 
-pub async fn filters(meta: &MetaCache) -> CommandResult<Filters> {
+pub async fn files_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, PackFile>> {
+    #[derive(Serialize)]
+    struct Body<'a> {
+        hashes: &'a [String],
+        algorithm: &'static str,
+    }
+
+    if hashes.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let body = Body {
+        hashes,
+        algorithm: "sha1",
+    };
+
+    let url = format!("{API}/version_files");
+
+    let response = http::client().post(&url).json(&body).send().await.map_err(|e| {
+        CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{e}"))
+    })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(http::http_status_error(status, &url));
+    }
+
+    let found: BTreeMap<String, Version> = response.json().await.map_err(|e| {
+        CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{e}"))
+    })?;
+
+    Ok(found
+        .into_iter()
+        .filter_map(|(hash, version)| {
+            version.primary_file().cloned().map(|file| (hash, PackFile::from(file)))
+        })
+        .collect())
+}
+
+pub async fn filters(meta: &MetaCache) -> CommandResult<PackFilters> {
     #[derive(Deserialize)]
     struct RawCategory {
         name: String,
@@ -334,7 +413,8 @@ pub async fn filters(meta: &MetaCache) -> CommandResult<Filters> {
         .into_iter()
         .filter(|category| category.project_type == "modpack")
         .map(|category| Category {
-            name: category.name,
+            id: category.name.clone(),
+            label: category.name,
             header: category.header,
         })
         .collect();
@@ -352,61 +432,15 @@ pub async fn filters(meta: &MetaCache) -> CommandResult<Filters> {
         .map(|version| version.version)
         .collect();
 
-    Ok(Filters {
+    Ok(PackFilters {
         categories,
         loaders,
         game_versions,
     })
 }
 
-pub const ICON_HOST: &str = "cdn.modrinth.com";
-
 pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
-    let parsed = Url::parse(url)
-        .map_err(|e| CommandError::network("Некорректная ссылка на иконку").with_details(e.to_string()))?;
-
-    if parsed.scheme() != "https" || parsed.host_str() != Some(ICON_HOST) {
-        return Err(CommandError::network(format!("Иконка не из каталога {ICON_HOST}: {url}")));
-    }
-
-    let response = http::client().get(parsed.as_str()).send().await.map_err(|e| {
-        CommandError::network("Не удалось скачать иконку").with_details(format!("{url}\n{e}"))
-    })?;
-
-    let status = response.status();
-    if !status.is_success() {
-        return Err(http::http_status_error(status, url));
-    }
-
-    if response.content_length().is_some_and(|size| size > crate::icons::MAX_SIZE) {
-        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
-    }
-
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| CommandError::download(format!("Обрыв загрузки иконки: {url}")).with_details(e.to_string()))?;
-
-    if bytes.len() as u64 > crate::icons::MAX_SIZE {
-        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
-    }
-
-    Ok(bytes.to_vec())
-}
-
-pub fn icon_file_name(project_id: &str, url: &str) -> String {
-    let extension = url
-        .split('?')
-        .next()
-        .and_then(|path| path.rsplit('/').next())
-        .and_then(|name| name.rsplit_once('.'))
-        .map(|(_, extension)| extension.to_ascii_lowercase())
-        .filter(|extension| {
-            (1..=5).contains(&extension.len()) && extension.chars().all(|c| c.is_ascii_alphanumeric())
-        })
-        .unwrap_or_else(|| "png".to_string());
-
-    format!("modrinth-{project_id}.{extension}")
+    crate::packs::fetch_icon(url, ICON_HOSTS).await
 }
 
 fn segment(value: &str) -> CommandResult<&str> {
@@ -535,6 +569,29 @@ mod tests {
         assert_eq!(SearchQuery::default().limit(), 1);
     }
 
+    #[test]
+    fn the_shared_query_keeps_every_modrinth_filter() {
+        let shared = crate::packs::SearchQuery {
+            provider: PackProvider::Modrinth,
+            query: "магия".into(),
+            categories: vec!["magic".into()],
+            loaders: vec!["fabric".into()],
+            game_versions: vec!["1.20.1".into()],
+            environment: Some("client".into()),
+            sort: Some("follows".into()),
+            offset: 20,
+            limit: 20,
+        };
+
+        let query = SearchQuery::from(&shared);
+        let facets = parse_facets(&query);
+
+        assert_eq!(query.sort(), "follows");
+        assert_eq!(query.offset, 20);
+        assert!(facets.contains(&vec!["categories:magic".to_string()]));
+        assert!(facets.contains(&vec!["client_side:required".to_string()]));
+    }
+
     fn version_json(loaders: &[&str], files: serde_json::Value) -> Version {
         serde_json::from_value(serde_json::json!({
             "id": "abc",
@@ -564,18 +621,19 @@ mod tests {
 
     #[test]
     fn a_version_without_an_mrpack_is_not_installable() {
-        let summary = VersionSummary::from(version_json(
+        let summary = PackVersion::from(version_json(
             &["fabric"],
             serde_json::json!([{"url": "https://cdn/a.zip", "filename": "a.zip", "primary": true}]),
         ));
 
         assert!(!summary.supported);
         assert!(summary.file.is_none());
+        assert!(!summary.blocked, "у Modrinth файлы никто не блокирует");
     }
 
     #[test]
     fn unsupported_loaders_are_not_offered_for_install() {
-        let quilt = VersionSummary::from(version_json(
+        let quilt = PackVersion::from(version_json(
             &["quilt"],
             serde_json::json!([{"url": "https://cdn/p.mrpack", "filename": "p.mrpack", "primary": true}]),
         ));
@@ -583,7 +641,7 @@ mod tests {
         assert!(quilt.loader.is_none());
         assert!(!quilt.supported);
 
-        let fabric = VersionSummary::from(version_json(
+        let fabric = PackVersion::from(version_json(
             &["fabric"],
             serde_json::json!([{"url": "https://cdn/p.mrpack", "filename": "p.mrpack", "primary": true}]),
         ));
@@ -594,16 +652,40 @@ mod tests {
     }
 
     #[test]
-    fn icon_names_keep_the_original_extension() {
-        assert_eq!(
-            icon_file_name("1KVo5zza", "https://cdn.modrinth.com/data/1KVo5zza/icon.WEBP"),
-            "modrinth-1KVo5zza.webp"
+    fn hash_lookup_takes_the_primary_file_of_the_version() {
+        let version = version_json(
+            &["fabric"],
+            serde_json::json!([
+                {"url": "https://cdn/sources.jar", "filename": "sources.jar", "primary": false},
+                {"url": "https://cdn/mod.jar", "filename": "mod.jar", "primary": true}
+            ]),
         );
+
+        assert_eq!(version.primary_file().unwrap().filename, "mod.jar");
+    }
+
+    #[tokio::test]
+    async fn an_empty_hash_list_never_reaches_the_network() {
+        assert!(files_by_sha1(&[]).await.unwrap().is_empty());
+    }
+
+    #[test]
+    fn hits_carry_a_link_back_to_the_site() {
+        let hit: SearchHit = serde_json::from_value(serde_json::json!({
+            "project_id": "1KVo5zza",
+            "slug": "fabulously-optimized",
+            "title": "Fabulously Optimized"
+        }))
+        .unwrap();
+
+        let hit = PackHit::from(hit);
+
+        assert_eq!(hit.provider, PackProvider::Modrinth);
         assert_eq!(
-            icon_file_name("abc", "https://cdn.modrinth.com/data/abc/icon.png?v=2"),
-            "modrinth-abc.png"
+            hit.website_url.as_deref(),
+            Some("https://modrinth.com/modpack/fabulously-optimized")
         );
-        assert_eq!(icon_file_name("abc", "https://cdn.modrinth.com/data/abc/icon"), "modrinth-abc.png");
+        assert!(hit.distribution_allowed);
     }
 
     #[tokio::test]

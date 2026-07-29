@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type {Instance} from "~/types/instance";
-import {INSTANCE_TYPE_LABELS} from "~/types/instance";
-import type {ModrinthVersion} from "~/types/modrinth";
-import {versionLabel} from "~/types/modrinth";
+import {INSTANCE_TYPE_LABELS, PACK_PROVIDER_LABELS} from "~/types/instance";
+import type {BlockedFile, PackVersion} from "~/types/catalog";
+import {unsupportedReason, versionLabel} from "~/types/catalog";
 import {call} from "~/types/backend";
 import {LauncherError} from "~/types/error";
 
@@ -15,8 +15,10 @@ const loading = ref(true)
 const loadError = ref<LauncherError | null>(null)
 const updating = ref(false)
 
-const versions = ref<ModrinthVersion[]>([])
+const versions = ref<PackVersion[]>([])
 const versionId = ref("")
+
+const blockedFiles = ref<BlockedFile[]>([])
 
 const pack = computed(() => props.instance.pack)
 const running = computed(() => instanceStore.isRunning(props.instance.id))
@@ -49,7 +51,7 @@ const canApply = computed(() =>
 )
 
 const facts = computed(() => [
-  {label: "Источник", value: pack.value?.provider === "modrinth" ? "Modrinth" : (pack.value?.provider ?? "—")},
+  {label: "Источник", value: pack.value ? PACK_PROVIDER_LABELS[pack.value.provider] : "—"},
   {label: "Проект", value: pack.value?.projectId ?? "—"},
   {label: "Текущая версия", value: pack.value?.versionNumber || pack.value?.versionId || "—"},
   {label: "Архив пака", value: pack.value?.fileName || "—"}
@@ -62,7 +64,10 @@ async function loadVersions() {
   loadError.value = null
 
   try {
-    versions.value = await call("list_modrinth_pack_versions", {projectId: pack.value.projectId})
+    versions.value = await call("list_pack_versions", {
+      provider: pack.value.provider,
+      projectId: pack.value.projectId
+    })
   } catch (e) {
     loadError.value = captureError(e, {
       code: "NETWORK",
@@ -73,7 +78,18 @@ async function loadVersions() {
   }
 }
 
-onMounted(loadVersions)
+async function loadBlocked() {
+  blockedFiles.value = await safeRun(() => call("list_pack_blocked", {instanceId: props.instance.id})) ?? []
+}
+
+onMounted(() => {
+  loadVersions()
+  loadBlocked()
+})
+
+watch(installing, running => {
+  if (!running) loadBlocked()
+})
 
 watch(() => pack.value?.versionId, id => {
   versionId.value = id ?? ""
@@ -82,6 +98,13 @@ watch(() => pack.value?.versionId, id => {
 const selectLatest = () => {
   if (latest.value) versionId.value = latest.value.id
 }
+
+const openPage = (url: string) => safeRun(() => call("open_url", {url}))
+
+const openMods = () => safeRun(() => call("open_instance_dir", {
+  instanceId: props.instance.id,
+  target: "minecraft"
+}))
 
 async function apply() {
   if (!canApply.value || !changed.value) return
@@ -195,8 +218,7 @@ async function apply() {
             class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
         >
           <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-          Эту версию лаунчер установить не сможет: неподдерживаемый загрузчик
-          ({{ selected.loaders.join(", ") || "не указан" }}) либо в ней нет архива пака.
+          Эту версию лаунчер установить не сможет: {{ unsupportedReason(selected) }}.
         </p>
 
         <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
@@ -229,7 +251,50 @@ async function apply() {
     </SettingsPanel>
 
     <SettingsPanel
+        v-if="blockedFiles.length"
         index="02"
+        title="Скачать вручную"
+        description="Автор этих модов запретил сторонним лаунчерам их раздавать."
+        icon="i-lucide-hand"
+    >
+      <p class="text-[12px] leading-relaxed text-fg-muted">
+        Замену на Modrinth лаунчер не нашёл. Откройте страницу каждого файла, скачайте его и положите
+        в папку сборки по указанному пути — после этого пак заработает полностью.
+      </p>
+
+      <ul class="mt-5 divide-y divide-line border border-line">
+        <li v-for="file in blockedFiles" :key="file.targetPath" class="flex items-center gap-4 px-4 py-3">
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[12px] text-fg" :title="file.fileName">{{ file.fileName }}</p>
+            <p class="mt-1 truncate font-mono text-[10px] text-fg-faint" :title="file.targetPath">
+              {{ file.targetPath }}
+            </p>
+          </div>
+
+          <AppButton
+              v-if="file.websiteUrl"
+              tone="quiet"
+              class="shrink-0 text-[10px] tracking-[0.16em]"
+              icon="i-lucide-external-link"
+              @click="openPage(file.websiteUrl)"
+          >
+            Открыть
+          </AppButton>
+        </li>
+      </ul>
+
+      <AppButton
+          tone="quiet"
+          class="mt-5 text-[10px] tracking-[0.16em]"
+          icon="i-lucide-folder-open"
+          @click="openMods"
+      >
+        Открыть папку игры
+      </AppButton>
+    </SettingsPanel>
+
+    <SettingsPanel
+        :index="blockedFiles.length ? '03' : '02'"
         title="Состав пака"
         description="Что лаунчер считает файлами модпака."
         icon="i-lucide-list"

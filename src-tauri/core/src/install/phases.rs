@@ -1,5 +1,5 @@
 use crate::install::progress::Phase;
-use crate::instance::LoaderType;
+use crate::instance::{LoaderType, PackProvider};
 
 const VANILLA: &[Phase] = &[
     Phase::new("java", "Java", 8),
@@ -38,6 +38,8 @@ const NEOFORGE: &[Phase] = &[
 
 const MODPACK: Phase = Phase::new("modpack", "Файлы модпака", 25);
 
+const MODPACK_RESOLVE: Phase = Phase::new("modpack-resolve", "Список файлов пака", 5);
+
 pub fn for_loader(loader: LoaderType) -> Vec<Phase> {
     match loader {
         LoaderType::Vanilla => VANILLA.to_vec(),
@@ -47,15 +49,25 @@ pub fn for_loader(loader: LoaderType) -> Vec<Phase> {
     }
 }
 
-pub fn for_install(loader: LoaderType, with_modpack: bool) -> Vec<Phase> {
+fn modpack_phases(provider: PackProvider) -> Vec<Phase> {
+    match provider {
+        PackProvider::Modrinth => vec![MODPACK],
+        PackProvider::CurseForge => vec![MODPACK_RESOLVE, MODPACK],
+    }
+}
+
+pub fn for_install(loader: LoaderType, pack: Option<PackProvider>) -> Vec<Phase> {
     let base = for_loader(loader);
 
-    if !with_modpack {
+    let Some(provider) = pack else {
         return base;
-    }
+    };
 
-    let mut phases = rescale(&base, 100 - MODPACK.weight);
-    phases.push(MODPACK);
+    let extra = modpack_phases(provider);
+    let weight: u32 = extra.iter().map(|phase| phase.weight).sum();
+
+    let mut phases = rescale(&base, 100 - weight);
+    phases.extend(extra);
     phases
 }
 
@@ -107,19 +119,41 @@ mod tests {
 
     #[test]
     fn a_modpack_install_still_adds_up_to_a_full_scale() {
-        for loader in LoaderType::ALL {
-            let phases = for_install(loader, true);
-            let total: u32 = phases.iter().map(|phase| phase.weight).sum();
+        for provider in PackProvider::ALL {
+            for loader in LoaderType::ALL {
+                let phases = for_install(loader, Some(provider));
+                let total: u32 = phases.iter().map(|phase| phase.weight).sum();
 
-            assert_eq!(total, 100, "фазы {loader:?} с модпаком должны в сумме давать 100");
-            assert_eq!(phases.last().unwrap().key, "modpack");
-            assert_eq!(phases.len(), for_loader(loader).len() + 1);
+                assert_eq!(
+                    total, 100,
+                    "фазы {loader:?} с паком {provider:?} должны в сумме давать 100"
+                );
+                assert_eq!(phases.last().unwrap().key, "modpack");
+            }
         }
     }
 
     #[test]
+    fn curseforge_gets_an_extra_phase_for_resolving_file_links() {
+        let loader = LoaderType::Fabric;
+
+        let modrinth = for_install(loader, Some(PackProvider::Modrinth));
+        let curseforge = for_install(loader, Some(PackProvider::CurseForge));
+
+        assert_eq!(modrinth.len(), for_loader(loader).len() + 1);
+        assert_eq!(curseforge.len(), for_loader(loader).len() + 2);
+
+        assert!(!modrinth.iter().any(|phase| phase.key == "modpack-resolve"));
+
+        let keys: Vec<_> = curseforge.iter().map(|phase| phase.key).collect();
+        let at = |key: &str| keys.iter().position(|item| *item == key).unwrap();
+
+        assert!(at("modpack-resolve") < at("modpack"), "сначала список, потом загрузка");
+    }
+
+    #[test]
     fn without_a_modpack_the_phases_are_untouched() {
-        let plain = for_install(LoaderType::Fabric, false);
+        let plain = for_install(LoaderType::Fabric, None);
         let base = for_loader(LoaderType::Fabric);
 
         assert_eq!(plain.len(), base.len());

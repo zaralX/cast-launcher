@@ -12,13 +12,11 @@ use cast_core::import::{
     SkippedInstance,
 };
 use cast_core::instance::{Instance, PackProvider, PackSource};
-use cast_core::modrinth;
+use cast_core::packs;
 use cast_core::paths::LauncherPaths;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
-
-const MODRINTH: &str = "modrinth";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -291,15 +289,20 @@ async fn link_pack(
 
     let Some(pack) = &scanned.pack else { return false };
 
-    if pack.provider != MODRINTH || pack.version_id.is_empty() {
+    let Some(provider) = PackProvider::from_prism(&pack.provider) else { return false };
+
+    if pack.version_id.is_empty() {
         return false;
     }
 
-    let Ok(version) = modrinth::version(&pack.version_id).await else { return false };
+    let Ok(version) = packs::version(provider, &pack.project_id, &pack.version_id).await else {
+        return false;
+    };
+
     let Some(file) = version.file else { return false };
 
     instance.pack = Some(PackSource {
-        provider: PackProvider::Modrinth,
+        provider,
         project_id: pack.project_id.clone(),
         version_id: version.id,
         version_number: version.version_number,

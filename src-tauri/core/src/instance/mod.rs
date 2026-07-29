@@ -31,16 +31,42 @@ impl LoaderType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PackProvider {
     Modrinth,
+    CurseForge,
 }
 
 impl PackProvider {
+    pub const ALL: [Self; 2] = [Self::Modrinth, Self::CurseForge];
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Modrinth => "Modrinth",
+            Self::CurseForge => "CurseForge",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Modrinth => "modrinth",
+            Self::CurseForge => "curseforge",
+        }
+    }
+
+    pub fn archive_extension(self) -> &'static str {
+        match self {
+            Self::Modrinth => "mrpack",
+            Self::CurseForge => "zip",
+        }
+    }
+
+    pub fn from_prism(kind: &str) -> Option<Self> {
+        match kind.trim().to_ascii_lowercase().as_str() {
+            "modrinth" => Some(Self::Modrinth),
+            "flame" | "curseforge" => Some(Self::CurseForge),
+            _ => None,
         }
     }
 }

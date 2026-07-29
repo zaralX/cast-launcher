@@ -2,6 +2,11 @@
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import {getVersion} from "@tauri-apps/api/app";
 import ActiveDownloadingModal from "~/components/ActiveDownloadingModal.vue";
+import BlockedFilesModal from "~/components/BlockedFilesModal.vue";
+
+const instanceStore = useInstanceStore()
+
+const awaiting = computed(() => instanceStore.installs.find(install => install.awaitingFiles) ?? null)
 
 const links = [{
   name: "Библиотека",
@@ -52,6 +57,7 @@ onMounted(async () => {
 
       <div data-tauri-drag-region class="flex flex-1 items-center justify-center px-4">
         <ActiveDownloadingModal/>
+        <BlockedFilesModal v-if="awaiting" :key="awaiting.instanceId" :install="awaiting"/>
       </div>
 
       <div class="flex items-stretch">

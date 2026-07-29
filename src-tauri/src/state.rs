@@ -15,6 +15,7 @@ use cast_core::paths::LauncherPaths;
 
 use cast_core::import::ImportRegistry;
 
+use crate::install::blocked::BlockedRegistry;
 use crate::install::InstallRegistry;
 use crate::launch::process::ProcessRegistry;
 
@@ -25,6 +26,7 @@ pub struct AppState {
     pub meta: MetaCache,
     pub downloads: DownloadRegistry,
     pub installs: InstallRegistry,
+    pub blocked: BlockedRegistry,
     pub imports: Arc<ImportRegistry>,
     pub instances: InstanceRegistry,
     pub processes: ProcessRegistry,
@@ -54,6 +56,7 @@ impl AppState {
             paths: RwLock::new(paths),
             downloads: DownloadRegistry::new(),
             installs: InstallRegistry::new(),
+            blocked: BlockedRegistry::new(),
             imports: Arc::new(ImportRegistry::new()),
             instances: InstanceRegistry::new(),
             processes: ProcessRegistry::new(),

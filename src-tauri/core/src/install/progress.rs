@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Serialize;
 
 use crate::net::download::{FileProgress, JobSnapshot};
+use crate::packs::BlockedFile;
 
 pub type Publisher = Arc<dyn Fn(InstallSnapshot) + Send + Sync>;
 
@@ -53,6 +54,9 @@ pub struct InstallSnapshot {
     pub aborting: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub blocked: Vec<BlockedFile>,
+    pub awaiting_files: bool,
 }
 
 struct State {
@@ -62,6 +66,8 @@ struct State {
     progress: f64,
     files: Vec<FileProgress>,
     error: Option<String>,
+    blocked: Vec<BlockedFile>,
+    awaiting_files: bool,
 }
 
 pub struct ProgressReporter {
@@ -95,6 +101,8 @@ impl ProgressReporter {
                 progress: 0.0,
                 files: Vec::new(),
                 error: None,
+                blocked: Vec::new(),
+                awaiting_files: false,
             }),
         }
     }
@@ -130,6 +138,16 @@ impl ProgressReporter {
 
     pub fn set_stage(&self, stage: Stage) {
         self.lock().stage = stage;
+        self.publish();
+    }
+
+    pub fn set_blocked(&self, blocked: Vec<BlockedFile>) {
+        self.lock().blocked = blocked;
+        self.publish();
+    }
+
+    pub fn set_awaiting_files(&self, awaiting: bool) {
+        self.lock().awaiting_files = awaiting;
         self.publish();
     }
 
@@ -199,6 +217,8 @@ impl ProgressReporter {
             started_at: self.started_at,
             aborting: self.is_cancelled() && !state.stage.is_terminal(),
             error: state.error.clone(),
+            blocked: state.blocked.clone(),
+            awaiting_files: state.awaiting_files && !state.stage.is_terminal(),
         }
     }
 

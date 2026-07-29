@@ -1,4 +1,5 @@
 import type {JavaMode} from "~/types/app"
+import type {BlockedFile} from "~/types/catalog"
 
 export type InstanceType = "vanilla" | "fabric" | "forge" | "neoforge"
 
@@ -29,7 +30,12 @@ export function emptyInstanceSettings(): InstanceSettings {
     }
 }
 
-export type PackProvider = "modrinth"
+export type PackProvider = "modrinth" | "curseforge"
+
+export const PACK_PROVIDER_LABELS: Record<PackProvider, string> = {
+    modrinth: "Modrinth",
+    curseforge: "CurseForge"
+}
 
 export interface PackSource {
     provider: PackProvider
@@ -143,6 +149,10 @@ export interface InstallSnapshot {
     startedAt: number
     aborting: boolean
     error?: string
+    /** Файлы пака, которые лаунчер скачать не смог: их кладут руками. */
+    blocked?: BlockedFile[]
+    /** Установка остановлена и ждёт, пока пользователь скачает `blocked`. */
+    awaitingFiles: boolean
 }
 
 export type GameStatus = "starting" | "running" | "exited" | "crashed"

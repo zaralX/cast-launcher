@@ -7,6 +7,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::fs_util::{relative_key, safe_join};
 use crate::instance::LoaderType;
 use crate::net::download::DownloadTask;
+use crate::packs::ResolvedPack;
 
 pub const INDEX_ENTRY: &str = "modrinth.index.json";
 
@@ -130,7 +131,10 @@ impl PackIndex {
             let loader = match name.as_str() {
                 "minecraft" => continue,
                 "fabric-loader" => (LoaderType::Fabric, Some(version.clone())),
-                "forge" => (LoaderType::Forge, Some(forge_version(minecraft, version))),
+                "forge" => (
+                    LoaderType::Forge,
+                    Some(crate::meta::forge::maven_version(minecraft, version)),
+                ),
                 "neoforge" => (
                     LoaderType::NeoForge,
                     Some(crate::meta::neoforge::maven_version(minecraft, version)),
@@ -177,13 +181,20 @@ impl PackIndex {
     fn client_files(&self) -> impl Iterator<Item = &PackFile> {
         self.files.iter().filter(|file| file.needed_on_client())
     }
-}
 
-fn forge_version(minecraft: &str, forge: &str) -> String {
-    if forge.starts_with(&format!("{minecraft}-")) {
-        forge.to_string()
-    } else {
-        format!("{minecraft}-{forge}")
+    pub fn resolve(&self, minecraft_dir: &Path) -> CommandResult<ResolvedPack> {
+        let (loader, loader_version) = self.loader()?;
+
+        Ok(ResolvedPack {
+            minecraft_version: self.minecraft_version()?.to_string(),
+            loader,
+            loader_version,
+            tasks: self.client_tasks(minecraft_dir)?,
+            paths: self.client_paths()?,
+            overrides: OVERRIDES.iter().map(|prefix| (*prefix).to_string()).collect(),
+            blocked: Vec::new(),
+            recommended_ram: None,
+        })
     }
 }
 

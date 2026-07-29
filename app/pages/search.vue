@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import type {ModrinthFilters, ModrinthHit, ModrinthSort, PackEnvironment} from "~/types/modrinth";
-import {SORT_LABELS} from "~/types/modrinth";
+import type {PackFilters, PackHit, PackProviderInfo, PackSort} from "~/types/catalog";
+import {PROVIDER_LOGOS, SORT_LABELS} from "~/types/catalog";
+import type {PackEnvironment} from "~/types/catalog";
+import type {PackProvider} from "~/types/instance";
 import {call} from "~/types/backend";
 import {LauncherError} from "~/types/error";
 
@@ -11,37 +13,35 @@ definePageMeta({
 const PAGE_SIZE = 20
 const DEBOUNCE = 350
 
-type Source = "modrinth" | "curseforge"
+const providers = ref<PackProviderInfo[]>([])
+const source = ref<PackProvider>("modrinth")
 
-const SOURCES: { value: Source, label: string, logo: string, ready: boolean }[] = [
-  {value: "modrinth", label: "Modrinth", logo: "/modrinth.svg", ready: true},
-  {value: "curseforge", label: "CurseForge", logo: "/curseforge.svg", ready: false}
-]
+const provider = computed(() => providers.value.find(item => item.id === source.value) ?? null)
 
-const SORT_ITEMS = (Object.keys(SORT_LABELS) as ModrinthSort[]).map(value => ({
-  label: SORT_LABELS[value],
-  value
-}))
-
-const source = ref<Source>("modrinth")
+const SORT_ITEMS = computed(() =>
+    (provider.value?.sorts ?? (Object.keys(SORT_LABELS) as PackSort[])).map(value => ({
+      label: SORT_LABELS[value],
+      value
+    }))
+)
 
 const query = ref("")
-const sort = ref<ModrinthSort>("relevance")
+const sort = ref<PackSort>("relevance")
 const loaders = ref<string[]>([])
 const gameVersions = ref<string[]>([])
 const categories = ref<string[]>([])
 const environment = ref<PackEnvironment | null>(null)
 
-const filters = ref<ModrinthFilters | null>(null)
+const filters = ref<PackFilters | null>(null)
 const filtersLoading = ref(true)
 
-const hits = ref<ModrinthHit[]>([])
+const hits = ref<PackHit[]>([])
 const total = ref(0)
 const searching = ref(false)
 const loadingMore = ref(false)
 const searchError = ref<LauncherError | null>(null)
 
-const installTarget = ref<ModrinthHit | null>(null)
+const installTarget = ref<PackHit | null>(null)
 const installOpen = ref(false)
 
 const hasMore = computed(() => hits.value.length < total.value)
@@ -59,8 +59,9 @@ async function search(offset = 0) {
   searchError.value = null
 
   try {
-    const page = await call("search_modrinth_packs", {
+    const page = await call("search_packs", {
       query: {
+        provider: source.value,
         query: query.value,
         categories: categories.value,
         loaders: loaders.value,
@@ -89,8 +90,41 @@ async function search(offset = 0) {
 
 async function loadFilters() {
   filtersLoading.value = true
-  filters.value = await safeRun(() => call("modrinth_filters"), {code: "NETWORK"}) ?? null
+  filters.value = await safeRun(() => call("pack_filters", {provider: source.value}), {code: "NETWORK"}) ?? null
   filtersLoading.value = false
+}
+
+async function loadProviders() {
+  const list = await safeRun(() => call("pack_providers"), {code: "NETWORK"})
+  providers.value = list ?? []
+
+  if (!providers.value.some(item => item.id === source.value && item.ready)) {
+    const fallback = providers.value.find(item => item.ready)
+    if (fallback) source.value = fallback.id
+  }
+}
+
+async function selectSource(next: PackProvider) {
+  if (next === source.value) return
+
+  source.value = next
+
+  categories.value = []
+  gameVersions.value = []
+  loaders.value = []
+  environment.value = null
+
+  if (!provider.value?.sorts.includes(sort.value)) {
+    sort.value = "relevance"
+  }
+
+  hits.value = []
+  total.value = 0
+
+  clearTimeout(debounce)
+
+  await loadFilters()
+  await search()
 }
 
 watch([query, sort, loaders, gameVersions, categories, environment], () => {
@@ -98,14 +132,15 @@ watch([query, sort, loaders, gameVersions, categories, environment], () => {
   debounce = setTimeout(() => search(), DEBOUNCE)
 }, {deep: true})
 
-onMounted(() => {
+onMounted(async () => {
+  await loadProviders()
   loadFilters()
   search()
 })
 
 onBeforeUnmount(() => clearTimeout(debounce))
 
-const openInstall = (hit: ModrinthHit) => {
+const openInstall = (hit: PackHit) => {
   installTarget.value = hit
   installOpen.value = true
 }
@@ -128,27 +163,28 @@ const onInstalled = () => {
 
       <div role="radiogroup" aria-label="Источник сборок" class="flex border border-line">
         <button
-            v-for="(item, i) in SOURCES"
-            :key="item.value"
+            v-for="(item, i) in providers"
+            :key="item.id"
             type="button"
             role="radio"
-            :aria-checked="source === item.value"
+            :aria-checked="source === item.id"
             :disabled="!item.ready"
+            :title="item.reason"
             class="group relative flex items-center gap-2 px-4 py-2.5 transition-colors duration-300"
             :class="[
               i > 0 ? 'border-l border-line' : '',
               !item.ready ? 'cursor-not-allowed opacity-40' : '',
-              source === item.value ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted'
+              source === item.id ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted'
             ]"
-            @click="item.ready && (source = item.value)"
+            @click="item.ready && selectSource(item.id)"
         >
           <span
               class="absolute inset-x-0 top-0 h-px origin-center bg-acid transition-transform duration-500 ease-deck"
-              :class="source === item.value ? 'scale-x-100' : 'scale-x-0'"
+              :class="source === item.id ? 'scale-x-100' : 'scale-x-0'"
           />
-          <NuxtImg :src="item.logo" class="size-3.5" alt=""/>
+          <NuxtImg :src="PROVIDER_LOGOS[item.id]" class="size-3.5" alt=""/>
           <span class="font-mono text-[10px] uppercase tracking-[0.16em]">{{ item.label }}</span>
-          <span v-if="!item.ready" class="font-mono text-[9px] tracking-[0.12em] text-fg-faint">скоро</span>
+          <span v-if="!item.ready" class="font-mono text-[9px] tracking-[0.12em] text-fg-faint">нет ключа</span>
         </button>
       </div>
     </header>
@@ -161,6 +197,7 @@ const onInstalled = () => {
           v-model:environment="environment"
           :filters="filters"
           :loading="filtersLoading"
+          :capabilities="provider?.capabilities ?? null"
           class="animate-rise"
       />
 

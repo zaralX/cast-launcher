@@ -20,6 +20,14 @@ pub const NEOFORGE_MAVEN: &str = "https://maven.neoforged.net/releases";
 pub const FORGE_METADATA: &str =
     "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml";
 
+pub fn maven_version(minecraft: &str, forge: &str) -> String {
+    if forge.starts_with(&format!("{minecraft}-")) {
+        return forge.to_string();
+    }
+
+    format!("{minecraft}-{forge}")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Family {
     Forge,
