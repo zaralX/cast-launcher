@@ -1,8 +1,10 @@
+mod castpack;
 mod commands;
 mod events;
 mod import;
 mod install;
 mod launch;
+mod play;
 mod state;
 
 use tauri::Manager;
@@ -56,6 +58,7 @@ pub fn run() {
             commands::resume_install,
             commands::list_installs,
             commands::launch_instance,
+            commands::play_instance,
             commands::list_running,
             commands::stop_instance,
             commands::list_java,
@@ -66,7 +69,13 @@ pub fn run() {
             commands::add_offline_account,
             commands::login_microsoft,
             commands::refresh_account,
-            commands::load_my_packs,
+            commands::castpack_catalog,
+            commands::castpack_install,
+            commands::castpack_check_update,
+            commands::castpack_set_autoupdate,
+            commands::castpack_validate,
+            commands::castpack_probe_file,
+            commands::castpack_probe_mod,
             commands::open_url,
             commands::pack_providers,
             commands::search_packs,

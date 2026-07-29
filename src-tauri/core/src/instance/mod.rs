@@ -88,6 +88,42 @@ pub struct PackSource {
     pub file_size: Option<u64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CastPackSource {
+    pub catalog_id: String,
+    pub manifest_url: String,
+    #[serde(default = "yes")]
+    pub autoupdate: bool,
+    #[serde(default)]
+    pub version: String,
+    #[serde(default)]
+    pub changelog: String,
+    #[serde(default)]
+    pub ram_applied: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl CastPackSource {
+    pub fn new(catalog_id: impl Into<String>, manifest_url: impl Into<String>, autoupdate: bool) -> Self {
+        Self {
+            catalog_id: catalog_id.into(),
+            manifest_url: manifest_url.into(),
+            autoupdate,
+            version: String::new(),
+            changelog: String::new(),
+            ram_applied: false,
+        }
+    }
+
+    pub fn is_outdated(&self, available: &str) -> bool {
+        !available.trim().is_empty() && available.trim() != self.version.trim()
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct InstanceSettings {
@@ -174,6 +210,8 @@ pub struct Instance {
     pub custom_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pack: Option<PackSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub castpack: Option<CastPackSource>,
     #[serde(default)]
     pub settings: InstanceSettings,
     #[serde(default)]
@@ -413,6 +451,65 @@ mod tests {
     }
 
     #[test]
+    fn a_castpack_source_survives_a_json_round_trip() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "castpack-rpg",
+            "name": "zaralX RPG",
+            "minecraftVersion": "1.20.1",
+            "type": "forge",
+            "castpack": {
+                "catalogId": "zaralx-rpg",
+                "manifestUrl": "https://cdn.zaralx.ru/packs/rpg/manifest.json",
+                "autoupdate": false,
+                "version": "1.4.2",
+                "changelog": "Убран OptiFine",
+                "ramApplied": true
+            }
+        }))
+        .unwrap();
+
+        let source = instance.castpack.clone().unwrap();
+        assert!(!source.autoupdate);
+        assert_eq!(source.version, "1.4.2");
+
+        let written = serde_json::to_value(&instance).unwrap();
+        assert_eq!(written["castpack"]["catalogId"], "zaralx-rpg");
+        assert_eq!(written["castpack"]["ramApplied"], true);
+
+        let parsed: Instance = serde_json::from_value(written).unwrap();
+        assert_eq!(parsed.castpack, instance.castpack);
+    }
+
+    #[test]
+    fn a_castpack_source_written_without_flags_updates_itself() {
+        let source: CastPackSource = serde_json::from_value(json!({
+            "catalogId": "zaralx-rpg",
+            "manifestUrl": "https://cdn.zaralx.ru/packs/rpg/manifest.json"
+        }))
+        .unwrap();
+
+        assert!(source.autoupdate, "по умолчанию сборка обновляется");
+        assert!(!source.ram_applied);
+        assert!(source.version.is_empty());
+    }
+
+    #[test]
+    fn a_new_version_in_the_catalog_is_what_makes_a_pack_outdated() {
+        let mut source = CastPackSource::new("rpg", "https://cdn.zaralx.ru/m.json", true);
+        source.version = "1.4.2".into();
+
+        assert!(source.is_outdated("1.5.0"));
+        assert!(!source.is_outdated("1.4.2"));
+        assert!(!source.is_outdated("  1.4.2  "));
+        assert!(!source.is_outdated("  "), "пустая версия ничего не говорит об обновлении");
+
+        assert!(
+            source.is_outdated("1.0.0"),
+            "откат автора - тоже повод переустановить: версии не сравниваем, а сверяем"
+        );
+    }
+
+    #[test]
     fn instances_without_a_pack_do_not_gain_the_field() {
         let instance: Instance = serde_json::from_value(json!({
             "id": "abc",
@@ -423,7 +520,11 @@ mod tests {
         .unwrap();
 
         assert!(instance.pack.is_none());
-        assert!(serde_json::to_value(&instance).unwrap().get("pack").is_none());
+        assert!(instance.castpack.is_none());
+
+        let written = serde_json::to_value(&instance).unwrap();
+        assert!(written.get("pack").is_none());
+        assert!(written.get("castpack").is_none());
     }
 
     #[test]

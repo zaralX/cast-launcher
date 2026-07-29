@@ -18,8 +18,14 @@ import type {
     ImportRequest,
     ScannedInstance
 } from "~/types/import"
-import type {MyPacksConfig} from "~/types/pack"
 import type {PackProvider} from "~/types/instance"
+import type {
+    Catalog,
+    CastPackManifest,
+    CastPackUpdate,
+    ProbedFile,
+    ProbedMod
+} from "~/types/castpack"
 import type {
     BlockedFile,
     PackFilters,
@@ -40,6 +46,7 @@ export type LauncherEvent =
     | { type: "gameStatus", runId: string, instanceId: string, status: RunningGame["status"] }
     | { type: "gameLog", runId: string, instanceId: string, line: string, isError: boolean }
     | { type: "gameExited", runId: string, instanceId: string, code: number | null, logTail?: string }
+    | { type: "launchFailed", instanceId: string, instanceName: string, error: string }
 
 export interface Bootstrap {
     config: AppConfig
@@ -89,6 +96,7 @@ interface Commands {
     resume_install: [{ instanceId: string }, void]
 
     launch_instance: [{ instanceId: string }, RunningGame]
+    play_instance: [{ instanceId: string }, PlayOutcome]
     list_running: [void, RunningGame[]]
     stop_instance: [{ instanceId: string }, number]
 
@@ -102,7 +110,13 @@ interface Commands {
     login_microsoft: [void, Account]
     refresh_account: [{ uuid: string }, Account]
 
-    load_my_packs: [void, MyPacksConfig]
+    castpack_catalog: [void, Catalog]
+    castpack_install: [{ packId: string }, Instance]
+    castpack_check_update: [{ instanceId: string }, CastPackUpdate]
+    castpack_set_autoupdate: [{ instanceId: string, enabled: boolean }, Instance]
+    castpack_validate: [{ json: string }, CastPackManifest]
+    castpack_probe_file: [{ url: string }, ProbedFile]
+    castpack_probe_mod: [{ provider: PackProvider, projectId: string, versionId: string }, ProbedMod]
 
     pack_providers: [void, PackProviderInfo[]]
     search_packs: [{ query: PackSearchQuery }, PackSearchPage]
@@ -123,6 +137,10 @@ interface Commands {
     list_forge_versions: [void, string[]]
     list_neoforge_versions: [void, NeoForgeRelease[]]
 }
+
+export type PlayOutcome =
+    | { kind: "launched", game: RunningGame }
+    | { kind: "installing", install: InstallSnapshot }
 
 export interface NeoForgeRelease {
     version: string

@@ -262,6 +262,8 @@ pub struct ResolvedPack {
     pub overrides: Vec<String>,
     pub blocked: Vec<BlockedFile>,
     pub recommended_ram: Option<u32>,
+    pub seed: Vec<crate::castpack::SeedFile>,
+    pub delete: Vec<String>,
 }
 
 pub async fn search(query: &SearchQuery) -> CommandResult<PackPage> {
@@ -318,7 +320,7 @@ pub fn icon_file_name(provider: PackProvider, project_id: &str, url: &str) -> St
     format!("{}-{project_id}.{extension}", provider.key())
 }
 
-pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u8>> {
+pub async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u8>> {
     let parsed = url::Url::parse(url)
         .map_err(|e| CommandError::network("Некорректная ссылка на иконку").with_details(e.to_string()))?;
 

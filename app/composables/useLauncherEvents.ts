@@ -1,4 +1,6 @@
 import {call, onLauncherEvent} from "~/types/backend"
+import {captureError} from "~/composables/useErrorHandler"
+import {LauncherError} from "~/types/error"
 import {useAppStore} from "~/stores/app"
 import {useInstanceStore} from "~/stores/instance"
 import {useAccountStore} from "~/stores/account"
@@ -50,6 +52,12 @@ async function connect() {
                     line: event.line,
                     isError: event.isError
                 })
+                break
+            case "launchFailed":
+                captureError(new LauncherError("LAUNCH_FAILED", {
+                    message: event.error,
+                    context: {instanceId: event.instanceId, instanceName: event.instanceName}
+                }))
                 break
         }
     })

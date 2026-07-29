@@ -493,6 +493,15 @@ pub async fn launch_instance(
 }
 
 #[tauri::command]
+pub async fn play_instance(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<crate::play::PlayOutcome> {
+    crate::play::play(app, state.inner().clone(), &instance_id).await
+}
+
+#[tauri::command]
 pub async fn list_running(state: Ctx<'_>) -> CommandResult<Vec<RunningGame>> {
     Ok(state.processes.running().await)
 }
@@ -555,11 +564,57 @@ pub async fn refresh_account(state: Ctx<'_>, uuid: String) -> CommandResult<Acco
 }
 
 #[tauri::command]
-pub async fn load_my_packs(state: Ctx<'_>) -> CommandResult<serde_json::Value> {
-    state
-        .meta
-        .fetch_json("https://s3.zaralx.ru/launcher/my_packs.json")
-        .await
+pub async fn castpack_catalog(state: Ctx<'_>) -> CommandResult<cast_core::castpack::Catalog> {
+    crate::castpack::catalog(state.inner()).await
+}
+
+#[tauri::command]
+pub async fn castpack_install(
+    app: AppHandle,
+    state: Ctx<'_>,
+    pack_id: String,
+) -> CommandResult<Instance> {
+    crate::castpack::install_pack(app, state.inner().clone(), &pack_id).await
+}
+
+#[tauri::command]
+pub async fn castpack_check_update(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<crate::play::CastPackUpdate> {
+    crate::play::check_update(state.inner(), &instance_id).await
+}
+
+#[tauri::command]
+pub async fn castpack_set_autoupdate(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+    enabled: bool,
+) -> CommandResult<Instance> {
+    crate::castpack::set_autoupdate(&app, state.inner(), &instance_id, enabled).await
+}
+
+/// Разбор манифеста для редактора сборок: те же правила, что и при установке.
+#[tauri::command]
+pub async fn castpack_validate(json: String) -> CommandResult<cast_core::castpack::Manifest> {
+    crate::play::parse_manifest(&json)
+}
+
+#[tauri::command]
+pub async fn castpack_probe_file(
+    url: String,
+) -> CommandResult<cast_core::castpack::source::ProbedFile> {
+    cast_core::castpack::source::probe(&url).await
+}
+
+#[tauri::command]
+pub async fn castpack_probe_mod(
+    provider: PackProvider,
+    project_id: String,
+    version_id: String,
+) -> CommandResult<crate::castpack::ProbedMod> {
+    crate::castpack::probe_mod(provider, &project_id, &version_id).await
 }
 
 #[tauri::command]
@@ -604,6 +659,12 @@ pub async fn set_instance_pack_version(
     }
 
     let instance = state.instances.get(&instance_id).await?;
+
+    if instance.castpack.is_some() {
+        return Err(CommandError::manifest(
+            "Базовый модпак сборки CastPack задаёт её манифест: выбранная вручную версия слетит при обновлении",
+        ));
+    }
 
     let current = instance
         .pack

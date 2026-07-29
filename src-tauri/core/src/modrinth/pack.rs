@@ -194,6 +194,8 @@ impl PackIndex {
             overrides: OVERRIDES.iter().map(|prefix| (*prefix).to_string()).collect(),
             blocked: Vec::new(),
             recommended_ram: None,
+            seed: Vec::new(),
+            delete: Vec::new(),
         })
     }
 }

@@ -12,6 +12,7 @@ use crate::packs::BlockedFile;
 pub struct PackFiles {
     pub version_id: String,
     pub paths: BTreeSet<String>,
+    pub seeded: BTreeSet<String>,
 }
 
 impl PackFiles {
@@ -19,7 +20,13 @@ impl PackFiles {
         Self {
             version_id: version_id.into(),
             paths,
+            seeded: BTreeSet::new(),
         }
+    }
+
+    pub fn with_seeded(mut self, seeded: BTreeSet<String>) -> Self {
+        self.seeded = seeded;
+        self
     }
 
     pub async fn load(path: &Path) -> Self {
@@ -32,6 +39,20 @@ impl PackFiles {
 
     pub fn stale(&self, current: &BTreeSet<String>) -> Vec<String> {
         self.paths.difference(current).cloned().collect()
+    }
+
+    pub async fn missing(&self, minecraft_dir: &Path) -> Vec<String> {
+        let mut missing = Vec::new();
+
+        for relative in &self.paths {
+            let Ok(path) = safe_join(minecraft_dir, relative) else { continue };
+
+            if !path.is_file() {
+                missing.push(relative.clone());
+            }
+        }
+
+        missing
     }
 }
 
@@ -179,11 +200,72 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
         let file = dir.join("pack-files.json");
 
-        let record = PackFiles::new("abc", set(&["mods/a.jar", "options.txt"]));
+        let record = PackFiles::new("abc", set(&["mods/a.jar", "options.txt"]))
+            .with_seeded(set(&["servers.dat"]));
         record.save(&file).await.unwrap();
 
         assert_eq!(PackFiles::load(&file).await, record);
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn records_written_before_seeding_existed_read_back_empty() {
+        let dir = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let file = dir.join("pack-files.json");
+
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&file, r#"{"versionId":"abc","paths":["mods/a.jar"]}"#).unwrap();
+
+        let record = PackFiles::load(&file).await;
+
+        assert_eq!(record.version_id, "abc");
+        assert!(record.seeded.is_empty());
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn a_file_deleted_by_hand_is_reported_as_missing() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("kept.jar"), b"kept").unwrap();
+
+        let record = PackFiles::new("v1", set(&["mods/kept.jar", "mods/gone.jar"]))
+            .with_seeded(set(&["options.txt"]));
+
+        assert_eq!(record.missing(&minecraft).await, vec!["mods/gone.jar"]);
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_seeded_file_the_player_removed_is_not_a_reason_to_reinstall() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(&minecraft).unwrap();
+
+        let record = PackFiles::new("v1", BTreeSet::new()).with_seeded(set(&["options.txt"]));
+
+        assert!(record.missing(&minecraft).await.is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_folder_in_place_of_a_file_counts_as_missing() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(minecraft.join("mods").join("a.jar")).unwrap();
+
+        let record = PackFiles::new("v1", set(&["mods/a.jar"]));
+
+        assert_eq!(record.missing(&minecraft).await, vec!["mods/a.jar"]);
+
+        std::fs::remove_dir_all(&root).ok();
     }
 }

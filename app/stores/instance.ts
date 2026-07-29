@@ -124,6 +124,19 @@ export const useInstanceStore = defineStore('instance', {
             this.applyGameStarted(game)
         },
 
+        async playInstance(instanceId: string) {
+            const outcome = await call("play_instance", {instanceId})
+
+            if (outcome.kind === "launched") {
+                this.applyGameStarted(outcome.game)
+                return outcome
+            }
+
+            if (!this.getInstall(instanceId)) this.applyInstall(outcome.install)
+
+            return outcome
+        },
+
         async stopInstance(instanceId: string) {
             await call("stop_instance", {instanceId})
         }

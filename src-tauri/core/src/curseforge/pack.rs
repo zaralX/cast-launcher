@@ -201,35 +201,8 @@ pub async fn resolve(manifest: &Manifest, minecraft_dir: &Path) -> CommandResult
     let (loader, loader_version) = manifest.loader()?;
     let minecraft_version = manifest.minecraft_version()?.to_string();
 
-    let files = resolve_files(&manifest.files).await?;
-
-    let mut tasks = Vec::new();
-    let mut paths = Vec::new();
-    let mut blocked = Vec::new();
-
-    for file in files {
-        let path = file.path();
-        let key = relative_key(&path)?;
-
-        match &file.url {
-            Some(url) => {
-                tasks.push(DownloadTask::verified(
-                    url.clone(),
-                    safe_join(minecraft_dir, &key)?,
-                    file.size,
-                    file.sha1.clone(),
-                ));
-                paths.push(key);
-            }
-            None => blocked.push(BlockedFile {
-                file_name: file.file_name.clone(),
-                target_path: key,
-                website_url: file.download_page(),
-                sha1: file.sha1.clone(),
-                local_path: None,
-            }),
-        }
-    }
+    let (files, blocked) = resolve_entries(&manifest.files, minecraft_dir).await?;
+    let (paths, tasks): (Vec<String>, Vec<DownloadTask>) = files.into_iter().unzip();
 
     Ok(ResolvedPack {
         minecraft_version,
@@ -240,7 +213,44 @@ pub async fn resolve(manifest: &Manifest, minecraft_dir: &Path) -> CommandResult
         overrides: vec![manifest.overrides.clone()],
         blocked,
         recommended_ram: manifest.minecraft.recommended_ram,
+        seed: Vec::new(),
+        delete: Vec::new(),
     })
+}
+
+pub async fn resolve_entries(
+    entries: &[ManifestFile],
+    minecraft_dir: &Path,
+) -> CommandResult<(Vec<(String, DownloadTask)>, Vec<BlockedFile>)> {
+    let files = resolve_files(entries).await?;
+
+    let mut resolved = Vec::new();
+    let mut blocked = Vec::new();
+
+    for file in files {
+        let key = relative_key(&file.path())?;
+
+        match &file.url {
+            Some(url) => resolved.push((
+                key.clone(),
+                DownloadTask::verified(
+                    url.clone(),
+                    safe_join(minecraft_dir, &key)?,
+                    file.size,
+                    file.sha1.clone(),
+                ),
+            )),
+            None => blocked.push(BlockedFile {
+                file_name: file.file_name.clone(),
+                target_path: key,
+                website_url: file.download_page(),
+                sha1: file.sha1.clone(),
+                local_path: None,
+            }),
+        }
+    }
+
+    Ok((resolved, blocked))
 }
 
 async fn resolve_files(entries: &[ManifestFile]) -> CommandResult<Vec<ResolvedFile>> {
@@ -359,7 +369,7 @@ async fn mods_by_ids(mod_ids: &[u64]) -> CommandResult<BTreeMap<u64, (&'static s
     Ok(collected)
 }
 
-fn sanitize(name: &str) -> String {
+pub(crate) fn sanitize(name: &str) -> String {
     let cleaned: String = name
         .chars()
         .map(|symbol| match symbol {

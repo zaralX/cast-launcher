@@ -1,5 +1,6 @@
 import type {JavaMode} from "~/types/app"
 import type {BlockedFile} from "~/types/catalog"
+import type {CastPackSource} from "~/types/castpack"
 
 export type InstanceType = "vanilla" | "fabric" | "forge" | "neoforge"
 
@@ -99,6 +100,7 @@ export interface Instance {
     loaderVersion?: string
     customId?: string
     pack?: PackSource
+    castpack?: CastPackSource
     settings: InstanceSettings
     playtime: Playtime
 }

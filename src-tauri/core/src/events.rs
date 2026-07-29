@@ -33,6 +33,11 @@ pub enum LauncherEvent {
         code: Option<i32>,
         log_tail: Option<String>,
     },
+    LaunchFailed {
+        instance_id: String,
+        instance_name: String,
+        error: String,
+    },
 }
 
 #[cfg(test)]
@@ -135,6 +140,20 @@ mod tests {
         assert_eq!(event["startedAt"], 1);
         assert_eq!(event["stage"], "download");
         assert!(event.get("blocked").is_none(), "пустой список не занимает место в событии");
+    }
+
+    #[test]
+    fn a_failed_autolaunch_names_the_instance() {
+        let event = wire(LauncherEvent::LaunchFailed {
+            instance_id: "instance".into(),
+            instance_name: "Сборка".into(),
+            error: "Java не найдена".into(),
+        });
+
+        assert_eq!(event["type"], "launchFailed");
+        assert_eq!(event["instanceId"], "instance");
+        assert_eq!(event["instanceName"], "Сборка");
+        assert_eq!(event["error"], "Java не найдена");
     }
 
     #[test]

@@ -23,6 +23,14 @@ impl Modpack {
     pub fn resolved(&self) -> &ResolvedPack {
         &self.resolved
     }
+
+    pub fn archive(&self) -> &Path {
+        &self.archive
+    }
+
+    pub fn into_parts(self) -> (PathBuf, ResolvedPack) {
+        (self.archive, self.resolved)
+    }
 }
 
 pub async fn prepare(
@@ -187,22 +195,29 @@ pub async fn sync_instance(
         .await
 }
 
+pub struct Applied<'a> {
+    pub resolved: &'a ResolvedPack,
+    pub archive: Option<&'a Path>,
+    pub version_id: &'a str,
+    pub phase: &'a str,
+    pub label: &'a str,
+}
+
 pub async fn apply(
     state: &Arc<AppState>,
     paths: &LauncherPaths,
     instance: &Instance,
-    pack: &PackSource,
-    modpack: &Modpack,
+    what: Applied<'_>,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
-    reporter.begin_phase("modpack", "Файлы модпака");
+    reporter.begin_phase(what.phase, what.label);
 
     let instance_paths = paths.instance(&instance.id);
     let minecraft = instance_paths.minecraft();
 
     let previous = PackFiles::load(&instance_paths.pack_files()).await;
 
-    let resolved = &modpack.resolved;
+    let resolved = what.resolved;
     let mut owned: BTreeSet<String> = resolved.paths.iter().cloned().collect();
 
     let blocked = match resolved.blocked.is_empty() {
@@ -215,7 +230,7 @@ pub async fn apply(
 
             super::check_cancelled(reporter)?;
 
-            reporter.begin_phase("modpack", "Файлы модпака");
+            reporter.begin_phase(what.phase, what.label);
             reporter.set_message("Перенос скачанных вручную файлов");
 
             owned.extend(blocked::place_found(&minecraft, &found).await);
@@ -228,7 +243,7 @@ pub async fn apply(
         state
             .downloads
             .run(
-                job_id(&instance.id, "modpack"),
+                job_id(&instance.id, what.phase),
                 resolved.tasks.clone(),
                 DownloadOptions::default(),
                 Some(download_reporter(reporter)),
@@ -236,13 +251,24 @@ pub async fn apply(
             .await?;
     }
 
-    reporter.set_message("Распаковка модпака");
+    if let Some(archive) = what.archive {
+        reporter.set_message("Распаковка модпака");
 
-    for prefix in &resolved.overrides {
-        let extracted =
-            archive::extract_dir(modpack.archive.clone(), prefix.clone(), minecraft.clone()).await?;
+        for prefix in &resolved.overrides {
+            let extracted =
+                archive::extract_dir(archive.to_path_buf(), prefix.clone(), minecraft.clone()).await?;
 
-        owned.extend(extracted);
+            owned.extend(extracted);
+        }
+    }
+
+    if !resolved.delete.is_empty() {
+        for key in &resolved.delete {
+            owned.remove(key);
+        }
+
+        reporter.set_message(format!("Удаление лишних файлов: {}", resolved.delete.len()));
+        pack_files::remove(&minecraft, &resolved.delete).await;
     }
 
     let stale = previous.stale(&owned);
@@ -252,7 +278,10 @@ pub async fn apply(
         pack_files::remove(&minecraft, &stale).await;
     }
 
-    PackFiles::new(pack.version_id.clone(), owned)
+    let seeded = seed(state, instance, &previous, resolved, reporter).await?;
+
+    PackFiles::new(what.version_id, owned)
+        .with_seeded(seeded)
         .save(&instance_paths.pack_files())
         .await?;
 
@@ -264,6 +293,48 @@ pub async fn apply(
     reporter.set_fraction(1.0);
 
     Ok(())
+}
+
+async fn seed(
+    state: &Arc<AppState>,
+    instance: &Instance,
+    previous: &PackFiles,
+    resolved: &ResolvedPack,
+    reporter: &Arc<ProgressReporter>,
+) -> CommandResult<BTreeSet<String>> {
+    let mut seeded = previous.seeded.clone();
+
+    if resolved.seed.is_empty() {
+        return Ok(seeded);
+    }
+
+    let mut tasks = Vec::new();
+
+    for file in &resolved.seed {
+        seeded.insert(file.key.clone());
+
+        if !file.task.destination.exists() {
+            tasks.push(file.task.clone());
+        }
+    }
+
+    if tasks.is_empty() {
+        return Ok(seeded);
+    }
+
+    reporter.set_message(format!("Файлы по умолчанию: {}", tasks.len()));
+
+    state
+        .downloads
+        .run(
+            job_id(&instance.id, "castpack-seed"),
+            tasks,
+            DownloadOptions::default(),
+            Some(download_reporter(reporter)),
+        )
+        .await?;
+
+    Ok(seeded)
 }
 
 fn archive_path(paths: &LauncherPaths, pack: &PackSource) -> CommandResult<PathBuf> {

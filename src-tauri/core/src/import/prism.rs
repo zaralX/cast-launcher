@@ -91,6 +91,7 @@ impl ScannedInstance {
             loader_version: self.loader_version.clone(),
             custom_id: None,
             pack: None,
+            castpack: None,
             settings: self.settings.clone(),
             playtime: self.playtime,
             dir: String::new(),

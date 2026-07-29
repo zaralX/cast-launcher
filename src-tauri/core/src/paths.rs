@@ -148,6 +148,10 @@ impl InstancePaths {
         self.root.join("pack-blocked.json")
     }
 
+    pub fn castpack_manifest(&self) -> PathBuf {
+        self.root.join("castpack.json")
+    }
+
     pub fn minecraft(&self) -> PathBuf {
         self.root.join("minecraft")
     }

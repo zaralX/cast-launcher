@@ -47,9 +47,16 @@ const playtime = computed(() => formatPlaytime(props.instance.playtime?.totalSec
         >
           {{ instance.name }}
         </h3>
-        <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint">
+        <p v-if="!instance.castpack" class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint">
           {{ instance.minecraftVersion }}
           <template v-if="instance.loaderVersion"> · {{ instance.loaderVersion }}</template>
+        </p>
+        <p
+            v-if="instance.castpack"
+            class="mt-1 flex items-center gap-1.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+            :title="`Сборка CastPack ${instance.castpack.version}`"
+        >
+          <span class="truncate">CastPack{{ instance.castpack.version ? ` ${instance.castpack.version}` : '' }}</span>
         </p>
         <p
             class="mt-1 flex items-center gap-1.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"

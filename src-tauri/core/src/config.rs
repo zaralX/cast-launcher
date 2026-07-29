@@ -21,6 +21,19 @@ pub struct LauncherConfig {
     pub theme: String,
     pub dir: String,
     pub auto_update: bool,
+    #[serde(default)]
+    pub castpack_url: String,
+}
+
+impl LauncherConfig {
+    pub fn catalog_url(&self) -> &str {
+        let url = self.castpack_url.trim();
+
+        match url.is_empty() {
+            true => crate::castpack::catalog::DEFAULT_URL,
+            false => url,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,6 +63,7 @@ impl AppConfig {
                 theme: "dark".into(),
                 dir: config_root.display().to_string(),
                 auto_update: true,
+                castpack_url: String::new(),
             },
             java: JavaConfig {
                 java_mode: JavaMode::Auto,
@@ -127,6 +141,7 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
             theme: string_or(launcher, "theme", defaults.launcher.theme),
             dir: string_or(launcher, "dir", defaults.launcher.dir),
             auto_update: bool_or(launcher, "auto_update", defaults.launcher.auto_update),
+            castpack_url: string_or(launcher, "castpack_url", defaults.launcher.castpack_url),
         },
         java: JavaConfig {
             java_mode: java
@@ -182,6 +197,30 @@ mod tests {
 
     fn migrated(raw: Value) -> AppConfig {
         merge(AppConfig::defaults(Path::new("/cfg")), migrate(raw))
+    }
+
+    #[test]
+    fn an_empty_catalog_url_falls_back_to_the_built_in_one() {
+        let mut config = AppConfig::defaults(Path::new("/cfg"));
+
+        assert_eq!(config.launcher.catalog_url(), crate::castpack::catalog::DEFAULT_URL);
+
+        config.launcher.castpack_url = "   ".into();
+        assert_eq!(config.launcher.catalog_url(), crate::castpack::catalog::DEFAULT_URL);
+
+        config.launcher.castpack_url = " https://свой.каталог/packs.json ".into();
+        assert_eq!(config.launcher.catalog_url(), "https://свой.каталог/packs.json");
+    }
+
+    #[test]
+    fn a_config_written_before_castpack_existed_keeps_the_default_catalog() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "auto_update": true }
+        }));
+
+        assert!(config.launcher.castpack_url.is_empty());
+        assert_eq!(config.launcher.catalog_url(), crate::castpack::catalog::DEFAULT_URL);
     }
 
     #[test]

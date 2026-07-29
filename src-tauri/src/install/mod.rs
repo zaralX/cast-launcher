@@ -23,9 +23,10 @@ use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
 
 pub mod blocked;
+mod castpack;
 mod modpack;
 
-pub use cast_core::install::phases::{self, job_id, job_prefix};
+pub use cast_core::install::phases::{self, job_id, job_prefix, Source};
 pub use cast_core::install::progress::{InstallSnapshot, ProgressReporter, Stage};
 
 #[derive(Default)]
@@ -80,6 +81,15 @@ pub async fn start(
     state: Arc<AppState>,
     instance_id: String,
 ) -> CommandResult<InstallSnapshot> {
+    start_with(app, state, instance_id, false).await
+}
+
+pub async fn start_with(
+    app: AppHandle,
+    state: Arc<AppState>,
+    instance_id: String,
+    launch_after: bool,
+) -> CommandResult<InstallSnapshot> {
     if let Some(existing) = state.installs.snapshot(&instance_id).await {
         return Ok(existing);
     }
@@ -90,7 +100,7 @@ pub async fn start(
         install_publisher(app.clone()),
         instance.id.clone(),
         instance.name.clone(),
-        phases::for_install(instance.loader, instance.pack.as_ref().map(|pack| pack.provider)),
+        phases::for_install(instance.loader, Source::of(&instance)),
     ));
 
     state.installs.register(Arc::clone(&reporter)).await;
@@ -99,10 +109,29 @@ pub async fn start(
 
     tokio::spawn(async move {
         let outcome = run(&state, &instance, &reporter).await;
+        let installed = outcome.is_ok();
+
         complete(&app, &state, &instance, &reporter, outcome).await;
+
+        if installed && launch_after {
+            if let Err(error) = crate::launch::launch(app.clone(), Arc::clone(&state), &instance.id).await {
+                eprintln!("Сборка «{}» установлена, но не запустилась: {error}", instance.name);
+                LauncherEvent::LaunchFailed {
+                    instance_id: instance.id.clone(),
+                    instance_name: instance.name.clone(),
+                    error: error.message,
+                }
+                .emit(&app);
+            }
+        }
     });
 
     Ok(snapshot)
+}
+
+#[derive(Debug, Default)]
+struct Installed {
+    castpack: Option<(String, String)>,
 }
 
 async fn complete(
@@ -110,13 +139,27 @@ async fn complete(
     state: &Arc<AppState>,
     instance: &Instance,
     reporter: &Arc<ProgressReporter>,
-    outcome: CommandResult<()>,
+    outcome: CommandResult<Installed>,
 ) {
     match outcome {
-        Ok(()) => {
+        Ok(installed) => {
             let paths = state.paths().await;
 
-            if let Err(error) = state.instances.mark_installed(&paths, &instance.id).await {
+            let saved = state
+                .instances
+                .update(&paths, &instance.id, move |current| {
+                    current.installed = true;
+
+                    if let (Some(source), Some((version, changelog))) =
+                        (current.castpack.as_mut(), installed.castpack)
+                    {
+                        source.version = version;
+                        source.changelog = changelog;
+                    }
+                })
+                .await;
+
+            if let Err(error) = saved {
                 reporter.fail(Stage::Failed, error.message.clone());
                 eprintln!("Установка завершена, но флаг не сохранился: {error}");
             } else {
@@ -139,27 +182,50 @@ async fn complete(
     state.installs.unregister(&instance.id).await;
 }
 
+enum Prepared {
+    Pack(modpack::Modpack),
+    CastPack(castpack::CastPack),
+}
+
 async fn run(
     state: &Arc<AppState>,
     instance: &Instance,
     reporter: &Arc<ProgressReporter>,
-) -> CommandResult<()> {
+) -> CommandResult<Installed> {
     let paths = state.paths().await;
 
     reporter.set_stage(Stage::Prepare);
     reporter.set_message("Подготовка");
     prepare_dirs(&paths, instance).await?;
 
-    let (instance, modpack) = match instance.pack.clone() {
-        Some(pack) => {
-            let modpack = modpack::prepare(state, &paths, instance, &pack, reporter).await?;
+    let (instance, prepared) = match Source::of(instance) {
+        Source::CastPack(_) => {
+            let source = instance
+                .castpack
+                .clone()
+                .ok_or_else(|| CommandError::manifest("У сборки пропал источник CastPack"))?;
+
+            let pack = castpack::prepare(state, &paths, instance, &source, reporter).await?;
+            check_cancelled(reporter)?;
+
+            let synced = castpack::sync(state, &paths, instance, &pack).await?;
+
+            (synced, Some(Prepared::CastPack(pack)))
+        }
+        Source::Pack(_) => {
+            let source = instance
+                .pack
+                .clone()
+                .ok_or_else(|| CommandError::manifest("У сборки пропал источник модпака"))?;
+
+            let modpack = modpack::prepare(state, &paths, instance, &source, reporter).await?;
             check_cancelled(reporter)?;
 
             let synced = modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
 
-            (synced, Some((pack, modpack)))
+            (synced, Some(Prepared::Pack(modpack)))
         }
-        None => (instance.clone(), None),
+        Source::Plain => (instance.clone(), None),
     };
 
     let instance = &instance;
@@ -193,13 +259,41 @@ async fn run(
 
     check_cancelled(reporter)?;
 
-    if let Some((pack, modpack)) = &modpack {
-        modpack::apply(state, &paths, instance, pack, modpack, reporter).await?;
+    let mut installed = Installed::default();
+
+    match &prepared {
+        Some(Prepared::Pack(pack)) => {
+            let resolved = pack.resolved();
+
+            modpack::apply(
+                state,
+                &paths,
+                instance,
+                modpack::Applied {
+                    resolved,
+                    archive: Some(pack.archive()),
+                    version_id: instance.pack.as_ref().map(|pack| pack.version_id.as_str()).unwrap_or_default(),
+                    phase: "modpack",
+                    label: "Файлы модпака",
+                },
+                reporter,
+            )
+            .await?;
+        }
+        Some(Prepared::CastPack(pack)) => {
+            castpack::apply(state, &paths, instance, pack, reporter).await?;
+
+            installed.castpack = Some((
+                pack.manifest.version.clone(),
+                pack.manifest.changelog.clone(),
+            ));
+        }
+        None => {}
     }
 
     reporter.set_stage(Stage::Finalize);
 
-    Ok(())
+    Ok(installed)
 }
 
 async fn prepare_dirs(paths: &LauncherPaths, instance: &Instance) -> CommandResult<()> {

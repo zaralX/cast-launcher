@@ -13,6 +13,10 @@ const links = [{
   icon: "i-lucide-box",
   to: "/main"
 }, {
+  name: "CastPack",
+  icon: "i-lucide-layers",
+  to: "/castpack"
+}, {
   name: "Поиск сборок",
   icon: "i-lucide-search",
   to: "/search"

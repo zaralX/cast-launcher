@@ -1,6 +1,7 @@
 pub mod account;
 pub mod archive;
 pub mod assets;
+pub mod castpack;
 pub mod config;
 pub mod curseforge;
 pub mod error;

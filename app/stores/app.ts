@@ -2,14 +2,12 @@ import {defineStore} from 'pinia'
 import {check} from "@tauri-apps/plugin-updater"
 import {relaunch} from '@tauri-apps/plugin-process'
 import type {AppConfig, JavaRuntime, LauncherPaths} from '~/types/app'
-import type {MyPacksConfig} from "~/types/pack"
 import {call} from "~/types/backend"
 
 export const useAppStore = defineStore('app', {
     state: () => ({
         config: null as null | AppConfig,
         paths: null as null | LauncherPaths,
-        myPacksConfig: null as null | MyPacksConfig,
         javaRuntimes: [] as JavaRuntime[],
         javaScanning: false,
         javaScanned: false
@@ -68,10 +66,6 @@ export const useAppStore = defineStore('app', {
             await relaunch()
 
             return true
-        },
-
-        async loadMyPacks() {
-            this.myPacksConfig = await call("load_my_packs")
         }
     }
 })

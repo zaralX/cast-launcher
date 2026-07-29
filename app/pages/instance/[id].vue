@@ -6,7 +6,7 @@ definePageMeta({
   layout: "main"
 })
 
-type Tab = "general" | "pack" | "java" | "logs"
+type Tab = "general" | "castpack" | "pack" | "java" | "logs"
 
 const route = useRoute()
 const toast = useToast()
@@ -24,6 +24,7 @@ const TABS = computed(() => {
     {key: "general", label: "Общее", icon: "i-lucide-box"}
   ]
 
+  if (instance.value?.castpack) items.push({key: "castpack", label: "CastPack", icon: "i-lucide-layers"})
   if (instance.value?.pack) items.push({key: "pack", label: "Модпак", icon: "i-lucide-package"})
 
   items.push({key: "java", label: "Java", icon: "i-lucide-cpu"})
@@ -40,7 +41,7 @@ const running = computed(() => instanceStore.isRunning(instanceId.value))
 const installing = computed(() => !!instanceStore.getInstall(instanceId.value))
 
 const run = () => safeRun(
-    () => instanceStore.runInstance(instanceId.value),
+    () => instanceStore.playInstance(instanceId.value),
     {context: {instanceId: instanceId.value, action: "Запуск сборки"}}
 )
 
@@ -224,6 +225,8 @@ function reset() {
             v-model:icon="draft.icon"
             class="animate-rise"
         />
+
+        <InstanceCastPack v-if="tab === 'castpack' && instance.castpack" :instance="instance" class="animate-rise"/>
 
         <InstancePack v-if="tab === 'pack' && instance.pack" :instance="instance" class="animate-rise"/>
 

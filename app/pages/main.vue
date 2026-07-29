@@ -1,21 +1,23 @@
 <script setup lang="ts">
 import CreateInstanceModalBody from "~/components/CreateInstanceModalBody.vue";
-import {useAppStore} from "~/stores/app";
+import {useCastPackStore} from "~/stores/castpack";
 
 definePageMeta({
   layout: "main"
 })
 
-const appStore = useAppStore()
 const instanceStore = useInstanceStore()
-const {installInstance, runInstance} = instanceStore
+const castpackStore = useCastPackStore()
+const toast = useToast()
+
+const {installInstance, playInstance} = instanceStore
 const {running, instances, installs} = storeToRefs(instanceStore)
 
 const createModalOpen = ref(false)
 
-const myPacks = computed(() => Object.entries(appStore.myPacksConfig?.packs ?? {}))
-
-const installedCount = computed(() => instances.value.filter(i => i.installed).length)
+const catalogPacks = computed(() =>
+    castpackStore.packs.filter(pack => !castpackStore.instanceOf(pack.id))
+)
 
 const isRunning = (id: string) => running.value.some(game => game.instanceId === id)
 
@@ -25,6 +27,33 @@ const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
 
 const openCreateModal = () => {
   createModalOpen.value = true
+}
+
+onMounted(() => safeRun(() => castpackStore.loadCatalog(), {
+  code: "NETWORK",
+  context: {action: "Загрузка каталога CastPack"}
+}))
+
+const run = (id: string) => safeRun(
+    () => playInstance(id),
+    {context: {instanceId: id, action: "Запуск сборки"}}
+)
+
+async function installPack(packId: string) {
+  const pack = castpackStore.packs.find(item => item.id === packId)
+
+  const started = await attempt(() => castpackStore.installPack(packId), {
+    context: {action: "Установка сборки CastPack", packId}
+  })
+
+  if (!started.ok) return
+
+  toast.add({
+    title: `Установка «${pack?.name ?? packId}»`,
+    description: "Файлы сборки скачиваются в фоне",
+    color: "success",
+    icon: "i-lucide-arrow-down-to-line"
+  })
 }
 </script>
 
@@ -60,7 +89,7 @@ const openCreateModal = () => {
             class="animate-rise"
             :style="{ animationDelay: `${i * 35}ms` }"
             @install="installInstance"
-            @run="runInstance"
+            @run="run"
         />
 
         <UButton
@@ -80,17 +109,31 @@ const openCreateModal = () => {
       </div>
     </section>
 
-    <section v-if="myPacks.length" class="mt-8">
-      <SectionHeading index="02" title="Сборки от zaralX" :meta="`${myPacks.length} шт.`"/>
+    <section v-if="catalogPacks.length" class="mt-8">
+      <SectionHeading index="02" title="Сборки CastPack" :meta="`${catalogPacks.length} шт.`">
+        <template #action>
+          <NuxtLink
+              to="/castpack"
+              class="group/all ml-2 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint transition-colors duration-300 hover:text-acid"
+          >
+            Весь каталог
+            <UIcon
+                name="i-lucide-arrow-right"
+                class="size-3 transition-transform duration-500 ease-deck group-hover/all:translate-x-1"
+            />
+          </NuxtLink>
+        </template>
+      </SectionHeading>
 
       <div class="mt-4 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-        <PackCard
-            v-for="([packId, pack], i) in myPacks"
-            :key="packId"
+        <CastpackCard
+            v-for="(pack, i) in catalogPacks"
+            :key="pack.id"
             :pack="pack"
-            :pack-id="packId"
+            :state="castpackStore.stateOf(pack)"
             class="animate-rise"
             :style="{ animationDelay: `${i * 45}ms` }"
+            @install="installPack"
         />
       </div>
     </section>

@@ -332,6 +332,126 @@ pub async fn version(version_id: &str) -> CommandResult<PackVersion> {
     Ok(PackVersion::from(raw))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogFile {
+    pub project_id: String,
+    pub folder: &'static str,
+    pub file_name: String,
+    pub url: String,
+    pub sha1: Option<String>,
+    pub size: Option<u64>,
+}
+
+pub fn folder_for(project_type: &str) -> &'static str {
+    match project_type.trim().to_ascii_lowercase().as_str() {
+        "resourcepack" => "resourcepacks",
+        "shader" => "shaderpacks",
+        "datapack" => "datapacks",
+        _ => "mods",
+    }
+}
+
+pub async fn catalog_files(version_ids: &[String]) -> CommandResult<BTreeMap<String, CatalogFile>> {
+    if version_ids.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let ids: Vec<&str> = version_ids
+        .iter()
+        .map(|id| segment(id))
+        .collect::<CommandResult<_>>()?;
+
+    let versions: Vec<Version> = get_json(&ids_url("versions", &ids)).await?;
+
+    let mut files = BTreeMap::new();
+    let mut missing = Vec::new();
+
+    for version in versions {
+        let Some(file) = version.primary_file().cloned() else {
+            missing.push(version.id.clone());
+            continue;
+        };
+
+        files.insert(
+            version.id.clone(),
+            CatalogFile {
+                project_id: version.project_id,
+                folder: "mods",
+                file_name: file.filename,
+                url: file.url,
+                sha1: file.hashes.sha1,
+                size: file.size,
+            },
+        );
+    }
+
+    for id in version_ids {
+        if !files.contains_key(id.trim()) && !missing.contains(id) {
+            missing.push(id.clone());
+        }
+    }
+
+    if !missing.is_empty() {
+        return Err(CommandError::manifest(format!(
+            "Modrinth не отдал файлы для версий: {}",
+            missing.join(", ")
+        )));
+    }
+
+    apply_folders(&mut files).await;
+
+    Ok(files)
+}
+
+async fn apply_folders(files: &mut BTreeMap<String, CatalogFile>) {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "snake_case")]
+    struct RawProject {
+        id: String,
+        #[serde(default)]
+        project_type: String,
+    }
+
+    let ids: Vec<&str> = {
+        let mut ids: Vec<&str> = files.values().map(|file| file.project_id.as_str()).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    };
+
+    if ids.is_empty() {
+        return;
+    }
+
+    let projects: Vec<RawProject> = match get_json(&ids_url("projects", &ids)).await {
+        Ok(projects) => projects,
+        Err(error) => {
+            eprintln!("Modrinth не отдал типы проектов, всё кладём в mods: {error}");
+            return;
+        }
+    };
+
+    let folders: BTreeMap<String, &'static str> = projects
+        .into_iter()
+        .map(|project| (project.id, folder_for(&project.project_type)))
+        .collect();
+
+    for file in files.values_mut() {
+        if let Some(folder) = folders.get(&file.project_id) {
+            file.folder = folder;
+        }
+    }
+}
+
+fn ids_url(path: &str, ids: &[&str]) -> String {
+    let quoted: Vec<String> = ids.iter().map(|id| format!("\"{id}\"")).collect();
+
+    let mut url = Url::parse(&format!("{API}/{path}")).expect("постоянный адрес Modrinth");
+    url.query_pairs_mut().append_pair("ids", &format!("[{}]", quoted.join(",")));
+
+    url.into()
+}
+
 pub async fn files_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, PackFile>> {
     #[derive(Serialize)]
     struct Body<'a> {

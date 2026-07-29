@@ -40,6 +40,29 @@ const MODPACK: Phase = Phase::new("modpack", "Файлы модпака", 25);
 
 const MODPACK_RESOLVE: Phase = Phase::new("modpack-resolve", "Список файлов пака", 5);
 
+const CASTPACK_MANIFEST: Phase = Phase::new("castpack-manifest", "Манифест сборки", 4);
+
+const CASTPACK_MODS: Phase = Phase::new("castpack-mods", "Список модов сборки", 4);
+
+const CASTPACK: Phase = Phase::new("castpack", "Файлы сборки", 22);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Source {
+    Plain,
+    Pack(PackProvider),
+    CastPack(Option<PackProvider>),
+}
+
+impl Source {
+    pub fn of(instance: &crate::instance::Instance) -> Self {
+        match (&instance.castpack, &instance.pack) {
+            (Some(_), pack) => Self::CastPack(pack.as_ref().map(|pack| pack.provider)),
+            (None, Some(pack)) => Self::Pack(pack.provider),
+            (None, None) => Self::Plain,
+        }
+    }
+}
+
 pub fn for_loader(loader: LoaderType) -> Vec<Phase> {
     match loader {
         LoaderType::Vanilla => VANILLA.to_vec(),
@@ -56,14 +79,32 @@ fn modpack_phases(provider: PackProvider) -> Vec<Phase> {
     }
 }
 
-pub fn for_install(loader: LoaderType, pack: Option<PackProvider>) -> Vec<Phase> {
+fn extra_phases(source: Source) -> Vec<Phase> {
+    match source {
+        Source::Plain => Vec::new(),
+        Source::Pack(provider) => modpack_phases(provider),
+        Source::CastPack(base) => {
+            let mut phases = vec![CASTPACK_MANIFEST];
+
+            if base == Some(PackProvider::CurseForge) {
+                phases.push(MODPACK_RESOLVE);
+            }
+
+            phases.push(CASTPACK_MODS);
+            phases.push(CASTPACK);
+            phases
+        }
+    }
+}
+
+pub fn for_install(loader: LoaderType, source: Source) -> Vec<Phase> {
     let base = for_loader(loader);
+    let extra = extra_phases(source);
 
-    let Some(provider) = pack else {
+    if extra.is_empty() {
         return base;
-    };
+    }
 
-    let extra = modpack_phases(provider);
     let weight: u32 = extra.iter().map(|phase| phase.weight).sum();
 
     let mut phases = rescale(&base, 100 - weight);
@@ -117,28 +158,54 @@ mod tests {
         }
     }
 
-    #[test]
-    fn a_modpack_install_still_adds_up_to_a_full_scale() {
+    fn sources() -> Vec<Source> {
+        let mut sources = vec![Source::Plain, Source::CastPack(None)];
+
         for provider in PackProvider::ALL {
+            sources.push(Source::Pack(provider));
+            sources.push(Source::CastPack(Some(provider)));
+        }
+
+        sources
+    }
+
+    #[test]
+    fn every_kind_of_install_still_adds_up_to_a_full_scale() {
+        for source in sources() {
             for loader in LoaderType::ALL {
-                let phases = for_install(loader, Some(provider));
+                let phases = for_install(loader, source);
                 let total: u32 = phases.iter().map(|phase| phase.weight).sum();
 
                 assert_eq!(
                     total, 100,
-                    "фазы {loader:?} с паком {provider:?} должны в сумме давать 100"
+                    "фазы {loader:?} из источника {source:?} должны в сумме давать 100"
                 );
-                assert_eq!(phases.last().unwrap().key, "modpack");
             }
         }
+    }
+
+    #[test]
+    fn the_last_phase_is_always_the_one_that_lays_out_the_files() {
+        for provider in PackProvider::ALL {
+            assert_eq!(for_install(LoaderType::Forge, Source::Pack(provider)).last().unwrap().key, "modpack");
+            assert_eq!(
+                for_install(LoaderType::Forge, Source::CastPack(Some(provider)))
+                    .last()
+                    .unwrap()
+                    .key,
+                "castpack"
+            );
+        }
+
+        assert_eq!(for_install(LoaderType::Forge, Source::CastPack(None)).last().unwrap().key, "castpack");
     }
 
     #[test]
     fn curseforge_gets_an_extra_phase_for_resolving_file_links() {
         let loader = LoaderType::Fabric;
 
-        let modrinth = for_install(loader, Some(PackProvider::Modrinth));
-        let curseforge = for_install(loader, Some(PackProvider::CurseForge));
+        let modrinth = for_install(loader, Source::Pack(PackProvider::Modrinth));
+        let curseforge = for_install(loader, Source::Pack(PackProvider::CurseForge));
 
         assert_eq!(modrinth.len(), for_loader(loader).len() + 1);
         assert_eq!(curseforge.len(), for_loader(loader).len() + 2);
@@ -152,12 +219,72 @@ mod tests {
     }
 
     #[test]
-    fn without_a_modpack_the_phases_are_untouched() {
-        let plain = for_install(LoaderType::Fabric, None);
+    fn a_castpack_reads_its_manifest_before_anything_else_it_owns() {
+        let phases = for_install(LoaderType::Forge, Source::CastPack(Some(PackProvider::CurseForge)));
+        let keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
+        let at = |key: &str| keys.iter().position(|item| *item == key).unwrap();
+
+        assert!(at("castpack-manifest") < at("modpack-resolve"));
+        assert!(at("modpack-resolve") < at("castpack-mods"));
+        assert!(at("castpack-mods") < at("castpack"));
+    }
+
+    #[test]
+    fn a_castpack_without_a_base_pack_does_not_resolve_pack_files() {
+        let phases = for_install(LoaderType::Fabric, Source::CastPack(None));
+        let keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
+
+        assert!(!keys.contains(&"modpack-resolve"));
+        assert!(!keys.contains(&"modpack"));
+        assert!(keys.contains(&"castpack-manifest"));
+    }
+
+    #[test]
+    fn without_a_pack_the_phases_are_untouched() {
+        let plain = for_install(LoaderType::Fabric, Source::Plain);
         let base = for_loader(LoaderType::Fabric);
 
         assert_eq!(plain.len(), base.len());
         assert!(plain.iter().zip(&base).all(|(a, b)| a.key == b.key && a.weight == b.weight));
+    }
+
+    #[test]
+    fn phase_keys_stay_unique_for_every_source() {
+        for source in sources() {
+            let phases = for_install(LoaderType::Forge, source);
+            let mut keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
+            keys.sort_unstable();
+            keys.dedup();
+
+            assert_eq!(keys.len(), phases.len(), "дубли ключей у {source:?}");
+        }
+    }
+
+    #[test]
+    fn a_castpack_instance_is_recognised_even_when_it_stands_on_a_modpack() {
+        use crate::instance::Instance;
+        use serde_json::json;
+
+        let plain: Instance = serde_json::from_value(json!({
+            "id": "a", "name": "a", "minecraftVersion": "1.20.1", "type": "fabric"
+        }))
+        .unwrap();
+        assert_eq!(Source::of(&plain), Source::Plain);
+
+        let with_pack: Instance = serde_json::from_value(json!({
+            "id": "a", "name": "a", "minecraftVersion": "1.20.1", "type": "fabric",
+            "pack": {"provider": "modrinth", "projectId": "p", "versionId": "v", "fileUrl": "https://x"}
+        }))
+        .unwrap();
+        assert_eq!(Source::of(&with_pack), Source::Pack(PackProvider::Modrinth));
+
+        let castpack: Instance = serde_json::from_value(json!({
+            "id": "a", "name": "a", "minecraftVersion": "1.20.1", "type": "fabric",
+            "castpack": {"catalogId": "rpg", "manifestUrl": "https://x/m.json"},
+            "pack": {"provider": "curseforge", "projectId": "p", "versionId": "v", "fileUrl": "https://x"}
+        }))
+        .unwrap();
+        assert_eq!(Source::of(&castpack), Source::CastPack(Some(PackProvider::CurseForge)));
     }
 
     #[test]
