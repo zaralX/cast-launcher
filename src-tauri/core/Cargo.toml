@@ -1,6 +1,6 @@
 [package]
 name = "cast-core"
-version = "0.4.0"
+version = "1.0.0"
 description = "Логика лаунчера: метаданные версий, загрузки, установка, сборка запуска"
 edition = "2021"
 

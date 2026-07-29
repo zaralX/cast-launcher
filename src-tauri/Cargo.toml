@@ -3,21 +3,17 @@ members = ["core"]
 
 [package]
 name = "cast-launcher"
-version = "0.4.0"
-description = "A Tauri App"
+version = "1.0.0"
+description = "A Cast Launcher"
 authors = ["zaralX"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-# Суффикс `_lib` нужен, чтобы имя библиотеки не конфликтовало с именем бинарника:
 # https://github.com/rust-lang/cargo/issues/8519
 name = "cast_launcher_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
-# Крейт содержит только обвязку Tauri, тестировать в нём нечего. Заодно это
-# обходит проблему windows-gnu: тестовому бинарнику не достаётся манифест
-# Common-Controls v6, без которого он не стартует. Логика и тесты живут в core.
 test = false
 
 [build-dependencies]
