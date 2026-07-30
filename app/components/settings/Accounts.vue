@@ -39,7 +39,7 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
               :class="accountConfig?.selected === i ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
           />
 
-          <NuxtImg
+          <img
               :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${account.name}/full`"
               class="size-8 shrink-0 transition-transform duration-500 ease-deck group-hover:scale-105"
               :alt="account.name"

@@ -29,5 +29,5 @@ export default defineNuxtConfig({
     pageTransition: { name: 'page', mode: 'out-in' },
   },
   ignore: ['**/src-tauri/**'],
-  modules: ['@nuxt/image', '@pinia/nuxt', '@nuxt/ui']
+  modules: ['@pinia/nuxt', '@nuxt/ui']
 })

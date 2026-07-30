@@ -182,7 +182,7 @@ const onInstalled = () => {
               class="absolute inset-x-0 top-0 h-px origin-center bg-acid transition-transform duration-500 ease-deck"
               :class="source === item.id ? 'scale-x-100' : 'scale-x-0'"
           />
-          <NuxtImg :src="PROVIDER_LOGOS[item.id]" class="size-3.5" alt=""/>
+          <img :src="PROVIDER_LOGOS[item.id]" class="size-3.5" alt=""/>
           <span class="font-mono text-[10px] uppercase tracking-[0.16em]">{{ item.label }}</span>
           <span v-if="!item.ready" class="font-mono text-[9px] tracking-[0.12em] text-fg-faint">нет ключа</span>
         </button>

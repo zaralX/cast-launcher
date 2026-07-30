@@ -52,7 +52,7 @@ onMounted(async () => {
   <div class="flex h-screen w-full flex-col overflow-hidden bg-ink-900 text-fg">
     <header class="relative z-40 flex h-11 shrink-0 items-stretch border-b border-line bg-ink-800">
       <div class="flex items-center gap-3 pl-3 pr-6">
-        <NuxtImg src="/logo.png" class="h-6 w-6" alt=""/>
+        <img src="/logo.png" class="h-6 w-6" alt=""/>
         <p class="font-unbounded text-[13px] font-semibold leading-none tracking-[-0.05em]">
           CAST<span class="text-acid">.</span>
         </p>
@@ -134,7 +134,7 @@ onMounted(async () => {
             to="/settings"
             class="mb-2 group relative mx-auto grid size-10 place-items-center border border-line bg-ink-700 transition-colors duration-300 hover:border-acid/50"
         >
-          <NuxtImg
+          <img
               :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${currentAccount.name}/full`"
               class="size-6 transition-transform duration-300 group-hover:scale-110"
               :alt="currentAccount.name"
