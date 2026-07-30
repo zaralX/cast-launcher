@@ -156,20 +156,8 @@ const createInstance = async () => {
               id="instance-name"
               v-model="name"
               placeholder="Например, Hardcore Survival"
-              size="lg"
               class="w-full"
-              :ui="{ base: 'font-unbounded text-[15px] tracking-[-0.03em]' }"
           />
-        </div>
-
-        <div>
-          <label
-              for="instance-description"
-              class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
-          >
-            Описание
-          </label>
-          <UInput id="instance-description" v-model="description" placeholder="Необязательно" class="w-full"/>
         </div>
       </div>
 
