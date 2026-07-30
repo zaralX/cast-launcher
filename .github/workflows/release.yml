@@ -4,9 +4,39 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
+  verify-version:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: versions must be in sync
+        run: |
+          tauri_conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          pkg=$(node -p "require('./package.json').version")
+          app=$(grep -m1 '^version' src-tauri/Cargo.toml | cut -d'"' -f2)
+          core=$(grep -m1 '^version' src-tauri/core/Cargo.toml | cut -d'"' -f2)
+          echo "tauri.conf.json=$tauri_conf package.json=$pkg src-tauri/Cargo.toml=$app core/Cargo.toml=$core"
+          if [ "$tauri_conf" != "$pkg" ] || [ "$tauri_conf" != "$app" ] || [ "$tauri_conf" != "$core" ]; then
+            echo "::error::version mismatch between tauri.conf.json, package.json and the Cargo manifests"
+            exit 1
+          fi
+
+      # tauri-action names the release from tauri.conf.json, not from the pushed tag.
+      # Without this the release would silently land on a different tag.
+      - name: tag must match the app version
+        if: github.ref_type == 'tag'
+        run: |
+          expected="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [ "$expected" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match app version $expected"
+            exit 1
+          fi
+
   publish-launcher:
+    needs: verify-version
     permissions:
       contents: write
     strategy:
@@ -51,7 +81,7 @@ jobs:
 
       - name: install frontend dependencies
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
-        run: npm install # change this to npm or pnpm depending on which one you use.
+        run: npm ci
 
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -61,7 +91,7 @@ jobs:
         with:
           tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: 'App v__VERSION__'
-          releaseBody: 'Welcome in new version'
+          generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

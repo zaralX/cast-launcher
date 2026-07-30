@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ['ubuntu-22.04', 'windows-latest']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # cast-core doesn't depend on tauri, so no webkit/appindicator deps needed here.
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: ${{ matrix.platform }}
+
+      - name: cargo test (cast-core)
+        working-directory: ./src-tauri
+        run: cargo test -p cast-core --locked
+
+  build:
+    name: build (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ['ubuntu-22.04', 'windows-latest']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: install frontend dependencies
+        run: npm ci
+
+      # tauri-build validates that frontendDist exists, so the frontend has to be
+      # generated before cargo touches the app crate.
+      - name: build frontend
+        run: npm run generate
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: ${{ matrix.platform }}
+
+      - name: cargo check (workspace)
+        working-directory: ./src-tauri
+        run: cargo check --workspace --all-targets --locked
+
+  lint:
+    name: lint (non-blocking)
+    runs-on: ubuntu-22.04
+    # fmt/clippy have never run on this codebase — reported, but not gating merges yet.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: lint
+
+      - name: cargo fmt
+        working-directory: ./src-tauri
+        run: cargo fmt --all --check
+
+      - name: cargo clippy (cast-core)
+        working-directory: ./src-tauri
+        run: cargo clippy -p cast-core --all-targets --locked
