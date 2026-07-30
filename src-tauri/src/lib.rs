@@ -74,6 +74,7 @@ pub fn run() {
             commands::castpack_check_update,
             commands::castpack_set_autoupdate,
             commands::castpack_validate,
+            commands::castpack_save_manifest,
             commands::castpack_probe_file,
             commands::castpack_probe_mod,
             commands::open_url,

@@ -320,7 +320,7 @@ pub fn icon_file_name(provider: PackProvider, project_id: &str, url: &str) -> St
     format!("{}-{project_id}.{extension}", provider.key())
 }
 
-pub async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u8>> {
+pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u8>> {
     let parsed = url::Url::parse(url)
         .map_err(|e| CommandError::network("Некорректная ссылка на иконку").with_details(e.to_string()))?;
 

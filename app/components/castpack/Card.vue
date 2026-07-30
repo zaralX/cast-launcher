@@ -70,6 +70,13 @@ function activate() {
             class="shrink-0 text-fg-faint transition-colors duration-500 group-hover:border-acid/40 group-hover:text-acid"
         />
 
+        <span
+            v-else-if="pack.icon"
+            class="grid size-8 shrink-0 place-items-center overflow-hidden border border-line transition-colors duration-500 group-hover:border-acid/40"
+        >
+          <img :src="pack.icon" alt="" class="size-full object-contain p-[3px]"/>
+        </span>
+
         <div class="min-w-0">
           <h3 class="font-unbounded text-[16px] font-semibold leading-[1.1] tracking-[-0.045em] text-fg">
             {{ pack.name }}

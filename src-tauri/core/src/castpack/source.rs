@@ -104,6 +104,45 @@ pub fn file_name_of(url: &str) -> String {
         .to_string()
 }
 
+pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
+    let url = https_url(url)?;
+    let limit = crate::icons::MAX_SIZE;
+
+    let response = http::client()
+        .get(url)
+        .timeout(TIMEOUT)
+        .send()
+        .await
+        .map_err(|e| {
+            CommandError::network(format!("Не удалось скачать иконку: {url}"))
+                .with_details(e.to_string())
+        })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(http::http_status_error(status, url));
+    }
+
+    if response.content_length().is_some_and(|size| size > limit) {
+        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| {
+            CommandError::download(format!("Обрыв загрузки иконки: {url}"))
+                .with_details(e.to_string())
+        })?
+        .to_vec();
+
+    if bytes.len() as u64 > limit {
+        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
+    }
+
+    Ok(bytes)
+}
+
 async fn fetch(url: &str) -> CommandResult<Vec<u8>> {
     let url = https_url(url)?;
 
@@ -256,6 +295,19 @@ mod tests {
         assert_eq!(file_name_of("https://cdn.zaralx.ru/mods/jei-1.0.jar"), "jei-1.0.jar");
         assert_eq!(file_name_of("https://cdn.zaralx.ru/mods/jei.jar?v=2"), "jei.jar");
         assert_eq!(file_name_of("https://cdn.zaralx.ru/"), "");
+    }
+
+    #[tokio::test]
+    async fn an_icon_may_live_on_any_https_host_but_only_on_https() {
+        assert!(icon("http://terrafirmagreg.team/storage/img/logo.gif").await.is_err());
+        assert!(icon("не ссылка").await.is_err());
+
+        let foreign = icon("https://такого.адреса.нет.invalid/logo.png").await;
+
+        assert!(
+            foreign.as_ref().is_err_and(|error| error.code != "MANIFEST_INVALID"),
+            "чужой хост должен дойти до сети, а не отвалиться на проверке ссылки: {foreign:?}"
+        );
     }
 
     #[tokio::test]

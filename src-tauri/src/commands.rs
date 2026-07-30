@@ -564,8 +564,11 @@ pub async fn refresh_account(state: Ctx<'_>, uuid: String) -> CommandResult<Acco
 }
 
 #[tauri::command]
-pub async fn castpack_catalog(state: Ctx<'_>) -> CommandResult<cast_core::castpack::Catalog> {
-    crate::castpack::catalog(state.inner()).await
+pub async fn castpack_catalog(
+    app: AppHandle,
+    state: Ctx<'_>,
+) -> CommandResult<cast_core::castpack::Catalog> {
+    crate::castpack::catalog(&app, state.inner()).await
 }
 
 #[tauri::command]
@@ -599,6 +602,11 @@ pub async fn castpack_set_autoupdate(
 #[tauri::command]
 pub async fn castpack_validate(json: String) -> CommandResult<cast_core::castpack::Manifest> {
     crate::play::parse_manifest(&json)
+}
+
+#[tauri::command]
+pub async fn castpack_save_manifest(app: AppHandle, json: String) -> CommandResult<Option<String>> {
+    crate::castpack::save_manifest_as(&app, &json).await
 }
 
 #[tauri::command]

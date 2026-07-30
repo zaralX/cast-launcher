@@ -17,6 +17,7 @@ const useBase = ref(false)
 const deleteText = ref("")
 
 const checking = ref(false)
+const saving = ref(false)
 const probing = ref<number | null>(null)
 const problem = ref<string | null>(null)
 const checked = ref(false)
@@ -157,12 +158,48 @@ async function validate() {
 }
 
 async function copyJson() {
-  try {
-    await navigator.clipboard.writeText(json.value)
+  if (await copyToClipboard(json.value)) {
     toast.add({title: "JSON скопирован", color: "success", icon: "i-lucide-copy"})
-  } catch {
-    toast.add({title: "Скопировать не вышло", color: "error", icon: "i-lucide-copy"})
+    return
   }
+
+  toast.add({
+    title: "Скопировать не вышло",
+    description: "Сохраните манифест в файл - так надёжнее",
+    color: "error",
+    icon: "i-lucide-copy"
+  })
+}
+
+async function saveJson() {
+  if (saving.value) return
+
+  saving.value = true
+  problem.value = null
+
+  const result = await attempt(
+      () => call("castpack_save_manifest", {json: json.value}),
+      {toast: false, context: {action: "Сохранение манифеста CastPack"}}
+  )
+
+  saving.value = false
+
+  if (!result.ok) {
+    checked.value = false
+    problem.value = result.error.message
+    return
+  }
+
+  if (!result.value) return
+
+  checked.value = true
+
+  toast.add({
+    title: "Манифест сохранён",
+    description: result.value,
+    color: "success",
+    icon: "i-lucide-save"
+  })
 }
 
 function load() {
@@ -248,8 +285,18 @@ function reset() {
 
         <AppButton
             block
-            tone="quiet"
             class="mt-3 h-9 text-[10px] tracking-[0.18em]"
+            icon="i-lucide-save"
+            :loading="saving"
+            @click="saveJson"
+        >
+          Сохранить в файл
+        </AppButton>
+
+        <AppButton
+            block
+            tone="quiet"
+            class="mt-2 h-9 text-[10px] tracking-[0.18em]"
             icon="i-lucide-copy"
             @click="copyJson"
         >

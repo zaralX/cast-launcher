@@ -31,12 +31,6 @@ pub fn https_url(url: &str) -> CommandResult<&str> {
     Ok(trimmed)
 }
 
-pub fn host_of(url: &str) -> Option<String> {
-    url::Url::parse(url.trim())
-        .ok()
-        .and_then(|parsed| parsed.host_str().map(str::to_string))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -49,11 +43,5 @@ mod tests {
         assert!(https_url("file:///C:/evil.jar").is_err());
         assert!(https_url("не ссылка").is_err());
         assert!(https_url("").is_err());
-    }
-
-    #[test]
-    fn the_host_is_taken_from_the_link() {
-        assert_eq!(host_of("https://cdn.zaralx.ru/packs/a.json").as_deref(), Some("cdn.zaralx.ru"));
-        assert_eq!(host_of("не ссылка"), None);
     }
 }

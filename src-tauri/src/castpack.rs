@@ -13,11 +13,61 @@ use crate::events::{EmitExt, LauncherEvent};
 use crate::install;
 use crate::state::AppState;
 
-pub async fn catalog(state: &Arc<AppState>) -> CommandResult<Catalog> {
+pub async fn catalog(app: &AppHandle, state: &Arc<AppState>) -> CommandResult<Catalog> {
     let config = state.config().await;
     let paths = state.paths().await;
 
-    castpack::source::catalog(config.launcher.catalog_url(), &castpack::source::catalog_cache(&paths)).await
+    let catalog =
+        castpack::source::catalog(config.launcher.catalog_url(), &castpack::source::catalog_cache(&paths))
+            .await?;
+
+    heal_icons(app, state, &catalog).await;
+
+    Ok(catalog)
+}
+
+async fn heal_icons(app: &AppHandle, state: &Arc<AppState>, catalog: &Catalog) {
+    let installed = state.instances.all().await;
+    let mut healed = false;
+
+    for pack in &catalog.packs {
+        if pack.icon.is_none() {
+            continue;
+        }
+
+        let Some(instance) = installed.iter().find(|instance| {
+            instance
+                .castpack
+                .as_ref()
+                .is_some_and(|source| source.catalog_id == pack.id)
+        }) else {
+            continue;
+        };
+
+        if !instance.icon.trim().is_empty() {
+            continue;
+        }
+
+        let Some(name) = save_icon(state, pack).await else { continue };
+
+        let paths = state.paths().await;
+
+        match state
+            .instances
+            .update(&paths, &instance.id, move |current| current.icon = name)
+            .await
+        {
+            Ok(_) => healed = true,
+            Err(error) => eprintln!("Иконка сборки «{}» не прописалась: {error}", pack.id),
+        }
+    }
+
+    if healed {
+        LauncherEvent::Instances {
+            instances: state.instances.all().await,
+        }
+        .emit(app);
+    }
 }
 
 pub async fn install_pack(
@@ -25,7 +75,7 @@ pub async fn install_pack(
     state: Arc<AppState>,
     pack_id: &str,
 ) -> CommandResult<Instance> {
-    let catalog = catalog(&state).await?;
+    let catalog = catalog(&app, &state).await?;
 
     let entry = catalog
         .find(pack_id)
@@ -188,16 +238,7 @@ pub async fn base_pack(
 async fn save_icon(state: &Arc<AppState>, entry: &CatalogPack) -> Option<String> {
     let url = entry.icon.as_deref()?;
 
-    let config = state.config().await;
-
-    let hosts: Vec<String> = [castpack::host_of(config.launcher.catalog_url()), castpack::host_of(&entry.manifest)]
-        .into_iter()
-        .flatten()
-        .collect();
-
-    let allowed: Vec<&str> = hosts.iter().map(String::as_str).collect();
-
-    let bytes = match packs::fetch_icon(url, &allowed).await {
+    let bytes = match castpack::source::icon(url).await {
         Ok(bytes) => bytes,
         Err(error) => {
             eprintln!("Иконка сборки «{}» не скачалась: {}", entry.id, error.message);
@@ -259,6 +300,36 @@ pub async fn set_autoupdate(
     .emit(app);
 
     Ok(updated)
+}
+
+pub async fn save_manifest_as(app: &AppHandle, json: &str) -> CommandResult<Option<String>> {
+    use tauri_plugin_dialog::DialogExt;
+
+    Manifest::parse(json.as_bytes())?;
+
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Сохранить манифест сборки")
+        .set_file_name("manifest.json")
+        .add_filter("JSON", &["json"])
+        .save_file(move |picked| {
+            let _ = sender.send(picked);
+        });
+
+    let Some(path) = receiver
+        .await
+        .ok()
+        .flatten()
+        .and_then(|picked| picked.into_path().ok())
+    else {
+        return Ok(None);
+    };
+
+    cast_core::fs_util::write_atomic(&path, json.as_bytes()).await?;
+
+    Ok(Some(path.display().to_string()))
 }
 
 #[derive(Debug, Serialize)]
