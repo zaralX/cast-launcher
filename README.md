@@ -55,4 +55,6 @@ The backend is split into two crates: `cast-core` holds all the launcher logic (
 - Import: bring instances over from another launcher
 
 ## Gallery
-![Screenshot](./.github/readme/1.png)
+![Screenshot](./.github/readme/1.webp)
+![Screenshot](./.github/readme/2.webp)
+![Screenshot](./.github/readme/3.webp)
