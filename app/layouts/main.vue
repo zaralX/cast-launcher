@@ -129,22 +129,48 @@ onMounted(async () => {
           </NuxtLink>
         </div>
 
-        <NuxtLink
-            v-if="currentAccount"
-            to="/settings"
-            class="mb-2 group relative mx-auto grid size-10 place-items-center border border-line bg-ink-700 transition-colors duration-300 hover:border-acid/50"
-        >
-          <img
-              :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${currentAccount.name}/full`"
-              class="size-6 transition-transform duration-300 group-hover:scale-110"
-              :alt="currentAccount.name"
-          />
-          <span
-              class="pointer-events-none absolute bottom-0 left-[calc(100%+10px)] whitespace-nowrap border border-line bg-ink-700 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-fg opacity-0 -translate-x-2 transition-all duration-300 ease-deck group-hover:translate-x-0 group-hover:opacity-100"
+        <div class="mb-2 flex flex-col items-center gap-2">
+          <NuxtLink
+              to="/credits"
+              class="group relative grid h-14 w-14 place-items-center"
           >
-            {{ currentAccount.name }}
-          </span>
-        </NuxtLink>
+            <span
+                class="absolute left-0 top-1/2 w-px -translate-y-1/2 bg-acid transition-all duration-500 ease-deck"
+                :class="route.path === '/credits' ? 'h-8 opacity-100' : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-60'"
+            />
+
+            <UIcon
+                name="i-lucide-info"
+                class="size-[18px] transition-all duration-300 ease-deck"
+                :class="route.path === '/credits'
+                  ? 'text-acid'
+                  : 'text-fg-faint group-hover:-translate-y-0.5 group-hover:text-fg'"
+            />
+
+            <span
+                class="pointer-events-none absolute left-[calc(100%+10px)] whitespace-nowrap border border-line bg-ink-700 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-fg opacity-0 -translate-x-2 transition-all duration-300 ease-deck group-hover:translate-x-0 group-hover:opacity-100"
+            >
+              Об авторах
+            </span>
+          </NuxtLink>
+
+          <NuxtLink
+              v-if="currentAccount"
+              to="/settings"
+              class="group relative grid size-10 place-items-center border border-line bg-ink-700 transition-colors duration-300 hover:border-acid/50"
+          >
+            <img
+                :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${currentAccount.name}/full`"
+                class="size-6 transition-transform duration-300 group-hover:scale-110"
+                :alt="currentAccount.name"
+            />
+            <span
+                class="pointer-events-none absolute bottom-0 left-[calc(100%+10px)] whitespace-nowrap border border-line bg-ink-700 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-fg opacity-0 -translate-x-2 transition-all duration-300 ease-deck group-hover:translate-x-0 group-hover:opacity-100"
+            >
+              {{ currentAccount.name }}
+            </span>
+          </NuxtLink>
+        </div>
       </nav>
 
       <main class="relative min-w-0 flex-1">
