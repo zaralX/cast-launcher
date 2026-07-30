@@ -1,9 +1,8 @@
 name: 'publish'
 
+# Releases are started by hand from the Actions tab. The version comes from the
+# files in the repo, and the tag is created by GitHub when the draft is published.
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -23,15 +22,13 @@ jobs:
             echo "::error::version mismatch between tauri.conf.json, package.json and the Cargo manifests"
             exit 1
           fi
+          echo "### Releasing v$tauri_conf from \`${{ github.ref_name }}\` (${GITHUB_SHA:0:7})" >> "$GITHUB_STEP_SUMMARY"
 
-      # tauri-action names the release from tauri.conf.json, not from the pushed tag.
-      # Without this the release would silently land on a different tag.
-      - name: tag must match the app version
-        if: github.ref_type == 'tag'
+      - name: version must not be released yet
         run: |
-          expected="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
-          if [ "$expected" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match app version $expected"
+          tag="v$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if git ls-remote --exit-code --tags origin "$tag" >/dev/null 2>&1; then
+            echo "::error::tag $tag already exists — bump the version before releasing"
             exit 1
           fi
 
@@ -92,6 +89,9 @@ jobs:
           tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: 'App v__VERSION__'
           generateReleaseNotes: true
+          # The tag is created only when the draft is published, so pin it to the
+          # commit that was actually built instead of whatever main points at then.
+          releaseCommitish: ${{ github.sha }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
