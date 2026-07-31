@@ -1,16 +1,19 @@
 pub mod copy;
 pub mod ini;
+pub mod modrinth;
 pub mod prism;
 
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use copy::CopyStats;
-use prism::ScannedInstance;
+use copy::{CopyStats, Progress};
 
 use crate::error::{CommandError, CommandResult};
+use crate::instance::{Instance, InstanceSettings, LoaderType, Playtime};
+use crate::paths::LauncherPaths;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -20,11 +23,205 @@ pub enum LauncherKind {
 }
 
 impl LauncherKind {
+    pub const ALL: [Self; 2] = [Self::Prism, Self::Modrinth];
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Prism => "PrismLauncher",
             Self::Modrinth => "Modrinth App",
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedPack {
+    pub provider: String,
+    pub project_id: String,
+    pub version_id: String,
+    pub version_name: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScannedInstance {
+    pub folder: String,
+    pub name: String,
+    pub description: String,
+    pub minecraft_version: String,
+    pub loader: Option<LoaderType>,
+    pub loader_version: Option<String>,
+    pub loader_label: String,
+    pub icon: Option<String>,
+    #[serde(skip)]
+    pub icon_source: Option<PathBuf>,
+    pub settings: InstanceSettings,
+    pub playtime: Playtime,
+    pub pack: Option<ManagedPack>,
+    pub blocked: Option<String>,
+}
+
+impl ScannedInstance {
+    pub fn new(folder: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            folder: folder.into(),
+            name: name.into(),
+            description: String::new(),
+            minecraft_version: String::new(),
+            loader: None,
+            loader_version: None,
+            loader_label: "Vanilla".into(),
+            icon: None,
+            icon_source: None,
+            settings: InstanceSettings::default(),
+            playtime: Playtime::default(),
+            pack: None,
+            blocked: None,
+        }
+    }
+
+    pub fn is_importable(&self) -> bool {
+        self.blocked.is_none()
+    }
+
+    pub fn to_instance(&self, id: String, icon: String) -> CommandResult<Instance> {
+        if let Some(reason) = &self.blocked {
+            return Err(CommandError::manifest(format!(
+                "Сборку «{}» перенести нельзя: {reason}",
+                self.name
+            )));
+        }
+
+        let loader = self
+            .loader
+            .ok_or_else(|| CommandError::manifest(format!("У сборки «{}» нет загрузчика", self.name)))?;
+
+        Ok(Instance {
+            id,
+            name: self.name.clone(),
+            description: self.description.clone(),
+            minecraft_version: self.minecraft_version.clone(),
+            icon,
+            loader,
+            installed: false,
+            version: 1,
+            loader_version: self.loader_version.clone(),
+            custom_id: None,
+            pack: None,
+            castpack: None,
+            settings: self.settings.clone(),
+            playtime: self.playtime,
+            dir: String::new(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedTargets {
+    pub libraries: PathBuf,
+    pub asset_indexes: PathBuf,
+    pub asset_objects: PathBuf,
+    pub java_runtimes: PathBuf,
+}
+
+impl SharedTargets {
+    pub fn of(paths: &LauncherPaths) -> Self {
+        Self {
+            libraries: paths.libraries(),
+            asset_indexes: paths.asset_indexes(),
+            asset_objects: paths.asset_objects(),
+            java_runtimes: paths.java_runtimes(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct InstanceTargets {
+    pub minecraft: PathBuf,
+    pub client_jar: PathBuf,
+    pub loader_installer: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+pub enum Source {
+    Prism(PathBuf),
+    Modrinth(modrinth::Root),
+}
+
+impl Source {
+    pub async fn open(kind: LauncherKind, path: &str) -> CommandResult<Self> {
+        let path = path.trim();
+
+        if path.is_empty() {
+            return Err(CommandError::fs(format!("Не указан каталог {}", kind.label())));
+        }
+
+        match kind {
+            LauncherKind::Prism => Ok(Self::Prism(prism::open(Path::new(path))?)),
+            LauncherKind::Modrinth => Ok(Self::Modrinth(modrinth::open(Path::new(path)).await?)),
+        }
+    }
+
+    pub fn kind(&self) -> LauncherKind {
+        match self {
+            Self::Prism(_) => LauncherKind::Prism,
+            Self::Modrinth(_) => LauncherKind::Modrinth,
+        }
+    }
+
+    pub async fn scan(&self) -> CommandResult<Vec<ScannedInstance>> {
+        let mut found = match self {
+            Self::Prism(root) => prism::scan(root).await?,
+            Self::Modrinth(root) => modrinth::scan(root).await,
+        };
+
+        found.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+        Ok(found)
+    }
+
+    pub async fn copy_shared(
+        &self,
+        options: &ImportOptions,
+        targets: &SharedTargets,
+        progress: &Progress<'_>,
+        on_step: impl Fn(&str),
+    ) -> CommandResult<()> {
+        match self {
+            Self::Prism(root) => prism::copy_shared(root, options, targets, progress, on_step).await,
+            Self::Modrinth(root) => modrinth::copy_shared(root, options, targets, progress, on_step).await,
+        }
+    }
+
+    pub async fn copy_instance(
+        &self,
+        scanned: &ScannedInstance,
+        targets: &InstanceTargets,
+        progress: &Progress<'_>,
+    ) -> CommandResult<()> {
+        match self {
+            Self::Prism(root) => prism::copy_instance(root, scanned, targets, progress).await,
+            Self::Modrinth(root) => modrinth::copy_instance(root, scanned, targets, progress).await,
+        }
+    }
+
+    pub fn loader_installer_target(
+        &self,
+        paths: &LauncherPaths,
+        instance: &Instance,
+    ) -> Option<PathBuf> {
+        match self {
+            Self::Prism(_) => prism::loader_installer_target(paths, instance),
+            Self::Modrinth(_) => None,
+        }
+    }
+}
+
+pub fn detect(kind: LauncherKind) -> Option<PathBuf> {
+    match kind {
+        LauncherKind::Prism => prism::detect(),
+        LauncherKind::Modrinth => modrinth::detect(),
     }
 }
 
@@ -188,6 +385,17 @@ mod tests {
     }
 
     #[test]
+    fn a_freshly_scanned_instance_is_vanilla_shaped_and_unblocked() {
+        let scanned = ScannedInstance::new("папка", "Имя");
+
+        assert_eq!(scanned.folder, "папка");
+        assert_eq!(scanned.loader_label, "Vanilla");
+        assert!(scanned.loader.is_none());
+        assert!(scanned.is_importable());
+        assert!(scanned.icon.is_none() && scanned.icon_source.is_none());
+    }
+
+    #[test]
     fn an_empty_selection_means_everything_we_can_take() {
         let (selected, report) = select(
             vec![scanned("a", FABRIC_PACK), scanned("b", FABRIC_PACK)],
@@ -286,6 +494,70 @@ mod tests {
             serde_json::to_value(LauncherKind::Prism).unwrap(),
             serde_json::json!("prism")
         );
+        assert_eq!(
+            serde_json::to_value(LauncherKind::Modrinth).unwrap(),
+            serde_json::json!("modrinth")
+        );
+    }
+
+    #[tokio::test]
+    async fn an_empty_path_is_refused_for_every_launcher() {
+        for kind in LauncherKind::ALL {
+            let error = Source::open(kind, "   ").await.unwrap_err();
+
+            assert!(error.message.contains(kind.label()), "{kind:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_folder_belonging_to_no_launcher_is_refused_with_a_hint() {
+        let dir = std::env::temp_dir().join(format!("cast-import-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let path = dir.display().to_string();
+
+        assert!(Source::open(LauncherKind::Prism, &path)
+            .await
+            .unwrap_err()
+            .message
+            .contains("instances"));
+
+        assert!(Source::open(LauncherKind::Modrinth, &path)
+            .await
+            .unwrap_err()
+            .message
+            .contains("app.db"));
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn instances_arrive_sorted_by_name_whatever_the_launcher() {
+        let root = std::env::temp_dir().join(format!("cast-import-{}", uuid::Uuid::new_v4()));
+
+        for (folder, name) in [("c", "Ягоды"), ("a", "яблоки"), ("b", "Абрикос")] {
+            let dir = root.join(prism::INSTANCES).join(folder);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join(prism::CONFIG_FILE), format!("[General]\nname={name}")).unwrap();
+            std::fs::write(dir.join(prism::PACK_FILE), FABRIC_PACK).unwrap();
+        }
+
+        let source = Source::open(LauncherKind::Prism, &root.display().to_string())
+            .await
+            .unwrap();
+
+        let names: Vec<_> = source
+            .scan()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|instance| instance.name)
+            .collect();
+
+        assert_eq!(names, vec!["Абрикос", "яблоки", "Ягоды"]);
+        assert_eq!(source.kind(), LauncherKind::Prism);
+
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

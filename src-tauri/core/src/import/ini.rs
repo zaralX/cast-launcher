@@ -56,7 +56,6 @@ impl Section<'_> {
             .map(String::as_str)
     }
 
-    /// Значение без пробелов по краям; отсутствующий ключ неотличим от пустого.
     pub fn string(&self, key: &str) -> String {
         self.get(key).unwrap_or_default().trim().to_string()
     }

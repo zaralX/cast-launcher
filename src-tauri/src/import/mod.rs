@@ -1,15 +1,15 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
-use cast_core::error::{CommandError, CommandResult};
+use cast_core::error::CommandResult;
 use cast_core::icons;
 use cast_core::import::copy::{CopyStats, Progress};
 use cast_core::import::{
-    prism, ImportOptions, ImportProgress, ImportReport, ImportStage, ImportedInstance, LauncherKind,
-    SkippedInstance,
+    modrinth, prism, ImportOptions, ImportProgress, ImportReport, ImportStage, ImportedInstance,
+    InstanceTargets, LauncherKind, ScannedInstance, SharedTargets, SkippedInstance, Source,
 };
 use cast_core::instance::{Instance, PackProvider, PackSource};
 use cast_core::packs;
@@ -30,6 +30,7 @@ pub struct DetectedLauncher {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportRequest {
+    pub kind: LauncherKind,
     pub path: String,
     #[serde(default)]
     pub folders: Vec<String>,
@@ -37,50 +38,43 @@ pub struct ImportRequest {
     pub options: ImportOptions,
 }
 
-pub fn detect() -> Vec<DetectedLauncher> {
-    prism::detect()
-        .map(|path| DetectedLauncher {
-            kind: LauncherKind::Prism,
-            label: LauncherKind::Prism.label(),
-            instances: count_instances(&path),
+pub async fn detect() -> Vec<DetectedLauncher> {
+    let mut found = Vec::new();
+
+    for kind in LauncherKind::ALL {
+        let Some(path) = cast_core::import::detect(kind) else {
+            continue;
+        };
+
+        found.push(DetectedLauncher {
+            kind,
+            label: kind.label(),
+            instances: count_instances(kind, &path).await,
             path: path.display().to_string(),
-        })
-        .into_iter()
-        .collect()
-}
-
-fn count_instances(root: &Path) -> usize {
-    let Ok(entries) = std::fs::read_dir(root.join(prism::INSTANCES)) else {
-        return 0;
-    };
-
-    entries
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().join(prism::CONFIG_FILE).is_file())
-        .count()
-}
-
-pub async fn scan(path: &str) -> CommandResult<Vec<prism::ScannedInstance>> {
-    prism::scan(&root_of(path)?).await
-}
-
-fn root_of(path: &str) -> CommandResult<PathBuf> {
-    let path = path.trim();
-
-    if path.is_empty() {
-        return Err(CommandError::fs("Не указан каталог PrismLauncher"));
+        });
     }
 
-    let root = prism::normalize(Path::new(path));
+    found
+}
 
-    if !prism::is_data_dir(&root) {
-        return Err(CommandError::fs(format!(
-            "Это не каталог данных PrismLauncher: внутри нет папки instances ({})",
-            root.display()
-        )));
+async fn count_instances(kind: LauncherKind, path: &Path) -> usize {
+    match kind {
+        LauncherKind::Prism => {
+            let Ok(entries) = std::fs::read_dir(path.join(prism::INSTANCES)) else {
+                return 0;
+            };
+
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| entry.path().join(prism::CONFIG_FILE).is_file())
+                .count()
+        }
+        LauncherKind::Modrinth => modrinth::open(path).await.map(|root| root.instances()).unwrap_or(0),
     }
+}
 
-    Ok(root)
+pub async fn scan(kind: LauncherKind, path: &str) -> CommandResult<Vec<ScannedInstance>> {
+    Source::open(kind, path).await?.scan().await
 }
 
 pub async fn run(
@@ -90,14 +84,14 @@ pub async fn run(
 ) -> CommandResult<ImportReport> {
     let _guard = state.imports.begin()?;
 
-    let root = root_of(&request.path)?;
-    let scanned = prism::scan(&root).await?;
+    let source = Source::open(request.kind, &request.path).await?;
+    let scanned = source.scan().await?;
     let paths = state.paths().await;
 
     let (selected, mut report) = cast_core::import::select(scanned, &request.folders);
     let total = selected.len() + usize::from(request.options.copies_shared());
 
-    let publish = publisher(app.clone(), total);
+    let publish = publisher(app.clone(), request.kind, total);
     let cancelled = {
         let imports = Arc::clone(&state.imports);
         move || imports.is_cancelled()
@@ -106,18 +100,18 @@ pub async fn run(
     let mut done = 0;
 
     if request.options.copies_shared() {
-        match copy_shared(&root, &paths, &request.options, &publish, &cancelled).await {
+        match copy_shared(&source, &paths, &request.options, &publish, &cancelled).await {
             Ok(stats) => {
                 report.stats = report.stats.plus(stats);
                 done = 1;
             }
             Err(error) if error.is_aborted() => {
                 report.cancelled = true;
-                finish(&app, &state, report.stats, total).await;
+                finish(&app, &state, request.kind, report.stats, total).await;
                 return Ok(report);
             }
             Err(error) => {
-                finish(&app, &state, report.stats, total).await;
+                finish(&app, &state, request.kind, report.stats, total).await;
                 return Err(error);
             }
         }
@@ -138,7 +132,7 @@ pub async fn run(
             base: report.stats,
         };
 
-        match import_one(&state, &paths, &root, &instance, &request.options, &cancelled, &step).await {
+        match import_one(&state, &paths, &source, &instance, &request.options, &cancelled, &step).await {
             Ok((imported, stats)) => {
                 report.stats = report.stats.plus(stats);
                 report.imported.push(imported);
@@ -156,13 +150,13 @@ pub async fn run(
         done += 1;
     }
 
-    finish(&app, &state, report.stats, total).await;
+    finish(&app, &state, request.kind, report.stats, total).await;
 
     Ok(report)
 }
 
 async fn copy_shared(
-    root: &Path,
+    source: &Source,
     paths: &LauncherPaths,
     options: &ImportOptions,
     publish: &(impl Fn(ImportStage, &str, usize, CopyStats) + Send + Sync),
@@ -176,22 +170,17 @@ async fn copy_shared(
     };
 
     let progress = Progress::new(&on_change, cancelled);
+    let targets = SharedTargets::of(paths);
 
-    let targets = prism::SharedTargets {
-        libraries: paths.libraries(),
-        asset_indexes: paths.asset_indexes(),
-        asset_objects: paths.asset_objects(),
-        java_runtimes: paths.java_runtimes(),
-    };
+    source
+        .copy_shared(options, &targets, &progress, |name| {
+            if let Ok(mut step) = step.lock() {
+                *step = name.to_string();
+            }
 
-    prism::copy_shared(root, options, &targets, &progress, |name| {
-        if let Ok(mut step) = step.lock() {
-            *step = name.to_string();
-        }
-
-        publish(ImportStage::Shared, name, 0, progress.stats());
-    })
-    .await?;
+            publish(ImportStage::Shared, name, 0, progress.stats());
+        })
+        .await?;
 
     progress.flush();
 
@@ -208,8 +197,8 @@ struct Step<'a, P> {
 async fn import_one<P>(
     state: &Arc<AppState>,
     paths: &LauncherPaths,
-    root: &Path,
-    scanned: &prism::ScannedInstance,
+    source: &Source,
+    scanned: &ScannedInstance,
     options: &ImportOptions,
     cancelled: &(impl Fn() -> bool + Send + Sync),
     step: &Step<'_, P>,
@@ -230,7 +219,7 @@ where
 
     let id = uuid::Uuid::new_v4().simple().to_string();
     let icon = match options.icons {
-        true => copy_icon(root, paths, scanned, &progress).await,
+        true => copy_icon(paths, scanned, &progress).await,
         false => String::new(),
     };
 
@@ -240,13 +229,13 @@ where
     let created = state.instances.create(paths, instance).await?;
     let instance_paths = paths.instance(&created.id);
 
-    let targets = prism::InstanceTargets {
+    let targets = InstanceTargets {
         minecraft: instance_paths.minecraft(),
         client_jar: instance_paths.client_jar(),
-        loader_installer: prism::loader_installer_target(paths, &created),
+        loader_installer: source.loader_installer_target(paths, &created),
     };
 
-    if let Err(error) = prism::copy_instance(root, scanned, &targets, &progress).await {
+    if let Err(error) = source.copy_instance(scanned, &targets, &progress).await {
         let _ = state.instances.remove(paths, &created.id).await;
         return Err(error);
     }
@@ -262,17 +251,19 @@ where
 }
 
 async fn copy_icon(
-    root: &Path,
     paths: &LauncherPaths,
-    scanned: &prism::ScannedInstance,
+    scanned: &ScannedInstance,
     progress: &Progress<'_>,
 ) -> String {
-    let Some(name) = &scanned.icon else { return String::new() };
+    let (Some(name), Some(source)) = (&scanned.icon, &scanned.icon_source) else {
+        return String::new();
+    };
 
-    let source = root.join(prism::ICONS).join(name);
-    let Ok(target) = icons::resolve(&paths.icons(), name) else { return String::new() };
+    let Ok(target) = icons::resolve(&paths.icons(), name) else {
+        return String::new();
+    };
 
-    match cast_core::import::copy::copy_file(&source, &target, progress).await {
+    match cast_core::import::copy::copy_file(source, &target, progress).await {
         Ok(_) if target.is_file() => name.clone(),
         _ => String::new(),
     }
@@ -280,7 +271,7 @@ async fn copy_icon(
 
 async fn link_pack(
     instance: &mut Instance,
-    scanned: &prism::ScannedInstance,
+    scanned: &ScannedInstance,
     options: &ImportOptions,
 ) -> bool {
     if !options.link_packs {
@@ -289,7 +280,7 @@ async fn link_pack(
 
     let Some(pack) = &scanned.pack else { return false };
 
-    let Some(provider) = PackProvider::from_prism(&pack.provider) else { return false };
+    let Some(provider) = PackProvider::from_key(&pack.provider) else { return false };
 
     if pack.version_id.is_empty() {
         return false;
@@ -317,11 +308,12 @@ async fn link_pack(
 
 fn publisher(
     app: AppHandle,
+    source: LauncherKind,
     total: usize,
 ) -> impl Fn(ImportStage, &str, usize, CopyStats) + Send + Sync {
     move |stage, step, done, stats| {
         LauncherEvent::Import(ImportProgress {
-            source: LauncherKind::Prism,
+            source,
             stage,
             step: step.to_string(),
             done,
@@ -332,9 +324,15 @@ fn publisher(
     }
 }
 
-async fn finish(app: &AppHandle, state: &Arc<AppState>, stats: CopyStats, total: usize) {
+async fn finish(
+    app: &AppHandle,
+    state: &Arc<AppState>,
+    source: LauncherKind,
+    stats: CopyStats,
+    total: usize,
+) {
     LauncherEvent::Import(ImportProgress {
-        source: LauncherKind::Prism,
+        source,
         stage: ImportStage::Done,
         step: String::new(),
         done: total,

@@ -46,7 +46,6 @@ const installOpen = ref(false)
 
 const hasMore = computed(() => hits.value.length < total.value)
 
-/** Ответы могут прийти не в том порядке, в каком ушли запросы. */
 let requestId = 0
 let debounce: ReturnType<typeof setTimeout> | undefined
 

@@ -151,9 +151,7 @@ export interface InstallSnapshot {
     startedAt: number
     aborting: boolean
     error?: string
-    /** Файлы пака, которые лаунчер скачать не смог: их кладут руками. */
     blocked?: BlockedFile[]
-    /** Установка остановлена и ждёт, пока пользователь скачает `blocked`. */
     awaitingFiles: boolean
 }
 

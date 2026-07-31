@@ -17,6 +17,8 @@ regex = "1"
 uuid = { version = "1", features = ["v4"] }
 url = "2"
 tiny_http = "0.12"
+# for copy modrinth
+rusqlite = { version = "0.39", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55.0"

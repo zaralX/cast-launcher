@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::config::JavaMode;
 use crate::error::{CommandError, CommandResult};
@@ -12,7 +12,7 @@ use crate::paths::LauncherPaths;
 
 use super::copy::{self, Progress};
 use super::ini::Ini;
-use super::ImportOptions;
+use super::{ImportOptions, InstanceTargets, ManagedPack, ScannedInstance, SharedTargets};
 
 pub const INSTANCES: &str = "instances";
 pub const LIBRARIES: &str = "libraries";
@@ -32,72 +32,6 @@ const LOADERS: &[(&str, &str, Option<LoaderType>)] = &[
     ("org.quiltmc.quilt-loader", "Quilt", None),
     ("com.mumfrey.liteloader", "LiteLoader", None),
 ];
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ManagedPack {
-    pub provider: String,
-    pub project_id: String,
-    pub version_id: String,
-    pub version_name: String,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ScannedInstance {
-    pub folder: String,
-    pub name: String,
-    pub description: String,
-    pub minecraft_version: String,
-    pub loader: Option<LoaderType>,
-    pub loader_version: Option<String>,
-    pub loader_label: String,
-    pub icon: Option<String>,
-    #[serde(skip)]
-    pub icon_key: String,
-    pub settings: InstanceSettings,
-    pub playtime: Playtime,
-    pub pack: Option<ManagedPack>,
-    pub blocked: Option<String>,
-}
-
-impl ScannedInstance {
-    pub fn is_importable(&self) -> bool {
-        self.blocked.is_none()
-    }
-
-    pub fn to_instance(&self, id: String, icon: String) -> CommandResult<Instance> {
-        if let Some(reason) = &self.blocked {
-            return Err(CommandError::manifest(format!(
-                "Сборку «{}» перенести нельзя: {reason}",
-                self.name
-            )));
-        }
-
-        let loader = self
-            .loader
-            .ok_or_else(|| CommandError::manifest(format!("У сборки «{}» нет загрузчика", self.name)))?;
-
-        Ok(Instance {
-            id,
-            name: self.name.clone(),
-            description: self.description.clone(),
-            minecraft_version: self.minecraft_version.clone(),
-            icon,
-            loader,
-            installed: false,
-            version: 1,
-            loader_version: self.loader_version.clone(),
-            custom_id: None,
-            pack: None,
-            castpack: None,
-            settings: self.settings.clone(),
-            playtime: self.playtime,
-            dir: String::new(),
-        })
-    }
-}
 
 pub fn data_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
@@ -165,6 +99,19 @@ pub fn normalize(dir: &Path) -> PathBuf {
     dir.to_path_buf()
 }
 
+pub fn open(dir: &Path) -> CommandResult<PathBuf> {
+    let root = normalize(dir);
+
+    if !is_data_dir(&root) {
+        return Err(CommandError::fs(format!(
+            "Это не каталог данных PrismLauncher: внутри нет папки instances ({})",
+            root.display()
+        )));
+    }
+
+    Ok(root)
+}
+
 pub fn game_dir(instance_dir: &Path) -> PathBuf {
     let dotted = instance_dir.join(".minecraft");
     let plain = instance_dir.join("minecraft");
@@ -196,21 +143,6 @@ pub fn loader_installer(root: &Path, family: Family, version: &str) -> Option<Pa
     let path = Gradle::parse(&family.coordinate(version, "installer")).ok()?.path();
 
     Some(path.split('/').fold(root.join(LIBRARIES), |dir, part| dir.join(part)))
-}
-
-#[derive(Debug, Clone)]
-pub struct SharedTargets {
-    pub libraries: PathBuf,
-    pub asset_indexes: PathBuf,
-    pub asset_objects: PathBuf,
-    pub java_runtimes: PathBuf,
-}
-
-#[derive(Debug, Clone)]
-pub struct InstanceTargets {
-    pub minecraft: PathBuf,
-    pub client_jar: PathBuf,
-    pub loader_installer: Option<PathBuf>,
 }
 
 pub async fn copy_shared(
@@ -287,7 +219,7 @@ pub async fn scan(root: &Path) -> CommandResult<Vec<ScannedInstance>> {
         .await
         .map_err(|e| CommandError::io("Не удалось прочитать сборки Prism", &instances, e))?;
 
-    let forge_versions = forge_versions(root).await;
+    let forge_versions = forge_versions(&root.join(LIBRARIES)).await;
     let mut found = Vec::new();
 
     while let Some(entry) = entries
@@ -308,7 +240,10 @@ pub async fn scan(root: &Path) -> CommandResult<Vec<ScannedInstance>> {
 
         let mut scanned = parse(&folder, &config, &pack);
 
-        scanned.icon = find_icon(root, &scanned.icon_key);
+        if let Some(name) = find_icon(root, &icon_key(&config)) {
+            scanned.icon_source = Some(root.join(ICONS).join(&name));
+            scanned.icon = Some(name);
+        }
 
         if scanned.loader == Some(LoaderType::Forge) {
             scanned.loader_version = scanned
@@ -334,19 +269,11 @@ pub fn parse(folder: &str, config: &str, pack: &str) -> ScannedInstance {
     };
 
     let mut scanned = ScannedInstance {
-        folder: folder.to_string(),
-        name,
         description: general.string("notes"),
-        minecraft_version: String::new(),
-        loader: None,
-        loader_version: None,
-        loader_label: "Vanilla".into(),
-        icon: None,
-        icon_key: general.string("iconKey"),
         settings: settings(&ini),
         playtime: playtime(&ini),
         pack: managed_pack(&ini),
-        blocked: None,
+        ..ScannedInstance::new(folder, name)
     };
 
     let components = match parse_components(pack) {
@@ -448,6 +375,10 @@ fn managed_pack(ini: &Ini) -> Option<ManagedPack> {
     })
 }
 
+fn icon_key(config: &str) -> String {
+    Ini::parse(config).general().string("iconKey")
+}
+
 pub fn find_icon(root: &Path, icon_key: &str) -> Option<String> {
     if icon_key.is_empty() || icon_key == "default" {
         return None;
@@ -510,7 +441,7 @@ fn find_loader(components: &[MmcComponent]) -> Option<(String, &'static str, Opt
     })
 }
 
-fn forge_maven_version(minecraft: &str, forge: &str) -> String {
+pub fn forge_maven_version(minecraft: &str, forge: &str) -> String {
     if forge.starts_with(&format!("{minecraft}-")) {
         return forge.to_string();
     }
@@ -530,12 +461,8 @@ pub fn pick_forge_version(available: &[String], guess: &str) -> String {
         .unwrap_or_else(|| guess.to_string())
 }
 
-async fn forge_versions(root: &Path) -> Vec<String> {
-    let dir = root
-        .join(LIBRARIES)
-        .join("net")
-        .join("minecraftforge")
-        .join("forge");
+pub async fn forge_versions(libraries: &Path) -> Vec<String> {
+    let dir = libraries.join("net").join("minecraftforge").join("forge");
 
     let Ok(mut entries) = tokio::fs::read_dir(&dir).await else {
         return Vec::new();
@@ -960,7 +887,6 @@ totalTimePlayed=705341
         std::fs::remove_dir_all(&root).ok();
     }
 
-    /// Раскладывает мини-Prism: сборка с миром, общий клиент и патченый Forge.
     fn prism_tree() -> PathBuf {
         let root = std::env::temp_dir().join(format!("cast-prism-{}", uuid::Uuid::new_v4()));
 

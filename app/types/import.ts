@@ -51,6 +51,7 @@ export function defaultImportOptions(): ImportOptions {
 }
 
 export interface ImportRequest {
+    kind: LauncherKind
     path: string
     folders: string[]
     options: ImportOptions

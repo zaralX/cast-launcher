@@ -63,7 +63,6 @@ pub enum ClientState {
 }
 
 impl PackFile {
-    /// Поле `env` необязательное: если его нет, файл считается нужным.
     pub fn client_state(&self) -> ClientState {
         match self.env.as_ref().and_then(|env| env.client.as_deref()) {
             Some("unsupported") => ClientState::Unsupported,

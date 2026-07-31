@@ -16,6 +16,7 @@ import type {
     ImportProgress,
     ImportReport,
     ImportRequest,
+    LauncherKind,
     ScannedInstance
 } from "~/types/import"
 import type {PackProvider} from "~/types/instance"
@@ -129,8 +130,8 @@ interface Commands {
 
     detect_launchers: [void, DetectedLauncher[]]
     pick_launcher_dir: [void, string | null]
-    scan_prism_instances: [{ path: string }, ScannedInstance[]]
-    import_prism_instances: [{ request: ImportRequest }, ImportReport]
+    scan_launcher_instances: [{ kind: LauncherKind, path: string }, ScannedInstance[]]
+    import_launcher_instances: [{ request: ImportRequest }, ImportReport]
     cancel_import: [void, void]
 
     list_minecraft_versions: [void, VersionManifest]

@@ -13,7 +13,7 @@ use cast_core::assets::{self, ItemCategories};
 use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
-use cast_core::import::{prism, ImportReport};
+use cast_core::import::{ImportReport, LauncherKind, ScannedInstance};
 use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
@@ -598,7 +598,6 @@ pub async fn castpack_set_autoupdate(
     crate::castpack::set_autoupdate(&app, state.inner(), &instance_id, enabled).await
 }
 
-/// Разбор манифеста для редактора сборок: те же правила, что и при установке.
 #[tauri::command]
 pub async fn castpack_validate(json: String) -> CommandResult<cast_core::castpack::Manifest> {
     crate::play::parse_manifest(&json)
@@ -760,7 +759,7 @@ pub async fn save_pack_icon(
 
 #[tauri::command]
 pub async fn detect_launchers() -> CommandResult<Vec<import::DetectedLauncher>> {
-    Ok(import::detect())
+    Ok(import::detect().await)
 }
 
 #[tauri::command]
@@ -780,12 +779,15 @@ pub async fn pick_launcher_dir(app: AppHandle) -> CommandResult<Option<String>> 
 }
 
 #[tauri::command]
-pub async fn scan_prism_instances(path: String) -> CommandResult<Vec<prism::ScannedInstance>> {
-    import::scan(&path).await
+pub async fn scan_launcher_instances(
+    kind: LauncherKind,
+    path: String,
+) -> CommandResult<Vec<ScannedInstance>> {
+    import::scan(kind, &path).await
 }
 
 #[tauri::command]
-pub async fn import_prism_instances(
+pub async fn import_launcher_instances(
     app: AppHandle,
     state: Ctx<'_>,
     request: import::ImportRequest,

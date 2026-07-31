@@ -62,7 +62,7 @@ impl PackProvider {
         }
     }
 
-    pub fn from_prism(kind: &str) -> Option<Self> {
+    pub fn from_key(kind: &str) -> Option<Self> {
         match kind.trim().to_ascii_lowercase().as_str() {
             "modrinth" => Some(Self::Modrinth),
             "flame" | "curseforge" => Some(Self::CurseForge),
