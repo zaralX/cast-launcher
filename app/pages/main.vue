@@ -59,13 +59,7 @@ async function installPack(packId: string) {
 
 <template>
   <div class="min-h-full w-full px-6 pb-10 pt-6 xl:px-10">
-    <header class="animate-rise flex flex-wrap items-baseline gap-x-4 gap-y-1">
-      <h1 class="font-unbounded text-lg font-bold leading-none tracking-[-0.055em] text-fg xl:text-xl">
-        Привет здоровяк<span class="text-acid">!</span>
-      </h1>
-    </header>
-
-    <section class="mt-6">
+    <section>
       <SectionHeading index="01" title="Ваши сборки">
         <template #action>
           <AppButton class="group/new ml-2 h-7 px-3 text-[10px]" @click="openCreateModal">
