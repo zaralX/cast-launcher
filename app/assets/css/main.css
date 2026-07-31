@@ -98,3 +98,7 @@ code, kbd, pre, samp {
         transition-duration: 0.01ms !important;
     }
 }
+
+img {
+    @apply pointer-events-none select-none;
+}

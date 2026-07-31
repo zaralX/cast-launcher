@@ -91,7 +91,7 @@ async function activate(entry: Entry) {
     <div class="relative mx-auto flex w-full max-w-3xl flex-col items-center">
       <header class="animate-rise flex flex-col items-center text-center">
         <div class="relative grid size-20 place-items-center border border-line bg-ink-800 cut-16">
-          <img src="/logo.png" class="size-11" alt="Cast Launcher"/>
+          <img src="/logo.svg" class="size-11" alt="Cast Launcher"/>
           <span class="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-acid to-transparent"/>
         </div>
 

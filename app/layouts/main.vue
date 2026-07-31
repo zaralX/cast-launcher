@@ -51,8 +51,8 @@ onMounted(async () => {
 <template>
   <div class="flex h-screen w-full flex-col overflow-hidden bg-ink-900 text-fg">
     <header class="relative z-40 flex h-11 shrink-0 items-stretch border-b border-line bg-ink-800">
-      <div class="flex items-center gap-3 pl-3 pr-6">
-        <img src="/logo.png" class="h-6 w-6" alt=""/>
+      <div class="flex items-center gap-3 pl-3 pr-6 pointer-events-none select-none">
+        <img src="/logo.svg" class="h-8 w-8" alt=""/>
         <p class="font-unbounded text-[13px] font-semibold leading-none tracking-[-0.05em]">
           CAST<span class="text-acid">.</span>
         </p>
