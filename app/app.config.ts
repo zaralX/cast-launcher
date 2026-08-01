@@ -57,6 +57,13 @@ export default defineAppConfig({
                 content: 'rounded-none border border-line bg-ink-800 ring-0'
             }
         },
+        contextMenu: {
+            slots: {
+                content: 'rounded-none border border-line bg-ink-800 ring-0 shadow-none',
+                item: 'rounded-none font-mono text-[11px] before:rounded-none',
+                separator: 'bg-line'
+            }
+        },
         toast: {
             slots: {
                 root: 'rounded-none ring-line bg-ink-800',
