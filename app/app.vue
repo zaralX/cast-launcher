@@ -13,6 +13,8 @@ const TOAST_COLOR: Record<ErrorSeverity, "error" | "warning" | "info"> = {
 const toast = useToast()
 const errorCenterOpen = useErrorCenterOpen()
 
+useAppearance()
+
 const unregister = registerErrorSink((entry) => {
   toast.add({
     title: entry.title,

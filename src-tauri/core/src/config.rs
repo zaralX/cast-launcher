@@ -6,7 +6,9 @@ use serde_json::Value;
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, write_json_atomic};
 
-pub const CONFIG_VERSION: u32 = 3;
+pub const CONFIG_VERSION: u32 = 4;
+
+pub const DEFAULT_ACCENT: &str = "sky";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -23,6 +25,16 @@ pub struct LauncherConfig {
     pub auto_update: bool,
     #[serde(default)]
     pub castpack_url: String,
+    /// Имя палитры Nuxt UI, из которой берётся основной цвет интерфейса.
+    #[serde(default = "default_accent")]
+    pub accent: String,
+    /// Компактный режим интерфейса.
+    #[serde(default)]
+    pub compact: bool,
+}
+
+fn default_accent() -> String {
+    DEFAULT_ACCENT.into()
 }
 
 impl LauncherConfig {
@@ -64,6 +76,8 @@ impl AppConfig {
                 dir: config_root.display().to_string(),
                 auto_update: true,
                 castpack_url: String::new(),
+                accent: DEFAULT_ACCENT.into(),
+                compact: false,
             },
             java: JavaConfig {
                 java_mode: JavaMode::Auto,
@@ -126,6 +140,11 @@ fn migrate(mut raw: Value) -> Value {
         set_in(&mut raw, "java", "java_mode", Value::String(mode.into()));
     }
 
+    if version <= 3 {
+        set_in(&mut raw, "launcher", "accent", Value::String(DEFAULT_ACCENT.into()));
+        set_in(&mut raw, "launcher", "compact", Value::Bool(false));
+    }
+
     raw["version"] = Value::from(CONFIG_VERSION);
     raw
 }
@@ -142,6 +161,8 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
             dir: string_or(launcher, "dir", defaults.launcher.dir),
             auto_update: bool_or(launcher, "auto_update", defaults.launcher.auto_update),
             castpack_url: string_or(launcher, "castpack_url", defaults.launcher.castpack_url),
+            accent: non_empty_string_or(launcher, "accent", defaults.launcher.accent),
+            compact: bool_or(launcher, "compact", defaults.launcher.compact),
         },
         java: JavaConfig {
             java_mode: java
@@ -173,6 +194,15 @@ fn string_or(section: Option<&Value>, key: &str, fallback: String) -> String {
         .and_then(Value::as_str)
         .map(str::to_string)
         .unwrap_or(fallback)
+}
+
+fn non_empty_string_or(section: Option<&Value>, key: &str, fallback: String) -> String {
+    let value = string_or(section, key, fallback.clone());
+
+    match value.trim().is_empty() {
+        true => fallback,
+        false => value.trim().to_string(),
+    }
 }
 
 fn bool_or(section: Option<&Value>, key: &str, fallback: bool) -> bool {
@@ -249,23 +279,52 @@ mod tests {
     }
 
     #[test]
-    fn current_config_survives_round_trip() {
+    fn v3_config_gains_the_default_appearance() {
         let config = migrated(json!({
             "version": 3,
-            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "auto_update": false },
+            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "auto_update": true }
+        }));
+
+        assert_eq!(config.version, CONFIG_VERSION);
+        assert_eq!(config.launcher.accent, DEFAULT_ACCENT);
+        assert!(!config.launcher.compact);
+    }
+
+    #[test]
+    fn a_blank_accent_falls_back_to_the_default_one() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "accent": "   ", "compact": true }
+        }));
+
+        assert_eq!(config.launcher.accent, DEFAULT_ACCENT);
+        assert!(config.launcher.compact);
+    }
+
+    #[test]
+    fn current_config_survives_round_trip() {
+        let config = migrated(json!({
+            "version": 4,
+            "launcher": {
+                "language": "ru", "theme": "dark", "dir": "/data", "auto_update": false,
+                "accent": "violet", "compact": true
+            },
             "java": { "java_mode": "system", "java_path": "", "min_ram": 512, "max_ram": 1024 }
         }));
 
         assert!(!config.launcher.auto_update);
+        assert_eq!(config.launcher.accent, "violet");
+        assert!(config.launcher.compact);
         assert_eq!(config.java.java_mode, JavaMode::System);
         assert_eq!(config.manual_java_path(), None);
     }
 
     #[test]
     fn garbage_sections_fall_back_to_defaults() {
-        let config = migrated(json!({ "version": 3, "launcher": 42, "java": "nope" }));
+        let config = migrated(json!({ "version": 4, "launcher": 42, "java": "nope" }));
 
         assert_eq!(config.launcher.language, "ru");
+        assert_eq!(config.launcher.accent, DEFAULT_ACCENT);
         assert_eq!(config.java.min_ram, 1024);
     }
 

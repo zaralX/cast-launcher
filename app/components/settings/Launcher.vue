@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {ru} from "#ui/locale";
 import type {AppConfig} from "~/types/app";
+import {ACCENTS} from "~/composables/useAppearance";
 
 const config = defineModel<AppConfig | null>()
 </script>
@@ -26,6 +27,29 @@ const config = defineModel<AppConfig | null>()
         </SettingsField>
       </div>
 
+      <SettingsField label="Основной цвет" hint="Меняется сразу, но сохраняется только по кнопке.">
+        <div class="flex flex-wrap gap-2">
+          <button
+              v-for="accent in ACCENTS"
+              :key="accent.value"
+              type="button"
+              :title="accent.label"
+              :aria-label="accent.label"
+              :aria-pressed="config!.launcher.accent === accent.value"
+              class="group grid size-8 cursor-pointer place-items-center border transition-colors duration-300"
+              :class="config!.launcher.accent === accent.value
+                ? 'border-fg'
+                : 'border-line hover:border-line-strong'"
+              @click="config!.launcher.accent = accent.value"
+          >
+            <span
+                class="size-4 transition-transform duration-300 ease-deck group-hover:scale-110"
+                :style="{ backgroundColor: accent.preview }"
+            />
+          </button>
+        </div>
+      </SettingsField>
+
       <SettingsField label="Файлы лаунчера" hint="Сюда попадают все файлы связанные с игрой.">
         <UInput
             v-model="config!.launcher.dir"
@@ -34,6 +58,16 @@ const config = defineModel<AppConfig | null>()
             :ui="{ base: 'font-mono text-[12px]' }"
         />
       </SettingsField>
+
+      <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
+        <div class="min-w-0">
+          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Компактный режим</p>
+          <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
+            Главная страница почти как в Prism Launcher.
+          </p>
+        </div>
+        <USwitch v-model="config!.launcher.compact" size="lg"/>
+      </div>
 
       <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
         <div class="min-w-0">

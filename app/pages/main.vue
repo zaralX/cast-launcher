@@ -15,6 +15,8 @@ const {running, instances, installs} = storeToRefs(instanceStore)
 
 const createModalOpen = ref(false)
 
+const compact = useCompact()
+
 const catalogPacks = computed(() =>
     castpackStore.packs.filter(pack => !castpackStore.instanceOf(pack.id))
 )
@@ -58,7 +60,7 @@ async function installPack(packId: string) {
 </script>
 
 <template>
-  <div class="min-h-full w-full px-6 pb-10 pt-6 xl:px-10">
+  <div :data-compact="compact" class="min-h-full w-full px-6 pb-10 pt-6 xl:px-10">
     <section>
       <SectionHeading index="01" title="Ваши сборки">
         <template #action>

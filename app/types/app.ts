@@ -9,6 +9,8 @@ export interface LauncherConfig {
     theme: string
     dir: string
     auto_update: boolean
+    accent: string
+    compact: boolean
 }
 
 export type JavaMode = "auto" | "system" | "manual"

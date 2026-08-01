@@ -14,7 +14,7 @@
     --cast-fg-muted: #9ba1a8;
     --cast-fg-faint: #5f666e;
 
-    --cast-acid: #3ec8ff;
+    --cast-acid: var(--ui-color-primary-400, #3ec8ff);
     --cast-on-acid: #0a0b0c;
 
     color-scheme: dark;
@@ -33,7 +33,7 @@ html.light {
     --cast-fg-muted: #565d64;
     --cast-fg-faint: #8b9299;
 
-    --cast-acid: #0a6770;
+    --cast-acid: var(--ui-color-primary-700, #0a6770);
     --cast-on-acid: #ffffff;
 
     color-scheme: light;
