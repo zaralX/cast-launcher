@@ -72,6 +72,14 @@ impl AccountConfig {
         let index = self.selected.unwrap_or(0);
         self.accounts.get(index).or_else(|| self.accounts.first())
     }
+
+    fn backfill_offline_uuids(&mut self) {
+        for account in &mut self.accounts {
+            if account.account_type == AccountType::Offline && account.uuid.is_none() {
+                account.uuid = Some(offline_uuid(&account.name));
+            }
+        }
+    }
 }
 
 pub struct AccountStore {
@@ -81,7 +89,8 @@ pub struct AccountStore {
 
 impl AccountStore {
     pub async fn load(file: PathBuf) -> Self {
-        let config: AccountConfig = read_json_opt(&file).await.unwrap_or_default();
+        let mut config: AccountConfig = read_json_opt(&file).await.unwrap_or_default();
+        config.backfill_offline_uuids();
 
         Self {
             file,
@@ -344,6 +353,24 @@ mod tests {
             skins: Vec::new(),
             capes: Vec::new(),
         }
+    }
+
+    #[test]
+    fn backfill_gives_legacy_offline_accounts_a_uuid() {
+        let mut config: AccountConfig = serde_json::from_value(json!({
+            "accounts": [
+                {"type": "offline", "name": "aboba"},
+                {"type": "offline", "name": "Notch", "uuid": "оставить как есть"},
+                {"type": "microsoft", "name": "Steve"}
+            ]
+        }))
+        .unwrap();
+
+        config.backfill_offline_uuids();
+
+        assert_eq!(config.accounts[0].uuid.as_deref(), Some(offline_uuid("aboba").as_str()));
+        assert_eq!(config.accounts[1].uuid.as_deref(), Some("оставить как есть"));
+        assert_eq!(config.accounts[2].uuid, None);
     }
 
     #[test]

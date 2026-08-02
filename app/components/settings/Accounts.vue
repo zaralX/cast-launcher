@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import {storeToRefs} from "pinia";
+import type {Account} from "~/types/account";
 import {useAccountStore} from "~/stores/account";
 
 const accountStore = useAccountStore();
 const {accountConfig, loggingIn} = storeToRefs(accountStore)
+const toast = useToast()
 
 const offlineNickname = ref("")
+const removeTarget = ref<Account | null>(null)
+const removing = ref(false)
 
 const createOfflineAccount = async () => {
   const name = offlineNickname.value.trim()
@@ -18,6 +22,25 @@ const createOfflineAccount = async () => {
 const createMicrosoftAccount = () => safeRun(() => accountStore.microsoftLogin(), {code: "AUTH_FAILED"})
 
 const selectAccount = (index: number) => safeRun(() => accountStore.selectAccount(index))
+
+async function confirmRemove() {
+  const target = removeTarget.value
+  if (!target?.uuid || removing.value) return
+
+  removing.value = true
+  const result = await attempt(() => accountStore.removeAccount(target.uuid!))
+  removing.value = false
+
+  if (!result.ok) return
+
+  removeTarget.value = null
+
+  toast.add({
+    title: `Аккаунт «${target.name}» удалён`,
+    color: "success",
+    icon: "i-lucide-trash-2"
+  })
+}
 </script>
 
 <template>
@@ -58,6 +81,16 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
           >
             Активен
           </span>
+
+          <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-trash-2"
+              aria-label="Удалить аккаунт"
+              class="shrink-0 p-1 text-fg-faint transition-colors duration-300 hover:bg-transparent hover:text-red-400"
+              :disabled="!account.uuid"
+              @click.stop="removeTarget = account"
+          />
         </li>
       </ul>
 
@@ -105,5 +138,34 @@ const selectAccount = (index: number) => safeRun(() => accountStore.selectAccoun
         </UPopover>
       </div>
     </div>
+
+    <UModal
+        :open="!!removeTarget"
+        title="Удаление аккаунта"
+        @update:open="value => { if (!value) removeTarget = null }"
+    >
+      <template #body>
+        <p class="text-[12px] leading-relaxed text-fg-muted">
+          Аккаунт «{{ removeTarget?.name }}» будет убран из лаунчера. Сборки и их файлы это не затронет.
+        </p>
+      </template>
+
+      <template #footer>
+        <div class="flex w-full items-center justify-end gap-3">
+          <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="removeTarget = null">
+            Отмена
+          </AppButton>
+
+          <AppButton
+              class="h-8 text-[10px] tracking-[0.18em] hover:border-red-500 hover:before:bg-red-500 hover:text-white"
+              icon="i-lucide-trash-2"
+              :loading="removing"
+              @click="confirmRemove"
+          >
+            Удалить
+          </AppButton>
+        </div>
+      </template>
+    </UModal>
   </SettingsPanel>
 </template>
