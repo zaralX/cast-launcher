@@ -5,12 +5,12 @@ import {useCastPackStore} from "~/stores/castpack";
 
 const loading = ref(true)
 const steps = ["Ожидание", "Подключение к лаунчеру", "Проверка обновлений", "Каталог CastPack", "Готово!"]
-const currentStep = ref(0)
+const currentStep = ref(1)
 const appStore = useAppStore();
 const castpackStore = useCastPackStore();
 
 onMounted(async () => {
-  currentStep.value = 1
+  currentStep.value = 2
 
   await safeRun(() => useLauncherEvents(), {code: "CONFIG_ERROR"})
   currentStep.value += 1
