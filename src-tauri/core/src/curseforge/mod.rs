@@ -20,6 +20,12 @@ pub const MODPACK_CLASS: u32 = 4471;
 
 pub const WORLD_CLASS: u32 = 17;
 
+pub const RESOURCE_PACK_CLASS: u32 = 12;
+
+pub const SHADER_CLASS: u32 = 6552;
+
+pub const DATA_PACK_CLASS: u32 = 6945;
+
 pub const MAX_LIMIT: u32 = 50;
 pub const MAX_OFFSET: u32 = 10_000;
 
@@ -316,6 +322,9 @@ impl RawMod {
     pub(crate) fn target_folder(&self) -> &'static str {
         match self.class_id {
             Some(WORLD_CLASS) => "saves",
+            Some(RESOURCE_PACK_CLASS) => "resourcepacks",
+            Some(SHADER_CLASS) => "shaderpacks",
+            Some(DATA_PACK_CLASS) => "datapacks",
             _ => "mods",
         }
     }
@@ -849,7 +858,7 @@ mod tests {
     }
 
     #[test]
-    fn worlds_go_to_saves_and_everything_else_to_mods() {
+    fn every_kind_of_project_lands_in_its_own_folder() {
         let folder = |class_id: serde_json::Value| {
             serde_json::from_value::<RawMod>(serde_json::json!({"id": 1, "classId": class_id}))
                 .unwrap()
@@ -857,7 +866,11 @@ mod tests {
         };
 
         assert_eq!(folder(serde_json::json!(17)), "saves");
+        assert_eq!(folder(serde_json::json!(12)), "resourcepacks");
+        assert_eq!(folder(serde_json::json!(6552)), "shaderpacks");
+        assert_eq!(folder(serde_json::json!(6945)), "datapacks");
         assert_eq!(folder(serde_json::json!(6)), "mods");
+        assert_eq!(folder(serde_json::json!(4546)), "mods", "оформление кладём к модам");
         assert_eq!(folder(serde_json::Value::Null), "mods");
     }
 
