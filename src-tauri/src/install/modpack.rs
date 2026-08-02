@@ -219,6 +219,7 @@ pub async fn apply(
 
     let resolved = what.resolved;
     let mut owned: BTreeSet<String> = resolved.paths.iter().cloned().collect();
+    let mut extracted: BTreeSet<String> = BTreeSet::new();
 
     let blocked = match resolved.blocked.is_empty() {
         true => Vec::new(),
@@ -255,23 +256,27 @@ pub async fn apply(
         reporter.set_message("Распаковка модпака");
 
         for prefix in &resolved.overrides {
-            let extracted =
+            let unpacked =
                 archive::extract_dir(archive.to_path_buf(), prefix.clone(), minecraft.clone()).await?;
 
-            owned.extend(extracted);
+            extracted.extend(unpacked);
         }
     }
+
+    // Файл может прийти и из списка пака, и из overrides: следим за ним как за скачанным.
+    extracted.retain(|key| !owned.contains(key));
 
     if !resolved.delete.is_empty() {
         for key in &resolved.delete {
             owned.remove(key);
+            extracted.remove(key);
         }
 
         reporter.set_message(format!("Удаление лишних файлов: {}", resolved.delete.len()));
         pack_files::remove(&minecraft, &resolved.delete).await;
     }
 
-    let stale = previous.stale(&owned);
+    let stale = previous.stale(&owned.union(&extracted).cloned().collect());
 
     if !stale.is_empty() {
         reporter.set_message(format!("Удаление файлов прошлой версии: {}", stale.len()));
@@ -282,6 +287,7 @@ pub async fn apply(
 
     PackFiles::new(what.version_id, owned)
         .with_seeded(seeded)
+        .with_extracted(extracted)
         .save(&instance_paths.pack_files())
         .await?;
 

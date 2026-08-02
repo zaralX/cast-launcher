@@ -13,6 +13,7 @@ pub struct PackFiles {
     pub version_id: String,
     pub paths: BTreeSet<String>,
     pub seeded: BTreeSet<String>,
+    pub extracted: BTreeSet<String>,
 }
 
 impl PackFiles {
@@ -21,11 +22,17 @@ impl PackFiles {
             version_id: version_id.into(),
             paths,
             seeded: BTreeSet::new(),
+            extracted: BTreeSet::new(),
         }
     }
 
     pub fn with_seeded(mut self, seeded: BTreeSet<String>) -> Self {
         self.seeded = seeded;
+        self
+    }
+
+    pub fn with_extracted(mut self, extracted: BTreeSet<String>) -> Self {
+        self.extracted = extracted;
         self
     }
 
@@ -38,7 +45,11 @@ impl PackFiles {
     }
 
     pub fn stale(&self, current: &BTreeSet<String>) -> Vec<String> {
-        self.paths.difference(current).cloned().collect()
+        self.paths
+            .union(&self.extracted)
+            .filter(|path| !current.contains(*path))
+            .cloned()
+            .collect()
     }
 
     pub async fn missing(&self, minecraft_dir: &Path) -> Vec<String> {
@@ -114,6 +125,33 @@ mod tests {
         let current = set(&["mods/a.jar", "mods/c.jar", "config/a.toml"]);
 
         assert_eq!(previous.stale(&current), vec!["mods/b.jar"]);
+    }
+
+    #[test]
+    fn files_from_overrides_are_cleaned_up_just_like_downloaded_ones() {
+        let previous = PackFiles::new("v1", set(&["mods/a.jar"]))
+            .with_extracted(set(&["config/a.toml", "kubejs/x.js"]));
+
+        assert_eq!(previous.stale(&set(&["mods/a.jar", "kubejs/x.js"])), vec!["config/a.toml"]);
+    }
+
+    #[tokio::test]
+    async fn a_file_the_game_rewrote_is_not_a_reason_to_reinstall() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("a.jar"), b"a").unwrap();
+
+        let record = PackFiles::new("v1", set(&["mods/a.jar"]))
+            .with_extracted(set(&["config/euphoria_patcher/data.json"]));
+
+        assert!(
+            record.missing(&minecraft).await.is_empty(),
+            "файлы из overrides мод вправе переименовать или убрать"
+        );
+
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]
