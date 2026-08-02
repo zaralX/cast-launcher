@@ -17,8 +17,23 @@ use cast_core::meta::Resolver;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
+use crate::telemetry::{self, Event};
 
 pub async fn launch(
+    app: AppHandle,
+    state: Arc<AppState>,
+    instance_id: &str,
+) -> CommandResult<RunningGame> {
+    match run(app.clone(), state, instance_id).await {
+        Ok(game) => Ok(game),
+        Err(error) => {
+            telemetry::track(&app, Event::new("launch_failed").error(&error));
+            Err(error)
+        }
+    }
+}
+
+async fn run(
     app: AppHandle,
     state: Arc<AppState>,
     instance_id: &str,
@@ -108,6 +123,19 @@ pub async fn launch(
             },
         )
         .await?;
+
+    telemetry::track(
+        &app,
+        Event::new("game_launched")
+            .instance(&instance)
+            .num("java_major", java.major)
+            .text("java_source", java.source)
+            .text("java_mode", config.java.java_mode.key())
+            .num("min_ram", config.java.min_ram)
+            .num("max_ram", config.java.max_ram)
+            .flag("first_launch", instance.playtime.total_seconds == 0)
+            .flag("overrides", instance.settings.overrides_anything()),
+    );
 
     if let Err(error) = state
         .instances

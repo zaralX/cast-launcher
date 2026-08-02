@@ -12,6 +12,7 @@ use cast_core::packs;
 use crate::events::{EmitExt, LauncherEvent};
 use crate::install;
 use crate::state::AppState;
+use crate::telemetry::{self, Event};
 
 pub async fn catalog(app: &AppHandle, state: &Arc<AppState>) -> CommandResult<Catalog> {
     let config = state.config().await;
@@ -19,7 +20,15 @@ pub async fn catalog(app: &AppHandle, state: &Arc<AppState>) -> CommandResult<Ca
 
     let catalog =
         castpack::source::catalog(config.launcher.catalog_url(), &castpack::source::catalog_cache(&paths))
-            .await?;
+            .await
+            .inspect_err(|error| {
+                telemetry::track(
+                    app,
+                    Event::new("castpack_catalog_failed")
+                        .error(error)
+                        .text("host", telemetry::host_of(config.launcher.catalog_url())),
+                )
+            })?;
 
     heal_icons(app, state, &catalog).await;
 
@@ -86,6 +95,15 @@ pub async fn install_pack(
     let base = base_pack(&manifest).await?;
 
     let instance = upsert(&app, &state, &entry, &manifest, base).await?;
+
+    telemetry::track(
+        &app,
+        Event::new("castpack_install")
+            .instance(&instance)
+            .text("catalog_id", &entry.id)
+            .text("version", &manifest.version)
+            .flag("update", instance.installed),
+    );
 
     install::start(app, state, instance.id.clone()).await?;
 
@@ -293,6 +311,11 @@ pub async fn set_autoupdate(
     if updated.castpack.is_none() {
         return Err(CommandError::manifest("Эта сборка не из каталога CastPack"));
     }
+
+    telemetry::track(
+        app,
+        Event::new("castpack_autoupdate").instance(&updated).flag("enabled", enabled),
+    );
 
     LauncherEvent::Instances {
         instances: state.instances.all().await,

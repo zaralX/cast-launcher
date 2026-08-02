@@ -4,6 +4,7 @@ import {LauncherError} from "~/types/error"
 import {useAppStore} from "~/stores/app"
 import {useInstanceStore} from "~/stores/instance"
 import {useAccountStore} from "~/stores/account"
+import {setTelemetryEnabled} from "~/composables/useTelemetry"
 
 let started: Promise<void> | null = null
 
@@ -24,6 +25,8 @@ async function connect() {
     const accountStore = useAccountStore()
 
     const bootstrap = await call("bootstrap")
+
+    setTelemetryEnabled(bootstrap.config.launcher.telemetry)
 
     appStore.applyBootstrap(bootstrap.config, bootstrap.paths)
     accountStore.applyBootstrap(bootstrap.accounts)

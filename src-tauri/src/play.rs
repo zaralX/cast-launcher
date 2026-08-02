@@ -12,6 +12,7 @@ use cast_core::paths::LauncherPaths;
 
 use crate::install::{self, InstallSnapshot};
 use crate::state::AppState;
+use crate::telemetry::{self, Event};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
@@ -103,7 +104,11 @@ async fn missing_files(paths: &LauncherPaths, instance: &Instance) -> Vec<String
     missing
 }
 
-pub async fn check_update(state: &Arc<AppState>, instance_id: &str) -> CommandResult<CastPackUpdate> {
+pub async fn check_update(
+    app: &AppHandle,
+    state: &Arc<AppState>,
+    instance_id: &str,
+) -> CommandResult<CastPackUpdate> {
     let instance = state.instances.get(instance_id).await?;
 
     let source = instance
@@ -112,18 +117,43 @@ pub async fn check_update(state: &Arc<AppState>, instance_id: &str) -> CommandRe
         .ok_or_else(|| CommandError::manifest("Эта сборка не из каталога CastPack"))?;
 
     match castpack::source::manifest(&source.manifest_url).await {
-        Ok(manifest) => Ok(CastPackUpdate {
-            available: source.is_outdated(&manifest.version),
-            version: manifest.version,
-            changelog: manifest.changelog,
-            error: None,
-        }),
-        Err(error) => Ok(CastPackUpdate {
-            available: false,
-            version: source.version.clone(),
-            changelog: source.changelog.clone(),
-            error: Some(error.message),
-        }),
+        Ok(manifest) => {
+            let available = source.is_outdated(&manifest.version);
+
+            if available {
+                telemetry::track(
+                    app,
+                    Event::new("castpack_update_found")
+                        .instance(&instance)
+                        .text("catalog_id", &source.catalog_id)
+                        .text("from", &source.version)
+                        .text("to", &manifest.version),
+                );
+            }
+
+            Ok(CastPackUpdate {
+                available,
+                version: manifest.version,
+                changelog: manifest.changelog,
+                error: None,
+            })
+        }
+        Err(error) => {
+            telemetry::track(
+                app,
+                Event::new("castpack_update_failed")
+                    .error(&error)
+                    .text("catalog_id", &source.catalog_id)
+                    .text("host", telemetry::host_of(&source.manifest_url)),
+            );
+
+            Ok(CastPackUpdate {
+                available: false,
+                version: source.version.clone(),
+                changelog: source.changelog.clone(),
+                error: Some(error.message),
+            })
+        }
     }
 }
 

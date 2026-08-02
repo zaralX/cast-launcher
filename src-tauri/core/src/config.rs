@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, write_json_atomic};
 
-pub const CONFIG_VERSION: u32 = 4;
+pub const CONFIG_VERSION: u32 = 5;
 
 pub const DEFAULT_ACCENT: &str = "sky";
 
@@ -31,10 +31,17 @@ pub struct LauncherConfig {
     /// Компактный режим интерфейса.
     #[serde(default)]
     pub compact: bool,
+    /// Отправка анонимной статистики использования.
+    #[serde(default = "yes")]
+    pub telemetry: bool,
 }
 
 fn default_accent() -> String {
     DEFAULT_ACCENT.into()
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl LauncherConfig {
@@ -55,6 +62,16 @@ pub enum JavaMode {
     Auto,
     System,
     Manual,
+}
+
+impl JavaMode {
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::System => "system",
+            Self::Manual => "manual",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,6 +95,7 @@ impl AppConfig {
                 castpack_url: String::new(),
                 accent: DEFAULT_ACCENT.into(),
                 compact: false,
+                telemetry: true,
             },
             java: JavaConfig {
                 java_mode: JavaMode::Auto,
@@ -145,6 +163,10 @@ fn migrate(mut raw: Value) -> Value {
         set_in(&mut raw, "launcher", "compact", Value::Bool(false));
     }
 
+    if version <= 4 {
+        set_in(&mut raw, "launcher", "telemetry", Value::Bool(true));
+    }
+
     raw["version"] = Value::from(CONFIG_VERSION);
     raw
 }
@@ -163,6 +185,7 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
             castpack_url: string_or(launcher, "castpack_url", defaults.launcher.castpack_url),
             accent: non_empty_string_or(launcher, "accent", defaults.launcher.accent),
             compact: bool_or(launcher, "compact", defaults.launcher.compact),
+            telemetry: bool_or(launcher, "telemetry", defaults.launcher.telemetry),
         },
         java: JavaConfig {
             java_mode: java
@@ -291,6 +314,27 @@ mod tests {
     }
 
     #[test]
+    fn v4_config_gains_telemetry_turned_on() {
+        let config = migrated(json!({
+            "version": 4,
+            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "accent": "violet" }
+        }));
+
+        assert_eq!(config.version, CONFIG_VERSION);
+        assert!(config.launcher.telemetry);
+    }
+
+    #[test]
+    fn telemetry_stays_off_once_it_was_turned_off() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "telemetry": false }
+        }));
+
+        assert!(!config.launcher.telemetry);
+    }
+
+    #[test]
     fn a_blank_accent_falls_back_to_the_default_one() {
         let config = migrated(json!({
             "version": CONFIG_VERSION,
@@ -304,15 +348,16 @@ mod tests {
     #[test]
     fn current_config_survives_round_trip() {
         let config = migrated(json!({
-            "version": 4,
+            "version": CONFIG_VERSION,
             "launcher": {
                 "language": "ru", "theme": "dark", "dir": "/data", "auto_update": false,
-                "accent": "violet", "compact": true
+                "accent": "violet", "compact": true, "telemetry": true
             },
             "java": { "java_mode": "system", "java_path": "", "min_ram": 512, "max_ram": 1024 }
         }));
 
         assert!(!config.launcher.auto_update);
+        assert!(config.launcher.telemetry);
         assert_eq!(config.launcher.accent, "violet");
         assert!(config.launcher.compact);
         assert_eq!(config.java.java_mode, JavaMode::System);
@@ -321,7 +366,7 @@ mod tests {
 
     #[test]
     fn garbage_sections_fall_back_to_defaults() {
-        let config = migrated(json!({ "version": 4, "launcher": 42, "java": "nope" }));
+        let config = migrated(json!({ "version": CONFIG_VERSION, "launcher": 42, "java": "nope" }));
 
         assert_eq!(config.launcher.language, "ru");
         assert_eq!(config.launcher.accent, DEFAULT_ACCENT);

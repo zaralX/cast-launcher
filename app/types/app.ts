@@ -11,6 +11,7 @@ export interface LauncherConfig {
     auto_update: boolean
     accent: string
     compact: boolean
+    telemetry: boolean
 }
 
 export type JavaMode = "auto" | "system" | "manual"

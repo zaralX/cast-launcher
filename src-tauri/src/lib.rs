@@ -6,12 +6,17 @@ mod install;
 mod launch;
 mod play;
 mod state;
+mod telemetry;
 
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let runtime = tauri::async_runtime::handle();
+    let _runtime_guard = runtime.inner().enter();
+
     tauri::Builder::default()
+        .plugin(telemetry::plugin())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -21,7 +26,11 @@ pub fn run() {
 
             tauri::async_runtime::block_on(async move {
                 let state = state::AppState::initialize(&handle).await?;
-                handle.manage(state);
+
+                telemetry::set_enabled(state.config().await.launcher.telemetry);
+                handle.manage(std::sync::Arc::clone(&state));
+                telemetry::app_started(&handle, &state).await;
+
                 Ok::<_, cast_core::error::CommandError>(())
             })?;
 
@@ -95,6 +104,11 @@ pub fn run() {
             commands::list_forge_versions,
             commands::list_neoforge_versions,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                telemetry::app_exited(app);
+            }
+        });
 }

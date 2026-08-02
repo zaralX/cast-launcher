@@ -3,6 +3,7 @@ import {check} from "@tauri-apps/plugin-updater"
 import {relaunch} from '@tauri-apps/plugin-process'
 import type {AppConfig, JavaRuntime, LauncherPaths} from '~/types/app'
 import {call} from "~/types/backend"
+import {setTelemetryEnabled, trackEvent} from "~/composables/useTelemetry"
 
 export const useAppStore = defineStore('app', {
     state: () => ({
@@ -29,6 +30,8 @@ export const useAppStore = defineStore('app', {
         async updateConfig(config: AppConfig) {
             this.config = await call("update_config", {config})
             this.paths = await call("get_paths")
+
+            setTelemetryEnabled(this.config.launcher.telemetry)
 
             this.javaScanned = false
         },
@@ -61,6 +64,8 @@ export const useAppStore = defineStore('app', {
         async updateApp() {
             const update = await check({timeout: 15000})
             if (!update) return false
+
+            trackEvent("app_update_started", {version: update.version ?? ""})
 
             await update.downloadAndInstall()
             await relaunch()

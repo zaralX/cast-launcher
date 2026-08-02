@@ -7,6 +7,7 @@ import {
     LauncherError,
     toLauncherError
 } from "~/types/error";
+import {trackEvent} from "~/composables/useTelemetry";
 
 export interface ErrorEntry {
     id: string
@@ -67,6 +68,13 @@ export const useErrorStore = defineStore('error', {
                 previous.at = Date.now()
                 return error
             }
+
+            trackEvent("ui_error", {
+                code: error.code,
+                severity: error.severity,
+                command: String(error.context.command ?? ""),
+                stage: String(error.context.stage ?? "")
+            })
 
             const entry: ErrorEntry = {
                 id: v4(),

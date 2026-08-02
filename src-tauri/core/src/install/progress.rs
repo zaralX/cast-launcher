@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -77,6 +77,9 @@ pub struct ProgressReporter {
     phases: Vec<Phase>,
     started_at: u64,
     cancel: AtomicBool,
+    downloaded_bytes: AtomicU64,
+    phase_bytes: AtomicU64,
+    peak_blocked: AtomicU64,
     state: Mutex<State>,
 }
 
@@ -94,6 +97,9 @@ impl ProgressReporter {
             phases,
             started_at: now_millis(),
             cancel: AtomicBool::new(false),
+            downloaded_bytes: AtomicU64::new(0),
+            phase_bytes: AtomicU64::new(0),
+            peak_blocked: AtomicU64::new(0),
             state: Mutex::new(State {
                 stage: Stage::Prepare,
                 phase: 0,
@@ -133,7 +139,22 @@ impl ProgressReporter {
             state.files.clear();
         }
 
+        self.phase_bytes.store(0, Ordering::SeqCst);
         self.set_fraction(0.0);
+    }
+
+    pub fn phase_key(&self) -> &'static str {
+        let index = self.lock().phase;
+
+        self.phases.get(index).map(|phase| phase.key).unwrap_or_default()
+    }
+
+    pub fn elapsed_seconds(&self) -> f64 {
+        now_millis().saturating_sub(self.started_at) as f64 / 1000.0
+    }
+
+    pub fn downloaded_bytes(&self) -> u64 {
+        self.downloaded_bytes.load(Ordering::Relaxed)
     }
 
     pub fn set_stage(&self, stage: Stage) {
@@ -142,8 +163,13 @@ impl ProgressReporter {
     }
 
     pub fn set_blocked(&self, blocked: Vec<BlockedFile>) {
+        self.peak_blocked.fetch_max(blocked.len() as u64, Ordering::SeqCst);
         self.lock().blocked = blocked;
         self.publish();
+    }
+
+    pub fn peak_blocked(&self) -> u64 {
+        self.peak_blocked.load(Ordering::Relaxed)
     }
 
     pub fn set_awaiting_files(&self, awaiting: bool) {
@@ -167,6 +193,11 @@ impl ProgressReporter {
     }
 
     pub fn apply_download(&self, snapshot: &JobSnapshot) {
+        let seen = self.phase_bytes.swap(snapshot.downloaded_bytes, Ordering::SeqCst);
+
+        self.downloaded_bytes
+            .fetch_add(snapshot.downloaded_bytes.saturating_sub(seen), Ordering::SeqCst);
+
         {
             let mut state = self.lock();
             state.files = snapshot.files.clone();
@@ -307,6 +338,65 @@ mod tests {
 
         reporter.set_fraction(0.0);
         assert_eq!(reporter.snapshot().progress, peak);
+    }
+
+    fn job(downloaded_bytes: u64) -> JobSnapshot {
+        JobSnapshot {
+            job_id: "job".into(),
+            status: crate::net::download::JobStatus::Running,
+            progress: 0.0,
+            total_files: 1,
+            done_files: 0,
+            skipped_files: 0,
+            downloaded_bytes,
+            total_bytes: downloaded_bytes,
+            files: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn downloaded_bytes_add_up_across_phases() {
+        let (reporter, _) = reporter();
+
+        reporter.begin_phase("libraries", "Библиотеки");
+        reporter.apply_download(&job(300));
+        reporter.apply_download(&job(1000));
+
+        assert_eq!(reporter.downloaded_bytes(), 1000);
+
+        reporter.begin_phase("assets", "Ресурсы");
+        reporter.apply_download(&job(500));
+
+        assert_eq!(reporter.downloaded_bytes(), 1500);
+    }
+
+    #[test]
+    fn the_peak_number_of_blocked_files_is_remembered() {
+        let (reporter, _) = reporter();
+
+        let file = |name: &str| BlockedFile {
+            file_name: name.into(),
+            target_path: format!("mods/{name}"),
+            website_url: String::new(),
+            sha1: None,
+            local_path: None,
+        };
+
+        reporter.set_blocked(vec![file("a"), file("b"), file("c")]);
+        reporter.set_blocked(vec![file("a")]);
+        reporter.set_blocked(Vec::new());
+
+        assert_eq!(reporter.peak_blocked(), 3);
+    }
+
+    #[test]
+    fn the_current_phase_is_reported_by_its_key() {
+        let (reporter, _) = reporter();
+
+        reporter.begin_phase("assets", "Ресурсы");
+
+        assert_eq!(reporter.phase_key(), "assets");
+        assert_eq!(reporter.snapshot().phase, "Ресурсы");
     }
 
     #[test]

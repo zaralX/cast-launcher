@@ -17,6 +17,7 @@ use cast_core::paths::LauncherPaths;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
+use crate::telemetry::{self, Event};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,6 +79,41 @@ pub async fn scan(kind: LauncherKind, path: &str) -> CommandResult<Vec<ScannedIn
 }
 
 pub async fn run(
+    app: AppHandle,
+    state: Arc<AppState>,
+    request: ImportRequest,
+) -> CommandResult<ImportReport> {
+    let kind = request.kind;
+    let shared = request.options.copies_shared();
+    let started = std::time::Instant::now();
+
+    let outcome = import_all(app.clone(), state, request).await;
+
+    let event = Event::new("instances_imported")
+        .text("launcher", kind.key())
+        .num("duration_s", started.elapsed().as_secs_f64())
+        .flag("shared", shared);
+
+    match &outcome {
+        Ok(report) => telemetry::track(
+            &app,
+            event
+                .num("imported", report.imported.len() as f64)
+                .num("skipped", report.skipped.len() as f64)
+                .num(
+                    "linked",
+                    report.imported.iter().filter(|item| item.linked).count() as f64,
+                )
+                .num("copied_mb", telemetry::megabytes(report.stats.bytes))
+                .flag("cancelled", report.cancelled),
+        ),
+        Err(error) => telemetry::track(&app, event.error(error)),
+    }
+
+    outcome
+}
+
+async fn import_all(
     app: AppHandle,
     state: Arc<AppState>,
     request: ImportRequest,

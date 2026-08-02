@@ -31,6 +31,13 @@ impl LauncherKind {
             Self::Modrinth => "Modrinth App",
         }
     }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Prism => "prism",
+            Self::Modrinth => "modrinth",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

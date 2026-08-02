@@ -16,6 +16,7 @@ use cast_core::launch::args::LaunchCommand;
 use cast_core::launch::game::{GameStatus, RunningGame};
 
 use crate::events::{EmitExt, LauncherEvent};
+use crate::telemetry::{self, Event};
 
 const LOG_TAIL: usize = 120;
 
@@ -193,11 +194,11 @@ fn watch(
     pumps: [Option<JoinHandle<()>>; 2],
 ) {
     tokio::spawn(async move {
-        let status = tokio::select! {
-            status = child.wait() => status.ok(),
+        let (status, stopped) = tokio::select! {
+            status = child.wait() => (status.ok(), false),
             _ = kill_signal => {
                 let _ = child.kill().await;
-                child.wait().await.ok()
+                (child.wait().await.ok(), true)
             }
         };
 
@@ -230,7 +231,7 @@ fn watch(
             run_id: run_id.clone(),
             instance_id: instance_id.clone(),
             code,
-            log_tail,
+            log_tail: log_tail.clone(),
         }
         .emit(&app);
 
@@ -239,10 +240,39 @@ fn watch(
         }
 
         if let Some(state) = app.try_state::<Arc<crate::state::AppState>>() {
+            track_exit(&app, &state, &instance_id, started_at, code, log_tail.as_deref(), stopped)
+                .await;
             record_playtime(&app, &state, &instance_id, started_at).await;
             state.processes.forget(&run_id).await;
         }
     });
+}
+
+async fn track_exit(
+    app: &AppHandle,
+    state: &Arc<crate::state::AppState>,
+    instance_id: &str,
+    started_at: u64,
+    code: Option<i32>,
+    log_tail: Option<&str>,
+    stopped: bool,
+) {
+    let session_min = telemetry::minutes(Playtime::session_seconds(started_at, now_millis()));
+
+    let Ok(instance) = state.instances.get(instance_id).await else {
+        return;
+    };
+
+    let event = match (stopped, log_tail) {
+        (true, _) => Event::new("game_stopped").instance(&instance),
+        (false, None) => Event::new("game_exited").instance(&instance),
+        (false, Some(tail)) => Event::new("game_crashed")
+            .instance(&instance)
+            .num("exit_code", code.unwrap_or(-1))
+            .text("crash", telemetry::classify_crash(tail)),
+    };
+
+    telemetry::track(app, event.num("session_min", session_min));
 }
 
 async fn record_playtime(

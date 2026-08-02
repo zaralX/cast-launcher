@@ -25,6 +25,7 @@ use cast_core::paths::PathsSnapshot;
 use crate::events::{EmitExt, LauncherEvent};
 use crate::import;
 use crate::install::{self, InstallSnapshot};
+use crate::telemetry::{self, Event};
 use cast_core::launch::game::RunningGame;
 use crate::state::AppState;
 
@@ -61,8 +62,18 @@ pub async fn get_config(state: Ctx<'_>) -> CommandResult<AppConfig> {
 }
 
 #[tauri::command]
-pub async fn update_config(state: Ctx<'_>, config: AppConfig) -> CommandResult<AppConfig> {
-    state.update_config(config).await
+pub async fn update_config(
+    app: AppHandle,
+    state: Ctx<'_>,
+    config: AppConfig,
+) -> CommandResult<AppConfig> {
+    let before = state.config().await;
+    let updated = state.update_config(config).await?;
+
+    telemetry::settings_changed(&app, &before, &updated);
+    telemetry::set_enabled(updated.launcher.telemetry);
+
+    Ok(updated)
 }
 
 #[tauri::command]
@@ -122,6 +133,8 @@ pub async fn create_instance(
     let paths = state.paths().await;
     let created = state.instances.create(&paths, instance).await?;
 
+    telemetry::track(&app, Event::new("instance_created").instance(&created));
+
     LauncherEvent::Instances {
         instances: state.instances.all().await,
     }
@@ -138,8 +151,20 @@ pub async fn delete_instance(app: AppHandle, state: Ctx<'_>, instance_id: String
 
     state.installs.cancel(&instance_id).await;
 
+    let removed = state.instances.get(&instance_id).await.ok();
+
     let paths = state.paths().await;
     state.instances.remove(&paths, &instance_id).await?;
+
+    if let Some(removed) = &removed {
+        telemetry::track(
+            &app,
+            Event::new("instance_deleted")
+                .instance(removed)
+                .flag("installed", removed.installed)
+                .num("playtime_min", telemetry::minutes(removed.playtime.total_seconds)),
+        );
+    }
 
     LauncherEvent::Instances {
         instances: state.instances.all().await,
@@ -533,13 +558,25 @@ pub async fn select_account(state: Ctx<'_>, index: usize) -> CommandResult<Accou
 }
 
 #[tauri::command]
-pub async fn remove_account(state: Ctx<'_>, uuid: String) -> CommandResult<AccountConfig> {
-    state.accounts.remove(&uuid).await
+pub async fn remove_account(app: AppHandle, state: Ctx<'_>, uuid: String) -> CommandResult<AccountConfig> {
+    let removed = state.accounts.remove(&uuid).await?;
+
+    telemetry::track(&app, Event::new("account_removed").num("left", removed.accounts.len() as f64));
+
+    Ok(removed)
 }
 
 #[tauri::command]
-pub async fn add_offline_account(state: Ctx<'_>, name: String) -> CommandResult<AccountConfig> {
-    state.accounts.add_offline(&name).await
+pub async fn add_offline_account(
+    app: AppHandle,
+    state: Ctx<'_>,
+    name: String,
+) -> CommandResult<AccountConfig> {
+    let config = state.accounts.add_offline(&name).await?;
+
+    telemetry::track(&app, Event::new("account_added").text("type", "offline"));
+
+    Ok(config)
 }
 
 #[tauri::command]
@@ -551,16 +588,23 @@ pub async fn login_microsoft(app: AppHandle, state: Ctx<'_>) -> CommandResult<Ac
             CommandError::auth("Не удалось открыть браузер для входа").with_details(e.to_string())
         })
     })
-    .await?;
+    .await
+    .inspect_err(|error| telemetry::track(&app, Event::new("auth_failed").error(error)))?;
 
     state.accounts.upsert(account.clone()).await?;
+
+    telemetry::track(&app, Event::new("account_added").text("type", "microsoft"));
 
     Ok(account)
 }
 
 #[tauri::command]
-pub async fn refresh_account(state: Ctx<'_>, uuid: String) -> CommandResult<Account> {
-    state.accounts.refresh(&uuid).await
+pub async fn refresh_account(app: AppHandle, state: Ctx<'_>, uuid: String) -> CommandResult<Account> {
+    state
+        .accounts
+        .refresh(&uuid)
+        .await
+        .inspect_err(|error| telemetry::track(&app, Event::new("account_refresh_failed").error(error)))
 }
 
 #[tauri::command]
@@ -582,10 +626,11 @@ pub async fn castpack_install(
 
 #[tauri::command]
 pub async fn castpack_check_update(
+    app: AppHandle,
     state: Ctx<'_>,
     instance_id: String,
 ) -> CommandResult<crate::play::CastPackUpdate> {
-    crate::play::check_update(state.inner(), &instance_id).await
+    crate::play::check_update(&app, state.inner(), &instance_id).await
 }
 
 #[tauri::command]
@@ -630,8 +675,26 @@ pub async fn pack_providers() -> CommandResult<Vec<packs::ProviderInfo>> {
 }
 
 #[tauri::command]
-pub async fn search_packs(query: packs::SearchQuery) -> CommandResult<packs::PackPage> {
-    packs::search(&query).await
+pub async fn search_packs(app: AppHandle, query: packs::SearchQuery) -> CommandResult<packs::PackPage> {
+    let page = packs::search(&query).await?;
+
+    if query.offset == 0 {
+        let filters =
+            query.categories.len() + query.loaders.len() + query.game_versions.len();
+
+        telemetry::track(
+            &app,
+            Event::new("pack_search")
+                .text("provider", query.provider.key())
+                .flag("has_query", !query.query.trim().is_empty())
+                .num("filters", filters as f64)
+                .num("results", page.total_hits)
+                .maybe("sort", query.sort.as_deref())
+                .maybe("environment", query.environment.as_deref()),
+        );
+    }
+
+    Ok(page)
 }
 
 #[tauri::command]
@@ -724,6 +787,8 @@ pub async fn set_instance_pack_version(
             instance.loader_version = None;
         })
         .await?;
+
+    telemetry::track(&app, Event::new("pack_version_changed").instance(&updated));
 
     LauncherEvent::Instances {
         instances: state.instances.all().await,

@@ -78,6 +78,16 @@ const config = defineModel<AppConfig | null>()
         </div>
         <USwitch v-model="config!.launcher.auto_update" size="lg"/>
       </div>
+
+      <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
+        <div class="min-w-0">
+          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Анонимная статистика</p>
+          <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
+            Помогает чинить вылеты и ошибки установки. Ник, пути и логи не отправляются.
+          </p>
+        </div>
+        <USwitch v-model="config!.launcher.telemetry" size="lg"/>
+      </div>
     </div>
   </SettingsPanel>
 </template>

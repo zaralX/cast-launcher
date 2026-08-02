@@ -21,6 +21,7 @@ use cast_core::paths::LauncherPaths;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
+use crate::telemetry::{self, Event};
 
 pub mod blocked;
 mod castpack;
@@ -107,8 +108,16 @@ pub async fn start_with(
 
     let snapshot = reporter.snapshot();
 
+    telemetry::track(
+        &app,
+        Event::new("install_started")
+            .instance(&instance)
+            .flag("reinstall", instance.installed)
+            .flag("auto", launch_after),
+    );
+
     tokio::spawn(async move {
-        let outcome = run(&state, &instance, &reporter).await;
+        let outcome = run(&app, &state, &instance, &reporter).await;
         let installed = outcome.is_ok();
 
         complete(&app, &state, &instance, &reporter, outcome).await;
@@ -141,6 +150,35 @@ async fn complete(
     reporter: &Arc<ProgressReporter>,
     outcome: CommandResult<Installed>,
 ) {
+    let finished = Event::new("install_finished")
+        .instance(instance)
+        .num("duration_s", reporter.elapsed_seconds())
+        .num("downloaded_mb", telemetry::megabytes(reporter.downloaded_bytes()))
+        .num("blocked", reporter.peak_blocked() as f64);
+
+    match &outcome {
+        Ok(_) => telemetry::track(app, finished),
+        Err(error) if error.is_aborted() || reporter.is_cancelled() => telemetry::track(
+            app,
+            Event::new("install_cancelled")
+                .instance(instance)
+                .text("phase", reporter.phase_key())
+                .num("duration_s", reporter.elapsed_seconds())
+                .num("blocked", reporter.peak_blocked() as f64)
+                .flag("awaiting_files", reporter.snapshot().awaiting_files),
+        ),
+        Err(error) => telemetry::track(
+            app,
+            Event::new("install_failed")
+                .instance(instance)
+                .error(error)
+                .text("phase", reporter.phase_key())
+                .num("duration_s", reporter.elapsed_seconds())
+                .num("downloaded_mb", telemetry::megabytes(reporter.downloaded_bytes()))
+                .num("blocked", reporter.peak_blocked() as f64),
+        ),
+    }
+
     match outcome {
         Ok(installed) => {
             let paths = state.paths().await;
@@ -188,6 +226,7 @@ enum Prepared {
 }
 
 async fn run(
+    app: &AppHandle,
     state: &Arc<AppState>,
     instance: &Instance,
     reporter: &Arc<ProgressReporter>,
@@ -234,7 +273,7 @@ async fn run(
     let base = resolver.base_package(instance).await?;
     check_cancelled(reporter)?;
 
-    let java = ensure_java(state, &paths, instance, &base, reporter).await?;
+    let java = ensure_java(app, state, &paths, instance, &base, reporter).await?;
     let ctx = java.runtime_context();
     check_cancelled(reporter)?;
 
@@ -311,6 +350,7 @@ async fn prepare_dirs(paths: &LauncherPaths, instance: &Instance) -> CommandResu
 }
 
 async fn ensure_java(
+    app: &AppHandle,
     state: &Arc<AppState>,
     paths: &LauncherPaths,
     instance: &Instance,
@@ -321,6 +361,8 @@ async fn ensure_java(
 
     let requirement = cast_core::mojang::profile::JavaRequirement::from_package(base);
     let config = instance.effective_config(&state.config().await);
+
+    let started = reporter.elapsed_seconds();
 
     let java = java::resolve(
         &state.java,
@@ -335,7 +377,28 @@ async fn ensure_java(
             on_progress: Some(download_reporter(reporter)),
         },
     )
-    .await?;
+    .await
+    .inspect_err(|error| {
+        telemetry::track(
+            app,
+            Event::new("java_failed")
+                .error(error)
+                .text("mode", config.java.java_mode.key())
+                .num("required_major", requirement.major.unwrap_or(0)),
+        )
+    })?;
+
+    telemetry::track(
+        app,
+        Event::new("java_resolved")
+            .text("mode", config.java.java_mode.key())
+            .text("source", java.source)
+            .num("major", java.major)
+            .num("required_major", requirement.major.unwrap_or(0))
+            .maybe("component", requirement.component.as_deref())
+            .flag("is_64bit", java.is_64bit)
+            .num("duration_s", reporter.elapsed_seconds() - started),
+    );
 
     reporter.set_fraction(1.0);
 
