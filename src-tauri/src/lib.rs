@@ -63,6 +63,7 @@ pub fn run() {
             commands::awaited_files,
             commands::downloads_dir,
             commands::scan_for_files,
+            commands::rescan_files,
             commands::pick_folder,
             commands::resume_install,
             commands::list_installs,

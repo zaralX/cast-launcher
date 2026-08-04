@@ -22,6 +22,10 @@ impl CastPack {
     pub fn resolved(&self) -> &ResolvedPack {
         &self.resolved
     }
+
+    pub fn resolved_mut(&mut self) -> &mut ResolvedPack {
+        &mut self.resolved
+    }
 }
 
 pub async fn prepare(

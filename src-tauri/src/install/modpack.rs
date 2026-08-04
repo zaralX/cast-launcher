@@ -24,6 +24,10 @@ impl Modpack {
         &self.resolved
     }
 
+    pub fn resolved_mut(&mut self) -> &mut ResolvedPack {
+        &mut self.resolved
+    }
+
     pub fn archive(&self) -> &Path {
         &self.archive
     }
@@ -195,6 +199,28 @@ pub async fn sync_instance(
         .await
 }
 
+pub async fn await_blocked(
+    state: &Arc<AppState>,
+    instance: &Instance,
+    resolved: &mut ResolvedPack,
+    reporter: &Arc<ProgressReporter>,
+) -> CommandResult<()> {
+    if resolved.blocked.is_empty() {
+        return Ok(());
+    }
+
+    let found = state
+        .blocked
+        .wait(&instance.id, resolved.blocked.clone(), reporter)
+        .await;
+
+    super::check_cancelled(reporter)?;
+
+    resolved.blocked = found;
+
+    Ok(())
+}
+
 pub struct Applied<'a> {
     pub resolved: &'a ResolvedPack,
     pub archive: Option<&'a Path>,
@@ -221,24 +247,13 @@ pub async fn apply(
     let mut owned: BTreeSet<String> = resolved.paths.iter().cloned().collect();
     let mut extracted: BTreeSet<String> = BTreeSet::new();
 
-    let blocked = match resolved.blocked.is_empty() {
-        true => Vec::new(),
-        false => {
-            let found = state
-                .blocked
-                .wait(&instance.id, resolved.blocked.clone(), reporter)
-                .await;
+    let blocked = &resolved.blocked;
 
-            super::check_cancelled(reporter)?;
+    if blocked.iter().any(BlockedFile::found) {
+        reporter.set_message("Перенос скачанных вручную файлов");
 
-            reporter.begin_phase(what.phase, what.label);
-            reporter.set_message("Перенос скачанных вручную файлов");
-
-            owned.extend(blocked::place_found(&minecraft, &found).await);
-
-            found
-        }
-    };
+        owned.extend(blocked::place_found(&minecraft, blocked).await);
+    }
 
     if !resolved.tasks.is_empty() {
         state
@@ -291,7 +306,7 @@ pub async fn apply(
         .save(&instance_paths.pack_files())
         .await?;
 
-    let missing: Vec<_> = blocked.into_iter().filter(|file| !file.found()).collect();
+    let missing: Vec<_> = blocked.iter().filter(|file| !file.found()).cloned().collect();
 
     pack_files::save_blocked(&instance_paths.pack_blocked(), &missing).await?;
     reporter.set_blocked(missing);

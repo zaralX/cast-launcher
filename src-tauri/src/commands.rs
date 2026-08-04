@@ -475,6 +475,13 @@ pub async fn scan_for_files(
 }
 
 #[tauri::command]
+pub async fn rescan_files(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<packs::BlockedFile>> {
+    state.blocked.rescan(&instance_id).await;
+
+    Ok(state.blocked.files(&instance_id).await)
+}
+
+#[tauri::command]
 pub async fn pick_folder(app: AppHandle, title: Option<String>) -> CommandResult<Option<String>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 

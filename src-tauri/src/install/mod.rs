@@ -237,7 +237,7 @@ async fn run(
     reporter.set_message("Подготовка");
     prepare_dirs(&paths, instance).await?;
 
-    let (instance, prepared) = match Source::of(instance) {
+    let (instance, mut prepared) = match Source::of(instance) {
         Source::CastPack(_) => {
             let source = instance
                 .castpack
@@ -268,6 +268,18 @@ async fn run(
     };
 
     let instance = &instance;
+
+    match &mut prepared {
+        Some(Prepared::Pack(pack)) => {
+            modpack::await_blocked(state, instance, pack.resolved_mut(), reporter).await?
+        }
+        Some(Prepared::CastPack(pack)) => {
+            modpack::await_blocked(state, instance, pack.resolved_mut(), reporter).await?
+        }
+        None => {}
+    }
+
+    check_cancelled(reporter)?;
 
     let resolver = Resolver::new(&paths, &state.meta);
     let base = resolver.base_package(instance).await?;

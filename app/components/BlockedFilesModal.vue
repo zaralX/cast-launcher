@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import {getCurrentWindow} from "@tauri-apps/api/window";
 import type {BlockedFile} from "~/types/catalog";
 import type {InstallSnapshot} from "~/types/instance";
 import {call} from "~/types/backend";
+
+const FOCUS_COOLDOWN = 2000
 
 const props = defineProps<{ install: InstallSnapshot }>()
 
@@ -9,11 +12,12 @@ const files = ref<BlockedFile[]>(props.install.blocked ?? [])
 const folder = ref("")
 const scanning = ref(false)
 const finishing = ref(false)
-const scanned = ref(false)
 
 const missing = computed(() => files.value.filter(file => !file.localPath))
 const found = computed(() => files.value.filter(file => file.localPath))
 const allFound = computed(() => files.value.length > 0 && missing.value.length === 0)
+
+let lastRescan = 0
 
 watch(() => props.install.blocked, value => {
   if (value?.length) files.value = value
@@ -24,11 +28,35 @@ onMounted(async () => {
 
   const current = await safeRun(() => call("awaited_files", {instanceId: props.install.instanceId}))
   if (current?.length) files.value = current
+
+  const unlisten = await safeRun(() => getCurrentWindow().onFocusChanged(({payload}) => {
+    if (payload) rescan()
+  }))
+
+  if (unlisten) onScopeDispose(unlisten)
 })
+
+async function rescan() {
+  if (scanning.value || allFound.value) return
+  if (Date.now() - lastRescan < FOCUS_COOLDOWN) return
+
+  lastRescan = Date.now()
+  scanning.value = true
+
+  try {
+    const result = await call("rescan_files", {instanceId: props.install.instanceId})
+    if (result?.length) files.value = result
+  } catch {
+    // z
+  } finally {
+    scanning.value = false
+  }
+}
 
 async function scan() {
   if (!folder.value.trim() || scanning.value) return
 
+  lastRescan = Date.now()
   scanning.value = true
 
   const result = await safeRun(
@@ -38,7 +66,6 @@ async function scan() {
 
   if (result?.length) files.value = result
 
-  scanned.value = true
   scanning.value = false
 }
 
@@ -80,16 +107,20 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
       <div class="space-y-6">
         <p class="text-[12px] leading-relaxed text-fg-muted">
           Авторы этих файлов запретили сторонним лаунчерам их раздавать - CurseForge не даёт на них прямых
-          ссылок. Скачайте их со страниц ниже, затем укажите папку, куда они попали: лаунчер сверит файлы
-          по контрольной сумме и подставит их сам. Переименовывать скачанное не нужно, но и не страшно.
+          ссылок. Скачайте их со страниц ниже: лаунчер сам следит за папкой загрузок, сверяет файлы по
+          контрольной сумме и отмечает их здесь. Переименовывать скачанное не нужно, но и не страшно.
         </p>
 
         <div>
           <label
               for="blocked-folder"
-              class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+              class="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
           >
-            Где искать
+            <span>Где искать</span>
+            <span v-if="!allFound" class="flex items-center gap-1.5 text-acid/70">
+              <span class="size-1 animate-pulse rounded-full bg-acid"/>
+              проверяется автоматически
+            </span>
           </label>
 
           <div class="flex gap-2">
@@ -109,6 +140,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
               Обзор
             </AppButton>
             <AppButton
+                tone="quiet"
                 class="shrink-0 text-[10px] tracking-[0.16em]"
                 icon="i-lucide-refresh-cw"
                 :loading="scanning"
@@ -169,9 +201,10 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
           </li>
         </ul>
 
-        <p v-if="scanned && missing.length" class="text-[12px] leading-relaxed text-fg-muted">
-          В этой папке нашлось не всё. Проверьте, что файлы докачались до конца, или укажите другую папку.
-          Можно продолжить и без них - тогда пак встанет неполным, а список останется во вкладке «Модпак».
+        <p v-if="missing.length" class="text-[12px] leading-relaxed text-fg-muted">
+          Недостающие файлы отметятся сами, как только докачаются. Если браузер складывает их не в эту
+          папку - укажите нужную. Можно продолжить и без них: тогда пак встанет неполным, а список
+          останется во вкладке «Модпак».
         </p>
 
         <p v-else-if="allFound" class="text-[12px] leading-relaxed text-fg-muted">
