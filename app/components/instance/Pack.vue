@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type {Instance} from "~/types/instance";
-import {INSTANCE_TYPE_LABELS, PACK_PROVIDER_LABELS} from "~/types/instance";
+import {INSTANCE_TYPE_LABELS, LOCAL_PACK_KIND_LABELS, PACK_PROVIDER_LABELS} from "~/types/instance";
 import type {BlockedFile, PackVersion} from "~/types/catalog";
 import {unsupportedReason, versionLabel} from "~/types/catalog";
 import {call} from "~/types/backend";
@@ -21,6 +21,7 @@ const versionId = ref("")
 const blockedFiles = ref<BlockedFile[]>([])
 
 const pack = computed(() => props.instance.pack)
+const local = computed(() => props.instance.localPack)
 const running = computed(() => instanceStore.isRunning(props.instance.id))
 const installing = computed(() => !!instanceStore.getInstall(props.instance.id))
 
@@ -50,12 +51,25 @@ const canApply = computed(() =>
     !loading.value && !loadError.value && !updating.value && !blocked.value && !!selected.value?.supported
 )
 
-const facts = computed(() => [
-  {label: "Источник", value: pack.value ? PACK_PROVIDER_LABELS[pack.value.provider] : "-"},
-  {label: "Проект", value: pack.value?.projectId ?? "-"},
-  {label: "Текущая версия", value: pack.value?.versionNumber || pack.value?.versionId || "-"},
-  {label: "Архив пака", value: pack.value?.fileName || "-"}
-])
+const facts = computed(() => {
+  const file = local.value
+
+  if (file) {
+    return [
+      {label: "Источник", value: "Файл"},
+      {label: "Формат", value: LOCAL_PACK_KIND_LABELS[file.kind]},
+      {label: "Название пака", value: file.name || "-"},
+      {label: "Версия пака", value: file.version || "-"}
+    ]
+  }
+
+  return [
+    {label: "Источник", value: pack.value ? PACK_PROVIDER_LABELS[pack.value.provider] : "-"},
+    {label: "Проект", value: pack.value?.projectId ?? "-"},
+    {label: "Текущая версия", value: pack.value?.versionNumber || pack.value?.versionId || "-"},
+    {label: "Архив пака", value: pack.value?.fileName || "-"}
+  ]
+})
 
 async function loadVersions() {
   if (!pack.value) return
@@ -140,10 +154,25 @@ async function apply() {
   <div class="space-y-6">
     <SettingsPanel
         index="01"
-        title="Версия модпака"
+        :title="local ? 'Модпак из файла' : 'Версия модпака'"
         icon="i-lucide-package"
     >
-      <div v-if="!pack" class="text-[12px] leading-relaxed text-fg-muted">
+      <div v-if="local" class="grid grid-cols-2 border border-line">
+        <div class="px-4 py-3">
+          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Minecraft</p>
+          <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
+            {{ instance.minecraftVersion }}
+          </p>
+        </div>
+        <div class="border-l border-line px-4 py-3">
+          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Загрузчик</p>
+          <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
+            {{ INSTANCE_TYPE_LABELS[instance.type] }}
+          </p>
+        </div>
+      </div>
+
+      <div v-else-if="!pack" class="text-[12px] leading-relaxed text-fg-muted">
         Эта сборка создана вручную, у неё нет версий пака.
       </div>
 

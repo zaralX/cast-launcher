@@ -126,7 +126,7 @@ fn is_native(name: &str) -> bool {
         || lowercase.contains(".so.")
 }
 
-fn open(jar_path: &Path) -> CommandResult<ZipArchive<File>> {
+pub(crate) fn open(jar_path: &Path) -> CommandResult<ZipArchive<File>> {
     let file = File::open(jar_path)
         .map_err(|e| CommandError::io("Не удалось открыть архив", jar_path, e))?;
 

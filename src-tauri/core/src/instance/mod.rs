@@ -80,6 +80,49 @@ impl PackProvider {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LocalPackKind {
+    Modrinth,
+    CurseForge,
+    MultiMc,
+}
+
+impl LocalPackKind {
+    pub const ALL: [Self; 3] = [Self::Modrinth, Self::CurseForge, Self::MultiMc];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Modrinth => "Modrinth (.mrpack)",
+            Self::CurseForge => "CurseForge",
+            Self::MultiMc => "MultiMC / Prism",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Modrinth => "modrinth",
+            Self::CurseForge => "curseforge",
+            Self::MultiMc => "multimc",
+        }
+    }
+
+    /// Файлы модов CurseForge не лежат в архиве: их ещё надо найти по API.
+    pub fn resolves_files(self) -> bool {
+        self == Self::CurseForge
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalPackSource {
+    pub kind: LocalPackKind,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub version: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackSource {
@@ -221,6 +264,8 @@ pub struct Instance {
     pub pack: Option<PackSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub castpack: Option<CastPackSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_pack: Option<LocalPackSource>,
     #[serde(default)]
     pub settings: InstanceSettings,
     #[serde(default)]
@@ -460,6 +505,49 @@ mod tests {
     }
 
     #[test]
+    fn a_pack_brought_as_a_file_survives_a_json_round_trip() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "TerraFirmaGreg",
+            "minecraftVersion": "1.20.1",
+            "type": "forge",
+            "localPack": {
+                "kind": "multimc",
+                "name": "TerraFirmaGreg",
+                "version": "0.9.5"
+            }
+        }))
+        .unwrap();
+
+        let source = instance.local_pack.clone().unwrap();
+        assert_eq!(source.kind, LocalPackKind::MultiMc);
+        assert_eq!(source.name, "TerraFirmaGreg");
+        assert!(instance.pack.is_none() && instance.castpack.is_none());
+
+        let written = serde_json::to_value(&instance).unwrap();
+        assert_eq!(written["localPack"]["kind"], "multimc");
+        assert_eq!(written["localPack"]["version"], "0.9.5");
+
+        let parsed: Instance = serde_json::from_value(written).unwrap();
+        assert_eq!(parsed.local_pack, instance.local_pack);
+    }
+
+    #[test]
+    fn a_pack_kind_says_whether_its_files_still_have_to_be_looked_up() {
+        assert!(LocalPackKind::CurseForge.resolves_files(), "в архиве только ссылки на моды");
+        assert!(!LocalPackKind::Modrinth.resolves_files());
+        assert!(!LocalPackKind::MultiMc.resolves_files(), "моды уже лежат внутри");
+
+        for kind in LocalPackKind::ALL {
+            assert_eq!(
+                serde_json::to_value(kind).unwrap(),
+                serde_json::json!(kind.key()),
+                "{kind:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_castpack_source_survives_a_json_round_trip() {
         let instance: Instance = serde_json::from_value(json!({
             "id": "castpack-rpg",
@@ -530,10 +618,12 @@ mod tests {
 
         assert!(instance.pack.is_none());
         assert!(instance.castpack.is_none());
+        assert!(instance.local_pack.is_none());
 
         let written = serde_json::to_value(&instance).unwrap();
         assert!(written.get("pack").is_none());
         assert!(written.get("castpack").is_none());
+        assert!(written.get("localPack").is_none());
     }
 
     #[test]

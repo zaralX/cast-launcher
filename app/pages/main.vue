@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CreateInstanceModalBody from "~/components/CreateInstanceModalBody.vue";
+import ImportPackModalBody from "~/components/ImportPackModalBody.vue";
 import {useCastPackStore} from "~/stores/castpack";
 import type {Instance} from "~/types/instance";
 
@@ -15,6 +16,7 @@ const {installInstance, playInstance} = instanceStore
 const {running, instances, installs} = storeToRefs(instanceStore)
 
 const createModalOpen = ref(false)
+const importModalOpen = ref(false)
 
 const compact = useCompact()
 
@@ -67,6 +69,19 @@ const openCreateModal = () => {
   createModalOpen.value = true
 }
 
+function onImported(instanceId: string) {
+  importModalOpen.value = false
+
+  const instance = instances.value.find(item => item.id === instanceId)
+
+  toast.add({
+    title: `Сборка «${instance?.name ?? "из файла"}» импортирована`,
+    description: "Файлы модпака скачиваются в фоне",
+    color: "success",
+    icon: "i-lucide-file-archive"
+  })
+}
+
 onMounted(() => safeRun(() => castpackStore.loadCatalog(), {
   code: "NETWORK",
   context: {action: "Загрузка каталога CastPack"}
@@ -105,6 +120,16 @@ async function installPack(packId: string) {
       <section>
         <SectionHeading index="01" title="Ваши сборки">
           <template #action>
+            <AppButton class="group/imp ml-2 h-7 px-3 text-[10px]" tone="quiet" @click="importModalOpen = true">
+              <template #leading>
+                <UIcon
+                    name="i-lucide-file-archive"
+                    class="size-3 transition-transform duration-500 group-hover/imp:-translate-y-0.5"
+                />
+              </template>
+              Из файла
+            </AppButton>
+
             <AppButton class="group/new ml-2 h-7 px-3 text-[10px]" @click="openCreateModal">
               <template #leading>
                 <UIcon name="i-lucide-plus" class="size-3 transition-transform duration-500 group-hover/new:rotate-90"/>
@@ -212,6 +237,12 @@ async function installPack(packId: string) {
     <UModal v-model:open="createModalOpen" title="Создание сборки">
       <template #body>
         <CreateInstanceModalBody @created="createModalOpen = false"/>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="importModalOpen" title="Импорт модпака из файла">
+      <template #body>
+        <ImportPackModalBody @imported="onImported"/>
       </template>
     </UModal>
 

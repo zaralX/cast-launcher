@@ -192,6 +192,7 @@ async fn upsert(
                         custom_id: None,
                         pack,
                         castpack: Some(source),
+                        local_pack: None,
                         settings: Default::default(),
                         playtime: Default::default(),
                         dir: String::new(),

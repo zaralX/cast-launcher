@@ -6,7 +6,7 @@ use cast_core::archive;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::fs_util::child_file;
 use cast_core::install::pack_files::{self, PackFiles};
-use cast_core::instance::{Instance, PackProvider, PackSource};
+use cast_core::instance::{Instance, LocalPackSource, PackProvider, PackSource};
 use cast_core::net::download::{DownloadOptions, DownloadTask};
 use cast_core::packs::{BlockedFile, ResolvedPack};
 use cast_core::paths::LauncherPaths;
@@ -104,6 +104,41 @@ pub async fn prepare(
         archive: archive_path,
         resolved,
     })
+}
+
+pub async fn prepare_local(
+    paths: &LauncherPaths,
+    instance: &Instance,
+    pack: &LocalPackSource,
+    reporter: &Arc<ProgressReporter>,
+) -> CommandResult<Modpack> {
+    let archive = paths.instance(&instance.id).pack_archive();
+
+    if !archive.is_file() {
+        return Err(CommandError::fs(format!(
+            "Архив модпака «{}» не найден рядом со сборкой: импортируйте его заново",
+            pack.name
+        )));
+    }
+
+    let minecraft = paths.instance(&instance.id).minecraft();
+
+    if pack.kind.resolves_files() {
+        reporter.begin_phase("modpack-resolve", "Список файлов пака");
+        reporter.set_message("Проверка файлов пака");
+    }
+
+    let resolved = cast_core::packs::local::resolve(&archive, &minecraft).await?;
+
+    if pack.kind.resolves_files() {
+        reporter.set_fraction(1.0);
+    }
+
+    if !resolved.blocked.is_empty() {
+        reporter.set_blocked(resolved.blocked.clone());
+    }
+
+    Ok(Modpack { archive, resolved })
 }
 
 async fn fetch_archive_by_hand(

@@ -1,5 +1,5 @@
 use crate::install::progress::Phase;
-use crate::instance::{LoaderType, PackProvider};
+use crate::instance::{LoaderType, LocalPackKind, PackProvider};
 
 const VANILLA: &[Phase] = &[
     Phase::new("java", "Java", 8),
@@ -50,15 +50,17 @@ const CASTPACK: Phase = Phase::new("castpack", "Файлы сборки", 22);
 pub enum Source {
     Plain,
     Pack(PackProvider),
+    LocalPack(LocalPackKind),
     CastPack(Option<PackProvider>),
 }
 
 impl Source {
     pub fn of(instance: &crate::instance::Instance) -> Self {
-        match (&instance.castpack, &instance.pack) {
-            (Some(_), pack) => Self::CastPack(pack.as_ref().map(|pack| pack.provider)),
-            (None, Some(pack)) => Self::Pack(pack.provider),
-            (None, None) => Self::Plain,
+        match (&instance.castpack, &instance.pack, &instance.local_pack) {
+            (Some(_), pack, _) => Self::CastPack(pack.as_ref().map(|pack| pack.provider)),
+            (None, Some(pack), _) => Self::Pack(pack.provider),
+            (None, None, Some(local)) => Self::LocalPack(local.kind),
+            (None, None, None) => Self::Plain,
         }
     }
 }
@@ -83,6 +85,10 @@ fn extra_phases(source: Source) -> Vec<Phase> {
     match source {
         Source::Plain => Vec::new(),
         Source::Pack(provider) => modpack_phases(provider),
+        Source::LocalPack(kind) => match kind.resolves_files() {
+            true => vec![MODPACK_RESOLVE, MODPACK],
+            false => vec![MODPACK],
+        },
         Source::CastPack(base) => {
             let mut phases = vec![CASTPACK_MANIFEST];
 
@@ -164,6 +170,10 @@ mod tests {
         for provider in PackProvider::ALL {
             sources.push(Source::Pack(provider));
             sources.push(Source::CastPack(Some(provider)));
+        }
+
+        for kind in LocalPackKind::ALL {
+            sources.push(Source::LocalPack(kind));
         }
 
         sources
@@ -258,6 +268,37 @@ mod tests {
 
             assert_eq!(keys.len(), phases.len(), "дубли ключей у {source:?}");
         }
+    }
+
+    #[test]
+    fn a_pack_from_a_file_lays_out_its_files_last_and_looks_up_links_only_for_curseforge() {
+        let loader = LoaderType::Fabric;
+
+        for kind in LocalPackKind::ALL {
+            let phases = for_install(loader, Source::LocalPack(kind));
+            let keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
+
+            assert_eq!(*keys.last().unwrap(), "modpack", "{kind:?}");
+            assert_eq!(
+                keys.contains(&"modpack-resolve"),
+                kind == LocalPackKind::CurseForge,
+                "ссылки на файлы ищем только там, где их нет в архиве: {kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_instance_imported_from_a_file_is_installed_as_a_modpack() {
+        use crate::instance::Instance;
+        use serde_json::json;
+
+        let local: Instance = serde_json::from_value(json!({
+            "id": "a", "name": "a", "minecraftVersion": "1.20.1", "type": "forge",
+            "localPack": {"kind": "multimc", "name": "TerraFirmaGreg", "version": ""}
+        }))
+        .unwrap();
+
+        assert_eq!(Source::of(&local), Source::LocalPack(LocalPackKind::MultiMc));
     }
 
     #[test]

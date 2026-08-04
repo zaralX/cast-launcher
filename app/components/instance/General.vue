@@ -170,6 +170,9 @@ async function remove() {
               <template v-if="instance.pack">
                 Файлы модпака тоже проверяются - сменить его версию можно на вкладке "Модпак".
               </template>
+              <template v-else-if="instance.localPack">
+                Файлы модпака разложатся заново из архива, с которым сборку импортировали.
+              </template>
             </p>
           </div>
 

@@ -148,6 +148,10 @@ impl InstancePaths {
         self.root.join("pack-blocked.json")
     }
 
+    pub fn pack_archive(&self) -> PathBuf {
+        self.root.join("pack-archive.zip")
+    }
+
     pub fn castpack_manifest(&self) -> PathBuf {
         self.root.join("castpack.json")
     }

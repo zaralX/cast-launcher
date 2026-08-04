@@ -264,6 +264,19 @@ async fn run(
 
             (synced, Some(Prepared::Pack(modpack)))
         }
+        Source::LocalPack(_) => {
+            let source = instance
+                .local_pack
+                .clone()
+                .ok_or_else(|| CommandError::manifest("У сборки пропал источник модпака"))?;
+
+            let modpack = modpack::prepare_local(&paths, instance, &source, reporter).await?;
+            check_cancelled(reporter)?;
+
+            let synced = modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
+
+            (synced, Some(Prepared::Pack(modpack)))
+        }
         Source::Plain => (instance.clone(), None),
     };
 
@@ -323,7 +336,7 @@ async fn run(
                 modpack::Applied {
                     resolved,
                     archive: Some(pack.archive()),
-                    version_id: instance.pack.as_ref().map(|pack| pack.version_id.as_str()).unwrap_or_default(),
+                    version_id: pack_version_id(instance),
                     phase: "modpack",
                     label: "Файлы модпака",
                 },
@@ -345,6 +358,15 @@ async fn run(
     reporter.set_stage(Stage::Finalize);
 
     Ok(installed)
+}
+
+fn pack_version_id(instance: &Instance) -> &str {
+    instance
+        .pack
+        .as_ref()
+        .map(|pack| pack.version_id.as_str())
+        .or_else(|| instance.local_pack.as_ref().map(|pack| pack.version.as_str()))
+        .unwrap_or_default()
 }
 
 async fn prepare_dirs(paths: &LauncherPaths, instance: &Instance) -> CommandResult<()> {

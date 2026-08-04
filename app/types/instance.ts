@@ -49,6 +49,20 @@ export interface PackSource {
     fileSize?: number
 }
 
+export type LocalPackKind = "modrinth" | "curseforge" | "multimc"
+
+export const LOCAL_PACK_KIND_LABELS: Record<LocalPackKind, string> = {
+    modrinth: "Modrinth (.mrpack)",
+    curseforge: "CurseForge",
+    multimc: "MultiMC / Prism"
+}
+
+export interface LocalPackSource {
+    kind: LocalPackKind
+    name: string
+    version: string
+}
+
 export interface Playtime {
     totalSeconds: number
     lastSeconds: number
@@ -101,6 +115,7 @@ export interface Instance {
     customId?: string
     pack?: PackSource
     castpack?: CastPackSource
+    localPack?: LocalPackSource
     settings: InstanceSettings
     playtime: Playtime
 }

@@ -868,6 +868,37 @@ pub async fn import_launcher_instances(
 }
 
 #[tauri::command]
+pub async fn pick_modpack_file(app: AppHandle) -> CommandResult<Option<String>> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Файл модпака")
+        .add_filter("Модпаки и сборки", &packs::local::EXTENSIONS)
+        .pick_file(move |picked| {
+            let _ = sender.send(picked);
+        });
+
+    let picked = receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok());
+
+    Ok(picked.map(|path| path.display().to_string()))
+}
+
+#[tauri::command]
+pub async fn inspect_modpack_file(path: String) -> CommandResult<packs::local::LocalPack> {
+    import::pack::inspect(&path).await
+}
+
+#[tauri::command]
+pub async fn import_modpack_file(
+    app: AppHandle,
+    state: Ctx<'_>,
+    request: import::pack::FileImportRequest,
+) -> CommandResult<Instance> {
+    import::pack::import(app, state.inner().clone(), request).await
+}
+
+#[tauri::command]
 pub async fn cancel_import(state: Ctx<'_>) -> CommandResult<()> {
     state.imports.cancel();
 

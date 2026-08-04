@@ -25,7 +25,9 @@ const TABS = computed(() => {
   ]
 
   if (instance.value?.castpack) items.push({key: "castpack", label: "CastPack", icon: "i-lucide-layers"})
-  if (instance.value?.pack) items.push({key: "pack", label: "Модпак", icon: "i-lucide-package"})
+  if (instance.value?.pack || instance.value?.localPack) {
+    items.push({key: "pack", label: "Модпак", icon: "i-lucide-package"})
+  }
 
   items.push({key: "java", label: "Java", icon: "i-lucide-cpu"})
   items.push({key: "logs", label: "Логи", icon: "i-lucide-scroll-text"})
@@ -228,7 +230,11 @@ function reset() {
 
         <InstanceCastPack v-if="tab === 'castpack' && instance.castpack" :instance="instance" class="animate-rise"/>
 
-        <InstancePack v-if="tab === 'pack' && instance.pack" :instance="instance" class="animate-rise"/>
+        <InstancePack
+            v-if="tab === 'pack' && (instance.pack || instance.localPack)"
+            :instance="instance"
+            class="animate-rise"
+        />
 
         <InstanceJava v-show="tab === 'java'" v-model="draft.settings" class="animate-rise"/>
 

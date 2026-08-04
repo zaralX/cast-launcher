@@ -2,7 +2,7 @@ use serde_json::{Map, Number, Value};
 
 use crate::error::CommandError;
 use crate::install::phases::Source;
-use crate::instance::{Instance, PackProvider};
+use crate::instance::{Instance, LocalPackKind, PackProvider};
 
 pub const MAX_KEY_LEN: usize = 40;
 pub const MAX_VALUE_LEN: usize = 200;
@@ -80,6 +80,9 @@ pub fn source_key(instance: &Instance) -> &'static str {
         Source::Plain => "plain",
         Source::Pack(PackProvider::Modrinth) => "modrinth",
         Source::Pack(PackProvider::CurseForge) => "curseforge",
+        Source::LocalPack(LocalPackKind::Modrinth) => "file:modrinth",
+        Source::LocalPack(LocalPackKind::CurseForge) => "file:curseforge",
+        Source::LocalPack(LocalPackKind::MultiMc) => "file:multimc",
         Source::CastPack(None) => "castpack",
         Source::CastPack(Some(PackProvider::Modrinth)) => "castpack:modrinth",
         Source::CastPack(Some(PackProvider::CurseForge)) => "castpack:curseforge",
@@ -255,6 +258,9 @@ mod tests {
 
         let pack = json!({"provider": "modrinth", "projectId": "p", "versionId": "v", "fileUrl": "https://x"});
         assert_eq!(source_key(&instance(json!({"pack": pack.clone()}))), "modrinth");
+
+        let local = json!({"kind": "multimc", "name": "TFG", "version": ""});
+        assert_eq!(source_key(&instance(json!({"localPack": local}))), "file:multimc");
 
         let castpack = json!({"catalogId": "rpg", "manifestUrl": "https://x/m.json"});
         assert_eq!(source_key(&instance(json!({"castpack": castpack.clone()}))), "castpack");

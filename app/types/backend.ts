@@ -13,10 +13,12 @@ import type {
 import type {IconFile, ItemCatalog} from "~/types/icon"
 import type {
     DetectedLauncher,
+    FileImportRequest,
     ImportProgress,
     ImportReport,
     ImportRequest,
     LauncherKind,
+    LocalPack,
     ScannedInstance
 } from "~/types/import"
 import type {PackProvider} from "~/types/instance"
@@ -134,6 +136,10 @@ interface Commands {
     scan_launcher_instances: [{ kind: LauncherKind, path: string }, ScannedInstance[]]
     import_launcher_instances: [{ request: ImportRequest }, ImportReport]
     cancel_import: [void, void]
+
+    pick_modpack_file: [void, string | null]
+    inspect_modpack_file: [{ path: string }, LocalPack]
+    import_modpack_file: [{ request: FileImportRequest }, Instance]
 
     list_minecraft_versions: [void, VersionManifest]
     list_fabric_versions: [void, string[]]

@@ -83,7 +83,7 @@ async fn needs_install(paths: &LauncherPaths, instance: &Instance) -> bool {
 }
 
 async fn missing_files(paths: &LauncherPaths, instance: &Instance) -> Vec<String> {
-    if instance.pack.is_none() && instance.castpack.is_none() {
+    if instance.pack.is_none() && instance.castpack.is_none() && instance.local_pack.is_none() {
         return Vec::new();
     }
 

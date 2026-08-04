@@ -1,4 +1,4 @@
-import type {InstanceSettings, InstanceType, Playtime} from "~/types/instance"
+import type {InstanceSettings, InstanceType, LocalPackKind, Playtime} from "~/types/instance"
 
 export type LauncherKind = "prism" | "modrinth"
 
@@ -30,6 +30,31 @@ export interface ScannedInstance {
     playtime: Playtime
     pack?: ScannedPack
     blocked?: string
+}
+
+export interface LocalPack {
+    kind: LocalPackKind
+    kindLabel: string
+    path: string
+    fileName: string
+    size: number
+    name: string
+    version: string
+    author: string
+    description: string
+    minecraftVersion: string
+    loader?: InstanceType
+    loaderVersion?: string
+    loaderLabel: string
+    files: number
+    settings: InstanceSettings
+    blocked?: string
+}
+
+export interface FileImportRequest {
+    path: string
+    name?: string
+    description?: string
 }
 
 export interface ImportOptions {

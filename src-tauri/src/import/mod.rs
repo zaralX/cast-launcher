@@ -19,6 +19,8 @@ use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
 use crate::telemetry::{self, Event};
 
+pub mod pack;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DetectedLauncher {
