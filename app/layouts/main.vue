@@ -163,6 +163,7 @@ onMounted(async () => {
                 :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${currentAccount.name}/full`"
                 class="size-6 transition-transform duration-300 group-hover:scale-110"
                 :alt="currentAccount.name"
+                @error="fallbackFace"
             />
             <span
                 class="pointer-events-none absolute bottom-0 left-[calc(100%+10px)] whitespace-nowrap border border-line bg-ink-700 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-fg opacity-0 -translate-x-2 transition-all duration-300 ease-deck group-hover:translate-x-0 group-hover:opacity-100"

@@ -28,6 +28,16 @@ export default defineNuxtConfig({
     layoutTransition: { name: 'layout', mode: 'out-in' },
     pageTransition: { name: 'page', mode: 'out-in' },
   },
+  icon: {
+    provider: 'none',
+    clientBundle: {
+      scan: {
+        globInclude: ['app/**/*.{vue,ts}', 'node_modules/@nuxt/ui/dist/**/*.mjs'],
+        globExclude: [],
+      },
+      sizeLimitKb: 0,
+    },
+  },
   ignore: ['**/src-tauri/**'],
   modules: ['@pinia/nuxt', '@nuxt/ui']
 })
