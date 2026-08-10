@@ -16,7 +16,9 @@ const actions = useInstanceActions()
 const state = computed(() => props.instance ? actions.stateOf(props.instance) : null)
 const install = computed(() => props.instance ? actions.installOf(props.instance.id) : undefined)
 
-const playtime = computed(() => formatPlaytime(props.instance?.playtime?.totalSeconds ?? 0) || "не запускалась")
+const {total} = usePlaytime(() => props.instance)
+
+const playtime = computed(() => formatPlaytime(total.value) || "не запускалась")
 const lastPlayed = computed(() => formatLastPlayed(props.instance?.playtime?.lastPlayedAt ?? 0))
 
 const DIRS: InstanceDir[] = ["root", "minecraft", "logs"]

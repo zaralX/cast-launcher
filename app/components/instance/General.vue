@@ -18,17 +18,19 @@ const toast = useToast()
 const running = computed(() => instanceStore.isRunning(props.instance.id))
 const installing = computed(() => !!instanceStore.getInstall(props.instance.id))
 
+const {total, last} = usePlaytime(() => props.instance)
+
 const facts = computed(() => [
   {label: "Идентификатор", value: props.instance.id},
   {label: "Загрузчик", value: INSTANCE_TYPE_LABELS[props.instance.type] ?? props.instance.type},
   {label: "Minecraft", value: props.instance.minecraftVersion},
   {label: "Версия загрузчика", value: props.instance.loaderVersion || "-"},
-  {label: "Наиграно", value: formatPlaytime(props.instance.playtime?.totalSeconds ?? 0) || "-"},
+  {label: "Наиграно", value: formatPlaytime(total.value) || "-"},
   {
     label: "Последний запуск",
     value: formatLastPlayed(props.instance.playtime?.lastPlayedAt ?? 0) || "-"
   },
-  {label: "Последняя сессия", value: formatPlaytime(props.instance.playtime?.lastSeconds ?? 0) || "-"}
+  {label: "Последняя сессия", value: formatPlaytime(last.value) || "-"}
 ])
 
 const status = computed(() => {

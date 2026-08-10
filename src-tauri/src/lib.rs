@@ -7,6 +7,7 @@ mod launch;
 mod play;
 mod state;
 mod telemetry;
+mod window;
 
 use tauri::Manager;
 
@@ -15,7 +16,14 @@ pub fn run() {
     let runtime = tauri::async_runtime::handle();
     let _runtime_guard = runtime.inner().enter();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        window::focus_or_create(app);
+    }));
+
+    builder
         .plugin(telemetry::plugin())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
@@ -110,9 +118,22 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
-        .run(|app, event| {
-            if matches!(event, tauri::RunEvent::Exit) {
-                telemetry::app_exited(app);
+        .run(|app, event| match event {
+            tauri::RunEvent::ExitRequested { code, api, .. } => {
+                if code.is_none() && window::supervising(app) {
+                    api.prevent_exit();
+                }
             }
+
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { has_visible_windows, .. } => {
+                if !has_visible_windows {
+                    window::focus_or_create(app);
+                }
+            }
+
+            tauri::RunEvent::Exit => telemetry::app_exited(app),
+
+            _ => {}
         });
 }

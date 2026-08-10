@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -60,11 +61,16 @@ impl Process {
 #[derive(Default)]
 pub struct ProcessRegistry {
     processes: RwLock<HashMap<String, Arc<Process>>>,
+    alive: AtomicUsize,
 }
 
 impl ProcessRegistry {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn has_running(&self) -> bool {
+        self.alive.load(Ordering::SeqCst) > 0
     }
 
     pub async fn running(&self) -> Vec<RunningGame> {
@@ -169,6 +175,7 @@ impl ProcessRegistry {
         });
 
         self.processes.write().await.insert(run_id.clone(), Arc::clone(&process));
+        self.alive.fetch_add(1, Ordering::SeqCst);
 
         LauncherEvent::GameStarted { game: info.clone() }.emit(&app);
 
@@ -181,7 +188,9 @@ impl ProcessRegistry {
     }
 
     async fn forget(&self, run_id: &str) {
-        self.processes.write().await.remove(run_id);
+        if self.processes.write().await.remove(run_id).is_some() {
+            self.alive.fetch_sub(1, Ordering::SeqCst);
+        }
     }
 }
 
@@ -245,6 +254,8 @@ fn watch(
             record_playtime(&app, &state, &instance_id, started_at).await;
             state.processes.forget(&run_id).await;
         }
+
+        crate::window::exit_if_idle(&app);
     });
 }
 

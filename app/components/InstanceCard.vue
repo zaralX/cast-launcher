@@ -21,7 +21,9 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
   return props.instance.installed ? "ready" : "absent"
 })
 
-const playtime = computed(() => formatPlaytime(props.instance.playtime?.totalSeconds ?? 0) || "не запускалась")
+const {total} = usePlaytime(() => props.instance)
+
+const playtime = computed(() => formatPlaytime(total.value) || "не запускалась")
 </script>
 
 <template>
