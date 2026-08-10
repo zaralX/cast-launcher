@@ -12,12 +12,14 @@ export const useInstanceStore = defineStore('instance', {
         instances: [] as Instance[],
         installs: [] as InstallSnapshot[],
         running: [] as RunningGame[],
+        launching: [] as string[],
         logs: {} as Record<string, GameLogLine[]>
     }),
     getters: {
         getInstance: (state) => (id: string) => state.instances.find(instance => instance.id === id),
         getInstall: (state) => (id: string) => state.installs.find(install => install.instanceId === id),
-        isRunning: (state) => (id: string) => state.running.some(game => game.instanceId === id),
+        isRunning: (state) => (id: string) =>
+            state.launching.includes(id) || state.running.some(game => game.instanceId === id),
         getLogs: (state) => (id: string): GameLogLine[] => state.logs[id] ?? []
     },
     actions: {
@@ -125,16 +127,24 @@ export const useInstanceStore = defineStore('instance', {
         },
 
         async playInstance(instanceId: string) {
-            const outcome = await call("play_instance", {instanceId})
+            if (this.isRunning(instanceId)) return
 
-            if (outcome.kind === "launched") {
-                this.applyGameStarted(outcome.game)
+            this.launching.push(instanceId)
+
+            try {
+                const outcome = await call("play_instance", {instanceId})
+
+                if (outcome.kind === "launched") {
+                    this.applyGameStarted(outcome.game)
+                    return outcome
+                }
+
+                if (!this.getInstall(instanceId)) this.applyInstall(outcome.install)
+
                 return outcome
+            } finally {
+                this.launching = this.launching.filter(id => id !== instanceId)
             }
-
-            if (!this.getInstall(instanceId)) this.applyInstall(outcome.install)
-
-            return outcome
         },
 
         async stopInstance(instanceId: string) {

@@ -13,7 +13,7 @@ const castpackStore = useCastPackStore()
 const toast = useToast()
 
 const {installInstance, playInstance} = instanceStore
-const {running, instances, installs} = storeToRefs(instanceStore)
+const {instances, installs} = storeToRefs(instanceStore)
 
 const createModalOpen = ref(false)
 const importModalOpen = ref(false)
@@ -59,7 +59,7 @@ const catalogPacks = computed(() =>
     castpackStore.packs.filter(pack => !castpackStore.instanceOf(pack.id))
 )
 
-const isRunning = (id: string) => running.value.some(game => game.instanceId === id)
+const isRunning = (id: string) => instanceStore.isRunning(id)
 
 const isInstalling = (id: string) => installs.value.some(install => install.instanceId === id)
 
