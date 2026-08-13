@@ -47,6 +47,17 @@ impl AppState {
         let config = config::load(&config_root, &bootstrap.config_file()).await?;
         let paths = LauncherPaths::new(config_root.clone(), Some(&config.launcher.dir));
 
+        // DEPRECATED START
+        let migration = cast_core::legacy_layout::migrate(&paths).await;
+
+        if !migration.is_empty() {
+            eprintln!(
+                "Переезд каталога лаунчера: перенесено {:?}, не удалось {:?}",
+                migration.moved, migration.failed
+            );
+        }
+        // DEPRECATED END
+
         let accounts = AccountStore::load(paths.accounts_file()).await;
 
         let state = Arc::new(Self {
@@ -65,7 +76,17 @@ impl AppState {
         });
 
         let paths = state.paths().await;
-        state.instances.reload(&paths).await?;
+
+        // Каталог лаунчера теперь задаёт и место сборок, а значит может оказаться
+        // недоступен: съёмный диск не подключён, сетевой путь отвалился. Ронять
+        // запуск нельзя — иначе путь не починить, настройки открываются только из
+        // работающего окна.
+        if let Err(error) = state.instances.reload(&paths).await {
+            eprintln!(
+                "Не удалось прочитать сборки в {}: {error}",
+                paths.instances_root().display()
+            );
+        }
 
         Ok(state)
     }
