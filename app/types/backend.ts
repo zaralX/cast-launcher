@@ -96,7 +96,7 @@ interface Commands {
     downloads_dir: [void, string | null]
     scan_for_files: [{ instanceId: string, folder: string }, BlockedFile[]]
     rescan_files: [{ instanceId: string }, BlockedFile[]]
-    pick_folder: [{ title?: string }, string | null]
+    pick_folder: [{ title?: string, directory?: string }, string | null]
     resume_install: [{ instanceId: string }, void]
 
     launch_instance: [{ instanceId: string }, RunningGame]

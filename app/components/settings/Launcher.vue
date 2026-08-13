@@ -2,8 +2,18 @@
 import {ru} from "#ui/locale";
 import type {AppConfig} from "~/types/app";
 import {ACCENTS} from "~/composables/useAppearance";
+import {call} from "~/types/backend";
 
 const config = defineModel<AppConfig | null>()
+
+async function pickLauncherDir() {
+  const picked = await safeRun(() => call("pick_folder", {
+    title: "Файлы лаунчера",
+    directory: config.value?.launcher.dir
+  }))
+
+  if (picked) config.value!.launcher.dir = picked
+}
 </script>
 
 <template>
@@ -54,12 +64,22 @@ const config = defineModel<AppConfig | null>()
           label="Файлы лаунчера"
           hint="Сюда попадают все файлы связанные с игрой: сборки, библиотеки, ассеты, Java. Уже скачанное не переносится — старый каталог придётся перенести вручную."
       >
-        <UInput
-            v-model="config!.launcher.dir"
-            placeholder="/path/to/launcher"
-            class="w-full"
-            :ui="{ base: 'font-mono text-[12px]' }"
-        />
+        <div class="flex gap-2">
+          <UInput
+              v-model="config!.launcher.dir"
+              placeholder="/path/to/launcher"
+              class="w-full"
+              :ui="{ base: 'font-mono text-[12px]' }"
+          />
+
+          <AppButton
+              class="h-9 shrink-0 px-4 text-[10px] tracking-[0.18em]"
+              icon="i-lucide-folder-open"
+              @click="pickLauncherDir"
+          >
+            Выбрать
+          </AppButton>
+        </div>
       </SettingsField>
 
       <div class="flex items-center justify-between gap-6 border-t border-line pt-6">

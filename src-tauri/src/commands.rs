@@ -490,7 +490,11 @@ pub async fn rescan_files(state: Ctx<'_>, instance_id: String) -> CommandResult<
 }
 
 #[tauri::command]
-pub async fn pick_folder(app: AppHandle, title: Option<String>) -> CommandResult<Option<String>> {
+pub async fn pick_folder(
+    app: AppHandle,
+    title: Option<String>,
+    directory: Option<String>,
+) -> CommandResult<Option<String>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
     let mut dialog = app
@@ -498,8 +502,13 @@ pub async fn pick_folder(app: AppHandle, title: Option<String>) -> CommandResult
         .file()
         .set_title(title.unwrap_or_else(|| "Выберите папку".into()));
 
-    if let Some(downloads) = install::blocked::default_downloads_dir() {
-        dialog = dialog.set_directory(downloads);
+    let start = directory
+        .map(PathBuf::from)
+        .filter(|path| path.is_dir())
+        .or_else(install::blocked::default_downloads_dir);
+
+    if let Some(start) = start {
+        dialog = dialog.set_directory(start);
     }
 
     dialog.pick_folder(move |picked| {
