@@ -55,6 +55,15 @@ watch(json, () => {
   problem.value = null
 })
 
+const saved = ref(json.value)
+
+const dirty = computed(() => json.value !== saved.value)
+
+async function markSaved() {
+  await nextTick()
+  saved.value = json.value
+}
+
 const addMod = () => manifest.value.mods.push(emptyMod())
 const addFile = () => manifest.value.files.push(emptyFile())
 
@@ -172,7 +181,7 @@ async function copyJson() {
 }
 
 async function saveJson() {
-  if (saving.value) return
+  if (saving.value) return false
 
   saving.value = true
   problem.value = null
@@ -187,12 +196,13 @@ async function saveJson() {
   if (!result.ok) {
     checked.value = false
     problem.value = result.error.message
-    return
+    return false
   }
 
-  if (!result.value) return
+  if (!result.value) return false
 
   checked.value = true
+  await markSaved()
 
   toast.add({
     title: "Манифест сохранён",
@@ -200,9 +210,11 @@ async function saveJson() {
     color: "success",
     icon: "i-lucide-save"
   })
+
+  return true
 }
 
-function load() {
+async function load() {
   const result = tryParse(importText.value)
 
   if (!result) {
@@ -217,6 +229,8 @@ function load() {
 
   importOpen.value = false
   importText.value = ""
+
+  await markSaved()
 
   toast.add({title: "Манифест загружен", color: "success", icon: "i-lucide-file-input"})
 }
@@ -239,14 +253,22 @@ function tryParse(text: string): CastPackManifest | null {
   }
 }
 
-function reset() {
+async function reset() {
   manifest.value = emptyManifest()
   useLoader.value = false
   useBase.value = false
   deleteText.value = ""
   problem.value = null
   checked.value = false
+
+  await markSaved()
 }
+
+const guard = useUnsavedChanges({
+  dirty,
+  save: saveJson,
+  discard: reset
+})
 </script>
 
 <template>
@@ -322,6 +344,14 @@ function reset() {
         >
           Очистить
         </AppButton>
+
+        <p
+            v-if="dirty"
+            class="mt-5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400"
+        >
+          <span class="size-1.5 bg-amber-400 animate-blink"/>
+          Не сохранено в файл
+        </p>
 
         <p
             v-if="checked"
@@ -593,5 +623,11 @@ function reset() {
         </div>
       </template>
     </UModal>
+
+    <UnsavedChangesModal
+        :guard="guard"
+        description="Манифест изменён, но ещё не сохранён в файл. Редактор ничего не помнит между заходами - если уйти, правки пропадут."
+        discard-label="Не сохранять"
+    />
   </div>
 </template>

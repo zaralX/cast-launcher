@@ -12,16 +12,29 @@ const {config} = storeToRefs(store);
 const toast = useToast()
 const saving = ref(false)
 
+const saved = ref<string | null>(null)
+
+watch(config, value => {
+  if (value && saved.value === null) saved.value = JSON.stringify(value)
+}, {immediate: true})
+
+const dirty = computed(() => {
+  if (!config.value || saved.value === null) return false
+  return JSON.stringify(config.value) !== saved.value
+})
+
 async function saveConfig() {
-  if (!config.value || saving.value) return;
+  if (!config.value || saving.value) return false;
   saving.value = true
   try {
     await store.updateConfig(config.value)
+    saved.value = JSON.stringify(config.value)
     toast.add({
       title: 'Настройки сохранены',
       color: 'success',
       icon: 'i-lucide-save'
     })
+    return true
   } catch (e) {
     toast.add({
       title: 'Произошла ошибка',
@@ -29,10 +42,21 @@ async function saveConfig() {
       color: 'error',
       icon: 'i-lucide-save'
     })
+    return false
   } finally {
     saving.value = false
   }
 }
+
+function reset() {
+  if (saved.value !== null) config.value = JSON.parse(saved.value)
+}
+
+const guard = useUnsavedChanges({
+  dirty,
+  save: saveConfig,
+  discard: reset
+})
 </script>
 
 <template>
@@ -52,11 +76,22 @@ async function saveConfig() {
             class="mt-8 h-11 tracking-[0.2em]"
             icon="i-lucide-save"
             :loading="saving"
-            :disabled="!config"
+            :disabled="!config || !dirty"
             @click="saveConfig"
         >
           {{ saving ? 'Сохранение' : 'Сохранить' }}
         </AppButton>
+
+        <div v-if="dirty" class="mt-4 flex items-center justify-between gap-3">
+          <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
+            <span class="size-1.5 bg-amber-400 animate-blink"/>
+            Не сохранено
+          </span>
+
+          <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="reset">
+            Сбросить
+          </AppButton>
+        </div>
       </aside>
 
       <div v-if="config" class="space-y-6 pt-10">
@@ -77,5 +112,11 @@ async function saveConfig() {
         <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Конфигурация не загружена</p>
       </div>
     </div>
+
+    <UnsavedChangesModal
+        :guard="guard"
+        description="Настройки лаунчера изменены, но не записаны на диск. Уйти без сохранения - значит вернуть их как было."
+        discard-label="Вернуть как было"
+    />
   </div>
 </template>

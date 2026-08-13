@@ -84,7 +84,7 @@ const dirty = computed(() => {
 const canSave = computed(() => !!instance.value && dirty.value && !!draft.value.name.trim() && !saving.value)
 
 async function save() {
-  if (!canSave.value || !instance.value) return
+  if (!canSave.value || !instance.value) return false
 
   saving.value = true
 
@@ -104,17 +104,26 @@ async function save() {
       color: "error",
       icon: "i-lucide-save"
     })
-    return
+    return false
   }
 
   draft.value = snapshot(result.value)
 
   toast.add({title: "Настройки сохранены", color: "success", icon: "i-lucide-save"})
+
+  return true
 }
 
 function reset() {
   if (instance.value) draft.value = snapshot(instance.value)
 }
+
+const guard = useUnsavedChanges({
+  dirty,
+  canSave: () => !!draft.value.name.trim(),
+  save,
+  discard: reset
+})
 </script>
 
 <template>
@@ -246,5 +255,12 @@ function reset() {
       <span class="size-1.5 bg-fg-faint animate-blink"/>
       <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Сборка не найдена</p>
     </div>
+
+    <UnsavedChangesModal
+        :guard="guard"
+        description="Настройки сборки изменены, но не сохранены. Если уйти сейчас - правки пропадут."
+        blocked="Название не может быть пустым"
+        discard-label="Не сохранять"
+    />
   </div>
 </template>
