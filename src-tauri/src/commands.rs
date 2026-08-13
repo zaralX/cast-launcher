@@ -68,7 +68,15 @@ pub async fn update_config(
     config: AppConfig,
 ) -> CommandResult<AppConfig> {
     let before = state.config().await;
-    let updated = state.update_config(config).await?;
+    let relocated = state.update_config(config).await?;
+    let updated = state.config().await;
+
+    if relocated {
+        LauncherEvent::Instances {
+            instances: state.instances.all().await,
+        }
+        .emit(&app);
+    }
 
     telemetry::settings_changed(&app, &before, &updated);
     telemetry::set_enabled(updated.launcher.telemetry);

@@ -78,18 +78,30 @@ impl AppState {
         self.paths.read().await.clone()
     }
 
-    pub async fn update_config(&self, config: AppConfig) -> CommandResult<AppConfig> {
+    pub async fn update_config(&self, config: AppConfig) -> CommandResult<bool> {
+        let updated_paths = LauncherPaths::new(self.config_root.clone(), Some(&config.launcher.dir));
+        let relocated = updated_paths.root() != self.paths.read().await.root();
+
+        if relocated {
+            cast_core::fs_util::ensure_dir(updated_paths.root()).await?;
+        }
+
         let file = self.paths.read().await.config_file();
         config::save(&file, &config).await?;
 
-        let updated_paths = LauncherPaths::new(self.config_root.clone(), Some(&config.launcher.dir));
-
         *self.paths.write().await = updated_paths;
-        *self.config.write().await = config.clone();
+        *self.config.write().await = config;
 
-        self.meta.relocate(self.paths().await.meta_cache()).await;
+        let paths = self.paths().await;
+
+        self.meta.relocate(paths.meta_cache()).await;
         self.java.invalidate().await;
 
-        Ok(config)
+        if relocated {
+            self.accounts.relocate(paths.accounts_file()).await;
+            self.instances.reload(&paths).await?;
+        }
+
+        Ok(relocated)
     }
 }

@@ -53,6 +53,12 @@ export const useIconStore = defineStore('icon', {
             delete this.urls[name]
         },
 
+        forgetLibrary() {
+            this.library = []
+            this.libraryLoaded = false
+            this.urls = {}
+        },
+
         async importFile(): Promise<IconFile | null> {
             const icon = await call("import_icon", {})
             if (!icon) return null

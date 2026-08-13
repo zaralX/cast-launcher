@@ -4,6 +4,8 @@ import {relaunch} from '@tauri-apps/plugin-process'
 import type {AppConfig, JavaRuntime, LauncherPaths} from '~/types/app'
 import {call} from "~/types/backend"
 import {setTelemetryEnabled, trackEvent} from "~/composables/useTelemetry"
+import {useAccountStore} from "~/stores/account"
+import {useIconStore} from "~/stores/icon"
 
 export const useAppStore = defineStore('app', {
     state: () => ({
@@ -28,12 +30,19 @@ export const useAppStore = defineStore('app', {
         },
 
         async updateConfig(config: AppConfig) {
+            const rootBefore = this.paths?.root
+
             this.config = await call("update_config", {config})
             this.paths = await call("get_paths")
 
             setTelemetryEnabled(this.config.launcher.telemetry)
 
             this.javaScanned = false
+
+            if (rootBefore !== undefined && rootBefore !== this.paths.root) {
+                useIconStore().forgetLibrary()
+                await useAccountStore().reload()
+            }
         },
 
         async scanJava(force = false): Promise<JavaRuntime[]> {

@@ -22,6 +22,10 @@ export const useAccountStore = defineStore('account', {
             this.accountConfig = config
         },
 
+        async reload() {
+            this.accountConfig = await call("list_accounts")
+        },
+
         async selectAccount(index: number) {
             this.accountConfig = await call("select_account", {index})
         },

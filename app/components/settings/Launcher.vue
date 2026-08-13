@@ -50,7 +50,10 @@ const config = defineModel<AppConfig | null>()
         </div>
       </SettingsField>
 
-      <SettingsField label="Файлы лаунчера" hint="Сюда попадают все файлы связанные с игрой.">
+      <SettingsField
+          label="Файлы лаунчера"
+          hint="Сюда попадают все файлы связанные с игрой: сборки, библиотеки, ассеты, Java. Уже скачанное не переносится — старый каталог придётся перенести вручную."
+      >
         <UInput
             v-model="config!.launcher.dir"
             placeholder="/path/to/launcher"

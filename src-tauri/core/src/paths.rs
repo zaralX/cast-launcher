@@ -5,11 +5,12 @@ use serde::Serialize;
 ///
 /// ```text
 /// <config_root>/                  каталог конфигурации приложения
-///   config.json
+///   config.json                   единственная точка входа: путь к <root> хранится тут
+/// <root>/                         "Файлы лаунчера" из настроек, по умолчанию = config_root
 ///   accounts.json
+///   icons/<name>
 ///   instances/<id>/instance.json
 ///                 /minecraft/{client.jar, natives/, ...}
-/// <root>/                         "Файлы лаунчера" из настроек, по умолчанию = config_root
 ///   libraries/<maven path>
 ///   assets/indexes/<id>.json
 ///   assets/objects/<ab>/<hash>
@@ -48,15 +49,15 @@ impl LauncherPaths {
     }
 
     pub fn accounts_file(&self) -> PathBuf {
-        self.config_root.join("accounts.json")
+        self.root.join("accounts.json")
     }
 
     pub fn instances_root(&self) -> PathBuf {
-        self.config_root.join("instances")
+        self.root.join("instances")
     }
 
     pub fn icons(&self) -> PathBuf {
-        self.config_root.join("icons")
+        self.root.join("icons")
     }
 
     pub fn instance(&self, id: &str) -> InstancePaths {
@@ -241,11 +242,22 @@ mod tests {
     }
 
     #[test]
-    fn launcher_dir_overrides_only_shared_files() {
+    fn launcher_dir_takes_every_game_file_with_it() {
+        let custom = LauncherPaths::new(PathBuf::from("/cfg"), Some("/data"));
+        let data = PathBuf::from("/data");
+
+        assert_eq!(custom.libraries(), data.join("libraries"));
+        assert_eq!(custom.assets(), data.join("assets"));
+        assert_eq!(custom.instances_root(), data.join("instances"));
+        assert_eq!(custom.instance("abc").minecraft(), data.join("instances/abc/minecraft"));
+        assert_eq!(custom.icons(), data.join("icons"));
+        assert_eq!(custom.accounts_file(), data.join("accounts.json"));
+    }
+
+    #[test]
+    fn only_the_config_stays_behind_in_the_config_root() {
         let custom = LauncherPaths::new(PathBuf::from("/cfg"), Some("/data"));
 
-        assert_eq!(custom.libraries(), PathBuf::from("/data").join("libraries"));
-        assert_eq!(custom.instances_root(), PathBuf::from("/cfg").join("instances"));
         assert_eq!(custom.config_file(), PathBuf::from("/cfg").join("config.json"));
     }
 

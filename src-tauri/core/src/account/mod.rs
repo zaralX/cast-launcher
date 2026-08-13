@@ -1,7 +1,7 @@
 pub mod microsoft;
 pub mod oauth;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -83,19 +83,24 @@ impl AccountConfig {
 }
 
 pub struct AccountStore {
-    file: PathBuf,
+    file: RwLock<PathBuf>,
     config: RwLock<AccountConfig>,
 }
 
 impl AccountStore {
     pub async fn load(file: PathBuf) -> Self {
-        let mut config: AccountConfig = read_json_opt(&file).await.unwrap_or_default();
-        config.backfill_offline_uuids();
-
         Self {
-            file,
-            config: RwLock::new(config),
+            config: RwLock::new(read(&file).await),
+            file: RwLock::new(file),
         }
+    }
+
+    pub async fn relocate(&self, file: PathBuf) {
+        let loaded = read(&file).await;
+
+        let mut current = self.file.write().await;
+        *self.config.write().await = loaded;
+        *current = file;
     }
 
     pub async fn config(&self) -> AccountConfig {
@@ -215,10 +220,17 @@ impl AccountStore {
             config.clone()
         };
 
-        write_json_atomic(&self.file, &updated).await?;
+        let file = self.file.read().await.clone();
+        write_json_atomic(&file, &updated).await?;
 
         Ok(updated)
     }
+}
+
+async fn read(file: &Path) -> AccountConfig {
+    let mut config: AccountConfig = read_json_opt(file).await.unwrap_or_default();
+    config.backfill_offline_uuids();
+    config
 }
 
 /// Microsoft -> Xbox Live -> XSTS -> Minecraft -> Profile.
