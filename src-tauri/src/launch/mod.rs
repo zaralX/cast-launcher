@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use args::LaunchInputs;
 use cast_core::launch::game::RunningGame;
-use process::SpawnOptions;
+use process::{LaunchGuard, SpawnOptions};
 use tauri::AppHandle;
 
 use cast_core::error::{CommandError, CommandResult};
@@ -24,10 +24,26 @@ pub async fn launch(
     state: Arc<AppState>,
     instance_id: &str,
 ) -> CommandResult<RunningGame> {
-    match run(app.clone(), state, instance_id).await {
+    let guard = state.processes.claim_launch();
+
+    launch_guarded(app, state, instance_id, guard).await
+}
+
+pub async fn launch_guarded(
+    app: AppHandle,
+    state: Arc<AppState>,
+    instance_id: &str,
+    guard: LaunchGuard,
+) -> CommandResult<RunningGame> {
+    let result = run(app.clone(), state, instance_id).await;
+
+    drop(guard);
+
+    match result {
         Ok(game) => Ok(game),
         Err(error) => {
             telemetry::track(&app, Event::new("launch_failed").error(&error));
+            crate::window::exit_if_idle(&app);
             Err(error)
         }
     }
@@ -56,7 +72,9 @@ async fn run(
 
     let account = state.accounts.active_for_launch().await?;
     let paths = state.paths().await;
-    let config = instance.effective_config(&state.config().await);
+    let app_config = state.config().await;
+    let after_launch = app_config.launcher.after_launch;
+    let config = instance.effective_config(&app_config);
 
     let resolver = Resolver::new(&paths, &state.meta);
     let base = resolver.base_package(&instance).await?;
@@ -120,6 +138,7 @@ async fn run(
                         .join(format!("{}.log", timestamp())),
                 ),
                 cleanup_dir: Some(natives_dir),
+                after_launch,
             },
         )
         .await?;

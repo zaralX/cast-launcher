@@ -12,7 +12,16 @@ export interface LauncherConfig {
     accent: string
     compact: boolean
     telemetry: boolean
+    after_launch: AfterLaunch
 }
+
+export type AfterLaunch = "nothing" | "hide" | "close"
+
+export const AFTER_LAUNCH_OPTIONS: { value: AfterLaunch, label: string, hint: string }[] = [
+    {value: "nothing", label: "Оставить открытым", hint: "Лаунчер никуда не денется."},
+    {value: "hide", label: "Скрыть лаунчер", hint: "Окно вернётся, когда игра закроется."},
+    {value: "close", label: "Закрыть лаунчер", hint: "Лаунчер доработает в фоне и выйдет вместе с игрой."}
+]
 
 export type JavaMode = "auto" | "system" | "manual"
 

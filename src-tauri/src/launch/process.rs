@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -11,6 +11,7 @@ use tokio::process::{Child, Command};
 use tokio::sync::{oneshot, Mutex, RwLock};
 use tokio::task::JoinHandle;
 
+use cast_core::config::AfterLaunch;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::instance::Playtime;
 use cast_core::launch::args::LaunchCommand;
@@ -21,10 +22,13 @@ use crate::telemetry::{self, Event};
 
 const LOG_TAIL: usize = 120;
 
+const SETTLE_AFTER: Duration = Duration::from_secs(90);
+
 #[derive(Debug, Default)]
 pub struct SpawnOptions {
     pub log_path: Option<PathBuf>,
     pub cleanup_dir: Option<PathBuf>,
+    pub after_launch: AfterLaunch,
 }
 
 struct Process {
@@ -33,6 +37,8 @@ struct Process {
     tail: Mutex<Vec<String>>,
     log_file: Mutex<Option<tokio::fs::File>>,
     cleanup_dir: Option<PathBuf>,
+    after_launch: AfterLaunch,
+    settled: AtomicBool,
 }
 
 impl Process {
@@ -58,9 +64,20 @@ impl Process {
     }
 }
 
+pub struct LaunchGuard {
+    launching: Arc<AtomicUsize>,
+}
+
+impl Drop for LaunchGuard {
+    fn drop(&mut self) {
+        self.launching.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 #[derive(Default)]
 pub struct ProcessRegistry {
     processes: RwLock<HashMap<String, Arc<Process>>>,
+    launching: Arc<AtomicUsize>,
     alive: AtomicUsize,
 }
 
@@ -71,6 +88,18 @@ impl ProcessRegistry {
 
     pub fn has_running(&self) -> bool {
         self.alive.load(Ordering::SeqCst) > 0
+    }
+
+    pub fn busy(&self) -> bool {
+        self.has_running() || self.launching.load(Ordering::SeqCst) > 0
+    }
+
+    pub fn claim_launch(&self) -> LaunchGuard {
+        self.launching.fetch_add(1, Ordering::SeqCst);
+
+        LaunchGuard {
+            launching: Arc::clone(&self.launching),
+        }
     }
 
     pub async fn running(&self) -> Vec<RunningGame> {
@@ -172,12 +201,16 @@ impl ProcessRegistry {
             tail: Mutex::new(Vec::new()),
             log_file: Mutex::new(open_log(options.log_path).await),
             cleanup_dir: options.cleanup_dir,
+            after_launch: options.after_launch,
+            settled: AtomicBool::new(false),
         });
 
         self.processes.write().await.insert(run_id.clone(), Arc::clone(&process));
         self.alive.fetch_add(1, Ordering::SeqCst);
 
         LauncherEvent::GameStarted { game: info.clone() }.emit(&app);
+
+        settle_on_timeout(app.clone(), Arc::clone(&process));
 
         let pumps = [stdout.map(|out| pump(app.clone(), Arc::clone(&process), out, false)),
                      stderr.map(|err| pump(app.clone(), Arc::clone(&process), err, true))];
@@ -244,6 +277,10 @@ fn watch(
         }
         .emit(&app);
 
+        if process.after_launch == AfterLaunch::Hide && process.settled.load(Ordering::SeqCst) {
+            crate::window::restore(&app);
+        }
+
         if let Some(dir) = &process.cleanup_dir {
             cast_core::fs_util::remove_dir_if_exists(dir).await;
         }
@@ -306,6 +343,38 @@ async fn record_playtime(
     .emit(app);
 }
 
+fn settle(app: &AppHandle, process: &Process) {
+    if process.after_launch == AfterLaunch::Nothing {
+        return;
+    }
+
+    if process.settled.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    crate::window::apply_after_launch(app, process.after_launch);
+}
+
+fn game_is_up(line: &str) -> bool {
+    let line = line.to_lowercase();
+
+    line.contains("setting user") || line.contains("lwjgl version")
+}
+
+fn settle_on_timeout(app: AppHandle, process: Arc<Process>) {
+    if process.after_launch == AfterLaunch::Nothing {
+        return;
+    }
+
+    tokio::spawn(async move {
+        tokio::time::sleep(SETTLE_AFTER).await;
+
+        if process.info.read().await.status == GameStatus::Running {
+            settle(&app, &process);
+        }
+    });
+}
+
 fn pump<R>(app: AppHandle, process: Arc<Process>, reader: R, is_error: bool) -> JoinHandle<()>
 where
     R: tokio::io::AsyncRead + Unpin + Send + 'static,
@@ -315,6 +384,10 @@ where
 
         while let Ok(Some(line)) = lines.next_line().await {
             process.push_log(&line).await;
+
+            if !process.settled.load(Ordering::SeqCst) && game_is_up(&line) {
+                settle(&app, &process);
+            }
 
             let info = process.info.read().await;
             LauncherEvent::GameLog {

@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import {ru} from "#ui/locale";
 import type {AppConfig} from "~/types/app";
+import {AFTER_LAUNCH_OPTIONS} from "~/types/app";
 import {ACCENTS} from "~/composables/useAppearance";
 import {call} from "~/types/backend";
 
 const config = defineModel<AppConfig | null>()
+
+const afterLaunchHint = computed(() =>
+    AFTER_LAUNCH_OPTIONS.find(option => option.value === config.value?.launcher.after_launch)?.hint
+)
 
 async function pickLauncherDir() {
   const picked = await safeRun(() => call("pick_folder", {
@@ -58,6 +63,15 @@ async function pickLauncherDir() {
             />
           </button>
         </div>
+      </SettingsField>
+
+      <SettingsField label="После запуска игры" :hint="afterLaunchHint">
+        <USelect
+            v-model="config!.launcher.after_launch"
+            :items="AFTER_LAUNCH_OPTIONS"
+            value-key="value"
+            class="w-full sm:w-1/2"
+        />
       </SettingsField>
 
       <SettingsField

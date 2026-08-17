@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, write_json_atomic};
 
-pub const CONFIG_VERSION: u32 = 5;
+pub const CONFIG_VERSION: u32 = 6;
 
 pub const DEFAULT_ACCENT: &str = "sky";
 
@@ -25,15 +25,33 @@ pub struct LauncherConfig {
     pub auto_update: bool,
     #[serde(default)]
     pub castpack_url: String,
-    /// Имя палитры Nuxt UI, из которой берётся основной цвет интерфейса.
     #[serde(default = "default_accent")]
     pub accent: String,
-    /// Компактный режим интерфейса.
     #[serde(default)]
     pub compact: bool,
-    /// Отправка анонимной статистики использования.
     #[serde(default = "yes")]
     pub telemetry: bool,
+    #[serde(default)]
+    pub after_launch: AfterLaunch,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AfterLaunch {
+    #[default]
+    Nothing,
+    Hide,
+    Close,
+}
+
+impl AfterLaunch {
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Nothing => "nothing",
+            Self::Hide => "hide",
+            Self::Close => "close",
+        }
+    }
 }
 
 fn default_accent() -> String {
@@ -96,6 +114,7 @@ impl AppConfig {
                 accent: DEFAULT_ACCENT.into(),
                 compact: false,
                 telemetry: true,
+                after_launch: AfterLaunch::Nothing,
             },
             java: JavaConfig {
                 java_mode: JavaMode::Auto,
@@ -167,6 +186,11 @@ fn migrate(mut raw: Value) -> Value {
         set_in(&mut raw, "launcher", "telemetry", Value::Bool(true));
     }
 
+    if version <= 5 {
+        let value = Value::String(AfterLaunch::Nothing.key().into());
+        set_in(&mut raw, "launcher", "after_launch", value);
+    }
+
     raw["version"] = Value::from(CONFIG_VERSION);
     raw
 }
@@ -186,6 +210,10 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
             accent: non_empty_string_or(launcher, "accent", defaults.launcher.accent),
             compact: bool_or(launcher, "compact", defaults.launcher.compact),
             telemetry: bool_or(launcher, "telemetry", defaults.launcher.telemetry),
+            after_launch: launcher
+                .and_then(|launcher| launcher.get("after_launch"))
+                .and_then(|mode| serde_json::from_value(mode.clone()).ok())
+                .unwrap_or(defaults.launcher.after_launch),
         },
         java: JavaConfig {
             java_mode: java
@@ -322,6 +350,38 @@ mod tests {
 
         assert_eq!(config.version, CONFIG_VERSION);
         assert!(config.launcher.telemetry);
+    }
+
+    #[test]
+    fn v5_config_keeps_the_launcher_open_after_launch() {
+        let config = migrated(json!({
+            "version": 5,
+            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "telemetry": false }
+        }));
+
+        assert_eq!(config.version, CONFIG_VERSION);
+        assert_eq!(config.launcher.after_launch, AfterLaunch::Nothing);
+        assert!(!config.launcher.telemetry);
+    }
+
+    #[test]
+    fn the_after_launch_mode_survives_a_round_trip() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "after_launch": "hide" }
+        }));
+
+        assert_eq!(config.launcher.after_launch, AfterLaunch::Hide);
+    }
+
+    #[test]
+    fn an_unknown_after_launch_mode_falls_back_to_the_default_one() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "after_launch": "explode" }
+        }));
+
+        assert_eq!(config.launcher.after_launch, AfterLaunch::Nothing);
     }
 
     #[test]

@@ -11,6 +11,7 @@ use cast_core::launch::game::RunningGame;
 use cast_core::paths::LauncherPaths;
 
 use crate::install::{self, InstallSnapshot};
+use crate::launch::process::LaunchGuard;
 use crate::state::AppState;
 use crate::telemetry::{self, Event};
 
@@ -36,6 +37,22 @@ pub async fn play(
     state: Arc<AppState>,
     instance_id: &str,
 ) -> CommandResult<PlayOutcome> {
+    let guard = state.processes.claim_launch();
+    let outcome = prepare(app.clone(), state, instance_id, guard).await;
+
+    if !matches!(outcome, Ok(PlayOutcome::Launched { .. })) {
+        crate::window::exit_if_idle(&app);
+    }
+
+    outcome
+}
+
+async fn prepare(
+    app: AppHandle,
+    state: Arc<AppState>,
+    instance_id: &str,
+    guard: LaunchGuard,
+) -> CommandResult<PlayOutcome> {
     let instance = state.instances.get(instance_id).await?;
 
     if state.processes.is_running(&instance.id).await {
@@ -57,7 +74,7 @@ pub async fn play(
         return Ok(PlayOutcome::Installing { install });
     }
 
-    let game = crate::launch::launch(app, state, &instance.id).await?;
+    let game = crate::launch::launch_guarded(app, state, &instance.id, guard).await?;
 
     Ok(PlayOutcome::Launched { game })
 }
