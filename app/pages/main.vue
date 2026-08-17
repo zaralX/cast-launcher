@@ -201,7 +201,7 @@ async function installPack(packId: string) {
         <SectionHeading index="02" title="Сборки CastPack" :meta="`${catalogPacks.length} шт.`">
           <template #action>
             <NuxtLink
-                to="/castpack"
+                to="/search?source=castpack"
                 class="group/all ml-2 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint transition-colors duration-300 hover:text-acid"
             >
               Весь каталог
