@@ -288,15 +288,10 @@ watch(activeUuid, uuid => reload(uuid))
 </script>
 
 <template>
-  <div class="min-h-full w-full px-8 pb-16 xl:px-14">
-    <div class="grid gap-10 lg:grid-cols-[22rem_minmax(0,1fr)] lg:gap-12">
-      <aside class="pt-10 lg:sticky lg:top-0 lg:self-start">
-        <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">Внешний вид</p>
-        <h1 class="mt-4 font-unbounded text-[clamp(26px,3vw,34px)] font-bold leading-[0.95] tracking-[-0.055em] text-fg">
-          Скины<span class="text-acid">.</span>
-        </h1>
-
-        <div class="mt-6 flex items-center gap-3 border border-line bg-ink-800 px-4 py-3">
+  <div class="min-h-full w-full px-8 pb-8 xl:px-14">
+    <div class="grid gap-10 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)] lg:gap-12">
+      <aside class="pt-10 lg:sticky lg:top-0 lg:self-start space-y-2 lg:space-y-4">
+        <div class="flex items-center gap-3 border border-line bg-ink-800 px-4 py-3">
           <img
               v-if="account"
               :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${account.name}/full`"
@@ -327,7 +322,7 @@ watch(activeUuid, uuid => reload(uuid))
 
         <div
             v-if="demo"
-            class="mt-3 flex items-start gap-2.5 border border-amber-400/30 bg-amber-400/[0.06] px-4 py-3"
+            class="flex items-start gap-2.5 border border-amber-400/30 bg-amber-400/6 px-4 py-3"
         >
           <span class="mt-1 size-1.5 shrink-0 bg-amber-400 animate-blink"/>
           <p class="text-[11px] leading-relaxed text-amber-200/80">
@@ -339,7 +334,7 @@ watch(activeUuid, uuid => reload(uuid))
 
         <div
             v-else-if="stale"
-            class="mt-3 flex items-start gap-2.5 border border-line bg-ink-800 px-4 py-3"
+            class="flex items-start gap-2.5 border border-line bg-ink-800 px-4 py-3"
         >
           <UIcon name="i-lucide-cloud-off" class="mt-0.5 size-3.5 shrink-0 text-fg-faint"/>
           <p class="text-[11px] leading-relaxed text-fg-muted">
@@ -348,7 +343,7 @@ watch(activeUuid, uuid => reload(uuid))
         </div>
 
         <div
-            class="relative mt-5 h-[23rem] border border-line cut-16 transition-colors duration-500"
+            class="relative h-72 xl:h-92 border border-line cut-16 transition-colors duration-500"
             :class="{
               'bg-ink-800': background === 'ink',
               'bg-ink-900': background === 'grid',
@@ -451,7 +446,7 @@ watch(activeUuid, uuid => reload(uuid))
           </div>
         </div>
 
-        <div class="mt-4 flex border border-line">
+        <div class="flex border border-line">
           <button
               v-for="(variant, i) in VARIANTS"
               :key="variant"
@@ -474,7 +469,7 @@ watch(activeUuid, uuid => reload(uuid))
 
         <AppButton
             block
-            class="mt-6 h-11 tracking-[0.2em]"
+            class="h-11 tracking-[0.2em]"
             icon="i-lucide-check"
             :loading="saving"
             :disabled="!canSave"
@@ -485,7 +480,7 @@ watch(activeUuid, uuid => reload(uuid))
           <template v-else>Применить</template>
         </AppButton>
 
-        <div v-if="!demo" class="mt-4 flex items-center justify-between gap-3">
+        <div v-if="!demo" class="flex items-center justify-between gap-3">
           <AppButton
               tone="quiet"
               class="text-[10px] tracking-[0.18em]"
@@ -505,7 +500,7 @@ watch(activeUuid, uuid => reload(uuid))
             Стандартный
           </AppButton>
         </div>
-        <div v-if="skinStore.dirty" class="mt-4 flex items-center justify-between gap-3">
+        <div v-if="skinStore.dirty" class="flex items-center justify-between gap-3">
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em] ml-auto mr-0" @click="skinStore.reset()">
             Вернуть
           </AppButton>
@@ -558,7 +553,7 @@ watch(activeUuid, uuid => reload(uuid))
                   v-for="entry in filtered"
                   :key="entry.id"
                   type="button"
-                  class="group/card relative flex aspect-[3/4] flex-col overflow-hidden border transition-colors duration-300"
+                  class="group/card relative flex aspect-3/4 flex-col overflow-hidden border transition-colors duration-300"
                   :class="draft.skinId === entry.id
                     ? 'border-acid bg-ink-700'
                     : 'border-line hover:border-line-strong hover:bg-ink-700'"
@@ -631,8 +626,8 @@ watch(activeUuid, uuid => reload(uuid))
 
               <button
                   type="button"
-                  class="group/drop flex aspect-[3/4] flex-col items-center justify-center gap-2 border border-dashed transition-colors duration-300"
-                  :class="dropping ? 'border-acid bg-acid/[0.06]' : 'border-line hover:border-line-strong hover:bg-ink-700'"
+                  class="group/drop flex aspect-3/4 flex-col items-center justify-center gap-2 border border-dashed transition-colors duration-300"
+                  :class="dropping ? 'border-acid bg-acid/6' : 'border-line hover:border-line-strong hover:bg-ink-700'"
                   @click="importFile()"
               >
                 <UIcon
@@ -668,7 +663,7 @@ watch(activeUuid, uuid => reload(uuid))
             <div class="flex flex-wrap gap-3">
               <button
                   type="button"
-                  class="flex h-[6.5rem] w-[4.5rem] flex-col items-center justify-center gap-2 border transition-colors duration-300"
+                  class="flex h-26 w-18 flex-col items-center justify-center gap-2 border transition-colors duration-300"
                   :class="draft.capeId === null
                     ? 'border-acid bg-ink-700'
                     : 'border-line hover:border-line-strong hover:bg-ink-700'"

@@ -14,9 +14,9 @@
       {
         "title": "Cast Launcher",
         "width": 1080,
-        "height": 600,
+        "height": 620,
         "minWidth": 1080,
-        "minHeight": 600,
+        "minHeight": 620,
         "decorations": false,
         "shadow": true
       }

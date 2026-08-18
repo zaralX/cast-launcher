@@ -60,7 +60,7 @@ const guard = useUnsavedChanges({
 </script>
 
 <template>
-  <div class="min-h-full w-full px-8 pb-16 xl:px-14">
+  <div class="min-h-full w-full px-8 pb-8 xl:px-14">
     <div class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14">
       <aside class="lg:sticky pt-10 lg:top-0 lg:self-start">
         <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">Конфигурация</p>
