@@ -5,7 +5,7 @@ use crate::instance::LoaderType;
 
 use super::{https_url, SCHEMA_VERSION};
 
-pub const DEFAULT_URL: &str = "https://s3.zaralx.ru/launcher/castpacks.json";
+pub const DEFAULT_URL: &str = "https://castpacks.zaralx.ru/castpacks.json";
 
 pub const MAX_PACKS: usize = 200;
 
