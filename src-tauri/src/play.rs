@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde::Serialize;
 use tauri::AppHandle;
 
-use cast_core::castpack::{self, Manifest};
+use cast_core::castpack;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::install::pack_files::PackFiles;
 use cast_core::instance::Instance;
@@ -174,6 +174,3 @@ pub async fn check_update(
     }
 }
 
-pub fn parse_manifest(json: &str) -> CommandResult<Manifest> {
-    Manifest::parse(json.as_bytes())
-}

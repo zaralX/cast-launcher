@@ -99,12 +99,6 @@ const guard = useUnsavedChanges({
         <SettingsAccounts class="animate-rise [animation-delay:80ms]"/>
         <SettingsJava v-model="config" class="animate-rise [animation-delay:160ms]"/>
         <SettingsImport class="animate-rise [animation-delay:240ms]"/>
-
-        <NuxtLink to="/castpack-editor" class="block">
-          <AppButton block class="h-11 tracking-[0.2em] opacity-0" icon="i-lucide-braces">
-            Редактор сборок CastPack
-          </AppButton>
-        </NuxtLink>
       </div>
 
       <div v-else class="flex items-center gap-3 py-14">

@@ -836,32 +836,6 @@ pub async fn castpack_set_autoupdate(
 }
 
 #[tauri::command]
-pub async fn castpack_validate(json: String) -> CommandResult<cast_core::castpack::Manifest> {
-    crate::play::parse_manifest(&json)
-}
-
-#[tauri::command]
-pub async fn castpack_save_manifest(app: AppHandle, json: String) -> CommandResult<Option<String>> {
-    crate::castpack::save_manifest_as(&app, &json).await
-}
-
-#[tauri::command]
-pub async fn castpack_probe_file(
-    url: String,
-) -> CommandResult<cast_core::castpack::source::ProbedFile> {
-    cast_core::castpack::source::probe(&url).await
-}
-
-#[tauri::command]
-pub async fn castpack_probe_mod(
-    provider: PackProvider,
-    project_id: String,
-    version_id: String,
-) -> CommandResult<crate::castpack::ProbedMod> {
-    crate::castpack::probe_mod(provider, &project_id, &version_id).await
-}
-
-#[tauri::command]
 pub async fn pack_providers() -> CommandResult<Vec<packs::ProviderInfo>> {
     Ok(packs::providers())
 }

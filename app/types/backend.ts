@@ -25,10 +25,7 @@ import type {
 import type {PackProvider} from "~/types/instance"
 import type {
     Catalog,
-    CastPackManifest,
-    CastPackUpdate,
-    ProbedFile,
-    ProbedMod
+    CastPackUpdate
 } from "~/types/castpack"
 import type {
     BlockedFile,
@@ -133,10 +130,6 @@ interface Commands {
     castpack_install: [{ packId: string }, Instance]
     castpack_check_update: [{ instanceId: string }, CastPackUpdate]
     castpack_set_autoupdate: [{ instanceId: string, enabled: boolean }, Instance]
-    castpack_validate: [{ json: string }, CastPackManifest]
-    castpack_save_manifest: [{ json: string }, string | null]
-    castpack_probe_file: [{ url: string }, ProbedFile]
-    castpack_probe_mod: [{ provider: PackProvider, projectId: string, versionId: string }, ProbedMod]
 
     pack_providers: [void, PackProviderInfo[]]
     search_packs: [{ query: PackSearchQuery }, PackSearchPage]

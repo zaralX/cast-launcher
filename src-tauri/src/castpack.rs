@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
-use serde::Serialize;
 use tauri::AppHandle;
 
 use cast_core::castpack::{self, Catalog, CatalogPack, Manifest};
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons;
-use cast_core::instance::{CastPackSource, Instance, LoaderType, PackProvider, PackSource};
+use cast_core::instance::{CastPackSource, Instance, LoaderType, PackSource};
 use cast_core::packs;
 
 use crate::events::{EmitExt, LauncherEvent};
@@ -326,87 +325,6 @@ pub async fn set_autoupdate(
     Ok(updated)
 }
 
-pub async fn save_manifest_as(app: &AppHandle, json: &str) -> CommandResult<Option<String>> {
-    use tauri_plugin_dialog::DialogExt;
-
-    Manifest::parse(json.as_bytes())?;
-
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-
-    app.dialog()
-        .file()
-        .set_title("Сохранить манифест сборки")
-        .set_file_name("manifest.json")
-        .add_filter("JSON", &["json"])
-        .save_file(move |picked| {
-            let _ = sender.send(picked);
-        });
-
-    let Some(path) = receiver
-        .await
-        .ok()
-        .flatten()
-        .and_then(|picked| picked.into_path().ok())
-    else {
-        return Ok(None);
-    };
-
-    cast_core::fs_util::write_atomic(&path, json.as_bytes()).await?;
-
-    Ok(Some(path.display().to_string()))
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ProbedMod {
-    pub path: String,
-    pub url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sha1: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub size: Option<u64>,
-    pub blocked: bool,
-}
-
-pub async fn probe_mod(
-    provider: PackProvider,
-    project_id: &str,
-    version_id: &str,
-) -> CommandResult<ProbedMod> {
-    let entry = castpack::ModRef::Catalog {
-        provider,
-        project_id,
-        version_id,
-        optional: false,
-    };
-
-    let minecraft = std::path::Path::new("/");
-    let resolved = castpack::mods::resolve(std::slice::from_ref(&entry), minecraft).await?;
-
-    if let Some((path, task)) = resolved.files.into_iter().next() {
-        return Ok(ProbedMod {
-            path,
-            url: task.url,
-            sha1: task.sha1,
-            size: task.size,
-            blocked: false,
-        });
-    }
-
-    let blocked = resolved
-        .blocked
-        .into_iter()
-        .next()
-        .ok_or_else(|| CommandError::manifest("Каталог не отдал такой файл"))?;
-
-    Ok(ProbedMod {
-        path: blocked.target_path,
-        url: blocked.website_url,
-        sha1: blocked.sha1,
-        size: None,
-        blocked: true,
-    })
-}
 
 #[cfg(test)]
 mod tests {
