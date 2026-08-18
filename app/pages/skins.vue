@@ -372,13 +372,13 @@ watch(activeUuid, uuid => reload(uuid))
           <SkinModel
               v-else-if="draftTexture"
               ref="model"
+              class="absolute inset-x-0 top-0 bottom-12"
               :skin="draftTexture"
               :cape="draftCape?.texture ?? null"
               :variant="draft.variant"
               :pose="pose"
               :spinning="spinning"
               :layers="layers"
-              :scale="9"
           />
 
           <p
@@ -452,10 +452,6 @@ watch(activeUuid, uuid => reload(uuid))
           </div>
         </div>
 
-        <p class="mt-2 text-center font-mono text-[9px] uppercase tracking-[0.18em] text-fg-faint/70">
-          Тяни мышкой - поворот, колесо - зум
-        </p>
-
         <div class="mt-4 flex border border-line">
           <button
               v-for="(variant, i) in VARIANTS"
@@ -527,17 +523,16 @@ watch(activeUuid, uuid => reload(uuid))
         <SettingsPanel
             index="01"
             title="Библиотека наборов"
-            description="Каждая карточка - готовый образ: скин, модель рук и плащ."
             icon="i-lucide-shirt"
             class="animate-rise"
         >
           <div class="space-y-5">
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <UInput v-model="search" placeholder="Поиск по названию" class="w-44">
-                <template #trailing>
-                  <UIcon name="i-lucide-search" class="size-3.5 text-fg-faint"/>
-                </template>
-              </UInput>
+<!--              <UInput v-model="search" placeholder="Поиск по названию" class="w-44">-->
+<!--                <template #trailing>-->
+<!--                  <UIcon name="i-lucide-search" class="size-3.5 text-fg-faint"/>-->
+<!--                </template>-->
+<!--              </UInput>-->
 
               <div class="flex items-center gap-2">
                 <UInput
@@ -565,7 +560,6 @@ watch(activeUuid, uuid => reload(uuid))
                 </AppButton>
               </div>
             </div>
-
             <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               <button
                   v-for="entry in filtered"
@@ -587,8 +581,8 @@ watch(activeUuid, uuid => reload(uuid))
                       :cape="skinStore.capeById(entry.capeId ?? null)?.texture ?? null"
                       :variant="entry.variant"
                       :pose="hovered === entry.id ? 'walk' : 'stand'"
-                      :scale="3.2"
                       :angle="30"
+                      :scale="0.9"
                       :interactive="false"
                   />
                   <span v-else class="absolute inset-0 m-auto h-16 w-8 bg-line/40"/>
@@ -670,7 +664,6 @@ watch(activeUuid, uuid => reload(uuid))
         <SettingsPanel
             index="02"
             :title="draftSkin ? `Плащ набора «${draftSkin.name}»` : 'Плащ набора'"
-            description="Выбор запоминается в наборе. Чтобы один скин был с разными плащами - сделай копию."
             icon="i-lucide-flag"
             class="animate-rise [animation-delay:80ms]"
         >
@@ -716,15 +709,6 @@ watch(activeUuid, uuid => reload(uuid))
                 </span>
               </button>
             </div>
-
-            <AppButton
-                tone="quiet"
-                class="text-[10px] tracking-[0.18em]"
-                icon="i-lucide-copy"
-                @click="duplicate(draftSkin)"
-            >
-              Скопировать набор с этим плащом
-            </AppButton>
           </div>
 
           <p v-else class="border border-dashed border-line py-8 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">

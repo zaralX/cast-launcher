@@ -25,7 +25,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   cape: null,
   variant: "CLASSIC",
-  scale: 9,
+  scale: 1,
   pose: "walk",
   spinning: false,
   layers: true,
@@ -43,6 +43,9 @@ const POSES: Record<SkinPose, { speed: number, swing: number, lean: number }> = 
 const MIN_ZOOM = 0.45
 const MAX_ZOOM = 2.4
 
+const BOUND_WIDTH = 19
+const BOUND_HEIGHT = 37
+
 const yaw = ref(props.angle)
 const pitch = ref(props.tilt)
 const zoom = ref(1)
@@ -51,7 +54,35 @@ const phase = ref(0)
 const motion = computed(() => POSES[props.pose])
 const moving = computed(() => motion.value.speed > 0)
 
-const unit = computed(() => props.scale * zoom.value)
+const root = useTemplateRef<HTMLElement>("root")
+const box = ref({width: 0, height: 0})
+
+let resize: ResizeObserver | null = null
+
+function measure(element: HTMLElement) {
+  box.value = {width: element.clientWidth, height: element.clientHeight}
+}
+
+onMounted(() => {
+  const element = root.value
+  if (!element) return
+
+  measure(element)
+
+  resize = new ResizeObserver(() => measure(element))
+  resize.observe(element)
+})
+
+onBeforeUnmount(() => resize?.disconnect())
+
+const fitted = computed(() => {
+  const {width, height} = box.value
+  if (!width || !height) return 0
+
+  return Math.min(width / BOUND_WIDTH, height / BOUND_HEIGHT)
+})
+
+const unit = computed(() => fitted.value * props.scale * zoom.value)
 
 const parts = computed(() => bodyParts(props.variant))
 
@@ -133,6 +164,8 @@ const capeJointStyle = computed(() => {
 })
 
 const capeBoxStyle = computed(() => boxStyle(CAPE_BOX, 1))
+
+const perspective = computed(() => `${Math.max(1, unit.value * 90)}px`)
 
 // анимация
 
@@ -220,6 +253,7 @@ defineExpose({reset})
 
 <template>
   <div
+      ref="root"
       class="relative grid h-full w-full place-items-center overflow-hidden select-none"
       :class="interactive ? 'cursor-grab active:cursor-grabbing' : ''"
       @pointerdown="onPointerDown"
@@ -228,7 +262,7 @@ defineExpose({reset})
       @pointercancel="onPointerUp"
       @wheel="onWheel"
   >
-    <div class="skin-scene relative" :style="{perspective: `${unit * 90}px`}">
+    <div class="skin-scene relative" :style="{perspective}">
       <div class="skin-3d absolute left-0 top-0" :style="playerStyle">
         <template v-for="part in parts" :key="part.key">
           <div
