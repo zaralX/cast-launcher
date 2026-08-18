@@ -47,17 +47,6 @@ impl AppState {
         let config = config::load(&config_root, &bootstrap.config_file()).await?;
         let paths = LauncherPaths::new(config_root.clone(), Some(&config.launcher.dir));
 
-        // DEPRECATED START
-        let migration = cast_core::legacy_layout::migrate(&paths).await;
-
-        if !migration.is_empty() {
-            eprintln!(
-                "Переезд каталога лаунчера: перенесено {:?}, не удалось {:?}",
-                migration.moved, migration.failed
-            );
-        }
-        // DEPRECATED END
-
         let accounts = AccountStore::load(paths.accounts_file()).await;
 
         let state = Arc::new(Self {
