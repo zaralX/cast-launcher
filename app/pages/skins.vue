@@ -486,17 +486,6 @@ watch(activeUuid, uuid => reload(uuid))
           <template v-else>Применить</template>
         </AppButton>
 
-        <div v-if="skinStore.dirty" class="mt-4 flex items-center justify-between gap-3">
-          <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
-            <span class="size-1.5 bg-amber-400 animate-blink"/>
-            Не применено
-          </span>
-
-          <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="skinStore.reset()">
-            Вернуть
-          </AppButton>
-        </div>
-
         <div v-if="!demo" class="mt-4 flex items-center justify-between gap-3">
           <AppButton
               tone="quiet"
@@ -515,6 +504,11 @@ watch(activeUuid, uuid => reload(uuid))
               @click="resetOpen = true"
           >
             Стандартный
+          </AppButton>
+        </div>
+        <div v-if="skinStore.dirty" class="mt-4 flex items-center justify-between gap-3">
+          <AppButton tone="quiet" class="text-[10px] tracking-[0.18em] ml-auto mr-0" @click="skinStore.reset()">
+            Вернуть
           </AppButton>
         </div>
       </aside>
@@ -560,7 +554,7 @@ watch(activeUuid, uuid => reload(uuid))
                 </AppButton>
               </div>
             </div>
-            <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
               <button
                   v-for="entry in filtered"
                   :key="entry.id"
@@ -689,7 +683,7 @@ watch(activeUuid, uuid => reload(uuid))
                   v-for="cape in capes"
                   :key="cape.id"
                   type="button"
-                  class="group flex h-[6.5rem] w-[4.5rem] flex-col items-center justify-start gap-2 border pt-2 transition-colors duration-300"
+                  class="group flex h-26 w-18 flex-col items-center justify-center gap-2 border transition-colors duration-300 cursor-pointer"
                   :class="draft.capeId === cape.id
                     ? 'border-acid bg-ink-700'
                     : 'border-line hover:border-line-strong hover:bg-ink-700'"
@@ -699,14 +693,9 @@ watch(activeUuid, uuid => reload(uuid))
                 <SkinCapeThumb
                     v-if="cape.texture"
                     :cape="cape.texture"
-                    :scale="3"
-                    class="transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
+                    :scale="5"
+                    class="transition-transform duration-500 ease-deck"
                 />
-                <span v-else class="h-12 w-8 bg-line/40"/>
-
-                <span class="w-full truncate px-1.5 text-center font-mono text-[8px] uppercase tracking-[0.14em] text-fg-faint">
-                  {{ cape.alias }}
-                </span>
               </button>
             </div>
           </div>
