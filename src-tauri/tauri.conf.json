@@ -13,9 +13,9 @@
     "windows": [
       {
         "title": "Cast Launcher",
-        "width": 1000,
+        "width": 1080,
         "height": 600,
-        "minWidth": 1000,
+        "minWidth": 1080,
         "minHeight": 600,
         "decorations": false,
         "shadow": true
