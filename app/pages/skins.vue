@@ -559,7 +559,7 @@ watch(activeUuid, uuid => reload(uuid))
                   v-for="entry in filtered"
                   :key="entry.id"
                   type="button"
-                  class="group relative flex aspect-[3/4] flex-col overflow-hidden border transition-colors duration-300"
+                  class="group/card relative flex aspect-[3/4] flex-col overflow-hidden border transition-colors duration-300"
                   :class="draft.skinId === entry.id
                     ? 'border-acid bg-ink-700'
                     : 'border-line hover:border-line-strong hover:bg-ink-700'"
@@ -603,7 +603,7 @@ watch(activeUuid, uuid => reload(uuid))
                   Активен
                 </span>
 
-                <div class="absolute right-1 top-1 hidden gap-0.5 group-hover:flex">
+                <div class="absolute right-1 top-1 hidden gap-0.5 group-hover/card:flex">
                   <span
                       class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-acid/50 hover:text-acid"
                       title="Дублировать с выбранным плащом"
@@ -632,13 +632,13 @@ watch(activeUuid, uuid => reload(uuid))
 
               <button
                   type="button"
-                  class="group flex aspect-[3/4] flex-col items-center justify-center gap-2 border border-dashed transition-colors duration-300"
+                  class="group/drop flex aspect-[3/4] flex-col items-center justify-center gap-2 border border-dashed transition-colors duration-300"
                   :class="dropping ? 'border-acid bg-acid/[0.06]' : 'border-line hover:border-line-strong hover:bg-ink-700'"
                   @click="importFile()"
               >
                 <UIcon
                     name="i-lucide-image-plus"
-                    class="size-4 text-fg-faint transition-colors duration-300 group-hover:text-acid"
+                    class="size-4 text-fg-faint transition-colors duration-300 group-hover/drop:text-acid"
                 />
                 <span class="px-2 text-center font-mono text-[8px] uppercase leading-relaxed tracking-[0.16em] text-fg-faint">
                   Перетащи<br>png 64x64
@@ -683,7 +683,7 @@ watch(activeUuid, uuid => reload(uuid))
                   v-for="cape in capes"
                   :key="cape.id"
                   type="button"
-                  class="group flex h-26 w-18 flex-col items-center justify-center gap-2 border transition-colors duration-300 cursor-pointer"
+                  class="group/cape flex h-26 w-18 flex-col items-center justify-center gap-2 border transition-colors duration-300 cursor-pointer"
                   :class="draft.capeId === cape.id
                     ? 'border-acid bg-ink-700'
                     : 'border-line hover:border-line-strong hover:bg-ink-700'"
