@@ -11,6 +11,7 @@ import type {
     RunningGame
 } from "~/types/instance"
 import type {IconFile, ItemCatalog} from "~/types/icon"
+import type {AccountLook, SkinEntry, SkinLibrary, SkinVariant} from "~/types/skin"
 import type {
     DetectedLauncher,
     FileImportRequest,
@@ -113,6 +114,20 @@ interface Commands {
     add_offline_account: [{ name: string }, AccountConfig]
     login_microsoft: [void, Account]
     refresh_account: [{ uuid: string }, Account]
+
+    skin_library: [void, SkinLibrary]
+    skin_texture: [{ texture: string }, string]
+    import_skin: [{ path?: string }, SkinEntry | null]
+    import_player_skin: [{ name: string }, SkinEntry]
+    rename_skin: [{ id: string, name: string }, SkinLibrary]
+    set_skin_variant: [{ id: string, variant: SkinVariant }, SkinLibrary]
+    set_skin_cape: [{ id: string, capeId?: string | null }, SkinLibrary]
+    duplicate_skin: [{ id: string, capeId?: string | null }, SkinEntry]
+    delete_skin: [{ id: string }, SkinLibrary]
+    account_look: [{ uuid: string, refresh: boolean }, AccountLook]
+    apply_skin: [{ uuid: string, id: string }, AccountLook]
+    reset_skin: [{ uuid: string }, AccountLook]
+    apply_cape: [{ uuid: string, capeId?: string | null }, AccountLook]
 
     castpack_catalog: [void, Catalog]
     castpack_install: [{ packId: string }, Instance]

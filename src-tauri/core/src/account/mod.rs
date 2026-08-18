@@ -186,6 +186,56 @@ impl AccountStore {
         self.refresh(&uuid).await
     }
 
+    pub async fn find(&self, uuid: &str) -> CommandResult<Account> {
+        self.config()
+            .await
+            .accounts
+            .into_iter()
+            .find(|account| account.uuid.as_deref() == Some(uuid))
+            .ok_or_else(|| CommandError::no_account("Аккаунт не найден"))
+    }
+
+    pub async fn licensed(&self, uuid: &str) -> CommandResult<Account> {
+        let account = self.find(uuid).await?;
+
+        if account.account_type != AccountType::Microsoft {
+            return Err(CommandError::no_account(format!(
+                "{} - оффлайн-аккаунт, у него нет профиля Mojang",
+                account.name
+            )));
+        }
+
+        if account.is_expired() {
+            return self.refresh(uuid).await;
+        }
+
+        Ok(account)
+    }
+    
+    pub async fn set_textures(
+        &self,
+        uuid: &str,
+        skins: Vec<Value>,
+        capes: Vec<Value>,
+    ) -> CommandResult<Account> {
+        let mut updated = None;
+
+        self.mutate(|config| {
+            if let Some(account) = config
+                .accounts
+                .iter_mut()
+                .find(|account| account.uuid.as_deref() == Some(uuid))
+            {
+                account.skins = skins;
+                account.capes = capes;
+                updated = Some(account.clone());
+            }
+        })
+        .await?;
+
+        updated.ok_or_else(|| CommandError::no_account("Аккаунт не найден"))
+    }
+
     pub async fn refresh(&self, uuid: &str) -> CommandResult<Account> {
         let account = self
             .config()

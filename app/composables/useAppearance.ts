@@ -45,7 +45,6 @@ export function useCompact() {
     return computed(() => store.config?.launcher.compact === true)
 }
 
-/** Держит DOM и Nuxt UI в согласии с настройками внешнего вида. Вызывается один раз в `app.vue`. */
 export function useAppearance() {
     const appConfig = useAppConfig()
     const accent = useAccent()

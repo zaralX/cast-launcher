@@ -60,6 +60,10 @@ impl LauncherPaths {
         self.root.join("icons")
     }
 
+    pub fn skins(&self) -> PathBuf {
+        self.root.join("skins")
+    }
+
     pub fn instance(&self, id: &str) -> InstancePaths {
         InstancePaths::new(self.instances_root().join(id))
     }

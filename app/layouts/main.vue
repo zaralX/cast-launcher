@@ -17,6 +17,10 @@ const links = [{
   icon: "i-lucide-search",
   to: "/search"
 }, {
+  name: "Скины",
+  icon: "i-lucide-shirt",
+  to: "/skins"
+}, {
   name: "Настройки",
   icon: "i-lucide-sliders-horizontal",
   to: "/settings"

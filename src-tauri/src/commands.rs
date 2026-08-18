@@ -21,6 +21,7 @@ use cast_core::meta::{neoforge, vanilla};
 use cast_core::mojang::version::VersionManifest;
 use cast_core::packs;
 use cast_core::paths::PathsSnapshot;
+use cast_core::skins::{self, AccountLook, SkinEntry, SkinLibrary, SkinVariant};
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::import;
@@ -629,6 +630,173 @@ pub async fn refresh_account(app: AppHandle, state: Ctx<'_>, uuid: String) -> Co
         .refresh(&uuid)
         .await
         .inspect_err(|error| telemetry::track(&app, Event::new("account_refresh_failed").error(error)))
+}
+
+#[tauri::command]
+pub async fn skin_library(state: Ctx<'_>) -> CommandResult<SkinLibrary> {
+    let paths = state.paths().await;
+    Ok(skins::library::load(&paths.skins()).await)
+}
+
+#[tauri::command]
+pub async fn skin_texture(state: Ctx<'_>, texture: String) -> CommandResult<String> {
+    let paths = state.paths().await;
+    skins::library::data_url(&paths.skins(), &texture).await
+}
+
+#[tauri::command]
+pub async fn import_skin(
+    app: AppHandle,
+    state: Ctx<'_>,
+    path: Option<String>,
+) -> CommandResult<Option<SkinEntry>> {
+    let source = match path {
+        Some(path) => Some(PathBuf::from(path)),
+        None => pick_skin_file(&app).await,
+    };
+
+    let Some(source) = source else { return Ok(None) };
+
+    let bytes = tokio::fs::read(&source)
+        .await
+        .map_err(|e| CommandError::io("Не удалось прочитать файл скина", &source, e))?;
+
+    let name = source
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())
+        .unwrap_or_else(|| "Скин".into());
+
+    let paths = state.paths().await;
+
+    skins::library::add(
+        &paths.skins(),
+        &name,
+        &bytes,
+        skins::SkinSource::Local,
+        None,
+    )
+    .await
+    .map(Some)
+}
+
+async fn pick_skin_file(app: &AppHandle) -> Option<PathBuf> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Скин Minecraft")
+        .add_filter("Скин", &["png"])
+        .pick_file(move |picked| {
+            let _ = sender.send(picked);
+        });
+
+    receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok())
+}
+
+#[tauri::command]
+pub async fn import_player_skin(state: Ctx<'_>, name: String) -> CommandResult<SkinEntry> {
+    let paths = state.paths().await;
+    skins::import_player(&paths.skins(), &name).await
+}
+
+#[tauri::command]
+pub async fn rename_skin(state: Ctx<'_>, id: String, name: String) -> CommandResult<SkinLibrary> {
+    let paths = state.paths().await;
+    skins::library::rename(&paths.skins(), &id, &name).await
+}
+
+#[tauri::command]
+pub async fn set_skin_variant(
+    state: Ctx<'_>,
+    id: String,
+    variant: SkinVariant,
+) -> CommandResult<SkinLibrary> {
+    let paths = state.paths().await;
+    skins::library::set_variant(&paths.skins(), &id, variant).await
+}
+
+#[tauri::command]
+pub async fn delete_skin(state: Ctx<'_>, id: String) -> CommandResult<SkinLibrary> {
+    let paths = state.paths().await;
+    skins::library::remove(&paths.skins(), &id).await
+}
+
+#[tauri::command]
+pub async fn set_skin_cape(
+    state: Ctx<'_>,
+    id: String,
+    cape_id: Option<String>,
+) -> CommandResult<SkinLibrary> {
+    let paths = state.paths().await;
+    skins::library::set_cape(&paths.skins(), &id, cape_id).await
+}
+
+#[tauri::command]
+pub async fn duplicate_skin(
+    state: Ctx<'_>,
+    id: String,
+    cape_id: Option<String>,
+) -> CommandResult<SkinEntry> {
+    let paths = state.paths().await;
+    skins::library::duplicate(&paths.skins(), &id, cape_id).await
+}
+
+#[tauri::command]
+pub async fn account_look(
+    state: Ctx<'_>,
+    uuid: String,
+    refresh: bool,
+) -> CommandResult<AccountLook> {
+    let paths = state.paths().await;
+    skins::look(&state.accounts, &paths.skins(), &uuid, refresh).await
+}
+
+#[tauri::command]
+pub async fn apply_skin(
+    app: AppHandle,
+    state: Ctx<'_>,
+    uuid: String,
+    id: String,
+) -> CommandResult<AccountLook> {
+    let paths = state.paths().await;
+    let look = skins::apply_skin(&state.accounts, &paths.skins(), &uuid, &id).await;
+
+    telemetry::track(
+        &app,
+        match &look {
+            Ok(look) => Event::new("skin_applied").text("variant", look.variant.as_api()),
+            Err(error) => Event::new("skin_apply_failed").error(error),
+        },
+    );
+
+    look
+}
+
+#[tauri::command]
+pub async fn reset_skin(state: Ctx<'_>, uuid: String) -> CommandResult<AccountLook> {
+    let paths = state.paths().await;
+    skins::reset_skin(&state.accounts, &paths.skins(), &uuid).await
+}
+
+#[tauri::command]
+pub async fn apply_cape(
+    app: AppHandle,
+    state: Ctx<'_>,
+    uuid: String,
+    cape_id: Option<String>,
+) -> CommandResult<AccountLook> {
+    let paths = state.paths().await;
+    let look = skins::apply_cape(&state.accounts, &paths.skins(), &uuid, cape_id.as_deref()).await;
+
+    telemetry::track(
+        &app,
+        match &look {
+            Ok(_) => Event::new("cape_applied").text("cape", if cape_id.is_some() { "on" } else { "off" }),
+            Err(error) => Event::new("cape_apply_failed").error(error),
+        },
+    );
+
+    look
 }
 
 #[tauri::command]

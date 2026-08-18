@@ -106,8 +106,6 @@ impl LocalPackKind {
             Self::MultiMc => "multimc",
         }
     }
-
-    /// Файлы модов CurseForge не лежат в архиве: их ещё надо найти по API.
     pub fn resolves_files(self) -> bool {
         self == Self::CurseForge
     }

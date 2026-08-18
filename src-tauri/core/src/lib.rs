@@ -23,4 +23,5 @@ pub mod mojang;
 pub mod net;
 pub mod packs;
 pub mod paths;
+pub mod skins;
 pub mod telemetry;
