@@ -158,7 +158,6 @@ async function duplicate(entry: SkinEntry) {
   if (result.ok) {
     toast.add({
       title: `«${result.value.name}» создан`,
-      description: "Тот же скин, плащ можно поменять",
       color: "success",
       icon: "i-lucide-copy"
     })
