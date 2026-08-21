@@ -16,6 +16,7 @@ use cast_core::error::{CommandError, CommandResult};
 use cast_core::instance::Playtime;
 use cast_core::launch::args::LaunchCommand;
 use cast_core::launch::game::{GameStatus, RunningGame};
+use cast_core::launch::output::decode_line;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::telemetry::{self, Event};
@@ -380,9 +381,19 @@ where
     R: tokio::io::AsyncRead + Unpin + Send + 'static,
 {
     tokio::spawn(async move {
-        let mut lines = BufReader::new(reader).lines();
+        let mut reader = BufReader::new(reader);
+        let mut buffer = Vec::new();
 
-        while let Ok(Some(line)) = lines.next_line().await {
+        loop {
+            buffer.clear();
+
+            match reader.read_until(b'\n', &mut buffer).await {
+                Ok(0) | Err(_) => break,
+                Ok(_) => {}
+            }
+
+            let line = decode_line(&buffer);
+
             process.push_log(&line).await;
 
             if !process.settled.load(Ordering::SeqCst) && game_is_up(&line) {
