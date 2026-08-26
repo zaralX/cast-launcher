@@ -46,6 +46,8 @@ const MAX_ZOOM = 2.4
 const BOUND_WIDTH = 19
 const BOUND_HEIGHT = 37
 
+const BAKE_DELAY = 180
+
 const yaw = ref(props.angle)
 const pitch = ref(props.tilt)
 const zoom = ref(1)
@@ -82,9 +84,33 @@ const fitted = computed(() => {
   return Math.min(width / BOUND_WIDTH, height / BOUND_HEIGHT)
 })
 
-const unit = computed(() => fitted.value * props.scale * zoom.value)
+const target = computed(() => fitted.value * props.scale * zoom.value)
+
+const rendered = ref(0)
+
+const unit = computed(() => rendered.value)
+
+const viewScale = computed(() => rendered.value ? target.value / rendered.value : 1)
+
+let bake = 0
+
+watch(target, value => {
+  if (!value) return
+
+  if (!rendered.value) {
+    rendered.value = value
+    return
+  }
+
+  clearTimeout(bake)
+  bake = window.setTimeout(() => (rendered.value = target.value), BAKE_DELAY)
+}, {immediate: true})
+
+onBeforeUnmount(() => clearTimeout(bake))
 
 const parts = computed(() => bodyParts(props.variant))
+
+const viewStyle = computed(() => ({transform: `scale(${viewScale.value})`}))
 
 const playerStyle = computed(() => ({
   transform: `rotateX(${pitch.value + motion.value.lean}deg) rotateY(${yaw.value}deg)`
@@ -112,9 +138,7 @@ function jointStyle(jointX: number, jointY: number, rotate: number) {
   }
 }
 
-function boxStyle(box: SkinBox, dir: 1 | -1, inflate = 0) {
-  const u = unit.value
-
+function boxStyle(box: SkinBox, dir: 1 | -1, u: number, inflate = 0) {
   return {
     width: `${box.w * u}px`,
     height: `${box.h * u}px`,
@@ -128,8 +152,7 @@ interface Face {
   style: Record<string, string>
 }
 
-function faceList(box: SkinBox, url: string, texture: { w: number, h: number }): Face[] {
-  const u = unit.value
+function faceList(box: SkinBox, url: string, texture: { w: number, h: number }, u: number): Face[] {
   const {w, h, d} = box
   const rects = boxFaces(box)
 
@@ -152,7 +175,28 @@ function faceList(box: SkinBox, url: string, texture: { w: number, h: number }):
   ]
 }
 
-const capeFaces = computed(() => props.cape ? faceList(CAPE_BOX, props.cape, CAPE_TEXTURE_SIZE) : [])
+const partViews = computed(() => {
+  const u = unit.value
+
+  return parts.value.map(part => ({
+    key: part.key,
+    jointX: part.jointX,
+    jointY: part.jointY,
+    swing: part.swing,
+    box: boxStyle(part.box, part.dir, u),
+    faces: faceList(part.box, props.skin, SKIN_TEXTURE_SIZE, u),
+    overlay: props.layers && part.overlay
+        ? {
+          box: boxStyle(part.overlay, part.dir, u, part.key === "head" ? 1.11 : 1.06),
+          faces: faceList(part.overlay, props.skin, SKIN_TEXTURE_SIZE, u)
+        }
+        : null
+  }))
+})
+
+const capeFaces = computed(() =>
+    props.cape ? faceList(CAPE_BOX, props.cape, CAPE_TEXTURE_SIZE, unit.value) : []
+)
 
 const capeJointStyle = computed(() => {
   const u = unit.value
@@ -163,7 +207,7 @@ const capeJointStyle = computed(() => {
   }
 })
 
-const capeBoxStyle = computed(() => boxStyle(CAPE_BOX, 1))
+const capeBoxStyle = computed(() => boxStyle(CAPE_BOX, 1, unit.value))
 
 const perspective = computed(() => `${Math.max(1, unit.value * 90)}px`)
 
@@ -233,14 +277,34 @@ function onPointerUp(event: PointerEvent) {
   ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
 }
 
+const WHEEL_STEP = 100
+
+let wheelFrame = 0
+let wheelDelta = 0
+
+function applyWheel() {
+  wheelFrame = 0
+
+  const delta = Math.max(-3 * WHEEL_STEP, Math.min(3 * WHEEL_STEP, wheelDelta))
+  wheelDelta = 0
+
+  const next = zoom.value * Math.pow(1.12, -delta / WHEEL_STEP)
+  zoom.value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next))
+}
+
 function onWheel(event: WheelEvent) {
   if (!props.interactive) return
 
   event.preventDefault()
 
-  const next = zoom.value * (event.deltaY < 0 ? 1.12 : 1 / 1.12)
-  zoom.value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next))
+  const step = event.deltaMode === 1 ? WHEEL_STEP / 3 : event.deltaMode === 2 ? WHEEL_STEP : 1
+
+  wheelDelta += event.deltaY * step
+
+  if (!wheelFrame) wheelFrame = requestAnimationFrame(applyWheel)
 }
+
+onBeforeUnmount(() => cancelAnimationFrame(wheelFrame))
 
 function reset() {
   yaw.value = props.angle
@@ -262,45 +326,47 @@ defineExpose({reset})
       @pointercancel="onPointerUp"
       @wheel="onWheel"
   >
-    <div class="skin-scene relative" :style="{perspective}">
-      <div class="skin-3d absolute left-0 top-0" :style="playerStyle">
-        <template v-for="part in parts" :key="part.key">
-          <div
-              class="skin-3d absolute left-0 top-0"
-              :style="jointStyle(part.jointX, part.jointY, part.key === 'head' ? headBob : swingOf(part.swing))"
-          >
-            <div class="skin-3d absolute left-0 top-0" :style="boxStyle(part.box, part.dir)">
-              <div
-                  v-for="face in faceList(part.box, skin, SKIN_TEXTURE_SIZE)"
-                  :key="face.key"
-                  class="skin-face"
-                  :style="face.style"
-              />
-            </div>
-
+    <div class="skin-view relative" :style="viewStyle">
+      <div class="skin-scene relative" :style="{perspective}">
+        <div class="skin-3d absolute left-0 top-0" :style="playerStyle">
+          <template v-for="part in partViews" :key="part.key">
             <div
-                v-if="layers && part.overlay"
                 class="skin-3d absolute left-0 top-0"
-                :style="boxStyle(part.overlay, part.dir, part.key === 'head' ? 1.11 : 1.06)"
+                :style="jointStyle(part.jointX, part.jointY, part.key === 'head' ? headBob : swingOf(part.swing))"
             >
+              <div class="skin-3d absolute left-0 top-0" :style="part.box">
+                <div
+                    v-for="face in part.faces"
+                    :key="face.key"
+                    class="skin-face"
+                    :style="face.style"
+                />
+              </div>
+
               <div
-                  v-for="face in faceList(part.overlay, skin, SKIN_TEXTURE_SIZE)"
+                  v-if="part.overlay"
+                  class="skin-3d absolute left-0 top-0"
+                  :style="part.overlay.box"
+              >
+                <div
+                    v-for="face in part.overlay.faces"
+                    :key="face.key"
+                    class="skin-face"
+                    :style="face.style"
+                />
+              </div>
+            </div>
+          </template>
+
+          <div v-if="cape" class="skin-3d absolute left-0 top-0" :style="capeJointStyle">
+            <div class="skin-3d absolute left-0 top-0" :style="capeBoxStyle">
+              <div
+                  v-for="face in capeFaces"
                   :key="face.key"
                   class="skin-face"
                   :style="face.style"
               />
             </div>
-          </div>
-        </template>
-
-        <div v-if="cape" class="skin-3d absolute left-0 top-0" :style="capeJointStyle">
-          <div class="skin-3d absolute left-0 top-0" :style="capeBoxStyle">
-            <div
-                v-for="face in capeFaces"
-                :key="face.key"
-                class="skin-face"
-                :style="face.style"
-            />
           </div>
         </div>
       </div>
@@ -309,6 +375,7 @@ defineExpose({reset})
 </template>
 
 <style scoped>
+.skin-view,
 .skin-scene {
   width: 0;
   height: 0;
