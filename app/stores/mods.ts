@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import type {ModFile} from '~/types/mods'
+import type {InstalledMods, ModFile} from '~/types/mods'
 import {call} from '~/types/backend'
 
 const pendingIcons = new Map<string, Promise<string | null>>()
@@ -53,6 +53,30 @@ export const useModsStore = defineStore('mods', {
             pendingIcons.set(key, request)
 
             return await request
+        },
+
+        async setEnabled(instanceId: string, path: string, enabled: boolean): Promise<ModFile[]> {
+            const mods = await call("set_mod_enabled", {instanceId, path, enabled})
+
+            this.byInstance[instanceId] = mods
+
+            return mods
+        },
+
+        async remove(instanceId: string, paths: string[]): Promise<ModFile[]> {
+            const mods = await call("delete_mods", {instanceId, paths})
+
+            this.byInstance[instanceId] = mods
+
+            return mods
+        },
+
+        async add(instanceId: string, paths: string[]): Promise<InstalledMods> {
+            const {mods, report} = await call("add_mods", {instanceId, paths})
+
+            this.byInstance[instanceId] = mods
+
+            return report
         },
 
         forget(instanceId: string) {

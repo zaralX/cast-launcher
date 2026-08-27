@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -13,6 +13,7 @@ use cast_core::assets::{self, ItemCategories};
 use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
+use cast_core::install::pack_files::PackFiles;
 use cast_core::import::{ImportReport, LauncherKind, ScannedInstance};
 use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
@@ -346,6 +347,87 @@ pub async fn read_mod_icon(state: Ctx<'_>, key: String) -> CommandResult<String>
     mods::icon::data_url(&paths.mod_icons(), &key).await
 }
 
+#[tauri::command]
+pub async fn set_mod_enabled(
+    state: Ctx<'_>,
+    instance_id: String,
+    path: String,
+    enabled: bool,
+) -> CommandResult<Vec<ModFile>> {
+    let lock = state.mods.of(&instance_id).await;
+    let _guard = lock.lock().await;
+
+    let scan = mods_scan(&state, &instance_id).await?;
+
+    mods::manage::set_enabled(&scan, &path, enabled).await?;
+
+    mods::list(&scan, false).await
+}
+
+#[tauri::command]
+pub async fn delete_mods(
+    state: Ctx<'_>,
+    instance_id: String,
+    paths: Vec<String>,
+) -> CommandResult<Vec<ModFile>> {
+    let lock = state.mods.of(&instance_id).await;
+    let _guard = lock.lock().await;
+
+    let scan = mods_scan(&state, &instance_id).await?;
+
+    mods::manage::remove(&scan, &paths).await?;
+
+    mods::list(&scan, false).await
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddedMods {
+    pub mods: Vec<ModFile>,
+    pub report: mods::manage::Installed,
+}
+
+#[tauri::command]
+pub async fn add_mods(
+    state: Ctx<'_>,
+    instance_id: String,
+    paths: Vec<String>,
+) -> CommandResult<AddedMods> {
+    let lock = state.mods.of(&instance_id).await;
+    let _guard = lock.lock().await;
+
+    let scan = mods_scan(&state, &instance_id).await?;
+    let sources: Vec<PathBuf> = paths.iter().map(PathBuf::from).collect();
+
+    let report = mods::manage::install(&scan, &sources).await?;
+
+    Ok(AddedMods {
+        mods: mods::list(&scan, false).await?,
+        report,
+    })
+}
+
+#[tauri::command]
+pub async fn pick_mod_files(app: AppHandle) -> CommandResult<Vec<String>> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+
+    app.dialog()
+        .file()
+        .set_title("Файлы модов")
+        .add_filter("Моды", &["jar", "zip", "litemod"])
+        .pick_files(move |picked| {
+            let _ = sender.send(picked);
+        });
+
+    let picked = receiver.await.ok().flatten().unwrap_or_default();
+
+    Ok(picked
+        .into_iter()
+        .filter_map(|file| file.into_path().ok())
+        .map(|path| path.display().to_string())
+        .collect())
+}
+
 async fn mods_scan(state: &Ctx<'_>, instance_id: &str) -> CommandResult<mods::ModsScan> {
     let instance = state.instances.get(instance_id).await?;
     let paths = state.paths().await;
@@ -356,7 +438,21 @@ async fn mods_scan(state: &Ctx<'_>, instance_id: &str) -> CommandResult<mods::Mo
         index_file: dirs.mods_index(),
         icons: paths.mod_icons(),
         loader: mods::ModLoader::of(instance.loader),
+        managed: managed_mods(&dirs).await,
     })
+}
+
+/// Что положил в mods модпак: удаление такого мода вернётся при следующем
+/// обновлении пака, и об этом стоит предупредить.
+async fn managed_mods(dirs: &cast_core::paths::InstancePaths) -> BTreeSet<String> {
+    let record = PackFiles::load(&dirs.pack_files()).await;
+
+    record
+        .paths
+        .union(&record.extracted)
+        .filter(|path| path.starts_with(&format!("{}/", mods::FOLDER)))
+        .cloned()
+        .collect()
 }
 
 #[tauri::command]

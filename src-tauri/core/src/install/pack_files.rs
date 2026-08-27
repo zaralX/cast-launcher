@@ -58,7 +58,7 @@ impl PackFiles {
         for relative in &self.paths {
             let Ok(path) = safe_join(minecraft_dir, relative) else { continue };
 
-            if !path.is_file() {
+            if !path.is_file() && !switched_off(&path).is_file() {
                 missing.push(relative.clone());
             }
         }
@@ -86,13 +86,26 @@ pub async fn remove(minecraft_dir: &Path, paths: &[String]) -> usize {
     for relative in paths {
         let Ok(path) = safe_join(minecraft_dir, relative) else { continue };
 
-        if tokio::fs::remove_file(&path).await.is_ok() {
-            removed += 1;
-            prune_empty_dirs(minecraft_dir, &path).await;
+        // Игрок мог выключить мод: убираем и выключенную копию, иначе она
+        // переживёт версию пака, из которой пришла.
+        for path in [path.clone(), switched_off(&path)] {
+            if tokio::fs::remove_file(&path).await.is_ok() {
+                removed += 1;
+                prune_empty_dirs(minecraft_dir, &path).await;
+            }
         }
     }
 
     removed
+}
+
+pub fn switched_off(path: &Path) -> std::path::PathBuf {
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    path.with_file_name(format!("{name}{}", crate::mods::DISABLED_SUFFIX))
 }
 
 async fn prune_empty_dirs(root: &Path, file: &Path) {
@@ -275,6 +288,35 @@ mod tests {
             .with_seeded(set(&["options.txt"]));
 
         assert_eq!(record.missing(&minecraft).await, vec!["mods/gone.jar"]);
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_mod_the_player_switched_off_is_not_a_reason_to_reinstall() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("jei.jar.disabled"), b"off").unwrap();
+
+        let record = PackFiles::new("v1", set(&["mods/jei.jar"]));
+
+        assert!(record.missing(&minecraft).await.is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_stale_mod_is_removed_even_if_it_was_switched_off() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("old.jar.disabled"), b"off").unwrap();
+
+        assert_eq!(remove(&minecraft, &["mods/old.jar".to_string()]).await, 1);
+        assert!(!minecraft.join("mods").join("old.jar.disabled").exists());
 
         std::fs::remove_dir_all(&root).ok();
     }

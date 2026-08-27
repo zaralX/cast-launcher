@@ -1,7 +1,9 @@
 pub mod icon;
 pub mod index;
+pub mod manage;
 pub mod parse;
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -83,6 +85,7 @@ pub struct ModFile {
     pub size: u64,
     pub modified: u64,
     pub kind: ModKind,
+    pub managed: bool,
     pub details: ModDetails,
 }
 
@@ -101,6 +104,14 @@ pub struct ModsScan {
     pub index_file: PathBuf,
     pub icons: PathBuf,
     pub loader: Option<ModLoader>,
+    pub managed: BTreeSet<String>,
+}
+
+impl ModsScan {
+    fn is_managed(&self, path: &str) -> bool {
+        self.managed.contains(path)
+            || self.managed.contains(path.trim_end_matches(DISABLED_SUFFIX))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -130,7 +141,7 @@ pub async fn list(scan: &ModsScan, force: bool) -> CommandResult<Vec<ModFile>> {
             .reusable(&entry.path, entry.size, entry.modified)
             .filter(|details| icon_present(&scan.icons, details))
         {
-            Some(details) => mods.push(file(entry, details.clone())),
+            Some(details) => mods.push(file(scan, entry, details.clone())),
             None => pending.push(entry.clone()),
         }
     }
@@ -142,7 +153,7 @@ pub async fn list(scan: &ModsScan, force: bool) -> CommandResult<Vec<ModFile>> {
 
         for (entry, details) in &parsed {
             index.remember(&entry.path, entry.size, entry.modified, details);
-            mods.push(file(entry, details.clone()));
+            mods.push(file(scan, entry, details.clone()));
         }
     }
 
@@ -164,8 +175,9 @@ pub async fn list(scan: &ModsScan, force: bool) -> CommandResult<Vec<ModFile>> {
     Ok(mods)
 }
 
-fn file(entry: &Entry, details: ModDetails) -> ModFile {
+fn file(scan: &ModsScan, entry: &Entry, details: ModDetails) -> ModFile {
     ModFile {
+        managed: scan.is_managed(&entry.path),
         path: entry.path.clone(),
         file_name: entry.file_name.clone(),
         enabled: entry.enabled,
@@ -227,6 +239,10 @@ async fn collect(dir: &Path) -> CommandResult<Vec<Entry>> {
     }
 
     Ok(found)
+}
+
+pub fn is_mod_file(file_name: &str) -> bool {
+    kind_of(file_name, false).is_some()
 }
 
 fn kind_of(file_name: &str, is_dir: bool) -> Option<ModKind> {
@@ -352,6 +368,10 @@ mod tests {
             index_file: root.join("mods-index.json"),
             icons: root.join("mod-icons"),
             loader: Some(ModLoader::Fabric),
+            managed: BTreeSet::from([
+                "mods/sodium.jar".to_string(),
+                "mods/sodium-0.5.3.jar".to_string(),
+            ]),
         }
     }
 
@@ -414,8 +434,11 @@ mod tests {
         assert!(!lithium.enabled, "суффикс .disabled - мод выключен");
         assert_eq!(lithium.details.icon_key, None);
 
+        assert!(!lithium.managed);
+
         let sodium = &mods[1];
         assert_eq!(sodium.display_name(), "Sodium");
+        assert!(sodium.managed, "мод из пака помечен");
         assert_eq!(sodium.path, "mods/sodium-0.5.3.jar");
         assert!(sodium.enabled);
         assert_eq!(sodium.details.version, "1.0.0");
@@ -525,6 +548,21 @@ mod tests {
         assert_eq!(mods.len(), 1);
         assert_eq!(mods[0].display_name(), "Unpacked");
         assert_eq!(mods[0].kind, ModKind::Folder);
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_switched_off_mod_from_a_pack_is_still_a_mod_from_a_pack() {
+        let root = temp_dir();
+        let scan = scan_in(&root);
+
+        fabric_jar(&scan.dir.join("sodium.jar.disabled"), "sodium", "Sodium", false);
+
+        let mods = list(&scan, false).await.unwrap();
+
+        assert!(mods[0].managed);
+        assert!(!mods[0].enabled);
 
         std::fs::remove_dir_all(&root).ok();
     }

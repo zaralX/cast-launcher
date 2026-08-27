@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -32,6 +33,26 @@ pub struct AppState {
     pub processes: ProcessRegistry,
     pub java: JavaRegistry,
     pub accounts: AccountStore,
+    pub mods: ModLocks,
+}
+
+#[derive(Default)]
+pub struct ModLocks(RwLock<HashMap<String, Arc<tokio::sync::Mutex<()>>>>);
+
+impl ModLocks {
+    pub async fn of(&self, instance_id: &str) -> Arc<tokio::sync::Mutex<()>> {
+        if let Some(lock) = self.0.read().await.get(instance_id) {
+            return Arc::clone(lock);
+        }
+
+        Arc::clone(
+            self.0
+                .write()
+                .await
+                .entry(instance_id.to_string())
+                .or_default(),
+        )
+    }
 }
 
 impl AppState {
@@ -62,14 +83,11 @@ impl AppState {
             processes: ProcessRegistry::new(),
             java: JavaRegistry::new(),
             accounts,
+            mods: ModLocks::default(),
         });
 
         let paths = state.paths().await;
 
-        // Каталог лаунчера теперь задаёт и место сборок, а значит может оказаться
-        // недоступен: съёмный диск не подключён, сетевой путь отвалился. Ронять
-        // запуск нельзя — иначе путь не починить, настройки открываются только из
-        // работающего окна.
         if let Err(error) = state.instances.reload(&paths).await {
             eprintln!(
                 "Не удалось прочитать сборки в {}: {error}",

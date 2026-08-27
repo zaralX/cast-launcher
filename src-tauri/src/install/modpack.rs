@@ -264,6 +264,20 @@ pub struct Applied<'a> {
     pub label: &'a str,
 }
 
+fn wanted(tasks: &[DownloadTask]) -> Vec<DownloadTask> {
+    let mut wanted = Vec::with_capacity(tasks.len());
+
+    for task in tasks {
+        if pack_files::switched_off(&task.destination).is_file() {
+            continue;
+        }
+
+        wanted.push(task.clone());
+    }
+
+    wanted
+}
+
 pub async fn apply(
     state: &Arc<AppState>,
     paths: &LauncherPaths,
@@ -290,12 +304,14 @@ pub async fn apply(
         owned.extend(blocked::place_found(&minecraft, blocked).await);
     }
 
-    if !resolved.tasks.is_empty() {
+    let tasks = wanted(&resolved.tasks);
+
+    if !tasks.is_empty() {
         state
             .downloads
             .run(
                 job_id(&instance.id, what.phase),
-                resolved.tasks.clone(),
+                tasks,
                 DownloadOptions::default(),
                 Some(download_reporter(reporter)),
             )

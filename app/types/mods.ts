@@ -21,7 +21,20 @@ export interface ModFile {
     size: number
     modified: number
     kind: ModKind
+    managed: boolean
     details: ModDetails
+}
+
+export interface InstalledMods {
+    added: string[]
+    replaced: string[]
+    skipped: string[]
+}
+
+export const MOD_EXTENSIONS = ["jar", "zip", "litemod"]
+
+export function isModFile(name: string): boolean {
+    return MOD_EXTENSIONS.includes(name.split(".").pop()?.toLowerCase() ?? "")
 }
 
 export const MOD_LOADER_LABELS: Record<ModLoader, string> = {

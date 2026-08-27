@@ -11,7 +11,7 @@ import type {
     RunningGame
 } from "~/types/instance"
 import type {IconFile, ItemCatalog} from "~/types/icon"
-import type {ModFile} from "~/types/mods"
+import type {InstalledMods, ModFile} from "~/types/mods"
 import type {AccountLook, SkinEntry, SkinLibrary, SkinVariant} from "~/types/skin"
 import type {
     DetectedLauncher,
@@ -82,6 +82,10 @@ interface Commands {
     list_instance_mods: [{ instanceId: string }, ModFile[]]
     refresh_instance_mods: [{ instanceId: string }, ModFile[]]
     read_mod_icon: [{ key: string }, string]
+    set_mod_enabled: [{ instanceId: string, path: string, enabled: boolean }, ModFile[]]
+    delete_mods: [{ instanceId: string, paths: string[] }, ModFile[]]
+    add_mods: [{ instanceId: string, paths: string[] }, AddedMods]
+    pick_mod_files: [void, string[]]
 
     list_icons: [void, IconFile[]]
     read_icon: [{ name: string }, string]
@@ -158,6 +162,11 @@ interface Commands {
     list_fabric_versions: [void, string[]]
     list_forge_versions: [void, string[]]
     list_neoforge_versions: [void, NeoForgeRelease[]]
+}
+
+export interface AddedMods {
+    mods: ModFile[]
+    report: InstalledMods
 }
 
 export type PlayOutcome =

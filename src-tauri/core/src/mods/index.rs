@@ -62,6 +62,17 @@ impl ModsIndex {
         );
     }
 
+    pub fn rename(&mut self, from: &str, to: &str) -> bool {
+        match self.entries.remove(from) {
+            Some(entry) => self.entries.insert(to.to_string(), entry).is_none(),
+            None => false,
+        }
+    }
+
+    pub fn forget(&mut self, path: &str) -> bool {
+        self.entries.remove(path).is_some()
+    }
+
     pub fn retain(&mut self, alive: &[String]) -> bool {
         let before = self.entries.len();
 
@@ -104,6 +115,27 @@ mod tests {
 
         assert_eq!(index.entries.len(), 1);
         assert!(index.entries.contains_key("mods/jei.jar"));
+    }
+
+    #[test]
+    fn a_renamed_file_keeps_its_metadata() {
+        let mut index = ModsIndex::new();
+        index.remember("mods/jei.jar", 100, 42, &details("JEI"));
+
+        assert!(index.rename("mods/jei.jar", "mods/jei.jar.disabled"));
+        assert_eq!(index.reusable("mods/jei.jar.disabled", 100, 42).unwrap().name, "JEI");
+        assert!(index.reusable("mods/jei.jar", 100, 42).is_none());
+
+        assert!(!index.rename("mods/ghost.jar", "mods/ghost.jar.disabled"));
+    }
+
+    #[test]
+    fn forgetting_reports_whether_there_was_anything_to_forget() {
+        let mut index = ModsIndex::new();
+        index.remember("mods/jei.jar", 1, 1, &details("JEI"));
+
+        assert!(index.forget("mods/jei.jar"));
+        assert!(!index.forget("mods/jei.jar"));
     }
 
     #[tokio::test]
