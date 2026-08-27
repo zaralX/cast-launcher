@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import CreateInstanceModalBody from "~/components/CreateInstanceModalBody.vue";
 import ImportPackModalBody from "~/components/ImportPackModalBody.vue";
-import {useCastPackStore} from "~/stores/castpack";
 import type {Instance} from "~/types/instance";
 
 definePageMeta({
@@ -9,7 +8,6 @@ definePageMeta({
 })
 
 const instanceStore = useInstanceStore()
-const castpackStore = useCastPackStore()
 const toast = useToast()
 
 const {installInstance, playInstance} = instanceStore
@@ -55,10 +53,6 @@ async function confirmRemove() {
   })
 }
 
-const catalogPacks = computed(() =>
-    castpackStore.packs.filter(pack => !castpackStore.instanceOf(pack.id))
-)
-
 const isRunning = (id: string) => instanceStore.isRunning(id)
 
 const isInstalling = (id: string) => installs.value.some(install => install.instanceId === id)
@@ -82,32 +76,10 @@ function onImported(instanceId: string) {
   })
 }
 
-onMounted(() => safeRun(() => castpackStore.loadCatalog(), {
-  code: "NETWORK",
-  context: {action: "Загрузка каталога CastPack"}
-}))
-
 const run = (id: string) => safeRun(
     () => playInstance(id),
     {context: {instanceId: id, action: "Запуск сборки"}}
 )
-
-async function installPack(packId: string) {
-  const pack = castpackStore.packs.find(item => item.id === packId)
-
-  const started = await attempt(() => castpackStore.installPack(packId), {
-    context: {action: "Установка сборки CastPack", packId}
-  })
-
-  if (!started.ok) return
-
-  toast.add({
-    title: `Установка «${pack?.name ?? packId}»`,
-    description: "Файлы сборки скачиваются в фоне",
-    color: "success",
-    icon: "i-lucide-arrow-down-to-line"
-  })
-}
 </script>
 
 <template>
@@ -194,35 +166,6 @@ async function installPack(packId: string) {
               <span class="text-[10px] tracking-[0.2em]">Новая сборка</span>
             </span>
           </UButton>
-        </div>
-      </section>
-
-      <section v-if="catalogPacks.length" class="mt-8">
-        <SectionHeading index="02" title="Сборки CastPack" :meta="`${catalogPacks.length} шт.`">
-          <template #action>
-            <NuxtLink
-                to="/search?source=castpack"
-                class="group/all ml-2 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint transition-colors duration-300 hover:text-acid"
-            >
-              Весь каталог
-              <UIcon
-                  name="i-lucide-arrow-right"
-                  class="size-3 transition-transform duration-500 ease-deck group-hover/all:translate-x-1"
-              />
-            </NuxtLink>
-          </template>
-        </SectionHeading>
-
-        <div class="mt-4 grid gap-3" :class="compact ? '2xl:grid-cols-2' : 'lg:grid-cols-2 2xl:grid-cols-3'">
-          <CastpackCard
-              v-for="(pack, i) in catalogPacks"
-              :key="pack.id"
-              :pack="pack"
-              :state="castpackStore.stateOf(pack)"
-              class="animate-rise"
-              :style="{ animationDelay: `${i * 45}ms` }"
-              @install="installPack"
-          />
         </div>
       </section>
     </div>
