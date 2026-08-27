@@ -68,7 +68,7 @@ async fn prepare(
 
     let paths = state.paths().await;
 
-    if needs_install(&paths, &instance).await {
+    if needs_install(&state, &paths, &instance).await {
         let install = install::start_with(app, state, instance.id.clone(), true).await?;
 
         return Ok(PlayOutcome::Installing { install });
@@ -79,14 +79,16 @@ async fn prepare(
     Ok(PlayOutcome::Launched { game })
 }
 
-async fn needs_install(paths: &LauncherPaths, instance: &Instance) -> bool {
+async fn needs_install(state: &Arc<AppState>, paths: &LauncherPaths, instance: &Instance) -> bool {
     if !instance.installed {
         return true;
     }
 
     if let Some(source) = &instance.castpack {
         if source.autoupdate {
-            match castpack::source::manifest(&source.manifest_url).await {
+            let url = crate::castpack::manifest_url(state, &instance.id, source).await;
+
+            match castpack::source::manifest(&url).await {
                 Ok(manifest) if source.is_outdated(&manifest.version) => return true,
                 Ok(_) => {}
                 Err(error) => {
@@ -133,7 +135,9 @@ pub async fn check_update(
         .as_ref()
         .ok_or_else(|| CommandError::manifest("Эта сборка не из каталога CastPack"))?;
 
-    match castpack::source::manifest(&source.manifest_url).await {
+    let url = crate::castpack::manifest_url(state, &instance.id, source).await;
+
+    match castpack::source::manifest(&url).await {
         Ok(manifest) => {
             let available = source.is_outdated(&manifest.version);
 
@@ -161,7 +165,7 @@ pub async fn check_update(
                 Event::new("castpack_update_failed")
                     .error(&error)
                     .text("catalog_id", &source.catalog_id)
-                    .text("host", telemetry::host_of(&source.manifest_url)),
+                    .text("host", telemetry::host_of(&url)),
             );
 
             Ok(CastPackUpdate {

@@ -78,6 +78,56 @@ async fn heal_icons(app: &AppHandle, state: &Arc<AppState>, catalog: &Catalog) {
     }
 }
 
+pub async fn manifest_url(state: &Arc<AppState>, instance_id: &str, source: &CastPackSource) -> String {
+    let known = catalog_manifest_url(state, &source.catalog_id).await;
+    let url = source.manifest_url_from(known.as_deref());
+
+    if url == source.manifest_url {
+        return url;
+    }
+
+    eprintln!(
+        "Сборка «{}» переехала: {} -> {url}",
+        source.catalog_id, source.manifest_url
+    );
+
+    let paths = state.paths().await;
+    let fresh = url.clone();
+
+    if let Err(error) = state
+        .instances
+        .update(&paths, instance_id, move |current| {
+            if let Some(source) = current.castpack.as_mut() {
+                source.manifest_url = fresh;
+            }
+        })
+        .await
+    {
+        eprintln!("Новый адрес манифеста не записался в инстанс: {error}");
+    }
+
+    url
+}
+
+async fn catalog_manifest_url(state: &Arc<AppState>, catalog_id: &str) -> Option<String> {
+    if catalog_id.trim().is_empty() {
+        return None;
+    }
+
+    let config = state.config().await;
+    let paths = state.paths().await;
+
+    let catalog =
+        castpack::source::catalog(config.launcher.catalog_url(), &castpack::source::catalog_cache(&paths))
+            .await
+            .inspect_err(|error| {
+                eprintln!("Каталог CastPack не прочитан, беру сохранённый адрес манифеста: {error}")
+            })
+            .ok()?;
+
+    Some(catalog.find(catalog_id)?.manifest.clone())
+}
+
 pub async fn install_pack(
     app: AppHandle,
     state: Arc<AppState>,

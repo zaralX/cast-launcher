@@ -172,6 +172,14 @@ impl CastPackSource {
     pub fn is_outdated(&self, available: &str) -> bool {
         !available.trim().is_empty() && available.trim() != self.version.trim()
     }
+
+    pub fn manifest_url_from(&self, catalog: Option<&str>) -> String {
+        catalog
+            .map(str::trim)
+            .filter(|url| !url.is_empty())
+            .unwrap_or_else(|| self.manifest_url.trim())
+            .to_string()
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -601,6 +609,39 @@ mod tests {
         assert!(
             source.is_outdated("1.0.0"),
             "откат автора - тоже повод переустановить: версии не сравниваем, а сверяем"
+        );
+    }
+
+    #[test]
+    fn the_catalog_decides_where_the_manifest_lives() {
+        let source = CastPackSource::new("rpg", "https://s3.zaralx.ru/launcher/packs/rpg/manifest.json", true);
+
+        assert_eq!(
+            source.manifest_url_from(Some("https://castpacks.zaralx.ru/packs/rpg/manifest.json")),
+            "https://castpacks.zaralx.ru/packs/rpg/manifest.json",
+            "переезд сборки виден только каталогу - записанный при установке адрес о нём не знает"
+        );
+
+        assert_eq!(
+            source.manifest_url_from(Some("  https://castpacks.zaralx.ru/m.json  ")),
+            "https://castpacks.zaralx.ru/m.json"
+        );
+    }
+
+    #[test]
+    fn without_a_catalog_the_saved_address_still_works() {
+        let source = CastPackSource::new("rpg", "  https://cdn.zaralx.ru/m.json  ", true);
+
+        assert_eq!(
+            source.manifest_url_from(None),
+            "https://cdn.zaralx.ru/m.json",
+            "каталог не ответил - играем по сохранённому адресу, а не падаем"
+        );
+
+        assert_eq!(
+            source.manifest_url_from(Some("   ")),
+            "https://cdn.zaralx.ru/m.json",
+            "пустая ссылка в каталоге - это отсутствие ссылки"
         );
     }
 

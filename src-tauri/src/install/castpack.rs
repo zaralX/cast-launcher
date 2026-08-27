@@ -38,7 +38,8 @@ pub async fn prepare(
     reporter.begin_phase("castpack-manifest", "Манифест сборки");
 
     let saved = paths.instance(&instance.id).castpack_manifest();
-    let manifest = read_manifest(&source.manifest_url, &saved).await?;
+    let url = crate::castpack::manifest_url(state, &instance.id, source).await;
+    let manifest = read_manifest(&url, &saved).await?;
 
     reporter.set_fraction(1.0);
     super::check_cancelled(reporter)?;
