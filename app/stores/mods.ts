@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import type {InstalledMods, ModFile} from '~/types/mods'
+import type {CatalogMatch, InstalledMods, ModFile, ModUpdate, UpdatedModsReport} from '~/types/mods'
 import {call} from '~/types/backend'
 
 const pendingIcons = new Map<string, Promise<string | null>>()
@@ -8,13 +8,22 @@ export const useModsStore = defineStore('mods', {
     state: () => ({
         byInstance: {} as Record<string, ModFile[]>,
         loading: [] as string[],
-        icons: {} as Record<string, string>
+        icons: {} as Record<string, string>,
+        catalog: {} as Record<string, Record<string, CatalogMatch>>,
+        updates: {} as Record<string, ModUpdate[]>,
+        identifying: [] as string[],
+        checking: [] as string[]
     }),
     getters: {
         listOf: (state) => (instanceId: string): ModFile[] => state.byInstance[instanceId] ?? [],
         isLoading: (state) => (instanceId: string) => state.loading.includes(instanceId),
         isLoaded: (state) => (instanceId: string) => !!state.byInstance[instanceId],
-        iconOf: (state) => (key?: string | null): string | null => (key && state.icons[key]) || null
+        iconOf: (state) => (key?: string | null): string | null => (key && state.icons[key]) || null,
+        matchOf: (state) => (instanceId: string, path: string): CatalogMatch | null =>
+            state.catalog[instanceId]?.[path] ?? null,
+        updatesOf: (state) => (instanceId: string): ModUpdate[] => state.updates[instanceId] ?? [],
+        isIdentifying: (state) => (instanceId: string) => state.identifying.includes(instanceId),
+        isChecking: (state) => (instanceId: string) => state.checking.includes(instanceId)
     },
     actions: {
         async load(instanceId: string, force = false): Promise<ModFile[]> {
@@ -79,8 +88,51 @@ export const useModsStore = defineStore('mods', {
             return report
         },
 
+        async identify(instanceId: string): Promise<Record<string, CatalogMatch>> {
+            if (this.identifying.includes(instanceId)) return this.catalog[instanceId] ?? {}
+
+            this.identifying.push(instanceId)
+
+            try {
+                const matches = await call("identify_instance_mods", {instanceId})
+
+                this.catalog[instanceId] = matches
+
+                return matches
+            } finally {
+                this.identifying = this.identifying.filter(id => id !== instanceId)
+            }
+        },
+
+        async checkUpdates(instanceId: string): Promise<ModUpdate[]> {
+            if (this.checking.includes(instanceId)) return this.updatesOf(instanceId)
+
+            this.checking.push(instanceId)
+
+            try {
+                const updates = await call("check_mod_updates", {instanceId})
+
+                this.updates[instanceId] = updates
+
+                return updates
+            } finally {
+                this.checking = this.checking.filter(id => id !== instanceId)
+            }
+        },
+
+        async update(instanceId: string, paths: string[]): Promise<UpdatedModsReport> {
+            const {mods, report} = await call("update_mods", {instanceId, paths})
+
+            this.byInstance[instanceId] = mods
+            this.updates[instanceId] = this.updatesOf(instanceId).filter(update => !paths.includes(update.path))
+
+            return report
+        },
+
         forget(instanceId: string) {
             delete this.byInstance[instanceId]
+            delete this.catalog[instanceId]
+            delete this.updates[instanceId]
         }
     }
 })

@@ -19,6 +19,8 @@ use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::{neoforge, vanilla};
+use cast_core::mods::catalog::CatalogMatch;
+use cast_core::mods::updates::ModUpdate;
 use cast_core::mods::{self, ModFile};
 use cast_core::mojang::version::VersionManifest;
 use cast_core::packs;
@@ -402,6 +404,88 @@ pub async fn add_mods(
     let report = mods::manage::install(&scan, &sources).await?;
 
     Ok(AddedMods {
+        mods: mods::list(&scan, false).await?,
+        report,
+    })
+}
+
+#[tauri::command]
+pub async fn identify_instance_mods(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<BTreeMap<String, CatalogMatch>> {
+    let scan = mods_scan(&state, &instance_id).await?;
+    let paths = state.paths().await;
+
+    let mods = mods::list(&scan, false).await?;
+
+    mods::catalog::identify(&scan, &mods, &paths.mod_catalog()).await
+}
+
+#[tauri::command]
+pub async fn check_mod_updates(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<ModUpdate>> {
+    let instance = state.instances.get(&instance_id).await?;
+    let scan = mods_scan(&state, &instance_id).await?;
+    let paths = state.paths().await;
+
+    let mods = mods::list(&scan, false).await?;
+    let matches = mods::catalog::identify(&scan, &mods, &paths.mod_catalog()).await?;
+
+    let found = mods::updates::check(&mods, &matches, instance.loader, &instance.minecraft_version).await;
+
+    state
+        .mod_updates
+        .write()
+        .await
+        .insert(instance_id, found.clone());
+
+    Ok(found)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatedMods {
+    pub mods: Vec<ModFile>,
+    pub report: mods::updates::Updated,
+}
+
+#[tauri::command]
+pub async fn update_mods(
+    state: Ctx<'_>,
+    instance_id: String,
+    paths: Vec<String>,
+) -> CommandResult<UpdatedMods> {
+    let lock = state.mods.of(&instance_id).await;
+    let _guard = lock.lock().await;
+
+    let wanted: Vec<ModUpdate> = state
+        .mod_updates
+        .read()
+        .await
+        .get(&instance_id)
+        .map(|found| {
+            found
+                .iter()
+                .filter(|update| paths.contains(&update.path))
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if wanted.is_empty() {
+        return Err(CommandError::unknown(
+            "Обновления не найдены - проверьте их заново",
+        ));
+    }
+
+    let scan = mods_scan(&state, &instance_id).await?;
+    let report = mods::updates::apply(&scan, &state.downloads, &wanted).await?;
+
+    if let Some(found) = state.mod_updates.write().await.get_mut(&instance_id) {
+        found.retain(|update| !paths.contains(&update.path));
+    }
+
+    Ok(UpdatedMods {
         mods: mods::list(&scan, false).await?,
         report,
     })

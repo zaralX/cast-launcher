@@ -2,15 +2,23 @@
 import {getCurrentWebview} from "@tauri-apps/api/webview"
 import type {UnlistenFn} from "@tauri-apps/api/event"
 import type {Instance} from "~/types/instance"
-import type {InstalledMods, ModFile} from "~/types/mods"
-import {MOD_LOADER_LABELS, isModFile, matchesMod, modAuthors, modName, modSize} from "~/types/mods"
+import type {CatalogMatch, InstalledMods, ModFile, ModUpdate} from "~/types/mods"
+import {
+  CATALOG_LABELS,
+  MOD_LOADER_LABELS,
+  isModFile,
+  matchesMod,
+  modAuthors,
+  modName,
+  modSize
+} from "~/types/mods"
 import {call} from "~/types/backend"
 
 const props = defineProps<{ instance: Instance }>()
 
 const ICON_BATCH = 10
 
-type Filter = "all" | "enabled" | "disabled"
+type Filter = "all" | "enabled" | "disabled" | "outdated"
 
 const modsStore = useModsStore()
 const toast = useToast()
@@ -33,16 +41,26 @@ const dragging = ref(false)
 const FILTERS = [
   {label: "Все", value: "all"},
   {label: "Включённые", value: "enabled"},
-  {label: "Выключенные", value: "disabled"}
+  {label: "Выключенные", value: "disabled"},
+  {label: "С обновлениями", value: "outdated"}
 ]
+
+const identifying = computed(() => modsStore.isIdentifying(instanceId.value))
+const checking = computed(() => modsStore.isChecking(instanceId.value))
+
+const updates = computed(() => modsStore.updatesOf(instanceId.value))
+
+const matchOf = (path: string): CatalogMatch | null => modsStore.matchOf(instanceId.value, path)
+const updateOf = (path: string): ModUpdate | null => updates.value.find(update => update.path === path) ?? null
 
 const disabledCount = computed(() => mods.value.filter(mod => !mod.enabled).length)
 
 const visible = computed(() => mods.value.filter(mod => {
   if (filter.value === "enabled" && !mod.enabled) return false
   if (filter.value === "disabled" && mod.enabled) return false
+  if (filter.value === "outdated" && !updateOf(mod.path)) return false
 
-  return matchesMod(mod, query.value)
+  return matchesMod(mod, query.value, matchOf(mod.path))
 }))
 
 const picked = computed(() => mods.value.filter(mod => selected.value.includes(mod.path)))
@@ -103,6 +121,61 @@ async function load(force = false) {
 
   keepAlive()
   await loadIcons(result.value)
+  await identify()
+}
+
+async function identify() {
+  if (!mods.value.length) return
+
+  await attempt(
+      () => modsStore.identify(instanceId.value),
+      {context: {instanceId: instanceId.value, action: "Опознание модов"}}
+  )
+}
+
+async function checkUpdates() {
+  const result = await attempt(
+      () => modsStore.checkUpdates(instanceId.value),
+      {context: {instanceId: instanceId.value, action: "Проверка обновлений модов"}}
+  )
+
+  if (!result.ok) return
+
+  toast.add({
+    title: result.value.length
+        ? `Обновлений: ${result.value.length}`
+        : "Все моды свежие",
+    color: result.value.length ? "success" : "neutral",
+    icon: "i-lucide-arrow-up-circle"
+  })
+}
+
+async function applyUpdates(paths: string[]) {
+  if (!paths.length || working.value) return
+
+  working.value = true
+
+  const result = await attempt(
+      () => modsStore.update(instanceId.value, paths),
+      {context: {instanceId: instanceId.value, action: "Обновление модов"}}
+  )
+
+  working.value = false
+
+  if (!result.ok) return
+
+  const {updated, failed} = result.value
+
+  toast.add({
+    title: updated.length ? `Обновлено: ${updated.length}` : "Ничего не обновилось",
+    description: failed.length ? `Не удалось: ${failed.join(", ")}` : undefined,
+    color: failed.length ? "warning" : "success",
+    icon: "i-lucide-arrow-up-circle"
+  })
+
+  keepAlive()
+  await loadIcons(mods.value)
+  await identify()
 }
 
 async function setEnabled(mod: ModFile, enabled: boolean) {
@@ -298,11 +371,21 @@ watch(instanceId, () => {
 
           <AppButton
               class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+              icon="i-lucide-arrow-up-circle"
+              :loading="checking"
+              :disabled="!mods.length"
+              @click="checkUpdates"
+          >
+            Проверить обновления
+          </AppButton>
+
+          <AppButton
+              class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
               icon="i-lucide-refresh-cw"
               :loading="loading"
               @click="load(true)"
           >
-            Обновить
+            Перечитать
           </AppButton>
 
           <AppButton
@@ -329,13 +412,34 @@ watch(instanceId, () => {
         </div>
 
         <p
-            v-if="loading || dragging"
+            v-if="loading || dragging || identifying || checking"
             class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em]"
             :class="dragging ? 'text-acid' : 'text-fg-faint'"
         >
           <span class="size-1.5 animate-blink" :class="dragging ? 'bg-acid' : 'bg-fg-faint'"/>
-          {{ dragging ? 'Отпустите файлы здесь' : 'Читаем папку' }}
+          <template v-if="dragging">Отпустите файлы здесь</template>
+          <template v-else-if="loading">Читаем папку</template>
+          <template v-else-if="checking">Спрашиваем каталоги</template>
+          <template v-else>Опознаём моды</template>
         </p>
+      </div>
+
+      <div
+          v-if="updates.length"
+          class="flex flex-wrap items-center justify-between gap-4 border border-acid/40 bg-ink-900 px-4 py-3"
+      >
+        <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-muted">
+          Обновлений: {{ updates.length }}
+        </p>
+
+        <AppButton
+            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+            icon="i-lucide-arrow-up-circle"
+            :loading="working"
+            @click="applyUpdates(updates.map(update => update.path))"
+        >
+          Обновить все
+        </AppButton>
       </div>
 
       <div
@@ -410,12 +514,23 @@ watch(instanceId, () => {
                 class="flex min-w-0 flex-1 items-center gap-4 text-left"
                 @click="toggle(mod.path)"
             >
-              <InstanceModIcon :icon-key="mod.details.iconKey" :name="modName(mod)"/>
+              <InstanceModIcon
+                  :icon-key="mod.details.iconKey"
+                  :fallback-url="matchOf(mod.path)?.iconUrl"
+                  :name="modName(mod, matchOf(mod.path))"
+              />
 
               <span class="min-w-0 flex-1">
                 <span class="flex items-center gap-2.5">
                   <span class="truncate text-[13px] font-medium text-fg" :title="mod.fileName">
-                    {{ modName(mod) }}
+                    {{ modName(mod, matchOf(mod.path)) }}
+                  </span>
+
+                  <span
+                      v-if="updateOf(mod.path)"
+                      class="shrink-0 border border-acid px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
+                  >
+                    {{ updateOf(mod.path)?.to }}
                   </span>
 
                   <UIcon
@@ -486,9 +601,31 @@ watch(instanceId, () => {
               </div>
             </dl>
 
+            <div v-if="matchOf(mod.path)" class="flex flex-wrap items-center gap-4">
+              <button
+                  v-if="matchOf(mod.path)?.pageUrl"
+                  type="button"
+                  class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-acid transition-opacity duration-300 hover:opacity-70"
+                  @click="openHomepage(matchOf(mod.path)!.pageUrl)"
+              >
+                <UIcon name="i-lucide-external-link" class="size-3.5"/>
+                {{ CATALOG_LABELS[matchOf(mod.path)!.provider] }}
+              </button>
+
+              <AppButton
+                  v-if="updateOf(mod.path) && !mod.managed"
+                  class="h-8 px-3 text-[10px] tracking-[0.18em]"
+                  icon="i-lucide-arrow-up-circle"
+                  :loading="working"
+                  @click="applyUpdates([mod.path])"
+              >
+                Обновить до {{ updateOf(mod.path)?.to }}
+              </AppButton>
+            </div>
+
             <p v-if="mod.managed" class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
               <UIcon name="i-lucide-package" class="size-3.5"/>
-              Мод из модпака
+              Мод из модпака - обновляется вместе с ним
             </p>
           </div>
         </div>

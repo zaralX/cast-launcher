@@ -1,7 +1,10 @@
+pub mod catalog;
+pub mod hash;
 pub mod icon;
 pub mod index;
 pub mod manage;
 pub mod parse;
+pub mod updates;
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};

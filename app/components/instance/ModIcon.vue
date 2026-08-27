@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
   iconKey?: string | null
+  fallbackUrl?: string | null
   name: string
   size?: "sm" | "md"
 }>(), {size: "sm"})
@@ -12,7 +13,7 @@ const SIZES = {
   md: "size-12 text-[12px]"
 }
 
-const url = computed(() => modsStore.iconOf(props.iconKey))
+const url = computed(() => modsStore.iconOf(props.iconKey) || props.fallbackUrl || null)
 
 const mark = computed(() => props.name.trim().slice(0, 2).toUpperCase() || "??")
 </script>

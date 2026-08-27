@@ -11,7 +11,7 @@ import type {
     RunningGame
 } from "~/types/instance"
 import type {IconFile, ItemCatalog} from "~/types/icon"
-import type {InstalledMods, ModFile} from "~/types/mods"
+import type {CatalogMatch, InstalledMods, ModFile, ModUpdate, UpdatedModsReport} from "~/types/mods"
 import type {AccountLook, SkinEntry, SkinLibrary, SkinVariant} from "~/types/skin"
 import type {
     DetectedLauncher,
@@ -86,6 +86,9 @@ interface Commands {
     delete_mods: [{ instanceId: string, paths: string[] }, ModFile[]]
     add_mods: [{ instanceId: string, paths: string[] }, AddedMods]
     pick_mod_files: [void, string[]]
+    identify_instance_mods: [{ instanceId: string }, Record<string, CatalogMatch>]
+    check_mod_updates: [{ instanceId: string }, ModUpdate[]]
+    update_mods: [{ instanceId: string, paths: string[] }, UpdatedMods]
 
     list_icons: [void, IconFile[]]
     read_icon: [{ name: string }, string]
@@ -167,6 +170,11 @@ interface Commands {
 export interface AddedMods {
     mods: ModFile[]
     report: InstalledMods
+}
+
+export interface UpdatedMods {
+    mods: ModFile[]
+    report: UpdatedModsReport
 }
 
 export type PlayOutcome =

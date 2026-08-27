@@ -18,6 +18,7 @@ use serde::Serialize;
 ///   cache/<loader>/<version>/{installer.jar, client.json, installed.json}
 ///   cache/meta/<hash>.json + .etag        кэш сетевых манифестов
 ///   cache/mod-icons/<hash>.png            иконки, вынутые из jar-файлов
+///   cache/mod-catalog.json                опознанные в каталогах моды
 ///   runtime/<component>/                  рантаймы Java от Mojang
 ///   logs/<instance id>/<timestamp>.log    логи запусков
 /// ```
@@ -108,6 +109,10 @@ impl LauncherPaths {
 
     pub fn mod_icons(&self) -> PathBuf {
         self.cache().join("mod-icons")
+    }
+
+    pub fn mod_catalog(&self) -> PathBuf {
+        self.cache().join("mod-catalog.json")
     }
 
     pub fn loader_cache(&self, loader: &str, version: &str) -> LoaderPaths {

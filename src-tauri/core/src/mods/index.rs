@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, write_json_atomic};
 
+use super::hash::FileHashes;
 use super::ModDetails;
 
 pub const VERSION: u32 = 1;
@@ -16,6 +17,8 @@ pub struct IndexEntry {
     pub size: u64,
     pub modified: u64,
     pub details: ModDetails,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hashes: Option<FileHashes>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,14 +55,38 @@ impl ModsIndex {
     }
 
     pub fn remember(&mut self, path: &str, size: u64, modified: u64, details: &ModDetails) {
+        let hashes = self
+            .entries
+            .get(path)
+            .filter(|entry| entry.size == size && entry.modified == modified)
+            .and_then(|entry| entry.hashes.clone());
+
         self.entries.insert(
             path.to_string(),
             IndexEntry {
                 size,
                 modified,
                 details: details.clone(),
+                hashes,
             },
         );
+    }
+
+    pub fn hashes(&self, path: &str, size: u64, modified: u64) -> Option<&FileHashes> {
+        self.entries
+            .get(path)
+            .filter(|entry| entry.size == size && entry.modified == modified)
+            .and_then(|entry| entry.hashes.as_ref())
+    }
+
+    pub fn remember_hashes(&mut self, path: &str, size: u64, modified: u64, hashes: &FileHashes) {
+        let Some(entry) = self.entries.get_mut(path) else { return };
+
+        if entry.size != size || entry.modified != modified {
+            return;
+        }
+
+        entry.hashes = Some(hashes.clone());
     }
 
     pub fn rename(&mut self, from: &str, to: &str) -> bool {
@@ -115,6 +142,35 @@ mod tests {
 
         assert_eq!(index.entries.len(), 1);
         assert!(index.entries.contains_key("mods/jei.jar"));
+    }
+
+    #[test]
+    fn hashes_live_next_to_the_metadata_and_survive_a_reparse() {
+        let mut index = ModsIndex::new();
+        index.remember("mods/jei.jar", 100, 42, &details("JEI"));
+
+        let hashes = FileHashes {
+            sha1: "aaa".into(),
+            fingerprint: Some(7),
+        };
+
+        index.remember_hashes("mods/jei.jar", 100, 42, &hashes);
+        assert_eq!(index.hashes("mods/jei.jar", 100, 42), Some(&hashes));
+
+        index.remember("mods/jei.jar", 100, 42, &details("JEI 2"));
+        assert_eq!(index.hashes("mods/jei.jar", 100, 42), Some(&hashes), "разбор не сбрасывает хэш");
+
+        index.remember("mods/jei.jar", 101, 42, &details("JEI 3"));
+        assert!(index.hashes("mods/jei.jar", 101, 42).is_none(), "файл изменился - хэш заново");
+    }
+
+    #[test]
+    fn hashes_are_not_stored_for_a_file_the_index_does_not_know() {
+        let mut index = ModsIndex::new();
+
+        index.remember_hashes("mods/ghost.jar", 1, 1, &FileHashes::default());
+
+        assert!(index.entries.is_empty());
     }
 
     #[test]

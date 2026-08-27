@@ -1,5 +1,7 @@
 pub mod pack;
 
+use std::collections::BTreeMap;
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -8,6 +10,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::http;
 use crate::net::meta_cache::MetaCache;
+use crate::mods::catalog::{CatalogMatch, CatalogVersion};
 use crate::packs::{
     Category, FileHashes, PackFile, PackFilters, PackHit, PackPage, PackVersion, SearchQuery,
 };
@@ -164,6 +167,145 @@ pub async fn version(project_id: &str, version_id: &str) -> CommandResult<PackVe
     let raw: Envelope<RawFile> = get_json(&format!("{API}/mods/{project}/files/{file}")).await?;
 
     Ok(PackVersion::from(raw.data))
+}
+
+pub async fn identify(fingerprints: &[u32]) -> CommandResult<BTreeMap<u32, CatalogMatch>> {
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Body<'a> {
+        fingerprints: &'a [u32],
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Matches {
+        #[serde(default)]
+        exact_matches: Vec<ExactMatch>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ExactMatch {
+        file: RawFile,
+    }
+
+    if fingerprints.is_empty() || !is_available() {
+        return Ok(BTreeMap::new());
+    }
+
+    let found: Envelope<Matches> =
+        post_json(&format!("{API}/fingerprints"), &Body { fingerprints }).await?;
+
+    let files: Vec<RawFile> = found.data.exact_matches.into_iter().map(|entry| entry.file).collect();
+
+    if files.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let ids: Vec<u64> = {
+        let mut ids: Vec<u64> = files.iter().map(|file| file.mod_id).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    };
+
+    let projects: BTreeMap<u64, RawMod> = match mods_by_id(&ids).await {
+        Ok(projects) => projects,
+        Err(error) => {
+            eprintln!("CurseForge не отдал проекты модов: {error}");
+            BTreeMap::new()
+        }
+    };
+
+    Ok(files
+        .into_iter()
+        .map(|file| {
+            let project = projects.get(&file.mod_id);
+
+            let matched = CatalogMatch {
+                provider: PackProvider::CurseForge,
+                project_id: file.mod_id.to_string(),
+                version_id: file.id.to_string(),
+                version_number: file.display_name.clone(),
+                title: project.map(|p| p.name.clone()).unwrap_or_else(|| file.file_name.clone()),
+                slug: project.map(|p| p.slug.clone()).unwrap_or_default(),
+                icon_url: project.and_then(logo_url).unwrap_or_default(),
+                page_url: project.and_then(|p| p.website_url()).unwrap_or_default().to_string(),
+                authors: project
+                    .map(|p| p.authors.iter().map(|author| author.name.clone()).collect())
+                    .unwrap_or_default(),
+            };
+
+            (file.file_fingerprint as u32, matched)
+        })
+        .collect())
+}
+
+async fn mods_by_id(ids: &[u64]) -> CommandResult<BTreeMap<u64, RawMod>> {
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Body<'a> {
+        mod_ids: &'a [u64],
+    }
+
+    let found: Envelope<Vec<RawMod>> = post_json(&format!("{API}/mods"), &Body { mod_ids: ids }).await?;
+
+    Ok(found.data.into_iter().map(|project| (project.id, project)).collect())
+}
+
+fn logo_url(project: &RawMod) -> Option<String> {
+    let logo = project.logo.as_ref()?;
+
+    let url = match logo.thumbnail_url.is_empty() {
+        true => &logo.url,
+        false => &logo.thumbnail_url,
+    };
+
+    (!url.is_empty()).then(|| url.clone())
+}
+
+/// Свежайший файл мода под лоадер и версию игры конкретной сборки.
+pub async fn latest_mod(
+    project_id: &str,
+    loader: LoaderType,
+    game_version: &str,
+) -> CommandResult<Option<CatalogVersion>> {
+    let id = numeric(project_id)?;
+
+    let mut url = Url::parse(&format!("{API}/mods/{id}/files"))
+        .map_err(|_| CommandError::manifest(format!("Недопустимый идентификатор CurseForge: {project_id}")))?;
+
+    {
+        let mut pairs = url.query_pairs_mut();
+
+        pairs.append_pair("pageSize", "50");
+
+        let game_version = game_version.trim();
+        if !game_version.is_empty() {
+            pairs.append_pair("gameVersion", game_version);
+        }
+
+        if let Some(loader) = loader_id(loader.key()) {
+            pairs.append_pair("modLoaderType", &loader.to_string());
+        }
+    }
+
+    let page: Envelope<Vec<RawFile>> = get_json(url.as_str()).await?;
+
+    Ok(page
+        .data
+        .into_iter()
+        .filter(|file| file.download_url().is_some())
+        .max_by(|a, b| a.file_date.cmp(&b.file_date))
+        .map(|file| CatalogVersion {
+            version_id: file.id.to_string(),
+            version_number: file.display_name.clone(),
+            file_name: file.file_name.clone(),
+            url: file.download_url().unwrap_or_default().to_string(),
+            sha1: file.sha1(),
+            size: file.size(),
+            date: file.file_date.clone(),
+        }))
 }
 
 pub async fn download_page(project_id: &str, version_id: &str) -> CommandResult<String> {
@@ -408,6 +550,8 @@ pub(crate) struct RawFile {
     game_versions: Vec<String>,
     #[serde(default)]
     hashes: Vec<RawHash>,
+    #[serde(default)]
+    file_fingerprint: u64,
 }
 
 impl RawFile {

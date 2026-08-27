@@ -31,6 +31,43 @@ export interface InstalledMods {
     skipped: string[]
 }
 
+export interface CatalogMatch {
+    provider: "modrinth" | "curseforge"
+    projectId: string
+    versionId: string
+    versionNumber: string
+    title: string
+    slug: string
+    iconUrl: string
+    pageUrl: string
+    authors: string[]
+}
+
+export interface ModUpdate {
+    path: string
+    provider: "modrinth" | "curseforge"
+    projectId: string
+    title: string
+    from: string
+    to: string
+    versionId: string
+    fileName: string
+    url: string
+    sha1?: string
+    size?: number
+    pageUrl: string
+}
+
+export interface UpdatedModsReport {
+    updated: string[]
+    failed: string[]
+}
+
+export const CATALOG_LABELS: Record<CatalogMatch["provider"], string> = {
+    modrinth: "Modrinth",
+    curseforge: "CurseForge"
+}
+
 export const MOD_EXTENSIONS = ["jar", "zip", "litemod"]
 
 export function isModFile(name: string): boolean {
@@ -45,8 +82,8 @@ export const MOD_LOADER_LABELS: Record<ModLoader, string> = {
     liteloader: "LiteLoader"
 }
 
-export function modName(mod: ModFile): string {
-    return mod.details.name.trim() || mod.fileName
+export function modName(mod: ModFile, matched?: CatalogMatch | null): string {
+    return mod.details.name.trim() || matched?.title.trim() || mod.fileName
 }
 
 export function modAuthors(mod: ModFile): string {
@@ -60,10 +97,10 @@ export function modSize(bytes: number): string {
     return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
 }
 
-export function matchesMod(mod: ModFile, query: string): boolean {
+export function matchesMod(mod: ModFile, query: string, matched?: CatalogMatch | null): boolean {
     const needle = query.trim().toLowerCase()
     if (!needle) return true
 
-    return [modName(mod), mod.details.modId, mod.fileName, modAuthors(mod)]
+    return [modName(mod, matched), mod.details.modId, mod.fileName, modAuthors(mod), matched?.title ?? ""]
         .some(field => field.toLowerCase().includes(needle))
 }

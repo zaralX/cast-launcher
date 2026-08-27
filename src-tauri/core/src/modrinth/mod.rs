@@ -10,6 +10,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::http;
 use crate::net::meta_cache::MetaCache;
+use crate::mods::catalog::{CatalogMatch, CatalogVersion};
 use crate::packs::{Category, FileHashes, PackFile, PackFilters, PackHit, PackPage, PackVersion};
 
 pub const API: &str = "https://api.modrinth.com/v2";
@@ -453,6 +454,17 @@ fn ids_url(path: &str, ids: &[&str]) -> String {
 }
 
 pub async fn files_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, PackFile>> {
+    let found = versions_by_sha1(hashes).await?;
+
+    Ok(found
+        .into_iter()
+        .filter_map(|(hash, version)| {
+            version.primary_file().cloned().map(|file| (hash, PackFile::from(file)))
+        })
+        .collect())
+}
+
+async fn versions_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, Version>> {
     #[derive(Serialize)]
     struct Body<'a> {
         hashes: &'a [String],
@@ -463,32 +475,149 @@ pub async fn files_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, 
         return Ok(BTreeMap::new());
     }
 
-    let body = Body {
-        hashes,
-        algorithm: "sha1",
+    post_json(
+        &format!("{API}/version_files"),
+        &Body {
+            hashes,
+            algorithm: "sha1",
+        },
+    )
+    .await
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+struct Project {
+    id: String,
+    #[serde(default)]
+    slug: String,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    project_type: String,
+    #[serde(default)]
+    icon_url: Option<String>,
+}
+
+pub async fn identify(hashes: &[String]) -> CommandResult<BTreeMap<String, CatalogMatch>> {
+    let found = versions_by_sha1(hashes).await?;
+
+    if found.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let ids: Vec<&str> = {
+        let mut ids: Vec<&str> = found.values().map(|version| version.project_id.as_str()).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
     };
 
-    let url = format!("{API}/version_files");
+    let projects: BTreeMap<String, Project> = match get_json::<Vec<Project>>(&ids_url("projects", &ids)).await {
+        Ok(projects) => projects.into_iter().map(|project| (project.id.clone(), project)).collect(),
+        Err(error) => {
+            eprintln!("Modrinth не отдал проекты модов: {error}");
+            BTreeMap::new()
+        }
+    };
 
-    let response = http::client().post(&url).json(&body).send().await.map_err(|e| {
+    Ok(found
+        .into_iter()
+        .map(|(hash, version)| {
+            let project = projects.get(&version.project_id);
+
+            let matched = CatalogMatch {
+                provider: PackProvider::Modrinth,
+                project_id: version.project_id.clone(),
+                version_id: version.id.clone(),
+                version_number: version.version_number.clone(),
+                title: project.map(|p| p.title.clone()).unwrap_or_else(|| version.name.clone()),
+                slug: project.map(|p| p.slug.clone()).unwrap_or_default(),
+                icon_url: project.and_then(|p| p.icon_url.clone()).unwrap_or_default(),
+                page_url: project.map(page_url).unwrap_or_default(),
+                authors: Vec::new(),
+            };
+
+            (hash, matched)
+        })
+        .collect())
+}
+
+fn page_url(project: &Project) -> String {
+    let kind = match project.project_type.trim() {
+        "" => "mod",
+        kind => kind,
+    };
+
+    match project.slug.is_empty() {
+        true => String::new(),
+        false => format!("https://modrinth.com/{kind}/{}", project.slug),
+    }
+}
+
+pub async fn latest_mod(
+    project_id: &str,
+    loaders: &[&str],
+    game_version: &str,
+) -> CommandResult<Option<CatalogVersion>> {
+    let id = segment(project_id)?;
+
+    let mut url = Url::parse(&format!("{API}/project/{id}/version"))
+        .map_err(|_| CommandError::manifest(format!("Недопустимый идентификатор Modrinth: {project_id}")))?;
+
+    {
+        let mut pairs = url.query_pairs_mut();
+
+        if !loaders.is_empty() {
+            pairs.append_pair("loaders", &json_array(loaders));
+        }
+
+        if !game_version.trim().is_empty() {
+            pairs.append_pair("game_versions", &json_array(&[game_version.trim()]));
+        }
+    }
+
+    let versions: Vec<Version> = get_json(url.as_str()).await?;
+
+    Ok(versions
+        .into_iter()
+        .max_by(|a, b| a.date_published.cmp(&b.date_published))
+        .and_then(catalog_version))
+}
+
+fn catalog_version(version: Version) -> Option<CatalogVersion> {
+    let file = version.primary_file()?.clone();
+
+    Some(CatalogVersion {
+        version_id: version.id,
+        version_number: version.version_number,
+        file_name: file.filename,
+        url: file.url,
+        sha1: file.hashes.sha1,
+        size: file.size,
+        date: version.date_published,
+    })
+}
+
+fn json_array(values: &[&str]) -> String {
+    let quoted: Vec<String> = values.iter().map(|value| format!("{value:?}")).collect();
+
+    format!("[{}]", quoted.join(","))
+}
+
+async fn post_json<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> CommandResult<T> {
+    let response = http::client().post(url).json(body).send().await.map_err(|e| {
         CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{e}"))
     })?;
 
     let status = response.status();
     if !status.is_success() {
-        return Err(http::http_status_error(status, &url));
+        return Err(http::http_status_error(status, url));
     }
 
-    let found: BTreeMap<String, Version> = response.json().await.map_err(|e| {
+    response.json::<T>().await.map_err(|e| {
         CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{e}"))
-    })?;
-
-    Ok(found
-        .into_iter()
-        .filter_map(|(hash, version)| {
-            version.primary_file().cloned().map(|file| (hash, PackFile::from(file)))
-        })
-        .collect())
+    })
 }
 
 pub async fn filters(meta: &MetaCache) -> CommandResult<PackFilters> {
