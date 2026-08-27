@@ -6,7 +6,7 @@ definePageMeta({
   layout: "main"
 })
 
-type Tab = "general" | "castpack" | "pack" | "java" | "logs"
+type Tab = "general" | "mods" | "castpack" | "pack" | "java" | "logs"
 
 const route = useRoute()
 const toast = useToast()
@@ -21,7 +21,8 @@ const saving = ref(false)
 
 const TABS = computed(() => {
   const items: { key: Tab, label: string, icon: string }[] = [
-    {key: "general", label: "Общее", icon: "i-lucide-box"}
+    {key: "general", label: "Общее", icon: "i-lucide-box"},
+    {key: "mods", label: "Моды", icon: "i-lucide-blocks"}
   ]
 
   if (instance.value?.castpack) items.push({key: "castpack", label: "CastPack", icon: "i-lucide-layers"})
@@ -236,6 +237,8 @@ const guard = useUnsavedChanges({
             v-model:icon="draft.icon"
             class="animate-rise"
         />
+
+        <InstanceMods v-if="tab === 'mods'" :instance="instance" class="animate-rise"/>
 
         <InstanceCastPack v-if="tab === 'castpack' && instance.castpack" :instance="instance" class="animate-rise"/>
 

@@ -10,12 +10,14 @@ use serde::Serialize;
 ///   accounts.json
 ///   icons/<name>
 ///   instances/<id>/instance.json
-///                 /minecraft/{client.jar, natives/, ...}
+///                 /mods-index.json              разобранные метаданные модов
+///                 /minecraft/{client.jar, natives/, mods/, ...}
 ///   libraries/<maven path>
 ///   assets/indexes/<id>.json
 ///   assets/objects/<ab>/<hash>
 ///   cache/<loader>/<version>/{installer.jar, client.json, installed.json}
 ///   cache/meta/<hash>.json + .etag        кэш сетевых манифестов
+///   cache/mod-icons/<hash>.png            иконки, вынутые из jar-файлов
 ///   runtime/<component>/                  рантаймы Java от Mojang
 ///   logs/<instance id>/<timestamp>.log    логи запусков
 /// ```
@@ -104,6 +106,10 @@ impl LauncherPaths {
         self.cache().join("meta")
     }
 
+    pub fn mod_icons(&self) -> PathBuf {
+        self.cache().join("mod-icons")
+    }
+
     pub fn loader_cache(&self, loader: &str, version: &str) -> LoaderPaths {
         LoaderPaths::new(self.cache().join(loader).join(version))
     }
@@ -163,6 +169,14 @@ impl InstancePaths {
 
     pub fn minecraft(&self) -> PathBuf {
         self.root.join("minecraft")
+    }
+
+    pub fn mods(&self) -> PathBuf {
+        self.minecraft().join(crate::mods::FOLDER)
+    }
+
+    pub fn mods_index(&self) -> PathBuf {
+        self.root.join("mods-index.json")
     }
 
     pub fn client_jar(&self) -> PathBuf {

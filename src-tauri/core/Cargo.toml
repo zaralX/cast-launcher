@@ -20,6 +20,7 @@ tiny_http = "0.12"
 # for copy modrinth
 rusqlite = { version = "0.39", features = ["bundled"] }
 png = "0.18"
+toml = "0.9"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55.0"

@@ -18,6 +18,7 @@ use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::{neoforge, vanilla};
+use cast_core::mods::{self, ModFile};
 use cast_core::mojang::version::VersionManifest;
 use cast_core::packs;
 use cast_core::paths::PathsSnapshot;
@@ -264,6 +265,7 @@ pub enum InstanceDir {
     #[default]
     Root,
     Minecraft,
+    Mods,
     Logs,
 }
 
@@ -280,6 +282,7 @@ pub async fn open_instance_dir(
     let dir = match target {
         InstanceDir::Root => instance.root().to_path_buf(),
         InstanceDir::Minecraft => instance.minecraft(),
+        InstanceDir::Mods => instance.mods(),
         InstanceDir::Logs => paths.instance_logs(&instance_id),
     };
 
@@ -318,6 +321,42 @@ pub async fn delete_instance_log(
     logs::remove(&logs::resolve(&dir, &name)?).await?;
 
     logs::list(&dir).await
+}
+
+#[tauri::command]
+pub async fn list_instance_mods(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<ModFile>> {
+    let scan = mods_scan(&state, &instance_id).await?;
+
+    mods::list(&scan, false).await
+}
+
+#[tauri::command]
+pub async fn refresh_instance_mods(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<ModFile>> {
+    let scan = mods_scan(&state, &instance_id).await?;
+
+    mods::icon::prune(&scan.icons).await;
+
+    mods::list(&scan, true).await
+}
+
+#[tauri::command]
+pub async fn read_mod_icon(state: Ctx<'_>, key: String) -> CommandResult<String> {
+    let paths = state.paths().await;
+
+    mods::icon::data_url(&paths.mod_icons(), &key).await
+}
+
+async fn mods_scan(state: &Ctx<'_>, instance_id: &str) -> CommandResult<mods::ModsScan> {
+    let instance = state.instances.get(instance_id).await?;
+    let paths = state.paths().await;
+    let dirs = paths.instance(instance_id);
+
+    Ok(mods::ModsScan {
+        dir: dirs.mods(),
+        index_file: dirs.mods_index(),
+        icons: paths.mod_icons(),
+        loader: mods::ModLoader::of(instance.loader),
+    })
 }
 
 #[tauri::command]

@@ -16,6 +16,7 @@ pub mod launch;
 pub mod logs;
 pub mod meta;
 pub mod modrinth;
+pub mod mods;
 pub mod mojang;
 pub mod net;
 pub mod packs;

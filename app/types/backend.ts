@@ -11,6 +11,7 @@ import type {
     RunningGame
 } from "~/types/instance"
 import type {IconFile, ItemCatalog} from "~/types/icon"
+import type {ModFile} from "~/types/mods"
 import type {AccountLook, SkinEntry, SkinLibrary, SkinVariant} from "~/types/skin"
 import type {
     DetectedLauncher,
@@ -77,6 +78,10 @@ interface Commands {
     list_instance_logs: [{ instanceId: string }, InstanceLogFile[]]
     read_instance_log: [{ instanceId: string, name: string }, string]
     delete_instance_log: [{ instanceId: string, name: string }, InstanceLogFile[]]
+
+    list_instance_mods: [{ instanceId: string }, ModFile[]]
+    refresh_instance_mods: [{ instanceId: string }, ModFile[]]
+    read_mod_icon: [{ key: string }, string]
 
     list_icons: [void, IconFile[]]
     read_icon: [{ name: string }, string]
@@ -185,7 +190,7 @@ export interface InstanceUpdate {
     settings?: InstanceSettings
 }
 
-export type InstanceDir = "root" | "minecraft" | "logs"
+export type InstanceDir = "root" | "minecraft" | "mods" | "logs"
 
 export interface VersionManifest {
     latest: { release?: string, snapshot?: string }
