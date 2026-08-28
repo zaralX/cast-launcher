@@ -14,6 +14,9 @@ const toast = useToast()
 const errorCenterOpen = useErrorCenterOpen()
 
 useAppearance()
+useLanguage()
+
+const uiLocale = useUiLocale()
 
 const unregister = registerErrorSink((entry) => {
   toast.add({
@@ -38,7 +41,7 @@ onUnmounted(unregister)
 
 <template>
   <div class="grain relative max-w-screen max-h-screen overflow-hidden bg-ink-900 text-fg antialiased">
-    <UApp :toaster="toaster">
+    <UApp :toaster="toaster" :locale="uiLocale">
       <NuxtLayout>
         <NuxtPage/>
       </NuxtLayout>

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import {ru} from "#ui/locale";
 import type {AppConfig} from "~/types/app";
 import {AFTER_LAUNCH_OPTIONS} from "~/types/app";
 import {ACCENTS} from "~/composables/useAppearance";
 import {call} from "~/types/backend";
 
 const config = defineModel<AppConfig | null>()
+
+const locales = useAvailableLocales()
 
 const afterLaunchHint = computed(() =>
     AFTER_LAUNCH_OPTIONS.find(option => option.value === config.value?.launcher.after_launch)?.hint
@@ -32,7 +33,7 @@ async function pickLauncherDir() {
         <SettingsField label="Язык">
           <ULocaleSelect
               v-model="config!.launcher.language"
-              :locales="[ru]"
+              :locales="locales"
               class="w-full"
           />
         </SettingsField>
