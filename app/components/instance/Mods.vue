@@ -353,7 +353,6 @@ watch(instanceId, () => {
       index="01"
       :title="$t('instance.mods.title')"
       icon="i-lucide-blocks"
-      :description="$t('instance.mods.description')"
   >
     <div
         class="space-y-5"

@@ -278,7 +278,6 @@
   "icon.remove_action": "Deleting an icon",
   "icon.library_action": "Icon library",
   "instance.mods.title": "Mods",
-  "instance.mods.description": "The contents of this instance's mods folder: what is on the disk, not what the modpack claims.",
   "instance.mods.filter.all": "All",
   "instance.mods.filter.enabled": "Enabled",
   "instance.mods.filter.disabled": "Disabled",

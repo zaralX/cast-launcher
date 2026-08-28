@@ -278,7 +278,6 @@
   "icon.remove_action": "Удаление иконки",
   "icon.library_action": "Библиотека иконок",
   "instance.mods.title": "Моды",
-  "instance.mods.description": "Содержимое папки mods этой сборки: то, что лежит на диске, а не то, что заявлено в модпаке.",
   "instance.mods.filter.all": "Все",
   "instance.mods.filter.enabled": "Включённые",
   "instance.mods.filter.disabled": "Выключенные",
