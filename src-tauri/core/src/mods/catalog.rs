@@ -188,44 +188,59 @@ pub async fn identify(
     }
 
     let mut matched: BTreeMap<String, CatalogMatch> = BTreeMap::new();
+    let mut answered = true;
 
     let sha1s: Vec<String> = unknown.iter().map(|file| file.sha1.clone()).collect();
 
     for chunk in sha1s.chunks(BATCH) {
         match crate::modrinth::identify(chunk).await {
             Ok(page) => matched.extend(page),
-            Err(error) => eprintln!("Modrinth не опознал моды: {}", error.message),
-        }
-    }
-
-    if crate::curseforge::is_available() {
-        let fingerprints: Vec<u32> = unknown
-            .iter()
-            .filter(|file| !matched.contains_key(&file.sha1))
-            .filter_map(|file| file.fingerprint)
-            .collect();
-
-        for chunk in fingerprints.chunks(BATCH) {
-            match crate::curseforge::identify(chunk).await {
-                Ok(page) => {
-                    for file in &unknown {
-                        let Some(fingerprint) = file.fingerprint else { continue };
-                        let Some(found) = page.get(&fingerprint) else { continue };
-
-                        matched.insert(file.sha1.clone(), found.clone());
-                    }
-                }
-                Err(error) => eprintln!("CurseForge не опознал моды: {}", error.message),
+            Err(error) => {
+                eprintln!("Modrinth не опознал моды: {}", error.message);
+                answered = false;
             }
         }
     }
 
-    for file in &unknown {
-        cache.remember(&file.sha1, matched.get(&file.sha1).cloned(), now);
+    let by_fingerprint: BTreeMap<u32, String> = unknown
+        .iter()
+        .filter(|file| !matched.contains_key(&file.sha1))
+        .filter_map(|file| file.fingerprint.map(|fingerprint| (fingerprint, file.sha1.clone())))
+        .collect();
+
+    match crate::curseforge::is_available() {
+        false => answered = false,
+        true => {
+            let fingerprints: Vec<u32> = by_fingerprint.keys().copied().collect();
+
+            for chunk in fingerprints.chunks(BATCH) {
+                match crate::curseforge::identify(chunk).await {
+                    Ok(page) => {
+                        for (fingerprint, found) in page {
+                            if let Some(sha1) = by_fingerprint.get(&fingerprint) {
+                                matched.insert(sha1.clone(), found);
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!("CurseForge не опознал моды: {}", error.message);
+                        answered = false;
+                    }
+                }
+            }
+        }
     }
 
-    if let Err(error) = cache.save(cache_file).await {
-        eprintln!("Не удалось сохранить кэш каталога: {}", error.message);
+    let outcomes = outcomes(&unknown, &matched, answered);
+
+    if !outcomes.is_empty() {
+        for (sha1, found) in outcomes {
+            cache.remember(&sha1, found, now);
+        }
+
+        if let Err(error) = cache.save(cache_file).await {
+            eprintln!("Не удалось сохранить кэш каталога: {}", error.message);
+        }
     }
 
     for (path, file) in &hashes {
@@ -235,6 +250,20 @@ pub async fn identify(
     }
 
     Ok(found)
+}
+
+pub(super) fn outcomes(
+    unknown: &[&FileHashes],
+    matched: &BTreeMap<String, CatalogMatch>,
+    answered: bool,
+) -> Vec<(String, Option<CatalogMatch>)> {
+    unknown
+        .iter()
+        .filter_map(|file| match matched.get(&file.sha1) {
+            Some(found) => Some((file.sha1.clone(), Some(found.clone()))),
+            None => answered.then(|| (file.sha1.clone(), None)),
+        })
+        .collect()
 }
 
 async fn hashes_of(scan: &ModsScan, mods: &[ModFile]) -> CommandResult<BTreeMap<String, FileHashes>> {
@@ -274,9 +303,8 @@ async fn hashes_of(scan: &ModsScan, mods: &[ModFile]) -> CommandResult<BTreeMap<
 
     while let Some(joined) = tasks.join_next().await {
         if let Ok((path, size, modified, Some(hashes))) = joined {
-            index.remember_hashes(&path, size, modified, &hashes);
+            counted |= index.remember_hashes(&path, size, modified, &hashes);
             ready.insert(path, hashes);
-            counted = true;
         }
 
         if let Some(file) = queue.next() {
@@ -341,6 +369,36 @@ mod tests {
         assert!(cache.lookup("bbb", 1_000).is_some(), "только что спрашивали");
         assert!(cache.lookup("bbb", 1_000 + MISSING_TTL / 2).is_some());
         assert!(cache.lookup("bbb", 1_000 + MISSING_TTL).is_none(), "пора спросить снова");
+    }
+
+    fn hashes(sha1: &str) -> FileHashes {
+        FileHashes {
+            sha1: sha1.to_string(),
+            fingerprint: Some(1),
+        }
+    }
+
+    #[test]
+    fn a_catalog_that_did_not_answer_does_not_teach_the_cache_anything() {
+        let found = hashes("aaa");
+        let missed = hashes("bbb");
+        let matched = BTreeMap::from([("aaa".to_string(), matched())]);
+
+        let written = outcomes(&[&found, &missed], &matched, false);
+
+        assert_eq!(written.len(), 1, "запоминаем только то, что действительно нашли");
+        assert_eq!(written[0].0, "aaa");
+        assert!(written[0].1.is_some());
+    }
+
+    #[test]
+    fn a_mod_the_catalogs_do_not_know_is_remembered_as_missing() {
+        let missed = hashes("bbb");
+
+        let written = outcomes(&[&missed], &BTreeMap::new(), true);
+
+        assert_eq!(written.len(), 1);
+        assert_eq!(written[0], ("bbb".to_string(), None));
     }
 
     #[test]

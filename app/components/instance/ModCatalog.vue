@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type {Instance} from "~/types/instance"
 import type {PackHit, PackProviderInfo} from "~/types/catalog"
-import type {CatalogVersion, InstallPlan, PlannedMod} from "~/types/mods"
-import {CATALOG_LABELS, RELEASE_LABELS, modSize} from "~/types/mods"
+import type {CatalogVersion, InstallPlan} from "~/types/mods"
+import {RELEASE_LABELS, modSize} from "~/types/mods"
 import {call} from "~/types/backend"
 
 const props = defineProps<{ instance: Instance, open: boolean }>()

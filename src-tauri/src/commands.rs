@@ -37,6 +37,8 @@ use crate::state::AppState;
 
 type Ctx<'a> = State<'a, Arc<AppState>>;
 
+const MAX_PLANS: usize = 32;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bootstrap {
@@ -480,7 +482,9 @@ pub async fn update_mods(
     }
 
     let scan = mods_scan(&state, &instance_id).await?;
-    let report = mods::updates::apply(&scan, &state.downloads, &wanted).await?;
+    let launcher = state.paths().await;
+
+    let report = mods::updates::apply(&scan, &state.downloads, &wanted, &launcher.mod_catalog()).await?;
 
     if let Some(found) = state.mod_updates.write().await.get_mut(&instance_id) {
         found.retain(|update| !paths.contains(&update.path));
@@ -530,7 +534,13 @@ pub async fn plan_mod_install(
     })
     .await?;
 
-    state.mod_plans.write().await.insert(plan.id.clone(), plan.clone());
+    let mut plans = state.mod_plans.write().await;
+
+    if plans.len() >= MAX_PLANS {
+        plans.clear();
+    }
+
+    plans.insert(plan.id.clone(), (instance_id, plan.clone()));
 
     Ok(plan)
 }
@@ -557,7 +567,8 @@ pub async fn install_mod(
         .read()
         .await
         .get(&plan_id)
-        .cloned()
+        .filter(|(planned_for, _)| planned_for == &instance_id)
+        .map(|(_, plan)| plan.clone())
         .ok_or_else(|| CommandError::unknown("План установки устарел - выберите версию заново"))?;
 
     let scan = mods_scan(&state, &instance_id).await?;

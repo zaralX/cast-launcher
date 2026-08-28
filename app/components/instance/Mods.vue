@@ -9,6 +9,7 @@ import {
   isModFile,
   matchesMod,
   modAuthors,
+  modKey,
   modName,
   modSize
 } from "~/types/mods"
@@ -64,11 +65,11 @@ const visible = computed(() => mods.value.filter(mod => {
   return matchesMod(mod, query.value, matchOf(mod.path))
 }))
 
-const picked = computed(() => mods.value.filter(mod => selected.value.includes(mod.path)))
+const picked = computed(() => mods.value.filter(mod => selected.value.includes(modKey(mod))))
 const pickedManaged = computed(() => picked.value.filter(mod => mod.managed))
 
 const allVisiblePicked = computed(() =>
-    visible.value.length > 0 && visible.value.every(mod => selected.value.includes(mod.path))
+    visible.value.length > 0 && visible.value.every(mod => selected.value.includes(modKey(mod)))
 )
 
 function loaders(mod: ModFile) {
@@ -90,18 +91,18 @@ function togglePicked(path: string) {
 }
 
 function toggleAllVisible() {
-  const paths = visible.value.map(mod => mod.path)
+  const keys = visible.value.map(modKey)
 
   selected.value = allVisiblePicked.value
-      ? selected.value.filter(path => !paths.includes(path))
-      : [...new Set([...selected.value, ...paths])]
+      ? selected.value.filter(key => !keys.includes(key))
+      : [...new Set([...selected.value, ...keys])]
 }
 
 function keepAlive() {
-  const paths = mods.value.map(mod => mod.path)
+  const keys = mods.value.map(modKey)
 
-  selected.value = selected.value.filter(path => paths.includes(path))
-  if (!paths.includes(expanded.value)) expanded.value = ""
+  selected.value = selected.value.filter(key => keys.includes(key))
+  if (!keys.includes(expanded.value)) expanded.value = ""
 }
 
 async function loadIcons(list: ModFile[]) {
@@ -248,13 +249,16 @@ function report(installed: InstalledMods) {
   const parts = [
     installed.added.length ? `добавлено ${installed.added.length}` : "",
     installed.replaced.length ? `заменено ${installed.replaced.length}` : "",
-    installed.skipped.length ? `пропущено ${installed.skipped.length}` : ""
+    installed.skipped.length ? `пропущено ${installed.skipped.length}` : "",
+    installed.failed.length ? `не удалось ${installed.failed.length}` : ""
   ].filter(Boolean)
+
+  const aside = [...installed.skipped, ...installed.failed]
 
   toast.add({
     title: parts.length ? parts.join(", ") : "Ничего не добавлено",
-    description: installed.skipped.length ? installed.skipped.join(", ") : undefined,
-    color: installed.added.length || installed.replaced.length ? "success" : "warning",
+    description: aside.length ? aside.join(", ") : undefined,
+    color: installed.failed.length ? "error" : installed.added.length || installed.replaced.length ? "success" : "warning",
     icon: "i-lucide-package-plus"
   })
 }
@@ -514,8 +518,8 @@ watch(instanceId, () => {
               :class="mod.enabled ? '' : 'opacity-55'"
           >
             <UCheckbox
-                :model-value="selected.includes(mod.path)"
-                @update:model-value="togglePicked(mod.path)"
+                :model-value="selected.includes(modKey(mod))"
+                @update:model-value="togglePicked(modKey(mod))"
             />
 
             <USwitch
@@ -527,7 +531,7 @@ watch(instanceId, () => {
             <button
                 type="button"
                 class="flex min-w-0 flex-1 items-center gap-4 text-left"
-                @click="toggle(mod.path)"
+                @click="toggle(modKey(mod))"
             >
               <InstanceModIcon
                   :icon-key="mod.details.iconKey"
@@ -574,12 +578,12 @@ watch(instanceId, () => {
               <UIcon
                   name="i-lucide-chevron-down"
                   class="size-4 shrink-0 text-fg-faint transition-transform duration-300"
-                  :class="expanded === mod.path ? 'rotate-180 text-acid' : ''"
+                  :class="expanded === modKey(mod) ? 'rotate-180 text-acid' : ''"
               />
             </button>
           </div>
 
-          <div v-if="expanded === mod.path" class="space-y-3 px-1 pb-5 pl-[6.5rem] animate-rise">
+          <div v-if="expanded === modKey(mod)" class="space-y-3 px-1 pb-5 pl-[6.5rem] animate-rise">
             <p v-if="mod.details.description" class="text-[12px] leading-relaxed text-fg-muted">
               {{ mod.details.description }}
             </p>

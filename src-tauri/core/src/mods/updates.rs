@@ -3,11 +3,13 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use tokio::task::JoinSet;
 
+use std::path::Path;
+
 use crate::error::CommandResult;
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::download::{DownloadOptions, DownloadRegistry, DownloadTask};
 
-use super::catalog::{CatalogMatch, CatalogVersion};
+use super::catalog::{self, CatalogMatch, CatalogVersion};
 use super::index::ModsIndex;
 use super::{ModFile, ModsScan, DISABLED_SUFFIX, FOLDER};
 
@@ -150,10 +152,27 @@ fn newer(path: &str, matched: &CatalogMatch, latest: CatalogVersion) -> Option<M
     })
 }
 
+impl ModUpdate {
+    fn matched(&self) -> CatalogMatch {
+        CatalogMatch {
+            provider: self.provider,
+            project_id: self.project_id.clone(),
+            version_id: self.version_id.clone(),
+            version_number: self.to.clone(),
+            title: self.title.clone(),
+            slug: String::new(),
+            icon_url: String::new(),
+            page_url: self.page_url.clone(),
+            authors: Vec::new(),
+        }
+    }
+}
+
 pub async fn apply(
     scan: &ModsScan,
     downloads: &DownloadRegistry,
     updates: &[ModUpdate],
+    catalog_cache: &Path,
 ) -> CommandResult<Updated> {
     let mut report = Updated::default();
 
@@ -165,6 +184,7 @@ pub async fn apply(
 
     let mut index = ModsIndex::load(&scan.index_file).await;
     let mut forgotten = false;
+    let mut remembered: Vec<(String, CatalogMatch)> = Vec::new();
 
     for (number, update) in updates.iter().enumerate() {
         let name = target_name(&update.file_name, &update.path);
@@ -201,12 +221,18 @@ pub async fn apply(
         forgotten |= index.forget(&update.path);
         forgotten |= index.forget(&format!("{FOLDER}/{name}"));
 
+        if let Some(sha1) = &update.sha1 {
+            remembered.push((sha1.to_lowercase(), update.matched()));
+        }
+
         report.updated.push(update.title.clone());
     }
 
     if forgotten {
         let _ = index.save(&scan.index_file).await;
     }
+
+    catalog::remember_all(catalog_cache, &remembered).await;
 
     Ok(report)
 }
@@ -318,6 +344,16 @@ mod tests {
     }
 
     #[test]
+    fn an_updated_mod_teaches_the_catalog_cache_its_new_version() {
+        let update = newer("mods/sodium.jar", &matched("abc"), version("xyz")).unwrap();
+        let entry = update.matched();
+
+        assert_eq!(entry.version_id, "xyz");
+        assert_eq!(entry.version_number, "0.6.0", "в кэше уже новая версия");
+        assert_eq!(entry.project_id, "AANobbMI");
+    }
+
+    #[test]
     fn a_switched_off_mod_stays_switched_off_after_the_update() {
         assert_eq!(target_name("sodium-0.6.0.jar", "mods/sodium-0.5.3.jar"), "sodium-0.6.0.jar");
         assert_eq!(
@@ -344,7 +380,14 @@ mod tests {
             managed: Default::default(),
         };
 
-        let report = apply(&scan, &DownloadRegistry::new(), &[]).await.unwrap();
+        let report = apply(
+            &scan,
+            &DownloadRegistry::new(),
+            &[],
+            std::path::Path::new("/nope/mod-catalog.json"),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(report, Updated::default());
     }

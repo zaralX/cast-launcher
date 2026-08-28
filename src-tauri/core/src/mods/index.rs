@@ -79,14 +79,16 @@ impl ModsIndex {
             .and_then(|entry| entry.hashes.as_ref())
     }
 
-    pub fn remember_hashes(&mut self, path: &str, size: u64, modified: u64, hashes: &FileHashes) {
-        let Some(entry) = self.entries.get_mut(path) else { return };
+    pub fn remember_hashes(&mut self, path: &str, size: u64, modified: u64, hashes: &FileHashes) -> bool {
+        let Some(entry) = self.entries.get_mut(path) else { return false };
 
         if entry.size != size || entry.modified != modified {
-            return;
+            return false;
         }
 
         entry.hashes = Some(hashes.clone());
+
+        true
     }
 
     pub fn rename(&mut self, from: &str, to: &str) -> bool {
@@ -154,7 +156,7 @@ mod tests {
             fingerprint: Some(7),
         };
 
-        index.remember_hashes("mods/jei.jar", 100, 42, &hashes);
+        assert!(index.remember_hashes("mods/jei.jar", 100, 42, &hashes));
         assert_eq!(index.hashes("mods/jei.jar", 100, 42), Some(&hashes));
 
         index.remember("mods/jei.jar", 100, 42, &details("JEI 2"));
@@ -168,7 +170,7 @@ mod tests {
     fn hashes_are_not_stored_for_a_file_the_index_does_not_know() {
         let mut index = ModsIndex::new();
 
-        index.remember_hashes("mods/ghost.jar", 1, 1, &FileHashes::default());
+        assert!(!index.remember_hashes("mods/ghost.jar", 1, 1, &FileHashes::default()));
 
         assert!(index.entries.is_empty());
     }

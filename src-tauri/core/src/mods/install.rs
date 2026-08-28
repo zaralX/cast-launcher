@@ -154,13 +154,11 @@ pub async fn plan(request: PlanRequest<'_>) -> CommandResult<InstallPlan> {
     let mut optional: Vec<(String, CatalogVersion)> = Vec::new();
     let mut installed: Vec<String> = Vec::new();
 
-    let mut queue: Vec<(Dependency, usize)> = next_steps(&target, 0, &visited, request.installed)
-        .into_iter()
-        .map(|dependency| (dependency, 1))
-        .collect();
+    let mut queue: Vec<(Dependency, usize)> = Vec::new();
 
-    for (project_id, _) in queue.iter().map(|(dependency, _)| (dependency.project_id.clone(), ())) {
-        visited.insert(project_id);
+    for dependency in next_steps(&target, 0, &visited, request.installed) {
+        visited.insert(dependency.project_id.clone());
+        queue.push((dependency, 1));
     }
 
     installed.extend(already_installed(&target, request.installed));
@@ -291,13 +289,10 @@ async fn projects_info(
         PackProvider::CurseForge => crate::curseforge::projects_info(ids).await,
     };
 
-    match found {
-        Ok(projects) => projects,
-        Err(error) => {
-            eprintln!("Каталог не отдал проекты модов: {}", error.message);
-            BTreeMap::new()
-        }
-    }
+    found.unwrap_or_else(|error| {
+        eprintln!("Каталог не отдал проекты модов: {}", error.message);
+        BTreeMap::new()
+    })
 }
 
 fn ids_of(

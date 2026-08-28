@@ -37,7 +37,7 @@ pub struct AppState {
     pub accounts: AccountStore,
     pub mods: ModLocks,
     pub mod_updates: RwLock<HashMap<String, Vec<ModUpdate>>>,
-    pub mod_plans: RwLock<HashMap<String, InstallPlan>>,
+    pub mod_plans: RwLock<HashMap<String, (String, InstallPlan)>>,
 }
 
 #[derive(Default)]

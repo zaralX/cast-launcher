@@ -15,12 +15,7 @@ pub struct Installed {
     pub added: Vec<String>,
     pub replaced: Vec<String>,
     pub skipped: Vec<String>,
-}
-
-impl Installed {
-    pub fn touched(&self) -> usize {
-        self.added.len() + self.replaced.len()
-    }
+    pub failed: Vec<String>,
 }
 
 pub async fn set_enabled(scan: &ModsScan, path: &str, enabled: bool) -> CommandResult<()> {
@@ -119,15 +114,16 @@ pub async fn install(scan: &ModsScan, sources: &[PathBuf]) -> CommandResult<Inst
             continue;
         }
 
-        // Тот же мод мог лежать выключенным: иначе игра получит две копии.
         let switched_off = scan.dir.join(format!("{name}{DISABLED_SUFFIX}"));
-        let existed = destination.exists() || switched_off.exists();
+        let existed = destination.exists() || switched_off.is_file();
+
+        if let Err(error) = tokio::fs::copy(source, &destination).await {
+            eprintln!("Не удалось скопировать {}: {error}", source.display());
+            report.failed.push(name);
+            continue;
+        }
 
         let _ = tokio::fs::remove_file(&switched_off).await;
-
-        tokio::fs::copy(source, &destination)
-            .await
-            .map_err(|e| CommandError::io("Не удалось скопировать мод", source, e))?;
 
         forgotten |= index.forget(&key(&name));
         forgotten |= index.forget(&key(&format!("{name}{DISABLED_SUFFIX}")));
@@ -369,8 +365,45 @@ mod tests {
         assert_eq!(report.added, vec!["sodium.jar"]);
         assert_eq!(report.replaced, vec!["old.jar"]);
         assert_eq!(report.skipped, vec!["notes.txt", "ghost.jar"]);
-        assert_eq!(report.touched(), 2);
         assert_eq!(std::fs::read(scan.dir.join("old.jar")).unwrap(), b"replacement");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_file_that_could_not_be_copied_does_not_stop_the_rest() {
+        let root = temp_dir();
+        let scan = scan_in(&root);
+
+        let source = root.join("source");
+        std::fs::create_dir_all(&source).unwrap();
+        std::fs::write(source.join("sodium.jar"), b"new").unwrap();
+
+        // Каталог вместо файла: скопировать его нельзя, но сосед должен доехать.
+        std::fs::create_dir_all(source.join("broken.jar")).unwrap();
+
+        let report = install(&scan, &[source.join("broken.jar"), source.join("sodium.jar")])
+            .await
+            .unwrap();
+
+        assert_eq!(report.added, vec!["sodium.jar"]);
+        assert!(scan.dir.join("sodium.jar").is_file());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_failed_copy_keeps_the_switched_off_copy() {
+        let root = temp_dir();
+        let scan = scan_in(&root);
+        put(&scan, "jei.jar.disabled");
+
+        let missing = root.join("source").join("jei.jar");
+
+        let report = install(&scan, &[missing]).await.unwrap();
+
+        assert_eq!(report.skipped, vec!["jei.jar"]);
+        assert!(scan.dir.join("jei.jar.disabled").is_file(), "выключенная копия на месте");
 
         std::fs::remove_dir_all(&root).ok();
     }

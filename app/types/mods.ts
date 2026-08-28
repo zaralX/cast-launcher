@@ -29,6 +29,7 @@ export interface InstalledMods {
     added: string[]
     replaced: string[]
     skipped: string[]
+    failed: string[]
 }
 
 export interface CatalogMatch {
@@ -140,6 +141,10 @@ export const MOD_LOADER_LABELS: Record<ModLoader, string> = {
     forge: "Forge",
     neoforge: "NeoForge",
     liteloader: "LiteLoader"
+}
+
+export function modKey(mod: ModFile): string {
+    return mod.path.replace(/\.disabled$/, "")
 }
 
 export function modName(mod: ModFile, matched?: CatalogMatch | null): string {
