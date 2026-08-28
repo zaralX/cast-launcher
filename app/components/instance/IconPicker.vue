@@ -4,6 +4,7 @@ import {itemCategoryLabel, itemFallbackName} from "~/types/icon";
 
 const icon = defineModel<string>({required: true})
 
+const {t} = useI18n()
 const iconStore = useIconStore()
 const {library, catalog, catalogLoading} = storeToRefs(iconStore)
 
@@ -24,7 +25,7 @@ const limit = ref(PAGE)
 const categories = computed(() => Object.keys(catalog.value?.categories ?? {}))
 
 const categoryItems = computed(() => [
-  {label: "Все категории", value: ALL_CATEGORIES},
+  {label: t("icon.all_categories"), value: ALL_CATEGORIES},
   ...categories.value.map(key => ({label: itemCategoryLabel(key), value: key}))
 ])
 
@@ -54,14 +55,14 @@ watch(visibleItems, (items) => {
 watch(tab, async (value) => {
   if (value !== "catalog" || catalog.value) return
 
-  await safeRun(() => iconStore.loadCatalog(), {code: "NETWORK", context: {action: "Каталог иконок"}})
+  await safeRun(() => iconStore.loadCatalog(), {code: "NETWORK", context: {action: t("icon.catalog_action")}})
 })
 
 async function importFile() {
   if (importing.value) return
   importing.value = true
 
-  const result = await attempt(() => iconStore.importFile(), {context: {action: "Загрузка иконки"}})
+  const result = await attempt(() => iconStore.importFile(), {context: {action: t("icon.upload_action")}})
 
   importing.value = false
 
@@ -75,7 +76,7 @@ async function useItem(item: string) {
   if (saving.value) return
   saving.value = item
 
-  const result = await attempt(() => iconStore.useItem(item), {context: {action: "Сохранение иконки"}})
+  const result = await attempt(() => iconStore.useItem(item), {context: {action: t("icon.save_action")}})
 
   saving.value = ""
 
@@ -86,7 +87,7 @@ async function removeIcon(name: string) {
   if (removing.value) return
   removing.value = name
 
-  const result = await attempt(() => iconStore.removeIcon(name), {context: {action: "Удаление иконки"}})
+  const result = await attempt(() => iconStore.removeIcon(name), {context: {action: t("icon.remove_action")}})
 
   removing.value = ""
 
@@ -94,7 +95,7 @@ async function removeIcon(name: string) {
 }
 
 onMounted(async () => {
-  await safeRun(() => iconStore.loadLibrary(), {context: {action: "Библиотека иконок"}})
+  await safeRun(() => iconStore.loadLibrary(), {context: {action: t("icon.library_action")}})
   library.value.forEach(file => iconStore.ensureUrl(file.name))
 })
 </script>
@@ -104,7 +105,7 @@ onMounted(async () => {
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div class="flex border border-line">
         <button
-            v-for="(item, i) in [{key: 'library', label: 'Библиотека'}, {key: 'catalog', label: 'Каталог Minecraft'}]"
+            v-for="(item, i) in [{key: 'library', label: $t('icon.tab.library')}, {key: 'catalog', label: $t('icon.tab.catalog')}]"
             :key="item.key"
             type="button"
             class="relative px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors duration-300"
@@ -129,7 +130,7 @@ onMounted(async () => {
             :loading="importing"
             @click="importFile"
         >
-          Загрузить файл
+          {{ $t('icon.upload') }}
         </AppButton>
 
         <AppButton
@@ -139,7 +140,7 @@ onMounted(async () => {
             :disabled="!icon"
             @click="icon = ''"
         >
-          Без иконки
+          {{ $t('icon.none') }}
         </AppButton>
       </div>
     </div>
@@ -159,7 +160,7 @@ onMounted(async () => {
 
           <span
               class="absolute -right-px -top-px hidden size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-red-400/50 hover:text-red-400 group-hover:grid"
-              :title="`Удалить ${file.name}`"
+              :title="$t('icon.remove', { name: file.name })"
               @click.stop="removeIcon(file.name)"
           >
             <UIcon
@@ -172,18 +173,18 @@ onMounted(async () => {
       </div>
 
       <p v-else class="border border-dashed border-line py-12 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-        Библиотека пуста - загрузите файл или выберите иконку из каталога
+        {{ $t('icon.library_empty') }}
       </p>
     </div>
 
     <div v-else class="space-y-4">
       <div class="flex flex-wrap items-end gap-4">
-        <SettingsField label="Категория" class="min-w-[13rem] flex-1">
+        <SettingsField :label="$t('icon.category')" class="min-w-[13rem] flex-1">
           <USelect v-model="category" :items="categoryItems" class="w-full"/>
         </SettingsField>
 
-        <SettingsField label="Поиск" class="min-w-[11rem] flex-1">
-          <UInput v-model="search" placeholder="Например, меч" class="w-full">
+        <SettingsField :label="$t('icon.search')" class="min-w-[11rem] flex-1">
+          <UInput v-model="search" :placeholder="$t('icon.search_placeholder')" class="w-full">
             <template #trailing>
               <UIcon name="i-lucide-search" class="size-3.5 text-fg-faint"/>
             </template>
@@ -195,7 +196,7 @@ onMounted(async () => {
         <span class="relative block h-px w-40 overflow-hidden bg-line">
           <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep"/>
         </span>
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузка каталога</p>
+        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('icon.catalog_loading') }}</p>
       </div>
 
       <template v-else>
@@ -224,12 +225,12 @@ onMounted(async () => {
         </div>
 
         <p v-else class="border border-dashed border-line py-12 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-          Ничего не найдено
+          {{ $t('icon.nothing_found') }}
         </p>
 
         <div class="flex items-center justify-between gap-4">
           <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-            {{ visibleItems.length }} из {{ catalogItems.length }}
+            {{ $t('icon.shown', { shown: visibleItems.length, total: catalogItems.length }) }}
           </p>
 
           <AppButton
@@ -239,7 +240,7 @@ onMounted(async () => {
               icon="i-lucide-chevron-down"
               @click="limit += PAGE"
           >
-            Показать ещё
+            {{ $t('icon.show_more') }}
           </AppButton>
         </div>
       </template>

@@ -50,7 +50,7 @@ const latestVersion = computed(() => props.hit.versions.at(-1) ?? "")
             class="group/act shrink-0 text-[10px] tracking-[0.18em]"
             @click="emit('install', hit)"
         >
-          Установить
+          {{ $t('search.card.install') }}
           <UIcon
               name="i-lucide-arrow-right"
               class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-1"

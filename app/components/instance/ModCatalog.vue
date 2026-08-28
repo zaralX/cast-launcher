@@ -2,7 +2,7 @@
 import type {Instance} from "~/types/instance"
 import type {PackHit, PackProviderInfo} from "~/types/catalog"
 import type {CatalogVersion, InstallPlan} from "~/types/mods"
-import {RELEASE_LABELS, modSize} from "~/types/mods"
+import {RELEASE_KEYS, modSize} from "~/types/mods"
 import {call} from "~/types/backend"
 
 const props = defineProps<{ instance: Instance, open: boolean }>()
@@ -13,11 +13,13 @@ type Provider = "modrinth" | "curseforge"
 const PAGE = 20
 const DEBOUNCE = 350
 
-const SORTS = [
-  {label: "По совпадению", value: "relevance"},
-  {label: "По загрузкам", value: "downloads"},
-  {label: "По свежести", value: "updated"}
-]
+const {t} = useI18n()
+
+const SORTS = computed(() => [
+  {label: t("mod_catalog.sort.relevance"), value: "relevance"},
+  {label: t("mod_catalog.sort.downloads"), value: "downloads"},
+  {label: t("mod_catalog.sort.updated"), value: "updated"}
+])
 
 const modsStore = useModsStore()
 const toast = useToast()
@@ -58,9 +60,9 @@ const stage = computed(() => {
 })
 
 const title = computed(() => {
-  if (stage.value === "plan") return "Что будет установлено"
-  if (stage.value === "versions") return chosen.value?.title ?? "Версии"
-  return "Найти мод"
+  if (stage.value === "plan") return t("mod_catalog.title.plan")
+  if (stage.value === "versions") return chosen.value?.title ?? t("mod_catalog.title.versions")
+  return t("mod_catalog.title.search")
 })
 
 let timer: ReturnType<typeof setTimeout> | null = null
@@ -93,7 +95,7 @@ async function search(offset = 0) {
         offset,
         limit: PAGE
       }),
-      {context: {instanceId: instanceId.value, action: "Поиск модов"}}
+      {context: {instanceId: instanceId.value, action: t("mod_catalog.search_action")}}
   )
 
   searching.value = false
@@ -116,7 +118,7 @@ async function choose(hit: PackHit) {
 
   const result = await attempt(
       () => modsStore.modVersions(instanceId.value, provider.value, hit.projectId),
-      {context: {instanceId: instanceId.value, action: "Версии мода"}}
+      {context: {instanceId: instanceId.value, action: t("mod_catalog.versions_action")}}
   )
 
   loadingVersions.value = false
@@ -131,7 +133,7 @@ async function pickVersion(version: CatalogVersion) {
 
   const result = await attempt(
       () => modsStore.planInstall(instanceId.value, provider.value, chosen.value!.projectId, version.versionId),
-      {context: {instanceId: instanceId.value, action: "Разбор зависимостей"}}
+      {context: {instanceId: instanceId.value, action: t("mod_catalog.plan_action")}}
   )
 
   planning.value = false
@@ -155,7 +157,7 @@ async function install() {
 
   const result = await attempt(
       () => modsStore.installMod(instanceId.value, plan.value!.id, optional.value),
-      {context: {instanceId: instanceId.value, action: "Установка мода"}}
+      {context: {instanceId: instanceId.value, action: t("mod_catalog.install_action")}}
   )
 
   installing.value = false
@@ -165,10 +167,10 @@ async function install() {
   const {installed: added, failed, blocked} = result.value
 
   toast.add({
-    title: added.length ? `Установлено: ${added.length}` : "Ничего не установлено",
+    title: added.length ? t("mod_catalog.installed_count", {count: added.length}) : t("mod_catalog.nothing_installed"),
     description: [
-      failed.length ? `не удалось: ${failed.join(", ")}` : "",
-      blocked.length ? `качать вручную: ${blocked.join(", ")}` : ""
+      failed.length ? t("mod_catalog.failed", {list: failed.join(", ")}) : "",
+      blocked.length ? t("mod_catalog.manual", {list: blocked.join(", ")}) : ""
     ].filter(Boolean).join("; ") || undefined,
     color: failed.length || blocked.length ? "warning" : "success",
     icon: "i-lucide-package-plus"
@@ -183,7 +185,7 @@ async function install() {
 
 const openPage = (url: string) => safeRun(
     () => call("open_url", {url}),
-    {context: {instanceId: instanceId.value, action: "Открытие страницы мода"}}
+    {context: {instanceId: instanceId.value, action: t("mod_catalog.open_page_action")}}
 )
 
 function downloads(value: number) {
@@ -197,7 +199,7 @@ watch(() => props.open, async (open) => {
   if (!open) return
 
   if (!providers.value.length) {
-    const result = await attempt(() => call("pack_providers"), {context: {action: "Каталоги"}})
+    const result = await attempt(() => call("pack_providers"), {context: {action: t("mod_catalog.providers_action")}})
     if (result.ok) providers.value = result.value
   }
 
@@ -227,16 +229,16 @@ onBeforeUnmount(() => {
         <div v-if="instance.type === 'vanilla'" class="flex items-center gap-2.5 border border-amber-400/40 px-4 py-3">
           <span class="size-1.5 shrink-0 bg-amber-400 animate-blink"/>
           <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
-            В сборке нет загрузчика модов - ставить моды некуда
+            {{ $t('mod_catalog.no_loader') }}
           </p>
         </div>
 
         <template v-if="stage === 'search'">
           <div class="flex flex-wrap items-end gap-4">
-            <SettingsField label="Поиск" class="min-w-[14rem] flex-1">
+            <SettingsField :label="$t('mod_catalog.search')" class="min-w-[14rem] flex-1">
               <UInput
                   v-model="query"
-                  placeholder="Название мода"
+                  :placeholder="$t('mod_catalog.search_placeholder')"
                   class="w-full"
                   @update:model-value="searchLater"
                   @keydown.enter="search()"
@@ -247,7 +249,7 @@ onBeforeUnmount(() => {
               </UInput>
             </SettingsField>
 
-            <SettingsField label="Каталог" class="min-w-[9rem]">
+            <SettingsField :label="$t('mod_catalog.provider')" class="min-w-[9rem]">
               <USelect
                   v-model="provider"
                   :items="[
@@ -258,7 +260,7 @@ onBeforeUnmount(() => {
               />
             </SettingsField>
 
-            <SettingsField label="Сортировка" class="min-w-[10rem]">
+            <SettingsField :label="$t('mod_catalog.sort')" class="min-w-[10rem]">
               <USelect v-model="sort" :items="SORTS" class="w-full"/>
             </SettingsField>
           </div>
@@ -268,7 +270,7 @@ onBeforeUnmount(() => {
               class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400"
           >
             <span class="size-1.5 bg-amber-400 animate-blink"/>
-            {{ providerInfo?.reason ?? 'Каталог недоступен' }}
+            {{ providerInfo?.reason ?? $t('mod_catalog.unavailable') }}
           </p>
 
           <div v-else class="max-h-[26rem] space-y-px overflow-auto border-t border-line">
@@ -292,7 +294,7 @@ onBeforeUnmount(() => {
                       v-if="installed.has(hit.projectId)"
                       class="shrink-0 border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint"
                   >
-                    установлен
+                    {{ $t('mod_catalog.installed') }}
                   </span>
                 </span>
 
@@ -306,7 +308,7 @@ onBeforeUnmount(() => {
             </button>
 
             <p v-if="!hits.length && !searching" class="py-10 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-fg-faint">
-              Ничего не нашлось
+              {{ $t('mod_catalog.nothing_found') }}
             </p>
 
             <div v-if="hits.length < total" class="py-4 text-center">
@@ -316,7 +318,7 @@ onBeforeUnmount(() => {
                   :loading="searching"
                   @click="search(hits.length)"
               >
-                Показать ещё
+                {{ $t('mod_catalog.show_more') }}
               </AppButton>
             </div>
           </div>
@@ -324,7 +326,7 @@ onBeforeUnmount(() => {
 
         <template v-else-if="stage === 'versions'">
           <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-            Совместимо с {{ instance.minecraftVersion }}<template v-if="instance.type !== 'vanilla'"> · {{ instance.type }}</template>
+            {{ $t('mod_catalog.compatible', { version: instance.minecraftVersion }) }}<template v-if="instance.type !== 'vanilla'"> · {{ instance.type }}</template>
           </p>
 
           <div class="max-h-[24rem] overflow-auto border-t border-line">
@@ -336,7 +338,7 @@ onBeforeUnmount(() => {
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-[13px] text-fg">{{ version.versionNumber }}</span>
                 <span class="mt-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
-                  {{ RELEASE_LABELS[version.release] ?? version.release }}
+                  {{ RELEASE_KEYS[version.release] ? $t(RELEASE_KEYS[version.release]!) : version.release }}
                   <template v-if="version.size"> · {{ modSize(version.size) }}</template>
                   <template v-if="version.date"> · {{ new Date(version.date).toLocaleDateString("ru-RU") }}</template>
                 </span>
@@ -346,7 +348,7 @@ onBeforeUnmount(() => {
                   v-if="version.blocked"
                   class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-amber-400"
               >
-                качать с сайта
+                {{ $t('mod_catalog.blocked_version') }}
               </span>
 
               <AppButton
@@ -356,7 +358,7 @@ onBeforeUnmount(() => {
                   :loading="planning"
                   @click="pickVersion(version)"
               >
-                Выбрать
+                {{ $t('mod_catalog.choose') }}
               </AppButton>
             </div>
 
@@ -364,7 +366,7 @@ onBeforeUnmount(() => {
                 v-if="!versions.length && !loadingVersions"
                 class="py-10 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-fg-faint"
             >
-              Совместимых версий нет
+              {{ $t('mod_catalog.no_versions') }}
             </p>
           </div>
         </template>
@@ -372,20 +374,20 @@ onBeforeUnmount(() => {
         <template v-else-if="plan">
           <div class="space-y-4 border-t border-line pt-4">
             <div class="flex items-center gap-3">
-              <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">Ставим</span>
+              <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('mod_catalog.installing_label') }}</span>
               <span class="text-[13px] text-fg">{{ plan.target.title }}</span>
               <span class="font-mono text-[10px] text-fg-faint">{{ plan.target.versionNumber }}</span>
             </div>
 
             <div v-if="plan.required.length" class="space-y-2">
-              <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">Нужны для работы</p>
+              <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('mod_catalog.required') }}</p>
               <p v-for="item in plan.required" :key="item.projectId" class="text-[12px] text-fg-muted">
                 {{ item.title }} · {{ item.versionNumber }}
               </p>
             </div>
 
             <div v-if="plan.optional.length" class="space-y-2">
-              <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">Можно добавить</p>
+              <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('mod_catalog.optional') }}</p>
               <label
                   v-for="item in plan.optional"
                   :key="item.projectId"
@@ -400,7 +402,7 @@ onBeforeUnmount(() => {
             </div>
 
             <p v-if="plan.installed.length" class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-              Уже в сборке: {{ plan.installed.length }}
+              {{ $t('mod_catalog.already', { count: plan.installed.length }) }}
             </p>
 
             <div
@@ -408,7 +410,7 @@ onBeforeUnmount(() => {
                 class="space-y-3 border border-amber-400/40 px-4 py-3"
             >
               <p class="font-mono text-[10px] uppercase leading-relaxed tracking-[0.2em] text-amber-400">
-                CurseForge запретил скачивание этого файла мимо сайта
+                {{ $t('mod_catalog.blocked_hint') }}
               </p>
 
               <AppButton
@@ -417,7 +419,7 @@ onBeforeUnmount(() => {
                   icon="i-lucide-external-link"
                   @click="openPage(plan.target.pageUrl)"
               >
-                Открыть страницу мода
+                {{ $t('mod_catalog.open_page') }}
               </AppButton>
             </div>
           </div>
@@ -432,12 +434,12 @@ onBeforeUnmount(() => {
               :disabled="installing"
               @click="back"
           >
-            Назад
+            {{ $t('mod_catalog.back') }}
           </AppButton>
 
           <span v-else class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-            <template v-if="searching">Ищем</template>
-            <template v-else-if="total">Найдено: {{ total }}</template>
+            <template v-if="searching">{{ $t('mod_catalog.searching') }}</template>
+            <template v-else-if="total">{{ $t('mod_catalog.found', { count: total }) }}</template>
           </span>
 
           <div class="flex items-center gap-4">
@@ -447,7 +449,7 @@ onBeforeUnmount(() => {
                 :disabled="installing"
                 @click="close"
             >
-              Закрыть
+              {{ $t('mod_catalog.close') }}
             </AppButton>
 
             <AppButton
@@ -457,7 +459,7 @@ onBeforeUnmount(() => {
                 :loading="installing"
                 @click="install"
             >
-              Установить
+              {{ $t('mod_catalog.install') }}
             </AppButton>
           </div>
         </div>

@@ -18,7 +18,9 @@ const install = computed(() => props.instance ? actions.installOf(props.instance
 
 const {total} = usePlaytime(() => props.instance)
 
-const playtime = computed(() => formatPlaytime(total.value) || "не запускалась")
+const {t} = useI18n()
+
+const playtime = computed(() => formatPlaytime(total.value) || t("instance.playtime.never"))
 const lastPlayed = computed(() => formatLastPlayed(props.instance?.playtime?.lastPlayedAt ?? 0))
 
 const DIRS: InstanceDir[] = ["root", "minecraft", "logs"]
@@ -54,7 +56,7 @@ const DIR_ICONS: Record<InstanceDir, string> = {
           <div v-if="state === 'installing'" class="flex h-9 flex-col justify-center gap-1.5">
             <span class="flex items-baseline justify-between gap-3">
               <span class="min-w-0 truncate font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
-                {{ install?.phase || 'Установка' }}
+                {{ install?.phase || $t('instance.state.installing') }}
               </span>
               <span v-if="install?.progress != null" class="shrink-0 font-mono text-[9px] tabular-nums text-acid">
                 {{ Math.round(install.progress * 100) }}%
@@ -83,7 +85,7 @@ const DIR_ICONS: Record<InstanceDir, string> = {
                   class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-0.5"
               />
             </template>
-            {{ state === 'ready' ? 'Играть' : 'Загрузить' }}
+            {{ state === 'ready' ? $t('instance.action.play') : $t('instance.action.install') }}
           </AppButton>
 
           <AppButton
@@ -93,7 +95,7 @@ const DIR_ICONS: Record<InstanceDir, string> = {
               icon="i-lucide-square"
               @click="actions.stop(instance.id)"
           >
-            Остановить
+            {{ $t('instance.panel.stop') }}
           </AppButton>
 
           <AppButton
@@ -104,12 +106,12 @@ const DIR_ICONS: Record<InstanceDir, string> = {
               :disabled="install?.aborting"
               @click="actions.cancelInstall(instance.id)"
           >
-            {{ install?.aborting ? 'Отмена…' : 'Отменить' }}
+            {{ install?.aborting ? $t('instance.panel.aborting') : $t('instance.panel.cancel') }}
           </AppButton>
 
           <NuxtLink :to="`/instance/${instance.id}`" class="block">
             <AppButton block class="h-8 text-[10px] tracking-[0.18em]" icon="i-lucide-settings">
-              Настройки
+              {{ $t('instance.action.settings') }}
             </AppButton>
           </NuxtLink>
 
@@ -118,8 +120,8 @@ const DIR_ICONS: Record<InstanceDir, string> = {
                 v-for="target in DIRS"
                 :key="target"
                 type="button"
-                :title="INSTANCE_DIR_LABELS[target]"
-                :aria-label="INSTANCE_DIR_LABELS[target]"
+                :title="$t(INSTANCE_DIR_KEYS[target])"
+                :aria-label="$t(INSTANCE_DIR_KEYS[target])"
                 class="grid h-8 cursor-pointer place-items-center border border-line text-fg-faint transition-colors duration-300 hover:border-acid hover:text-acid"
                 @click="actions.openDir(instance.id, target)"
             >
@@ -130,11 +132,11 @@ const DIR_ICONS: Record<InstanceDir, string> = {
 
         <dl class="space-y-2 border-t border-line px-5 py-4 font-mono text-[10px] uppercase tracking-[0.14em]">
           <div>
-            <dt class="text-fg-faint">Наиграно</dt>
+            <dt class="text-fg-faint">{{ $t('instance.panel.playtime') }}</dt>
             <dd class="min-w-0 truncate text-fg-muted">{{ playtime }}</dd>
           </div>
           <div v-if="lastPlayed">
-            <dt class="text-fg-faint">Последний раз</dt>
+            <dt class="text-fg-faint">{{ $t('instance.panel.last_played') }}</dt>
             <dd class="min-w-0 truncate text-fg-muted">{{ lastPlayed }}</dd>
           </div>
           <div v-if="instance.castpack" class="flex items-baseline justify-between gap-3">
@@ -151,16 +153,20 @@ const DIR_ICONS: Record<InstanceDir, string> = {
             icon="i-lucide-trash-2"
             @click="emit('remove', instance.id)"
         >
-          Удалить сборку
+          {{ $t('instance.panel.remove') }}
         </AppButton>
       </div>
     </div>
 
     <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 px-5 py-14 text-center">
       <UIcon name="i-lucide-mouse-pointer-click" class="size-5 text-fg-faint"/>
-      <p class="font-mono text-[10px] uppercase leading-relaxed tracking-[0.18em] text-fg-faint">
-        Выберите сборку<br>левой кнопкой
-      </p>
+      <i18n-t
+          keypath="instance.panel.empty"
+          tag="p"
+          class="font-mono text-[10px] uppercase leading-relaxed tracking-[0.18em] text-fg-faint"
+      >
+        <template #br><br></template>
+      </i18n-t>
     </div>
   </aside>
 </template>

@@ -3,6 +3,7 @@ import {storeToRefs} from "pinia";
 import type {Account} from "~/types/account";
 import {useAccountStore} from "~/stores/account";
 
+const {t} = useI18n()
 const accountStore = useAccountStore();
 const {accountConfig, loggingIn} = storeToRefs(accountStore)
 const toast = useToast()
@@ -36,7 +37,7 @@ async function confirmRemove() {
   removeTarget.value = null
 
   toast.add({
-    title: `Аккаунт «${target.name}» удалён`,
+    title: t("settings.accounts.removed", {name: target.name}),
     color: "success",
     icon: "i-lucide-trash-2"
   })
@@ -46,7 +47,7 @@ async function confirmRemove() {
 <template>
   <SettingsPanel
       index="02"
-      title="Аккаунты"
+      :title="$t('settings.accounts.title')"
       icon="i-lucide-user-round"
   >
     <div class="space-y-7">
@@ -72,7 +73,7 @@ async function confirmRemove() {
           <div class="min-w-0 flex-1">
             <p class="truncate text-[13px] text-fg">{{ account.name }}</p>
             <p class="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              {{ account.type === 'microsoft' ? 'Microsoft' : 'Оффлайн' }}
+              {{ account.type === 'microsoft' ? 'Microsoft' : $t('settings.accounts.offline') }}
             </p>
           </div>
 
@@ -80,14 +81,14 @@ async function confirmRemove() {
               v-if="accountConfig?.selected === i"
               class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
           >
-            Активен
+            {{ $t('settings.accounts.active') }}
           </span>
 
           <UButton
               color="neutral"
               variant="ghost"
               icon="i-lucide-trash-2"
-              aria-label="Удалить аккаунт"
+              :aria-label="$t('settings.accounts.remove')"
               class="shrink-0 p-1 text-fg-faint transition-colors duration-300 hover:bg-transparent hover:text-red-400"
               :disabled="!account.uuid"
               @click.stop="removeTarget = account"
@@ -96,7 +97,7 @@ async function confirmRemove() {
       </ul>
 
       <p v-else class="border-y border-line py-6 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-        Ни одного аккаунта
+        {{ $t('settings.accounts.empty') }}
       </p>
 
       <div class="grid gap-4 sm:grid-cols-2">
@@ -118,12 +119,12 @@ async function confirmRemove() {
               icon="i-lucide-globe"
               class="h-10 justify-center border border-line text-[10px] tracking-[0.18em] text-fg-muted hover:border-line-strong hover:bg-transparent hover:text-fg"
           >
-            Оффлайн
+            {{ $t('settings.accounts.offline') }}
           </UButton>
 
           <template #content>
             <div class="w-64 space-y-4 p-5">
-              <SettingsField label="Никнейм">
+              <SettingsField :label="$t('settings.accounts.nickname')">
                 <UInput v-model="offlineNickname" placeholder="nickname" class="w-full"/>
               </SettingsField>
               <AppButton
@@ -132,7 +133,7 @@ async function confirmRemove() {
                   :disabled="!offlineNickname.trim()"
                   @click="createOfflineAccount"
               >
-                Добавить
+                {{ $t('common.add') }}
               </AppButton>
             </div>
           </template>
@@ -142,19 +143,19 @@ async function confirmRemove() {
 
     <UModal
         :open="!!removeTarget"
-        title="Удаление аккаунта"
+        :title="$t('settings.accounts.remove_title')"
         @update:open="value => { if (!value) removeTarget = null }"
     >
       <template #body>
         <p class="text-[12px] leading-relaxed text-fg-muted">
-          Аккаунт «{{ removeTarget?.name }}» будет убран из лаунчера. Сборки и их файлы это не затронет.
+          {{ $t('settings.accounts.remove_text', { name: removeTarget?.name }) }}
         </p>
       </template>
 
       <template #footer>
         <div class="flex w-full items-center justify-end gap-3">
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="removeTarget = null">
-            Отмена
+            {{ $t('common.cancel') }}
           </AppButton>
 
           <AppButton
@@ -163,7 +164,7 @@ async function confirmRemove() {
               :loading="removing"
               @click="confirmRemove"
           >
-            Удалить
+            {{ $t('common.delete') }}
           </AppButton>
         </div>
       </template>

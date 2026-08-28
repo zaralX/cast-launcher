@@ -20,7 +20,7 @@ const percent = computed(() => Math.round((current.value / props.steps.length) *
 
       <div class="mt-14 flex items-end justify-between">
         <p class="font-mono text-[10px] uppercase tracking-[0.28em] text-fg-faint">
-          Инициализация
+          {{ $t('boot.initialization') }}
         </p>
         <p class="font-unbounded text-[44px] font-bold leading-[0.8] tracking-[-0.06em] text-fg">
           {{ percent }}<span class="text-[18px] text-acid">%</span>

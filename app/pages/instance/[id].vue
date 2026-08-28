@@ -16,22 +16,24 @@ const instanceStore = useInstanceStore()
 const instanceId = computed(() => String(route.params.id ?? ""))
 const instance = computed(() => instanceStore.getInstance(instanceId.value))
 
+const {t} = useI18n()
+
 const tab = ref<Tab>("general")
 const saving = ref(false)
 
 const TABS = computed(() => {
   const items: { key: Tab, label: string, icon: string }[] = [
-    {key: "general", label: "Общее", icon: "i-lucide-box"},
-    {key: "mods", label: "Моды", icon: "i-lucide-blocks"}
+    {key: "general", label: t("instance.tabs.general"), icon: "i-lucide-box"},
+    {key: "mods", label: t("instance.tabs.mods"), icon: "i-lucide-blocks"}
   ]
 
   if (instance.value?.castpack) items.push({key: "castpack", label: "CastPack", icon: "i-lucide-layers"})
   if (instance.value?.pack || instance.value?.localPack) {
-    items.push({key: "pack", label: "Модпак", icon: "i-lucide-package"})
+    items.push({key: "pack", label: t("instance.tabs.pack"), icon: "i-lucide-package"})
   }
 
   items.push({key: "java", label: "Java", icon: "i-lucide-cpu"})
-  items.push({key: "logs", label: "Логи", icon: "i-lucide-scroll-text"})
+  items.push({key: "logs", label: t("instance.tabs.logs"), icon: "i-lucide-scroll-text"})
 
   return items.map((item, i) => ({...item, index: String(i + 1).padStart(2, "0")}))
 })
@@ -45,12 +47,12 @@ const installing = computed(() => !!instanceStore.getInstall(instanceId.value))
 
 const run = () => safeRun(
     () => instanceStore.playInstance(instanceId.value),
-    {context: {instanceId: instanceId.value, action: "Запуск сборки"}}
+    {context: {instanceId: instanceId.value, action: t("instance.context.play")}}
 )
 
 const stop = () => safeRun(
     () => instanceStore.stopInstance(instanceId.value),
-    {context: {instanceId: instanceId.value, action: "Остановка сборки"}}
+    {context: {instanceId: instanceId.value, action: t("instance.context.stop")}}
 )
 
 const draft = ref({
@@ -94,14 +96,14 @@ async function save() {
     description: draft.value.description.trim(),
     icon: draft.value.icon,
     settings: draft.value.settings
-  }), {context: {instanceId: instanceId.value, action: "Сохранение настроек сборки"}})
+  }), {context: {instanceId: instanceId.value, action: t("instance.save_action")}})
 
   saving.value = false
 
   if (!result.ok) {
     toast.add({
-      title: "Произошла ошибка",
-      description: "Не получилось сохранить настройки сборки",
+      title: t("instance.save_failed.title"),
+      description: t("instance.save_failed.hint"),
       color: "error",
       icon: "i-lucide-save"
     })
@@ -110,7 +112,7 @@ async function save() {
 
   draft.value = snapshot(result.value)
 
-  toast.add({title: "Настройки сохранены", color: "success", icon: "i-lucide-save"})
+  toast.add({title: t("instance.saved"), color: "success", icon: "i-lucide-save"})
 
   return true
 }
@@ -139,7 +141,7 @@ const guard = useUnsavedChanges({
               name="i-lucide-arrow-left"
               class="size-3.5 transition-transform duration-500 ease-deck group-hover:-translate-x-0.5"
           />
-          Библиотека
+          {{ $t('instance.back') }}
         </NuxtLink>
 
         <div class="mt-4 flex lg:block lg:space-y-4 items-start gap-4">
@@ -188,7 +190,7 @@ const guard = useUnsavedChanges({
             :disabled="!canSave"
             @click="save"
         >
-          {{ saving ? 'Сохранение' : 'Сохранить' }}
+          {{ saving ? $t('common.saving') : $t('common.save') }}
         </AppButton>
 
         <AppButton
@@ -198,7 +200,7 @@ const guard = useUnsavedChanges({
             icon="i-lucide-square"
             @click="stop"
         >
-          Остановить игру
+          {{ $t('instance.stop_game') }}
         </AppButton>
 
         <AppButton
@@ -209,22 +211,22 @@ const guard = useUnsavedChanges({
             :disabled="installing"
             @click="run"
         >
-          Играть
+          {{ $t('instance.action.play') }}
         </AppButton>
 
         <div v-if="dirty" class="mt-4 flex items-center justify-between gap-3">
           <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
             <span class="size-1.5 bg-amber-400 animate-blink"/>
-            Не сохранено
+            {{ $t('instance.unsaved') }}
           </span>
 
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="reset">
-            Сбросить
+            {{ $t('common.reset') }}
           </AppButton>
         </div>
 
         <p v-if="!draft.name.trim()" class="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
-          Название не может быть пустым
+          {{ $t('instance.name_required') }}
         </p>
       </aside>
 
@@ -256,14 +258,14 @@ const guard = useUnsavedChanges({
 
     <div v-else class="flex items-center gap-3 py-14">
       <span class="size-1.5 bg-fg-faint animate-blink"/>
-      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Сборка не найдена</p>
+      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.not_found') }}</p>
     </div>
 
     <UnsavedChangesModal
         :guard="guard"
-        description="Настройки сборки изменены, но не сохранены. Если уйти сейчас - правки пропадут."
-        blocked="Название не может быть пустым"
-        discard-label="Не сохранять"
+        :description="$t('instance.leave.description')"
+        :blocked="$t('instance.name_required')"
+        :discard-label="$t('unsaved.discard')"
     />
   </div>
 </template>

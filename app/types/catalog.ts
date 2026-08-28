@@ -113,25 +113,15 @@ export const PROVIDER_LOGOS: Record<PackProvider, string> = {
     curseforge: "/curseforge.svg"
 }
 
-export const SORT_LABELS: Record<PackSort, string> = {
-    relevance: "По совпадению",
-    downloads: "По загрузкам",
-    follows: "По подпискам",
-    newest: "Новые",
-    updated: "Обновлённые"
+export const SORT_KEYS: Record<PackSort, string> = {
+    relevance: "catalog.sort.relevance",
+    downloads: "catalog.sort.downloads",
+    follows: "catalog.sort.follows",
+    newest: "catalog.sort.newest",
+    updated: "catalog.sort.updated"
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-    adventure: "Приключения",
-    challenging: "Хардкор",
-    combat: "Сражения",
-    "kitchen-sink": "Всё сразу",
-    lightweight: "Лёгкие",
-    magic: "Магия",
-    multiplayer: "Мультиплеер",
-    optimization: "Оптимизация",
-    quests: "Квесты",
-    technology: "Технологии",
     fabric: "Fabric",
     forge: "Forge",
     neoforge: "NeoForge",
@@ -139,10 +129,15 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 export function categoryLabel(category: PackCategory): string {
-    return CATEGORY_LABELS[category.id] ?? category.label.replace(/[-_]/g, " ")
+    return categoryName(category.id) || category.label.replace(/[-_]/g, " ")
 }
 
 export function categoryName(name: string): string {
+    const {$i18n} = useNuxtApp()
+    const key = `catalog.category.${name}`
+
+    if ($i18n.te(key)) return $i18n.t(key)
+
     return CATEGORY_LABELS[name] ?? name.replace(/[-_]/g, " ")
 }
 
@@ -162,17 +157,22 @@ export function versionLabel(version: PackVersion): string {
 }
 
 export function unsupportedReason(version: PackVersion): string | null {
+    const {$i18n} = useNuxtApp()
+
     if (version.supported) return null
-    if (version.blocked) return "автор запретил скачивание через сторонние лаунчеры"
+    if (version.blocked) return $i18n.t("catalog.unsupported.blocked")
 
     if (!version.loader) {
-        const loaders = version.loaders.length ? version.loaders.join(", ") : "не указан"
-        return `неподдерживаемый загрузчик (${loaders})`
+        const loaders = version.loaders.length
+            ? version.loaders.join(", ")
+            : $i18n.t("catalog.unsupported.loader_unknown")
+
+        return $i18n.t("catalog.unsupported.loader", {loaders})
     }
 
-    if (!version.minecraftVersion) return "не указана версия Minecraft"
+    if (!version.minecraftVersion) return $i18n.t("catalog.unsupported.minecraft")
 
-    return "в версии нет архива пака"
+    return $i18n.t("catalog.unsupported.archive")
 }
 
 function capitalize(value: string): string {

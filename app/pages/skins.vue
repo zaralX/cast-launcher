@@ -3,7 +3,7 @@ import {storeToRefs} from "pinia"
 import {getCurrentWebview} from "@tauri-apps/api/webview"
 import type {UnlistenFn} from "@tauri-apps/api/event"
 import type {SkinEntry, SkinPose, SkinVariant} from "~/types/skin"
-import {SOURCE_LABELS, VARIANT_HINTS, VARIANT_LABELS} from "~/types/skin"
+import {SOURCE_KEYS, VARIANT_HINT_KEYS, VARIANT_LABELS} from "~/types/skin"
 
 definePageMeta({
   layout: "main"
@@ -11,6 +11,7 @@ definePageMeta({
 
 const toast = useToast()
 
+const {t} = useI18n()
 const skinStore = useSkinStore()
 const {library, capes, draft, loading, saving, stale} = storeToRefs(skinStore)
 
@@ -38,9 +39,9 @@ const accountItems = computed(() => licensed.value.map(item => ({
 // превью
 
 const POSES: { key: SkinPose, icon: string, label: string }[] = [
-  {key: "stand", icon: "i-lucide-user-round", label: "Стоя"},
-  {key: "walk", icon: "i-lucide-footprints", label: "Шаг"},
-  {key: "run", icon: "i-lucide-wind", label: "Бег"}
+  {key: "stand", icon: "i-lucide-user-round", labelKey: "skins.pose.stand"},
+  {key: "walk", icon: "i-lucide-footprints", labelKey: "skins.pose.walk"},
+  {key: "run", icon: "i-lucide-wind", labelKey: "skins.pose.run"}
 ]
 
 const BACKGROUNDS = ["ink", "grid", "light"] as const
@@ -63,10 +64,10 @@ function cycleBackground() {
 }
 
 const pickCape = (capeId: string | null) =>
-    safeRun(() => skinStore.pickCape(capeId), {context: {action: "Плащ набора"}})
+    safeRun(() => skinStore.pickCape(capeId), {context: {action: t("skins.cape_action")}})
 
 const setVariant = (variant: SkinVariant) =>
-    safeRun(() => skinStore.setVariant(variant), {context: {action: "Модель рук"}})
+    safeRun(() => skinStore.setVariant(variant), {context: {action: t("skins.variant_action")}})
 
 // библиотека
 
@@ -91,12 +92,12 @@ async function importFile(path?: string) {
 
   importing.value = true
 
-  const result = await attempt(() => skinStore.importFile(path), {context: {action: "Загрузка скина"}})
+  const result = await attempt(() => skinStore.importFile(path), {context: {action: t("skins.import_action")}})
 
   importing.value = false
 
   if (result.ok && result.value) {
-    toast.add({title: `«${result.value.name}» в библиотеке`, color: "success", icon: "i-lucide-image-plus"})
+    toast.add({title: t("skins.imported", {name: result.value.name}), color: "success", icon: "i-lucide-image-plus"})
   }
 }
 
@@ -119,7 +120,7 @@ onMounted(async () => {
     const png = event.payload.paths.find(path => path.toLowerCase().endsWith(".png"))
 
     if (!png) {
-      toast.add({title: "Нужен png", description: "Скин Minecraft - это png 64x64", color: "error", icon: "i-lucide-file-x"})
+      toast.add({title: t("skins.need_png"), description: t("skins.need_png_hint"), color: "error", icon: "i-lucide-file-x"})
       return
     }
 
@@ -140,24 +141,24 @@ async function importPlayer() {
 
   importingPlayer.value = true
 
-  const result = await attempt(() => skinStore.importPlayer(name), {context: {action: "Скин игрока"}})
+  const result = await attempt(() => skinStore.importPlayer(name), {context: {action: t("skins.player_action")}})
 
   importingPlayer.value = false
 
   if (result.ok) {
     nickname.value = ""
-    toast.add({title: `Скин ${result.value.name} загружен`, color: "success", icon: "i-lucide-user-round-search"})
+    toast.add({title: t("skins.player_loaded", {name: result.value.name}), color: "success", icon: "i-lucide-user-round-search"})
   }
 }
 
 // копия набора
 
 async function duplicate(entry: SkinEntry) {
-  const result = await attempt(() => skinStore.duplicate(entry.id), {context: {action: "Копия набора"}})
+  const result = await attempt(() => skinStore.duplicate(entry.id), {context: {action: t("skins.duplicate_action")}})
 
   if (result.ok) {
     toast.add({
-      title: `«${result.value.name}» создан`,
+      title: t("skins.duplicated", {name: result.value.name}),
       color: "success",
       icon: "i-lucide-copy"
     })
@@ -180,7 +181,7 @@ async function commitRename() {
 
   renameTarget.value = null
 
-  await safeRun(() => skinStore.rename(target.id, renameValue.value), {context: {action: "Переименование набора"}})
+  await safeRun(() => skinStore.rename(target.id, renameValue.value), {context: {action: t("skins.rename_action")}})
 }
 
 const removeTarget = ref<SkinEntry | null>(null)
@@ -191,10 +192,10 @@ async function confirmRemove() {
 
   removeTarget.value = null
 
-  const result = await attempt(() => skinStore.remove(target.id), {context: {action: "Удаление набора"}})
+  const result = await attempt(() => skinStore.remove(target.id), {context: {action: t("skins.remove_action")}})
 
   if (result.ok) {
-    toast.add({title: `«${target.name}» удалён из библиотеки`, color: "success", icon: "i-lucide-trash-2"})
+    toast.add({title: t("skins.removed", {name: target.name}), color: "success", icon: "i-lucide-trash-2"})
   }
 }
 
@@ -218,25 +219,25 @@ const canSave = computed(() => !demo.value && skinStore.dirty && !cooldown.value
 async function save() {
   if (demo.value) {
     toast.add({
-      title: "Нужен аккаунт Microsoft",
-      description: "Скин меняется только у лицензии",
+      title: t("skins.need_account_title"),
+      description: t("skins.need_account_hint"),
       color: "error",
       icon: "i-lucide-lock"
     })
     return false
   }
 
-  const result = await attempt(() => skinStore.save(), {context: {action: "Смена скина"}})
+  const result = await attempt(() => skinStore.save(), {context: {action: t("skins.save_action")}})
 
   if (!result.ok || !result.value) return false
 
   toast.add({
-    title: `Внешний вид ${skinStore.name} обновлён`,
-    description: "Отменить можно в течение минуты",
+    title: t("skins.saved", {name: skinStore.name}),
+    description: t("skins.saved_hint"),
     color: "success",
     icon: "i-lucide-check",
     actions: [{
-      label: "Отменить",
+      label: t("skins.undo"),
       color: "neutral",
       variant: "outline",
       onClick: () => undo()
@@ -247,10 +248,10 @@ async function save() {
 }
 
 async function undo() {
-  const result = await attempt(() => skinStore.undo(), {context: {action: "Отмена смены скина"}})
+  const result = await attempt(() => skinStore.undo(), {context: {action: t("skins.undo_action")}})
 
   if (result.ok && result.value) {
-    toast.add({title: "Вернули как было", color: "success", icon: "i-lucide-undo-2"})
+    toast.add({title: t("skins.undone"), color: "success", icon: "i-lucide-undo-2"})
   }
 }
 
@@ -259,9 +260,9 @@ const resetOpen = ref(false)
 async function resetSkin() {
   resetOpen.value = false
 
-  const result = await attempt(() => skinStore.resetSkin(), {context: {action: "Сброс скина"}})
+  const result = await attempt(() => skinStore.resetSkin(), {context: {action: t("skins.reset_action")}})
 
-  if (result.ok) toast.add({title: "Вернули стандартный скин", color: "success", icon: "i-lucide-rotate-ccw"})
+  if (result.ok) toast.add({title: t("skins.reset_done"), color: "success", icon: "i-lucide-rotate-ccw"})
 }
 
 const guard = useUnsavedChanges({
@@ -275,11 +276,11 @@ const VARIANTS: SkinVariant[] = ["CLASSIC", "SLIM"]
 
 async function reload(uuid: string | null) {
   if (uuid) {
-    await safeRun(() => skinStore.load(uuid), {context: {action: "Скины аккаунта"}})
+    await safeRun(() => skinStore.load(uuid), {context: {action: t("skins.load_action")}})
     return
   }
 
-  await safeRun(() => skinStore.loadLibrary(), {context: {action: "Библиотека скинов"}})
+  await safeRun(() => skinStore.loadLibrary(), {context: {action: t("skins.library_action")}})
 }
 
 onMounted(() => reload(activeUuid.value))
@@ -312,9 +313,9 @@ watch(activeUuid, uuid => reload(uuid))
                 class="w-full"
             />
             <template v-else>
-              <p class="truncate text-[13px] text-fg">{{ account?.name ?? 'Нет лицензии' }}</p>
+              <p class="truncate text-[13px] text-fg">{{ account?.name ?? $t('skins.no_license') }}</p>
               <p class="mt-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-                {{ account ? 'Microsoft' : 'Только библиотека' }}
+                {{ account ? 'Microsoft' : $t('skins.library_only') }}
               </p>
             </template>
           </div>
@@ -326,9 +327,9 @@ watch(activeUuid, uuid => reload(uuid))
         >
           <span class="mt-1 size-1.5 shrink-0 bg-amber-400 animate-blink"/>
           <p class="text-[11px] leading-relaxed text-amber-200/80">
-            Скин меняется только у лицензии.
-            <NuxtLink to="/settings" class="text-amber-300 underline underline-offset-2">Добавить Microsoft</NuxtLink>
-            - библиотеку можно собирать и сейчас.
+            {{ $t('skins.demo_hint_before') }}
+            <NuxtLink to="/settings" class="text-amber-300 underline underline-offset-2">{{ $t('skins.demo_hint_link') }}</NuxtLink>
+            {{ $t('skins.demo_hint_after') }}
           </p>
         </div>
 
@@ -338,7 +339,7 @@ watch(activeUuid, uuid => reload(uuid))
         >
           <UIcon name="i-lucide-cloud-off" class="mt-0.5 size-3.5 shrink-0 text-fg-faint"/>
           <p class="text-[11px] leading-relaxed text-fg-muted">
-            Профиль Mojang не ответил - показываем сохранённое состояние.
+            {{ $t('skins.stale') }}
           </p>
         </div>
 
@@ -379,7 +380,7 @@ watch(activeUuid, uuid => reload(uuid))
               v-else
               class="grid h-full place-items-center px-8 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
           >
-            Набор не выбран
+            {{ $t('skins.no_set') }}
           </p>
 
           <div class="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-line bg-ink-900/70 px-2 py-2 backdrop-blur">
@@ -390,8 +391,8 @@ watch(activeUuid, uuid => reload(uuid))
                   color="neutral"
                   variant="ghost"
                   :icon="item.icon"
-                  :title="item.label"
-                  :aria-label="item.label"
+                  :title="$t(item.labelKey)"
+                  :aria-label="$t(item.labelKey)"
                   class="size-8 justify-center transition-colors duration-300"
                   :class="pose === item.key ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
                   @click="pose = item.key"
@@ -403,8 +404,8 @@ watch(activeUuid, uuid => reload(uuid))
                   color="neutral"
                   variant="ghost"
                   icon="i-lucide-rotate-3d"
-                  title="Вращение"
-                  aria-label="Вращение"
+                  :title="$t('skins.preview.rotate')"
+                  :aria-label="$t('skins.preview.rotate')"
                   class="size-8 justify-center transition-colors duration-300"
                   :class="spinning ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
                   @click="spinning = !spinning"
@@ -414,8 +415,8 @@ watch(activeUuid, uuid => reload(uuid))
                   color="neutral"
                   variant="ghost"
                   icon="i-lucide-layers"
-                  title="Второй слой"
-                  aria-label="Второй слой"
+                  :title="$t('skins.preview.second_layer')"
+                  :aria-label="$t('skins.preview.second_layer')"
                   class="size-8 justify-center transition-colors duration-300"
                   :class="layers ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
                   @click="layers = !layers"
@@ -427,8 +428,8 @@ watch(activeUuid, uuid => reload(uuid))
                   color="neutral"
                   variant="ghost"
                   icon="i-lucide-sun-moon"
-                  title="Фон превью"
-                  aria-label="Фон превью"
+                  :title="$t('skins.preview.background')"
+                  :aria-label="$t('skins.preview.background')"
                   class="size-8 justify-center text-fg-faint hover:bg-transparent hover:text-fg"
                   @click="cycleBackground"
               />
@@ -437,8 +438,8 @@ watch(activeUuid, uuid => reload(uuid))
                   color="neutral"
                   variant="ghost"
                   icon="i-lucide-crosshair"
-                  title="Сбросить поворот и зум"
-                  aria-label="Сбросить поворот и зум"
+                  :title="$t('skins.preview.reset')"
+                  :aria-label="$t('skins.preview.reset')"
                   class="size-8 justify-center text-fg-faint hover:bg-transparent hover:text-fg"
                   @click="model?.reset()"
               />
@@ -456,7 +457,7 @@ watch(activeUuid, uuid => reload(uuid))
                 i > 0 ? 'border-l border-line' : '',
                 draft.variant === variant ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:text-fg-muted'
               ]"
-              :title="VARIANT_HINTS[variant]"
+              :title="$t(VARIANT_HINT_KEYS[variant])"
               @click="setVariant(variant)"
           >
             <span
@@ -475,9 +476,9 @@ watch(activeUuid, uuid => reload(uuid))
             :disabled="!canSave"
             @click="save"
         >
-          <template v-if="saving">Применение</template>
-          <template v-else-if="cooldown">Подождите {{ cooldown }}с</template>
-          <template v-else>Применить</template>
+          <template v-if="saving">{{ $t('skins.applying') }}</template>
+          <template v-else-if="cooldown">{{ $t('skins.cooldown', { seconds: cooldown }) }}</template>
+          <template v-else>{{ $t('skins.apply') }}</template>
         </AppButton>
 
         <div v-if="!demo" class="flex items-center justify-between gap-3">
@@ -488,7 +489,7 @@ watch(activeUuid, uuid => reload(uuid))
               :disabled="!draftSkin"
               @click="draftSkin && duplicate(draftSkin)"
           >
-            Дублировать
+            {{ $t('skins.duplicate') }}
           </AppButton>
 
           <AppButton
@@ -497,12 +498,12 @@ watch(activeUuid, uuid => reload(uuid))
               icon="i-lucide-rotate-ccw"
               @click="resetOpen = true"
           >
-            Стандартный
+            {{ $t('skins.default') }}
           </AppButton>
         </div>
         <div v-if="skinStore.dirty" class="flex items-center justify-between gap-3">
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em] ml-auto mr-0" @click="skinStore.reset()">
-            Вернуть
+            {{ $t('skins.revert') }}
           </AppButton>
         </div>
       </aside>
@@ -510,7 +511,7 @@ watch(activeUuid, uuid => reload(uuid))
       <div class="space-y-6 pt-10">
         <SettingsPanel
             index="01"
-            title="Библиотека наборов"
+            :title="$t('skins.library_title')"
             icon="i-lucide-shirt"
             class="animate-rise"
         >
@@ -525,7 +526,7 @@ watch(activeUuid, uuid => reload(uuid))
               <div class="flex items-center gap-2">
                 <UInput
                     v-model="nickname"
-                    placeholder="Ник игрока"
+                    :placeholder="$t('skins.nickname_placeholder')"
                     class="w-36"
                     @keyup.enter="importPlayer"
                 >
@@ -544,7 +545,7 @@ watch(activeUuid, uuid => reload(uuid))
                     :loading="importing"
                     @click="importFile()"
                 >
-                  Файл
+                  {{ $t('skins.file') }}
                 </AppButton>
               </div>
             </div>
@@ -586,7 +587,7 @@ watch(activeUuid, uuid => reload(uuid))
                 <div class="w-full border-t border-line px-2 py-1.5 text-left">
                   <p class="truncate text-[10px] leading-tight text-fg">{{ entry.name }}</p>
                   <p class="mt-0.5 truncate font-mono text-[8px] uppercase tracking-[0.14em] text-fg-faint">
-                    {{ VARIANT_LABELS[entry.variant] }} · {{ SOURCE_LABELS[entry.source] }}
+                    {{ VARIANT_LABELS[entry.variant] }} · {{ $t(SOURCE_KEYS[entry.source]) }}
                   </p>
                 </div>
 
@@ -594,13 +595,13 @@ watch(activeUuid, uuid => reload(uuid))
                     v-if="skinStore.applied.skinId === entry.id"
                     class="absolute left-0 top-0 bg-acid px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.18em] text-on-acid"
                 >
-                  Активен
+                  {{ $t('skins.active') }}
                 </span>
 
                 <div class="absolute right-1 top-1 hidden gap-0.5 group-hover/card:flex">
                   <span
                       class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-acid/50 hover:text-acid"
-                      title="Дублировать с выбранным плащом"
+                      :title="$t('skins.duplicate_with_cape')"
                       @click.stop="duplicate(entry)"
                   >
                     <UIcon name="i-lucide-copy" class="size-2.5"/>
@@ -608,7 +609,7 @@ watch(activeUuid, uuid => reload(uuid))
 
                   <span
                       class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-acid/50 hover:text-acid"
-                      title="Переименовать"
+                      :title="$t('skins.rename')"
                       @click.stop="startRename(entry)"
                   >
                     <UIcon name="i-lucide-pencil" class="size-2.5"/>
@@ -616,7 +617,7 @@ watch(activeUuid, uuid => reload(uuid))
 
                   <span
                       class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-red-400/50 hover:text-red-400"
-                      title="Удалить"
+                      :title="$t('skins.remove')"
                       @click.stop="removeTarget = entry"
                   >
                     <UIcon name="i-lucide-trash-2" class="size-2.5"/>
@@ -634,9 +635,13 @@ watch(activeUuid, uuid => reload(uuid))
                     name="i-lucide-image-plus"
                     class="size-4 text-fg-faint transition-colors duration-300 group-hover/drop:text-acid"
                 />
-                <span class="px-2 text-center font-mono text-[8px] uppercase leading-relaxed tracking-[0.16em] text-fg-faint">
-                  Перетащи<br>png 64x64
-                </span>
+                <i18n-t
+                    keypath="skins.drop_hint"
+                    tag="span"
+                    class="px-2 text-center font-mono text-[8px] uppercase leading-relaxed tracking-[0.16em] text-fg-faint"
+                >
+                  <template #br><br></template>
+                </i18n-t>
               </button>
             </div>
 
@@ -644,19 +649,19 @@ watch(activeUuid, uuid => reload(uuid))
                 v-if="!filtered.length && !loading"
                 class="border border-dashed border-line py-10 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
             >
-              {{ search ? 'Ничего не найдено' : 'Библиотека пуста' }}
+              {{ search ? $t('skins.nothing_found') : $t('skins.library_empty') }}
             </p>
           </div>
         </SettingsPanel>
 
         <SettingsPanel
             index="02"
-            :title="draftSkin ? `Плащ набора «${draftSkin.name}»` : 'Плащ набора'"
+            :title="draftSkin ? $t('skins.cape_title_named', { name: draftSkin.name }) : $t('skins.cape_title')"
             icon="i-lucide-flag"
             class="animate-rise [animation-delay:80ms]"
         >
           <div v-if="!draftSkin" class="border border-dashed border-line py-8 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            Сначала выбери набор
+            {{ $t('skins.pick_set_first') }}
           </div>
 
           <div v-else-if="capes.length" class="space-y-4">
@@ -670,7 +675,7 @@ watch(activeUuid, uuid => reload(uuid))
                   @click="pickCape(null)"
               >
                 <UIcon name="i-lucide-ban" class="size-4 text-fg-faint"/>
-                <span class="font-mono text-[8px] uppercase tracking-[0.18em] text-fg-faint">Без плаща</span>
+                <span class="font-mono text-[8px] uppercase tracking-[0.18em] text-fg-faint">{{ $t('skins.no_cape') }}</span>
               </button>
 
               <button
@@ -695,7 +700,7 @@ watch(activeUuid, uuid => reload(uuid))
           </div>
 
           <p v-else class="border border-dashed border-line py-8 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            {{ demo ? 'Нужен аккаунт Microsoft' : 'Плащей на аккаунте нет' }}
+            {{ demo ? $t('skins.need_microsoft') : $t('skins.no_capes') }}
           </p>
         </SettingsPanel>
       </div>
@@ -703,7 +708,7 @@ watch(activeUuid, uuid => reload(uuid))
 
     <UModal
         :open="!!renameTarget"
-        title="Название набора"
+        :title="$t('skins.rename_title')"
         @update:open="value => { if (!value) renameTarget = null }"
     >
       <template #body>
@@ -713,10 +718,10 @@ watch(activeUuid, uuid => reload(uuid))
       <template #footer>
         <div class="flex w-full items-center justify-end gap-3">
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="renameTarget = null">
-            Отмена
+            {{ $t('common.cancel') }}
           </AppButton>
           <AppButton class="h-8 text-[10px] tracking-[0.18em]" icon="i-lucide-check" @click="commitRename">
-            Сохранить
+            {{ $t('common.save') }}
           </AppButton>
         </div>
       </template>
@@ -724,27 +729,26 @@ watch(activeUuid, uuid => reload(uuid))
 
     <UModal
         :open="!!removeTarget"
-        title="Удаление набора"
+        :title="$t('skins.remove_title')"
         @update:open="value => { if (!value) removeTarget = null }"
     >
       <template #body>
         <p class="text-[12px] leading-relaxed text-fg-muted">
-          «{{ removeTarget?.name }}» пропадёт из библиотеки лаунчера. Копии с тем же скином останутся,
-          а на аккаунте Mojang это никак не отразится.
+          {{ $t('skins.remove_text', { name: removeTarget?.name }) }}
         </p>
       </template>
 
       <template #footer>
         <div class="flex w-full items-center justify-end gap-3">
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="removeTarget = null">
-            Отмена
+            {{ $t('common.cancel') }}
           </AppButton>
           <AppButton
               class="h-8 text-[10px] tracking-[0.18em] hover:border-red-500 hover:text-white hover:before:bg-red-500"
               icon="i-lucide-trash-2"
               @click="confirmRemove"
           >
-            Удалить
+            {{ $t('common.delete') }}
           </AppButton>
         </div>
       </template>
@@ -752,18 +756,18 @@ watch(activeUuid, uuid => reload(uuid))
 
     <UModal
         v-model:open="resetOpen"
-        title="Стандартный скин"
+        :title="$t('skins.reset_title')"
     >
       <template #body>
         <p class="text-[12px] leading-relaxed text-fg-muted">
-          Аккаунт вернётся к скину Steve или Alex. Библиотеку это не тронет - набор можно поставить обратно.
+          {{ $t('skins.reset_text') }}
         </p>
       </template>
 
       <template #footer>
         <div class="flex w-full items-center justify-end gap-3">
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="resetOpen = false">
-            Отмена
+            {{ $t('common.cancel') }}
           </AppButton>
           <AppButton
               class="h-8 text-[10px] tracking-[0.18em]"
@@ -771,7 +775,7 @@ watch(activeUuid, uuid => reload(uuid))
               :loading="saving"
               @click="resetSkin"
           >
-            Сбросить
+            {{ $t('skins.reset') }}
           </AppButton>
         </div>
       </template>
@@ -779,9 +783,9 @@ watch(activeUuid, uuid => reload(uuid))
 
     <UnsavedChangesModal
         :guard="guard"
-        description="Набор выбран, но ещё не применён к аккаунту."
-        blocked="Применить сейчас нельзя: нет лицензии или не вышла пауза Mojang."
-        discard-label="Не применять"
+        :description="$t('skins.leave.description')"
+        :blocked="$t('skins.leave.blocked')"
+        :discard-label="$t('skins.leave.discard')"
     />
   </div>
 </template>

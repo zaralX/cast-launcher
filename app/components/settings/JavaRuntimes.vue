@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import {storeToRefs} from "pinia";
 import {useAppStore} from "~/stores/app";
-import {JAVA_SOURCE_LABELS, type JavaMode, type JavaRuntime} from "~/types/app";
+import {JAVA_SOURCE_KEYS, type JavaMode, type JavaRuntime} from "~/types/app";
 
 const mode = defineModel<JavaMode>("mode", {required: true})
 const path = defineModel<string>("path", {required: true})
 
+const {t} = useI18n()
 const store = useAppStore()
 const {javaRuntimes, javaScanning} = storeToRefs(store)
 
@@ -26,8 +27,8 @@ const majors = computed(() => [...new Set(javaRuntimes.value.map(r => r.major))]
 
 const describe = (runtime: JavaRuntime) => [
   runtime.vendor,
-  runtime.is_64bit ? "64-бит" : "32-бит",
-  JAVA_SOURCE_LABELS[runtime.source] ?? runtime.source
+  runtime.is_64bit ? t("settings.java.arch64") : t("settings.java.arch32"),
+  JAVA_SOURCE_KEYS[runtime.source] ? t(JAVA_SOURCE_KEYS[runtime.source]!) : runtime.source
 ].join(" · ")
 
 const select = (runtime: JavaRuntime) => setMode("manual", runtime.path)
@@ -74,7 +75,7 @@ onBeforeUnmount(() => {
   <div class="space-y-7">
     <div>
       <div class="mb-2 flex items-center justify-between gap-4">
-        <span class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Среда выполнения</span>
+        <span class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('settings.java.runtime') }}</span>
 
         <AppButton
             tone="quiet"
@@ -83,7 +84,7 @@ onBeforeUnmount(() => {
             :loading="javaScanning"
             @click="rescan"
         >
-          {{ javaScanning ? 'Поиск' : 'Обновить' }}
+          {{ javaScanning ? $t('settings.java.searching') : $t('settings.java.refresh') }}
         </AppButton>
       </div>
 
@@ -100,16 +101,16 @@ onBeforeUnmount(() => {
           <UIcon name="i-lucide-wand-sparkles" class="size-4 shrink-0 text-fg-faint"/>
 
           <div class="min-w-0 flex-1">
-            <p class="truncate text-[13px] text-fg">Автоматически</p>
+            <p class="truncate text-[13px] text-fg">{{ $t('settings.java.auto') }}</p>
             <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              <template v-if="majors.length">Под версию Minecraft · есть {{ majors.join(', ') }}</template>
-              <template v-else-if="javaScanning">Идёт поиск</template>
-              <template v-else>Java в системе не найдена</template>
+              <template v-if="majors.length">{{ $t('settings.java.auto_hint', { majors: majors.join(', ') }) }}</template>
+              <template v-else-if="javaScanning">{{ $t('settings.java.scanning') }}</template>
+              <template v-else>{{ $t('settings.java.not_found') }}</template>
             </p>
           </div>
 
           <span v-if="mode === 'auto'" class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid">
-            Активна
+            {{ $t('settings.java.active') }}
           </span>
         </li>
 
@@ -125,18 +126,18 @@ onBeforeUnmount(() => {
           <UIcon name="i-lucide-square-terminal" class="size-4 shrink-0 text-fg-faint"/>
 
           <div class="min-w-0 flex-1">
-            <p class="truncate text-[13px] text-fg">Системная</p>
+            <p class="truncate text-[13px] text-fg">{{ $t('settings.java.system') }}</p>
             <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
               <template v-if="store.systemJavaRuntime">
                 Java {{ store.systemJavaRuntime.major }} · {{ store.systemJavaRuntime.vendor }}
               </template>
-              <template v-else-if="javaScanning">Идёт поиск</template>
-              <template v-else>Java в системе не найдена</template>
+              <template v-else-if="javaScanning">{{ $t('settings.java.scanning') }}</template>
+              <template v-else>{{ $t('settings.java.not_found') }}</template>
             </p>
           </div>
 
           <span v-if="mode === 'system'" class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid">
-            Активна
+            {{ $t('settings.java.active') }}
           </span>
         </li>
 
@@ -159,7 +160,7 @@ onBeforeUnmount(() => {
             <p class="truncate text-[13px] text-fg">
               Java {{ runtime.version }}
               <span v-if="!runtime.is_64bit" class="ml-2 font-mono text-[9px] uppercase tracking-[0.2em] text-amber-400">
-                32 бита
+                {{ $t('settings.java.bit32') }}
               </span>
             </p>
             <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
@@ -172,7 +173,7 @@ onBeforeUnmount(() => {
               v-if="isManual && javaPath === runtime.path"
               class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
           >
-            Активна
+            {{ $t('settings.java.active') }}
           </span>
         </li>
       </ul>
@@ -181,17 +182,17 @@ onBeforeUnmount(() => {
           v-if="!javaRuntimes.length && !javaScanning"
           class="border-b border-line py-6 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
       >
-        Ни одной Java не найдено
+        {{ $t('settings.java.empty') }}
       </p>
     </div>
 
     <SettingsField
-        label="Свой путь к Java"
-        hint="Не трогайте если не знаете что это."
+        :label="$t('settings.java.custom_path')"
+        :hint="$t('settings.java.custom_path_hint')"
     >
       <UInput
           v-model="javaPath"
-          :placeholder="mode === 'system' ? 'Системная' : 'Автоматически'"
+          :placeholder="mode === 'system' ? $t('settings.java.system') : $t('settings.java.auto')"
           class="w-full"
           :ui="{ base: 'font-mono text-[12px]' }"
       />
@@ -199,7 +200,7 @@ onBeforeUnmount(() => {
       <p v-if="isManual && !isDetected" class="mt-2 flex items-center gap-2 font-mono text-[10px] tracking-[0.02em]">
         <template v-if="manualChecking">
           <UIcon name="i-lucide-loader-circle" class="size-3 shrink-0 animate-spin text-fg-faint"/>
-          <span class="text-fg-faint">Проверяем путь</span>
+          <span class="text-fg-faint">{{ $t('settings.java.probing') }}</span>
         </template>
         <template v-else-if="manual">
           <UIcon name="i-lucide-check" class="size-3 shrink-0 text-acid"/>
@@ -207,7 +208,7 @@ onBeforeUnmount(() => {
         </template>
         <template v-else>
           <UIcon name="i-lucide-triangle-alert" class="size-3 shrink-0 text-amber-400"/>
-          <span class="text-amber-400">По этому пути рабочая Java не найдена</span>
+          <span class="text-amber-400">{{ $t('settings.java.probe_failed') }}</span>
         </template>
       </p>
     </SettingsField>

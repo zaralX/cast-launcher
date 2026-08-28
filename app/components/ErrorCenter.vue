@@ -45,11 +45,11 @@ function copyAll() {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Журнал ошибок">
+  <UModal v-model:open="open" :title="$t('error.center.title')">
     <UButton
         color="neutral"
         variant="ghost"
-        aria-label="Журнал ошибок"
+        :aria-label="$t('error.center.title')"
         class="group h-11 w-11 justify-center hover:bg-ink-600"
         :class="unseenCount > 0 ? 'text-red-400' : 'text-fg-faint hover:text-fg'"
     >
@@ -62,7 +62,7 @@ function copyAll() {
     <template #body>
       <div v-if="!entries.length" class="flex flex-col items-center gap-3 py-12">
         <span class="size-1.5 bg-fg-faint"/>
-        <p class="font-mono text-[10px] uppercase tracking-[0.28em] text-fg-faint">Ошибок не было</p>
+        <p class="font-mono text-[10px] uppercase tracking-[0.28em] text-fg-faint">{{ $t('error.center.empty') }}</p>
       </div>
 
       <div v-else class="space-y-3">
@@ -96,14 +96,14 @@ function copyAll() {
                   v-if="entry.context.instanceName"
                   class="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-fg-faint"
               >
-                Сборка · {{ entry.context.instanceName }}
+                {{ $t('error.center.instance') }} · {{ entry.context.instanceName }}
               </p>
 
               <details class="mt-3">
                 <summary
                     class="cursor-pointer select-none font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint transition-colors hover:text-acid"
                 >
-                  Технические детали
+                  {{ $t('error.center.technical') }}
                 </summary>
                 <pre
                     class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-all border border-line bg-ink-800 p-3 font-mono text-[11px] leading-relaxed text-fg-muted"
@@ -119,7 +119,7 @@ function copyAll() {
                 :icon="copiedId === entry.id ? 'i-lucide-check' : 'i-lucide-copy'"
                 @click="copy(entry.id, entry.report)"
             >
-              {{ copiedId === entry.id ? 'Скопировано' : 'Копировать' }}
+              {{ copiedId === entry.id ? $t('common.copied') : $t('common.copy') }}
             </AppButton>
             <AppButton
                 tone="quiet"
@@ -127,7 +127,7 @@ function copyAll() {
                 icon="i-lucide-x"
                 @click="errorStore.dismiss(entry.id)"
             >
-              Скрыть
+              {{ $t('error.center.hide') }}
             </AppButton>
           </div>
         </article>
@@ -143,7 +143,7 @@ function copyAll() {
             :disabled="!entries.length"
             @click="copyAll"
         >
-          Скопировать всё
+          {{ $t('error.center.copy_all') }}
         </AppButton>
 
         <AppButton
@@ -153,7 +153,7 @@ function copyAll() {
             :disabled="!entries.length"
             @click="errorStore.clear()"
         >
-          Очистить
+          {{ $t('error.center.clear') }}
         </AppButton>
       </div>
     </template>

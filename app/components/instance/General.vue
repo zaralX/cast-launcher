@@ -20,41 +20,43 @@ const installing = computed(() => !!instanceStore.getInstall(props.instance.id))
 
 const {total, last} = usePlaytime(() => props.instance)
 
+const {t} = useI18n()
+
 const facts = computed(() => [
-  {label: "Идентификатор", value: props.instance.id},
-  {label: "Загрузчик", value: INSTANCE_TYPE_LABELS[props.instance.type] ?? props.instance.type},
+  {label: t("instance.general.facts.id"), value: props.instance.id},
+  {label: t("instance.general.facts.loader"), value: INSTANCE_TYPE_LABELS[props.instance.type] ?? props.instance.type},
   {label: "Minecraft", value: props.instance.minecraftVersion},
-  {label: "Версия загрузчика", value: props.instance.loaderVersion || "-"},
-  {label: "Наиграно", value: formatPlaytime(total.value) || "-"},
+  {label: t("instance.general.facts.loader_version"), value: props.instance.loaderVersion || "-"},
+  {label: t("instance.general.facts.playtime"), value: formatPlaytime(total.value) || "-"},
   {
-    label: "Последний запуск",
+    label: t("instance.general.facts.last_played"),
     value: formatLastPlayed(props.instance.playtime?.lastPlayedAt ?? 0) || "-"
   },
-  {label: "Последняя сессия", value: formatPlaytime(last.value) || "-"}
+  {label: t("instance.general.facts.last_session"), value: formatPlaytime(last.value) || "-"}
 ])
 
 const status = computed(() => {
-  if (running.value) return {text: "Запущена", tone: "text-acid"}
-  if (installing.value) return {text: "Устанавливается", tone: "text-fg-muted"}
+  if (running.value) return {text: t("instance.general.status.running"), tone: "text-acid"}
+  if (installing.value) return {text: t("instance.general.status.installing"), tone: "text-fg-muted"}
   return props.instance.installed
-      ? {text: "Установлена", tone: "text-fg-muted"}
-      : {text: "Не установлена", tone: "text-amber-400"}
+      ? {text: t("instance.general.status.installed"), tone: "text-fg-muted"}
+      : {text: t("instance.general.status.absent"), tone: "text-amber-400"}
 })
 
-const DIRS: { target: InstanceDir, label: string, icon: string }[] = [
-  {target: "root", label: "Папка сборки", icon: "i-lucide-folder"},
-  {target: "minecraft", label: "minecraft", icon: "i-lucide-folder-open"},
-  {target: "logs", label: "Логи", icon: "i-lucide-folder-clock"}
+const DIRS: { target: InstanceDir, labelKey: string, icon: string }[] = [
+  {target: "root", labelKey: "instance.general.dir.root", icon: "i-lucide-folder"},
+  {target: "minecraft", labelKey: "instance.dir.minecraft", icon: "i-lucide-folder-open"},
+  {target: "logs", labelKey: "instance.general.dir.logs", icon: "i-lucide-folder-clock"}
 ]
 
 const openDir = (target: InstanceDir) => safeRun(
     () => call("open_instance_dir", {instanceId: props.instance.id, target}),
-    {context: {instanceId: props.instance.id, action: "Открытие папки сборки"}}
+    {context: {instanceId: props.instance.id, action: t("instance.general.open_dir_action")}}
 )
 
 const reinstall = () => safeRun(
     () => instanceStore.installInstance(props.instance.id),
-    {context: {instanceId: props.instance.id, action: "Переустановка сборки"}}
+    {context: {instanceId: props.instance.id, action: t("instance.general.reinstall_action")}}
 )
 
 const removeOpen = ref(false)
@@ -66,7 +68,7 @@ async function remove() {
 
   const result = await attempt(
       () => instanceStore.deleteInstance(props.instance.id),
-      {context: {instanceId: props.instance.id, action: "Удаление сборки"}}
+      {context: {instanceId: props.instance.id, action: t("instance.remove_action")}}
   )
 
   removing.value = false
@@ -74,7 +76,7 @@ async function remove() {
   if (!result.ok) return
 
   removeOpen.value = false
-  toast.add({title: "Сборка удалена", color: "success", icon: "i-lucide-trash-2"})
+  toast.add({title: t("instance.general.removed"), color: "success", icon: "i-lucide-trash-2"})
   await router.push("/main")
 }
 </script>
@@ -83,7 +85,7 @@ async function remove() {
   <div class="space-y-6">
     <SettingsPanel
         index="01"
-        title="Общее"
+        :title="$t('instance.general.title')"
         icon="i-lucide-box"
     >
       <div class="space-y-7">
@@ -91,9 +93,9 @@ async function remove() {
           <InstanceIcon :icon="icon" :type="instance.type" size="lg"/>
 
           <div class="min-w-0 flex-1">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Иконка</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.general.icon') }}</p>
             <p class="mt-2 truncate font-mono text-[11px] text-fg-muted" :title="icon">
-              {{ icon || "Метка по типу загрузчика" }}
+              {{ icon || $t('instance.general.icon_default') }}
             </p>
 
             <div class="mt-3 flex items-center gap-3">
@@ -102,7 +104,7 @@ async function remove() {
                   icon="i-lucide-image"
                   @click="pickerOpen = true"
               >
-                Выбрать иконку
+                {{ $t('instance.general.pick_icon') }}
               </AppButton>
 
               <AppButton
@@ -112,16 +114,16 @@ async function remove() {
                   icon="i-lucide-x"
                   @click="icon = ''"
               >
-                Убрать
+                {{ $t('instance.general.clear_icon') }}
               </AppButton>
             </div>
           </div>
         </div>
 
-        <SettingsField label="Название">
+        <SettingsField :label="$t('instance.general.name')">
           <UInput
               v-model="name"
-              placeholder="Например, Hardcore Survival"
+              :placeholder="$t('instance.general.name_placeholder')"
               class="w-full"
           />
         </SettingsField>
@@ -137,7 +139,7 @@ async function remove() {
           </div>
 
           <div class="min-w-0">
-            <dt class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Состояние</dt>
+            <dt class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.general.status') }}</dt>
             <dd class="mt-1.5 font-mono text-[12px]" :class="status.tone">{{ status.text }}</dd>
           </div>
         </dl>
@@ -146,7 +148,7 @@ async function remove() {
 
     <SettingsPanel
         index="02"
-        title="Файлы и обслуживание"
+        :title="$t('instance.general.files_title')"
         icon="i-lucide-hard-drive"
     >
       <div class="space-y-7">
@@ -158,22 +160,22 @@ async function remove() {
               :icon="dir.icon"
               @click="openDir(dir.target)"
           >
-            {{ dir.label }}
+            {{ $t(dir.labelKey) }}
           </AppButton>
         </div>
 
         <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
           <div class="min-w-0">
             <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ instance.installed ? 'Переустановка' : 'Установка' }}
+              {{ instance.installed ? $t('instance.general.reinstall_title') : $t('instance.general.install_title') }}
             </p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              Скачивает клиент, библиотеки и ресурсы заново. Миры и конфиги в minecraft остаются на месте.
+              {{ $t('instance.general.reinstall_hint') }}
               <template v-if="instance.pack">
-                Файлы модпака тоже проверяются - сменить его версию можно на вкладке "Модпак".
+                {{ $t('instance.general.reinstall_pack_hint') }}
               </template>
               <template v-else-if="instance.localPack">
-                Файлы модпака разложатся заново из архива, с которым сборку импортировали.
+                {{ $t('instance.general.reinstall_local_hint') }}
               </template>
             </p>
           </div>
@@ -184,15 +186,15 @@ async function remove() {
               :disabled="installing || running"
               @click="reinstall"
           >
-            {{ installing ? 'Идёт установка' : instance.installed ? 'Переустановить' : 'Установить' }}
+            {{ installing ? $t('instance.general.installing') : instance.installed ? $t('instance.general.reinstall') : $t('instance.general.install') }}
           </AppButton>
         </div>
 
         <div class="flex items-center justify-between gap-6 border-t border-red-400/20 pt-6">
           <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-red-400/80">Удаление</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-red-400/80">{{ $t('instance.general.remove_section') }}</p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              Сборка и все её файлы, включая миры, будут удалены с диска безвозвратно.
+              {{ $t('instance.general.remove_hint') }}
             </p>
           </div>
 
@@ -204,29 +206,28 @@ async function remove() {
               :disabled="running"
               @click="removeOpen = true"
           >
-            Удалить
+            {{ $t('common.delete') }}
           </UButton>
         </div>
 
         <p v-if="running" class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-          Сборка запущена - сначала закройте игру
+          {{ $t('instance.general.running_hint') }}
         </p>
       </div>
     </SettingsPanel>
 
-    <UModal v-model:open="pickerOpen" title="Иконка сборки" :ui="{ content: 'max-w-3xl' }">
+    <UModal v-model:open="pickerOpen" :title="$t('instance.general.icon_modal')" :ui="{ content: 'max-w-3xl' }">
       <template #body>
         <InstanceIconPicker v-model="icon"/>
       </template>
     </UModal>
 
-    <UModal v-model:open="removeOpen" title="Удаление сборки">
+    <UModal v-model:open="removeOpen" :title="$t('instance.general.remove_title')">
       <template #body>
         <div class="space-y-6">
-          <p class="text-[13px] leading-relaxed text-fg-muted">
-            Удалить сборку «<span class="text-fg">{{ instance.name }}</span>» вместе со всеми её файлами? Действие
-            необратимо.
-          </p>
+          <i18n-t keypath="instance.general.remove_text" tag="p" class="text-[13px] leading-relaxed text-fg-muted">
+            <template #name><span class="text-fg">{{ instance.name }}</span></template>
+          </i18n-t>
 
           <div class="flex justify-end gap-3">
             <AppButton
@@ -235,7 +236,7 @@ async function remove() {
                 :disabled="removing"
                 @click="removeOpen = false"
             >
-              Отмена
+              {{ $t('common.cancel') }}
             </AppButton>
 
             <UButton
@@ -246,7 +247,7 @@ async function remove() {
                 :loading="removing"
                 @click="remove"
             >
-              {{ removing ? 'Удаление' : 'Удалить навсегда' }}
+              {{ removing ? $t('instance.general.removing') : $t('instance.general.remove_forever') }}
             </UButton>
           </div>
         </div>

@@ -39,11 +39,13 @@ const updateAvailable = computed(() =>
     !!latest.value && !!pack.value && latest.value.id !== pack.value.versionId
 )
 
+const {t} = useI18n()
+
 const changed = computed(() => !!pack.value && versionId.value !== pack.value.versionId)
 
 const blocked = computed(() => {
-  if (running.value) return "Сборка запущена - сначала закройте игру"
-  if (installing.value) return "Дождитесь окончания текущей установки"
+  if (running.value) return t("instance.pack.blocked_running")
+  if (installing.value) return t("instance.pack.blocked_installing")
   return null
 })
 
@@ -56,18 +58,18 @@ const facts = computed(() => {
 
   if (file) {
     return [
-      {label: "Источник", value: "Файл"},
-      {label: "Формат", value: LOCAL_PACK_KIND_LABELS[file.kind]},
-      {label: "Название пака", value: file.name || "-"},
-      {label: "Версия пака", value: file.version || "-"}
+      {label: t("instance.pack.facts.source"), value: t("instance.pack.facts.file")},
+      {label: t("instance.pack.facts.format"), value: LOCAL_PACK_KIND_LABELS[file.kind]},
+      {label: t("instance.pack.facts.name"), value: file.name || "-"},
+      {label: t("instance.pack.facts.version"), value: file.version || "-"}
     ]
   }
 
   return [
-    {label: "Источник", value: pack.value ? PACK_PROVIDER_LABELS[pack.value.provider] : "-"},
-    {label: "Проект", value: pack.value?.projectId ?? "-"},
-    {label: "Текущая версия", value: pack.value?.versionNumber || pack.value?.versionId || "-"},
-    {label: "Архив пака", value: pack.value?.fileName || "-"}
+    {label: t("instance.pack.facts.source"), value: pack.value ? PACK_PROVIDER_LABELS[pack.value.provider] : "-"},
+    {label: t("instance.pack.facts.project"), value: pack.value?.projectId ?? "-"},
+    {label: t("instance.pack.facts.current_version"), value: pack.value?.versionNumber || pack.value?.versionId || "-"},
+    {label: t("instance.pack.facts.archive"), value: pack.value?.fileName || "-"}
   ]
 })
 
@@ -85,7 +87,7 @@ async function loadVersions() {
   } catch (e) {
     loadError.value = captureError(e, {
       code: "NETWORK",
-      context: {instanceId: props.instance.id, action: "Загрузка версий модпака"}
+      context: {instanceId: props.instance.id, action: t("instance.pack.versions_action")}
     })
   } finally {
     loading.value = false
@@ -125,7 +127,7 @@ async function apply() {
 
   updating.value = true
 
-  const context = {instanceId: props.instance.id, action: "Смена версии модпака"}
+  const context = {instanceId: props.instance.id, action: t("instance.pack.switch_action")}
 
   const switched = await attempt(
       () => call("set_instance_pack_version", {instanceId: props.instance.id, versionId: versionId.value}),
@@ -142,8 +144,8 @@ async function apply() {
   updating.value = false
 
   toast.add({
-    title: `Обновление до ${switched.value.pack?.versionNumber ?? "новой версии"}`,
-    description: "Файлы пака докачиваются в фоне",
+    title: t("instance.pack.switched", {version: switched.value.pack?.versionNumber ?? t("instance.pack.switched_fallback")}),
+    description: t("instance.pack.switched_hint"),
     color: "success",
     icon: "i-lucide-refresh-cw"
   })
@@ -154,7 +156,7 @@ async function apply() {
   <div class="space-y-6">
     <SettingsPanel
         index="01"
-        :title="local ? 'Модпак из файла' : 'Версия модпака'"
+        :title="local ? $t('instance.pack.title_local') : $t('instance.pack.title_remote')"
         icon="i-lucide-package"
     >
       <div v-if="local" class="grid grid-cols-2 border border-line">
@@ -165,7 +167,7 @@ async function apply() {
           </p>
         </div>
         <div class="border-l border-line px-4 py-3">
-          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Загрузчик</p>
+          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.pack.loader') }}</p>
           <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
             {{ INSTANCE_TYPE_LABELS[instance.type] }}
           </p>
@@ -173,14 +175,14 @@ async function apply() {
       </div>
 
       <div v-else-if="!pack" class="text-[12px] leading-relaxed text-fg-muted">
-        Эта сборка создана вручную, у неё нет версий пака.
+        {{ $t('instance.pack.manual_instance') }}
       </div>
 
       <div v-else-if="loading" class="flex flex-col items-center gap-4 py-10">
         <span class="relative block h-px w-40 overflow-hidden bg-line">
           <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep"/>
         </span>
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузка версий пака</p>
+        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.pack.loading') }}</p>
       </div>
 
       <div v-else-if="loadError" class="border border-red-400/30 bg-ink-900 p-5">
@@ -195,7 +197,7 @@ async function apply() {
                 icon="i-lucide-rotate-cw"
                 @click="loadVersions"
             >
-              Повторить
+              {{ $t('instance.pack.retry') }}
             </AppButton>
           </div>
         </div>
@@ -207,21 +209,21 @@ async function apply() {
             class="flex items-center justify-between gap-4 border border-acid/30 bg-acid/[0.04] px-4 py-3"
         >
           <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            Доступна новая версия:
+            {{ $t('instance.pack.update_available') }}
             <span class="text-fg">{{ latest?.versionNumber || latest?.name }}</span>
           </p>
 
           <AppButton tone="quiet" class="shrink-0 text-[10px] tracking-[0.18em]" @click="selectLatest">
-            Выбрать
+            {{ $t('instance.pack.select_latest') }}
           </AppButton>
         </div>
 
-        <SettingsField label="Версия пака">
+        <SettingsField :label="$t('instance.pack.version')">
           <USelectMenu
               v-model="versionId"
               :items="versionItems"
               value-key="value"
-              :search-input="{ placeholder: 'Версия или Minecraft' }"
+              :search-input="{ placeholder: $t('instance.pack.version_search') }"
               class="w-full"
           />
         </SettingsField>
@@ -234,7 +236,7 @@ async function apply() {
             </p>
           </div>
           <div class="border-l border-line px-4 py-3">
-            <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Загрузчик</p>
+            <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.pack.loader') }}</p>
             <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
               {{ selected?.loader ? INSTANCE_TYPE_LABELS[selected.loader] : INSTANCE_TYPE_LABELS[instance.type] }}
             </p>
@@ -246,13 +248,12 @@ async function apply() {
             class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
         >
           <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-          Эту версию лаунчер установить не сможет: {{ unsupportedReason(selected) }}.
+          {{ $t('instance.pack.unsupported', { reason: unsupportedReason(selected) }) }}
         </p>
 
         <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
           <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            Моды, конфиги и ресурспаки паки будут заменены на файлы выбранной версии, а то, что осталось от прошлой,
-            лаунчер уберёт. Миры, скриншоты и всё, что вы добавили сами, останется на месте.
+            {{ $t('instance.pack.apply_hint') }}
           </p>
 
           <AppButton
@@ -262,7 +263,7 @@ async function apply() {
               :disabled="!canApply || !changed"
               @click="apply"
           >
-            {{ updating ? 'Обновление' : 'Обновить' }}
+            {{ updating ? $t('instance.pack.updating') : $t('instance.pack.update') }}
           </AppButton>
         </div>
 
@@ -275,12 +276,11 @@ async function apply() {
     <SettingsPanel
         v-if="blockedFiles.length"
         index="02"
-        title="Скачать вручную"
+        :title="$t('instance.pack.manual_title')"
         icon="i-lucide-hand"
     >
       <p class="text-[12px] leading-relaxed text-fg-muted">
-        Откройте страницу каждого файла, скачайте его и положите
-        в папку сборки по указанному пути - после этого пак заработает полностью.
+        {{ $t('instance.pack.manual_hint') }}
       </p>
 
       <ul class="mt-5 divide-y divide-line border border-line">
@@ -299,7 +299,7 @@ async function apply() {
               icon="i-lucide-external-link"
               @click="openPage(file.websiteUrl)"
           >
-            Открыть
+            {{ $t('instance.pack.open') }}
           </AppButton>
         </li>
       </ul>
@@ -310,13 +310,13 @@ async function apply() {
           icon="i-lucide-folder-open"
           @click="openMods"
       >
-        Открыть папку игры
+        {{ $t('instance.pack.open_game_folder') }}
       </AppButton>
     </SettingsPanel>
 
     <SettingsPanel
         :index="blockedFiles.length ? '03' : '02'"
-        title="Состав пака"
+        :title="$t('instance.pack.content_title')"
         icon="i-lucide-list"
     >
       <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2">

@@ -50,15 +50,15 @@ watch(() => settings.value.overrideJava, (enabled) => {
   <div class="space-y-6">
     <SettingsPanel
         index="01"
-        title="Память"
+        :title="$t('instance.java.memory_title')"
         icon="i-lucide-memory-stick"
     >
       <div class="space-y-7">
         <div class="flex items-center justify-between gap-6">
           <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Свои значения</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.java.override_memory') }}</p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              Без переопределения используются значения из настроек лаунчера.
+              {{ $t('instance.java.override_memory_hint') }}
             </p>
           </div>
           <USwitch v-model="settings.overrideMemory" size="lg"/>
@@ -68,7 +68,7 @@ watch(() => settings.value.overrideJava, (enabled) => {
             class="grid gap-6 border-t border-line pt-6 transition-opacity duration-300 sm:grid-cols-2"
             :class="settings.overrideMemory ? '' : 'opacity-45'"
         >
-          <SettingsField label="Минимум RAM" :hint="`≈ ${gb(minRam)} ГБ`">
+          <SettingsField :label="$t('settings.java.min_ram')" :hint="$t('settings.java.ram_hint', { value: gb(minRam) })">
             <UInput
                 v-model="minRam"
                 type="number"
@@ -83,7 +83,7 @@ watch(() => settings.value.overrideJava, (enabled) => {
             </UInput>
           </SettingsField>
 
-          <SettingsField label="Максимум RAM" :hint="`≈ ${gb(maxRam)} ГБ`">
+          <SettingsField :label="$t('settings.java.max_ram')" :hint="$t('settings.java.ram_hint', { value: gb(maxRam) })">
             <UInput
                 v-model="maxRam"
                 type="number"
@@ -103,16 +103,16 @@ watch(() => settings.value.overrideJava, (enabled) => {
 
     <SettingsPanel
         index="02"
-        title="Java"
-        description="С какой Java запускать и устанавливать именно эту сборку."
+        :title="$t('instance.java.title')"
+        :description="$t('instance.java.description')"
         icon="i-lucide-cpu"
     >
       <div class="space-y-7">
         <div class="flex items-center justify-between gap-6">
           <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Своя Java</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.java.override_java') }}</p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              Полезно для старых версий и модпаков, которым нужна конкретная сборка Java.
+              {{ $t('instance.java.override_java_hint') }}
             </p>
           </div>
           <USwitch v-model="settings.overrideJava" size="lg"/>

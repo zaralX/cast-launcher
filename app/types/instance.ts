@@ -74,8 +74,10 @@ export function emptyPlaytime(): Playtime {
 }
 
 export function formatPlaytime(seconds: number): string {
+    const {$i18n} = useNuxtApp()
+
     if (!seconds || seconds < 0) return ""
-    if (seconds < 60) return "меньше минуты"
+    if (seconds < 60) return $i18n.t("common.playtime.less_minute")
 
     const days = Math.floor(seconds / 86400)
     const hours = Math.floor(seconds / 3600) % 24
@@ -83,9 +85,9 @@ export function formatPlaytime(seconds: number): string {
 
     const parts: string[] = []
 
-    if (days) parts.push(`${days} д`)
-    if (hours) parts.push(`${hours} ч`)
-    if (minutes && !days) parts.push(`${minutes} мин`)
+    if (days) parts.push(`${days} ${$i18n.t("common.playtime.days")}`)
+    if (hours) parts.push(`${hours} ${$i18n.t("common.playtime.hours")}`)
+    if (minutes && !days) parts.push(`${minutes} ${$i18n.t("common.playtime.minutes")}`)
 
     return parts.join(" ")
 }

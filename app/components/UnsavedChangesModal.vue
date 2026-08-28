@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import type {UnsavedChanges} from "~/composables/useUnsavedChanges"
 
-withDefaults(defineProps<{
+const props = defineProps<{
   guard: UnsavedChanges
   description?: string
   blocked?: string
   discardLabel?: string
-}>(), {
-  description: "Изменения на этой странице ещё не сохранены. Если уйти сейчас - они пропадут.",
-  discardLabel: "Не сохранять"
-})
+}>()
+
+const {t} = useI18n()
+
+const descriptionText = computed(() => props.description ?? t("unsaved.description"))
+const discardText = computed(() => props.discardLabel ?? t("unsaved.discard"))
 </script>
 
 <template>
@@ -17,12 +19,12 @@ withDefaults(defineProps<{
       :open="guard.open"
       :dismissible="false"
       :close="false"
-      title="Несохранённые изменения"
+      :title="$t('unsaved.title')"
       :ui="{ content: 'max-w-lg' }"
   >
     <template #body>
       <div class="space-y-6">
-        <p class="text-[12px] leading-relaxed text-fg-muted">{{ description }}</p>
+        <p class="text-[12px] leading-relaxed text-fg-muted">{{ descriptionText }}</p>
 
         <p
             v-if="blocked && !guard.canSave"
@@ -40,7 +42,7 @@ withDefaults(defineProps<{
               :disabled="guard.saving"
               @click="guard.discard()"
           >
-            {{ discardLabel }}
+            {{ discardText }}
           </AppButton>
 
           <div class="flex items-center gap-4">
@@ -50,7 +52,7 @@ withDefaults(defineProps<{
                 :disabled="guard.saving"
                 @click="guard.cancel()"
             >
-              Остаться
+              {{ $t('unsaved.stay') }}
             </AppButton>
 
             <AppButton
@@ -60,7 +62,7 @@ withDefaults(defineProps<{
                 :disabled="!guard.canSave"
                 @click="guard.save()"
             >
-              {{ guard.saving ? 'Сохранение' : 'Сохранить' }}
+              {{ guard.saving ? $t('common.saving') : $t('common.save') }}
             </AppButton>
           </div>
         </div>

@@ -7,6 +7,7 @@ const props = defineProps<{ instanceId: string }>()
 
 const LIVE = "live"
 
+const {t} = useI18n()
 const instanceStore = useInstanceStore()
 const {logs} = storeToRefs(instanceStore)
 const toast = useToast()
@@ -26,7 +27,7 @@ const live = computed(() => logs.value[props.instanceId] ?? [])
 const isLive = computed(() => source.value === LIVE)
 
 const sources = computed(() => [
-  {label: running.value ? "Текущий сеанс (идёт)" : "Текущий сеанс", value: LIVE},
+  {label: running.value ? t("instance.logs.live_running") : t("instance.logs.live"), value: LIVE},
   ...files.value.map(file => ({label: `${fileLabel(file)} · ${size(file.size)}`, value: file.name}))
 ])
 
@@ -65,15 +66,15 @@ function fileLabel(file: InstanceLogFile) {
 }
 
 function size(bytes: number) {
-  if (bytes < 1024) return `${bytes} Б`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
+  if (bytes < 1024) return `${bytes} ${t("common.unit.b")}`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} ${t("common.unit.kb")}`
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${t("common.unit.mb")}`
 }
 
 async function loadFiles() {
   const result = await attempt(
       () => call("list_instance_logs", {instanceId: props.instanceId}),
-      {context: {instanceId: props.instanceId, action: "Список логов"}}
+      {context: {instanceId: props.instanceId, action: t("instance.logs.list_action")}}
   )
 
   if (!result.ok) return
@@ -90,7 +91,7 @@ async function loadFile(name: string) {
 
   const result = await attempt(
       () => call("read_instance_log", {instanceId: props.instanceId, name}),
-      {context: {instanceId: props.instanceId, action: "Чтение лога"}}
+      {context: {instanceId: props.instanceId, action: t("instance.logs.read_action")}}
   )
 
   loading.value = false
@@ -104,7 +105,7 @@ async function refresh() {
 
 const copy = () => safeRun(async () => {
   await navigator.clipboard.writeText(lines.value.map(line => line.text).join("\n"))
-  toast.add({title: "Лог скопирован", color: "success", icon: "i-lucide-clipboard-check"})
+  toast.add({title: t("instance.logs.copied"), color: "success", icon: "i-lucide-clipboard-check"})
 })
 
 const removing = ref(false)
@@ -115,7 +116,7 @@ async function removeFile() {
 
   const result = await attempt(
       () => call("delete_instance_log", {instanceId: props.instanceId, name: source.value}),
-      {context: {instanceId: props.instanceId, action: "Удаление лога"}}
+      {context: {instanceId: props.instanceId, action: t("instance.logs.delete_action")}}
   )
 
   removing.value = false
@@ -129,7 +130,7 @@ async function removeFile() {
 
 const openFolder = () => safeRun(
     () => call("open_instance_dir", {instanceId: props.instanceId, target: "logs"}),
-    {context: {instanceId: props.instanceId, action: "Открытие папки логов"}}
+    {context: {instanceId: props.instanceId, action: t("instance.logs.open_dir_action")}}
 )
 
 function scrollToEnd() {
@@ -166,17 +167,17 @@ onMounted(async () => {
 <template>
   <SettingsPanel
       index="01"
-      title="Логи"
+      :title="$t('instance.logs.title')"
       icon="i-lucide-scroll-text"
   >
     <div class="space-y-5">
       <div class="flex flex-wrap items-end gap-4">
-        <SettingsField label="Источник" class="min-w-[16rem] flex-1">
+        <SettingsField :label="$t('instance.logs.source')" class="min-w-[16rem] flex-1">
           <USelect v-model="source" :items="sources" class="w-full"/>
         </SettingsField>
 
-        <SettingsField label="Поиск по строкам" class="min-w-[12rem] flex-1">
-          <UInput v-model="filter" placeholder="Например, Exception" class="w-full" :ui="{ base: 'font-mono text-[12px]' }">
+        <SettingsField :label="$t('instance.logs.search')" class="min-w-[12rem] flex-1">
+          <UInput v-model="filter" :placeholder="$t('instance.logs.search_placeholder')" class="w-full" :ui="{ base: 'font-mono text-[12px]' }">
             <template #trailing>
               <UIcon name="i-lucide-search" class="size-3.5 text-fg-faint"/>
             </template>
@@ -190,7 +191,7 @@ onMounted(async () => {
               :loading="loading"
               @click="refresh"
           >
-            Обновить
+            {{ $t('instance.logs.refresh') }}
           </AppButton>
 
           <AppButton
@@ -199,7 +200,7 @@ onMounted(async () => {
               :disabled="!lines.length"
               @click="copy"
           >
-            Копировать
+            {{ $t('instance.logs.copy') }}
           </AppButton>
 
           <AppButton
@@ -207,7 +208,7 @@ onMounted(async () => {
               icon="i-lucide-folder-clock"
               @click="openFolder"
           >
-            Папка
+            {{ $t('instance.logs.folder') }}
           </AppButton>
 
           <AppButton
@@ -218,7 +219,7 @@ onMounted(async () => {
               :disabled="!live.length"
               @click="instanceStore.clearLogs(props.instanceId)"
           >
-            Очистить
+            {{ $t('instance.logs.clear') }}
           </AppButton>
 
           <AppButton
@@ -229,26 +230,26 @@ onMounted(async () => {
               :loading="removing"
               @click="removeFile"
           >
-            Удалить файл
+            {{ $t('instance.logs.delete_file') }}
           </AppButton>
         </div>
       </div>
 
       <div class="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
         <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-          {{ lines.length }} строк<template v-if="filter.trim()"> из {{ all.length }}</template>
-          <template v-if="isLive && running"> · сеанс идёт</template>
+          {{ $t('instance.logs.lines', { count: lines.length }) }}<template v-if="filter.trim()"> {{ $t('instance.logs.lines_of', { total: all.length }) }}</template>
+          <template v-if="isLive && running"> · {{ $t('instance.logs.session_running') }}</template>
         </p>
 
         <div class="flex items-center gap-6">
           <div class="flex items-center gap-2.5">
             <USwitch v-model="autoscroll"/>
-            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">Автопрокрутка</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.logs.autoscroll') }}</span>
           </div>
 
           <div class="flex items-center gap-2.5">
             <USwitch v-model="wrap"/>
-            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">Переносить строки</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.logs.wrap') }}</span>
           </div>
         </div>
       </div>
@@ -269,10 +270,10 @@ onMounted(async () => {
         >{{ line.text || " " }}</p>
 
         <p v-if="!lines.length" class="flex justify-center items-center h-full font-mono text-xs uppercase tracking-[0.24em] text-fg-faint">
-          <template v-if="loading">Загрузка</template>
-          <template v-else-if="filter.trim()">Ничего не найдено</template>
-          <template v-else-if="isLive">Лог появится после запуска игры</template>
-          <template v-else>Файл пуст</template>
+          <template v-if="loading">{{ $t('instance.logs.loading') }}</template>
+          <template v-else-if="filter.trim()">{{ $t('instance.logs.nothing_found') }}</template>
+          <template v-else-if="isLive">{{ $t('instance.logs.live_empty') }}</template>
+          <template v-else>{{ $t('instance.logs.file_empty') }}</template>
         </p>
       </div>
     </div>

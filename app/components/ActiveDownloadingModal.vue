@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const {t} = useI18n()
 const instanceStore = useInstanceStore()
 const {installs} = storeToRefs(instanceStore)
 
@@ -14,8 +15,8 @@ const percent = (value: number) => Math.round(value * 100)
 
 const formatSize = (bytes: number) => {
   if (!bytes) return "-"
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`
-  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t("common.unit.kb")}`
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${t("common.unit.mb")}`
 }
 
 watch(installs, (value) => {
@@ -24,7 +25,7 @@ watch(installs, (value) => {
 </script>
 
 <template>
-  <UModal v-if="installs.length" v-model:open="open" title="Загрузка файлов" class="ml-auto mr-0">
+  <UModal v-if="installs.length" v-model:open="open" :title="$t('download.title')" class="ml-auto mr-0">
     <button
         type="button"
         class="group relative ml-0! flex min-w-64 max-w-md items-center gap-2.5 overflow-hidden border border-line bg-ink-700 px-3 py-1 text-left transition-colors duration-300 hover:border-acid/50 hover:bg-ink-600"
@@ -41,7 +42,7 @@ watch(installs, (value) => {
       </template>
       <template v-else>
         <span class="min-w-0 flex-1 truncate font-mono text-[11px] leading-none text-fg-muted">
-          Установок: {{ installs.length }}
+          {{ $t('download.installs', { count: installs.length }) }}
         </span>
       </template>
 
@@ -107,7 +108,7 @@ watch(installs, (value) => {
               :disabled="install.aborting"
               @click="instanceStore.abortInstall(install.instanceId)"
           >
-            {{ install.aborting ? 'Останавливаем' : 'Прервать' }}
+            {{ install.aborting ? $t('download.aborting') : $t('download.abort') }}
           </AppButton>
         </section>
       </div>

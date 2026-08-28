@@ -84,7 +84,9 @@ export const useInstanceStore = defineStore('instance', {
             if (!game || code === 0) return
 
             captureError(new LauncherError("LAUNCH_FAILED", {
-                message: `Minecraft завершился с кодом ${code ?? "неизвестно"}`,
+                message: useNuxtApp().$i18n.t("instance.exited", {
+                    code: code ?? useNuxtApp().$i18n.t("instance.exited_unknown")
+                }),
                 details: logTail,
                 context: {instanceId: game.instanceId, instanceName: game.instanceName, exitCode: code}
             }))

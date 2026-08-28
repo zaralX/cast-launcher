@@ -123,10 +123,10 @@ export interface InstallReport {
     blocked: string[]
 }
 
-export const RELEASE_LABELS: Record<string, string> = {
-    release: "релиз",
-    beta: "бета",
-    alpha: "альфа"
+export const RELEASE_KEYS: Record<string, string> = {
+    release: "catalog.release.release",
+    beta: "catalog.release.beta",
+    alpha: "catalog.release.alpha"
 }
 
 export const MOD_EXTENSIONS = ["jar", "zip", "litemod"]
@@ -156,10 +156,12 @@ export function modAuthors(mod: ModFile): string {
 }
 
 export function modSize(bytes: number): string {
-    if (bytes <= 0) return ""
-    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} КБ`
+    const {$i18n} = useNuxtApp()
 
-    return `${(bytes / 1024 / 1024).toFixed(1)} МБ`
+    if (bytes <= 0) return ""
+    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} ${$i18n.t("common.unit.kb")}`
+
+    return `${(bytes / 1024 / 1024).toFixed(1)} ${$i18n.t("common.unit.mb")}`
 }
 
 export function matchesMod(mod: ModFile, query: string, matched?: CatalogMatch | null): boolean {

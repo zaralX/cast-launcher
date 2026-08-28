@@ -21,9 +21,11 @@ const state = computed<"running" | "installing" | "ready" | "absent">(() => {
   return props.instance.installed ? "ready" : "absent"
 })
 
+const {t} = useI18n()
+
 const {total} = usePlaytime(() => props.instance)
 
-const playtime = computed(() => formatPlaytime(total.value) || "не запускалась")
+const playtime = computed(() => formatPlaytime(total.value) || t("instance.playtime.never"))
 </script>
 
 <template>
@@ -56,13 +58,13 @@ const playtime = computed(() => formatPlaytime(total.value) || "не запус�
         <p
             v-if="instance.castpack"
             class="mt-1 flex items-center gap-1.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
-            :title="`Сборка CastPack ${instance.castpack.version}`"
+            :title="$t('instance.castpack_tooltip', { version: instance.castpack.version })"
         >
           <span class="truncate">CastPack{{ instance.castpack.version ? ` ${instance.castpack.version}` : '' }}</span>
         </p>
         <p
             class="mt-1 flex items-center gap-1.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
-            :title="`Наиграно: ${playtime}`"
+            :title="$t('instance.playtime.title', { playtime })"
         >
           <UIcon name="i-lucide-timer" class="size-2.5 shrink-0"/>
           <span class="truncate">{{ playtime }}</span>
@@ -79,13 +81,13 @@ const playtime = computed(() => formatPlaytime(total.value) || "не запус�
             <span class="absolute size-2 bg-acid animate-breathe"/>
             <span class="size-2 bg-acid"/>
           </span>
-          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-acid">Запущено</span>
+          <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-acid">{{ $t('instance.state.running') }}</span>
         </div>
 
         <div v-else-if="state === 'installing'" class="flex h-8 flex-col justify-center gap-1.5 px-1">
           <span class="flex items-baseline justify-between gap-3">
             <span class="min-w-0 truncate font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
-              {{ phase || 'Установка' }}
+              {{ phase || $t('instance.state.installing') }}
             </span>
             <span v-if="progress != null" class="shrink-0 font-mono text-[9px] tabular-nums text-acid">
               {{ Math.round(progress * 100) }}%
@@ -117,14 +119,14 @@ const playtime = computed(() => formatPlaytime(total.value) || "не запус�
                 class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-0.5"
             />
           </template>
-          {{ state === 'ready' ? 'Играть' : 'Загрузить' }}
+          {{ state === 'ready' ? $t('instance.action.play') : $t('instance.action.install') }}
         </AppButton>
       </div>
 
       <NuxtLink
           :to="`/instance/${instance.id}`"
-          :aria-label="`Настройки сборки ${instance.name}`"
-          :title="`Настройки сборки ${instance.name}`"
+          :aria-label="$t('instance.settings_title', { name: instance.name })"
+          :title="$t('instance.settings_title', { name: instance.name })"
           class="grid size-8 shrink-0 place-items-center border border-line text-fg-faint transition-colors duration-300 hover:border-acid hover:text-acid"
       >
         <UIcon name="i-lucide-settings" class="size-3.5 transition-transform duration-500 ease-deck hover:rotate-90"/>

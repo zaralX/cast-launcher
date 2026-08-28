@@ -2,8 +2,15 @@
 import LoadingScreen from "~/components/LoadingScreen.vue";
 import {useAppStore} from "~/stores/app";
 
+const {t} = useI18n()
+
 const loading = ref(true)
-const steps = ["Ожидание", "Подключение к лаунчеру", "Проверка обновлений", "Готово!"]
+const steps = computed(() => [
+  t("boot.steps.waiting"),
+  t("boot.steps.connecting"),
+  t("boot.steps.updates"),
+  t("boot.steps.done")
+])
 const currentStep = ref(1)
 const appStore = useAppStore();
 

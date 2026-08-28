@@ -30,9 +30,11 @@ const versionItems = computed(() => versions.value.map(version => ({
   disabled: !version.supported
 })))
 
+const {t} = useI18n()
+
 const loaderLabel = computed(() => {
   const loader = selected.value?.loader
-  return loader ? INSTANCE_TYPE_LABELS[loader] : "неизвестен"
+  return loader ? INSTANCE_TYPE_LABELS[loader] : t("search.install.loader_unknown")
 })
 
 const canInstall = computed(() =>
@@ -54,7 +56,7 @@ async function loadVersions() {
     })
     versionId.value = (versions.value.find(version => version.supported) ?? versions.value[0])?.id ?? ""
   } catch (e) {
-    loadError.value = captureError(e, {code: "NETWORK", context: {action: "Загрузка версий модпака"}})
+    loadError.value = captureError(e, {code: "NETWORK", context: {action: t("search.install.versions_action")}})
   } finally {
     loading.value = false
   }
@@ -114,7 +116,7 @@ const install = async () => {
 
   await safeRun(() => instanceStore.installInstance(created.value.id), {
     code: "NETWORK",
-    context: {action: "Установка модпака", instanceName: created.value.name}
+    context: {action: t("search.install.install_action"), instanceName: created.value.name}
   })
 
   creating.value = false
@@ -144,7 +146,7 @@ const install = async () => {
       <span class="relative block h-px w-40 overflow-hidden bg-line">
         <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep"/>
       </span>
-      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузка версий пака</p>
+      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.install.loading') }}</p>
     </div>
 
     <div v-else-if="loadError" class="mt-6 border border-red-400/30 bg-ink-900 p-5">
@@ -159,21 +161,21 @@ const install = async () => {
               icon="i-lucide-rotate-cw"
               @click="loadVersions"
           >
-            Повторить
+            {{ $t('search.install.retry') }}
           </AppButton>
         </div>
       </div>
     </div>
 
     <p v-else-if="!versions.length" class="mt-6 text-[12px] leading-relaxed text-fg-muted">
-      У этого модпака нет опубликованных версий.
+      {{ $t('search.install.no_versions') }}
     </p>
 
     <form v-else class="mt-6 space-y-8" @submit.prevent="install">
       <div class="space-y-5">
         <div>
           <label for="pack-name" class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            Название
+            {{ $t('search.install.name') }}
           </label>
           <UInput
               id="pack-name"
@@ -189,18 +191,23 @@ const install = async () => {
               for="pack-description"
               class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
           >
-            Описание
+            {{ $t('search.install.description') }}
           </label>
-          <UInput id="pack-description" v-model="description" placeholder="Необязательно" class="w-full"/>
+          <UInput
+              id="pack-description"
+              v-model="description"
+              :placeholder="$t('search.install.description_placeholder')"
+              class="w-full"
+          />
         </div>
 
         <div>
-          <label class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Версия пака</label>
+          <label class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.install.version') }}</label>
           <USelectMenu
               v-model="versionId"
               :items="versionItems"
               value-key="value"
-              :search-input="{ placeholder: 'Версия или Minecraft' }"
+              :search-input="{ placeholder: $t('search.install.version_search') }"
               class="w-full"
           />
         </div>
@@ -214,26 +221,24 @@ const install = async () => {
           </p>
         </div>
         <div class="border-l border-line px-4 py-3">
-          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Загрузчик</p>
+          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('search.install.loader') }}</p>
           <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">{{ loaderLabel }}</p>
         </div>
       </div>
 
       <p v-if="selected && !selected.supported" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-        Эту версию лаунчер установить не сможет: {{ unsupportedReason(selected) }}. Выберите другую версию.
+        {{ $t('search.install.unsupported', { reason: unsupportedReason(selected) }) }}
       </p>
 
       <p v-else-if="selected?.blocked" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-hand" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-        Автор запретил сторонним лаунчерам скачивать архив этого пака. Установка начнётся и остановится
-        на окне со ссылкой: скачайте архив сами и укажите папку - дальше лаунчер справится.
+        {{ $t('search.install.blocked_pack') }}
       </p>
 
       <p v-else-if="!hit.distributionAllowed" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-        Автор запретил сторонним лаунчерам раздавать файлы этого пака. Лаунчер поищет замену на Modrinth,
-        а то, что не найдётся, попросит скачать вручную - со ссылками и поиском по папке загрузок.
+        {{ $t('search.install.blocked_files') }}
       </p>
 
       <AppButton
@@ -249,7 +254,7 @@ const install = async () => {
               class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
           />
         </template>
-        {{ creating ? 'Создание сборки' : 'Установить' }}
+        {{ creating ? $t('search.install.creating') : $t('search.install.install') }}
       </AppButton>
     </form>
   </div>

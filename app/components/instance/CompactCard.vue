@@ -13,6 +13,7 @@ const emit = defineEmits<{
   remove: [id: string]
 }>()
 
+const {t} = useI18n()
 const actions = useInstanceActions()
 
 const state = computed(() => actions.stateOf(props.instance))
@@ -26,27 +27,27 @@ const items = computed<ContextMenuItem[][]>(() => {
   const primary: ContextMenuItem[] = []
 
   if (state.value === "running") {
-    primary.push({label: "Остановить", icon: "i-lucide-square", onSelect: () => actions.stop(id)})
+    primary.push({label: t("instance.action.stop"), icon: "i-lucide-square", onSelect: () => actions.stop(id)})
   } else if (state.value === "installing") {
-    primary.push({label: "Отменить установку", icon: "i-lucide-x", onSelect: () => actions.cancelInstall(id)})
+    primary.push({label: t("instance.action.cancel_install"), icon: "i-lucide-x", onSelect: () => actions.cancelInstall(id)})
   } else if (state.value === "ready") {
-    primary.push({label: "Играть", icon: "i-lucide-play", onSelect: () => actions.play(id)})
+    primary.push({label: t("instance.action.play"), icon: "i-lucide-play", onSelect: () => actions.play(id)})
   } else {
-    primary.push({label: "Загрузить", icon: "i-lucide-arrow-down-to-line", onSelect: () => actions.install(id)})
+    primary.push({label: t("instance.action.install"), icon: "i-lucide-arrow-down-to-line", onSelect: () => actions.install(id)})
   }
 
   return [
     primary,
     [
-      {label: "Настройки", icon: "i-lucide-settings", onSelect: () => navigateTo(`/instance/${id}`)},
+      {label: t("instance.action.settings"), icon: "i-lucide-settings", onSelect: () => navigateTo(`/instance/${id}`)},
       ...DIRS.map(target => ({
-        label: INSTANCE_DIR_LABELS[target],
+        label: t(INSTANCE_DIR_KEYS[target]),
         icon: "i-lucide-folder-open",
         onSelect: () => actions.openDir(id, target)
       }))
     ],
     [
-      {label: "Удалить", icon: "i-lucide-trash-2", color: "error" as const, onSelect: () => emit("remove", id)}
+      {label: t("instance.action.remove"), icon: "i-lucide-trash-2", color: "error" as const, onSelect: () => emit("remove", id)}
     ]
   ]
 })
@@ -83,7 +84,7 @@ function select() {
         <span
             v-if="state === 'running'"
             class="absolute -right-1 -top-1 grid size-2 place-items-center"
-            title="Запущено"
+            :title="$t('instance.state.running')"
         >
           <span class="absolute size-2 bg-acid animate-breathe"/>
           <span class="size-2 bg-acid"/>
@@ -92,7 +93,7 @@ function select() {
         <span
             v-else-if="state === 'absent'"
             class="absolute -right-1 -top-1 size-2 bg-fg-faint"
-            title="Не загружена"
+            :title="$t('instance.state.absent')"
         />
       </span>
 

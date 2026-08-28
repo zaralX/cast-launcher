@@ -6,6 +6,7 @@ import {LauncherError} from "~/types/error";
 
 const emit = defineEmits<{ created: [] }>()
 
+const {t} = useI18n()
 const instancesStore = useInstanceStore()
 
 const loading = ref(true)
@@ -80,7 +81,7 @@ async function loadMetadata() {
 
     neoforgeVersions.value = neoforge
   } catch (e) {
-    loadError.value = captureError(e, {code: "NETWORK", context: {action: "Загрузка списка версий"}})
+    loadError.value = captureError(e, {code: "NETWORK", context: {action: t("create.versions_action")}})
   } finally {
     loading.value = false
   }
@@ -122,7 +123,7 @@ const createInstance = async () => {
       <span class="relative block h-px w-40 overflow-hidden bg-line">
         <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep"/>
       </span>
-      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузка списка версий</p>
+      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('create.loading') }}</p>
     </div>
 
     <div v-else-if="loadError" class="border border-red-400/30 bg-ink-900 p-5">
@@ -137,7 +138,7 @@ const createInstance = async () => {
               icon="i-lucide-rotate-cw"
               @click="loadMetadata"
           >
-            Повторить
+            {{ $t('create.retry') }}
           </AppButton>
         </div>
       </div>
@@ -150,20 +151,20 @@ const createInstance = async () => {
               for="instance-name"
               class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
           >
-            Название
+            {{ $t('create.name') }}
           </label>
           <UInput
               id="instance-name"
               v-model="name"
-              placeholder="Например, Hardcore Survival"
+              :placeholder="$t('create.name_placeholder')"
               class="w-full"
           />
         </div>
       </div>
 
       <div>
-        <span class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузчик</span>
-        <div role="radiogroup" aria-label="Загрузчик" class="grid grid-cols-4 border border-line">
+        <span class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('create.loader') }}</span>
+        <div role="radiogroup" :aria-label="$t('create.loader')" class="grid grid-cols-4 border border-line">
           <button
               v-for="(type, i) in TYPES"
               :key="type.value"
@@ -214,14 +215,14 @@ const createInstance = async () => {
               v-model="neoforgeLoader"
               :items="filteredNeoforgeVersions"
               :disabled="missingLoader"
-              placeholder="Нет сборок"
+              :placeholder="$t('create.no_builds')"
               class="w-full"
           />
         </div>
       </div>
 
       <p v-if="missingLoader" class="-mt-4 text-[12px] leading-relaxed text-fg-muted">
-        NeoForge не выпускался под Minecraft {{ minecraftVersion }} - выберите другую версию игры.
+        {{ $t('create.missing_loader', { version: minecraftVersion }) }}
       </p>
 
       <AppButton
@@ -237,7 +238,7 @@ const createInstance = async () => {
               class="size-3.5 transition-transform duration-500 group-hover/act:rotate-90"
           />
         </template>
-        {{ creating ? 'Создание' : 'Создать сборку' }}
+        {{ creating ? $t('create.creating') : $t('create.create') }}
       </AppButton>
     </form>
   </div>

@@ -19,11 +19,13 @@ const gameVersions = defineModel<string[]>("gameVersions", {required: true})
 const categories = defineModel<string[]>("categories", {required: true})
 const environment = defineModel<PackEnvironment | null>("environment", {required: true})
 
-const ENVIRONMENTS: { value: PackEnvironment | null, label: string }[] = [
-  {value: null, label: "Любое"},
-  {value: "client", label: "Клиент"},
-  {value: "server", label: "Сервер"}
-]
+const {t} = useI18n()
+
+const ENVIRONMENTS = computed<{ value: PackEnvironment | null, label: string }[]>(() => [
+  {value: null, label: t("search.filters.env_any")},
+  {value: "client", label: t("search.filters.env_client")},
+  {value: "server", label: t("search.filters.env_server")}
+])
 
 const groups = computed(() => {
   const byHeader = new Map<string, PackCategory[]>()
@@ -39,7 +41,7 @@ const groups = computed(() => {
 const ANY_VERSION = "any"
 
 const gameVersionItems = computed(() => [
-  {label: "Любая", value: ANY_VERSION},
+  {label: t("search.filters.any_version"), value: ANY_VERSION},
   ...(props.filters?.gameVersions ?? []).map(version => ({label: version, value: version}))
 ])
 
@@ -76,17 +78,17 @@ const reset = () => {
   environment.value = null
 }
 
-const HEADER_LABELS: Record<string, string> = {
-  categories: "Категории",
-  resolutions: "Разрешение",
-  "performance impact": "Влияние на производительность"
+const HEADER_KEYS: Record<string, string> = {
+  categories: "search.filters.group.categories",
+  resolutions: "search.filters.group.resolutions",
+  "performance impact": "search.filters.group.performance"
 }
 </script>
 
 <template>
   <aside class="flex flex-col gap-7">
     <div class="flex items-center gap-3">
-      <span class="font-mono text-[10px] uppercase tracking-[0.28em] text-acid">Фильтры</span>
+      <span class="font-mono text-[10px] uppercase tracking-[0.28em] text-acid">{{ $t('search.filters.title') }}</span>
       <span class="h-px flex-1 bg-line"/>
       <UButton
           v-if="selectedCount"
@@ -95,7 +97,7 @@ const HEADER_LABELS: Record<string, string> = {
           class="px-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint hover:bg-transparent hover:text-acid"
           @click="reset"
       >
-        Сбросить · {{ selectedCount }}
+        {{ $t('search.filters.reset', { count: selectedCount }) }}
       </UButton>
     </div>
 
@@ -105,7 +107,7 @@ const HEADER_LABELS: Record<string, string> = {
 
     <template v-else-if="filters">
       <section v-if="filters.loaders.length">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">Загрузчик</p>
+        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.filters.loader') }}</p>
         <div class="flex flex-wrap gap-2">
           <button
               v-for="loader in filters.loaders"
@@ -124,13 +126,13 @@ const HEADER_LABELS: Record<string, string> = {
       </section>
 
       <section v-if="filters.gameVersions.length">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">Версия игры</p>
+        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.filters.game_version') }}</p>
         <USelectMenu
             v-if="can.multipleGameVersions"
             v-model="gameVersions"
             :items="filters.gameVersions"
             multiple
-            placeholder="Любая"
+            :placeholder="$t('search.filters.any_version')"
             class="w-full"
         />
         <template v-else>
@@ -141,13 +143,13 @@ const HEADER_LABELS: Record<string, string> = {
               class="w-full"
           />
           <p class="mt-2 text-[11px] leading-relaxed text-fg-faint">
-            CurseForge ищет только по одной версии за раз.
+            {{ $t('search.filters.single_version') }}
           </p>
         </template>
       </section>
 
       <section v-if="can.environment">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">Окружение</p>
+        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.filters.environment') }}</p>
         <div class="grid grid-cols-3 border border-line">
           <button
               v-for="(option, i) in ENVIRONMENTS"
@@ -168,7 +170,7 @@ const HEADER_LABELS: Record<string, string> = {
 
       <section v-for="group in groups" :key="group.header">
         <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
-          {{ HEADER_LABELS[group.header] ?? group.header }}
+          {{ HEADER_KEYS[group.header] ? $t(HEADER_KEYS[group.header]!) : group.header }}
         </p>
         <div class="flex flex-wrap gap-2">
           <button
@@ -189,7 +191,7 @@ const HEADER_LABELS: Record<string, string> = {
     </template>
 
     <p v-else class="text-[12px] leading-relaxed text-fg-muted">
-      Список фильтров не загрузился.
+      {{ $t('search.filters.failed') }}
     </p>
   </aside>
 </template>

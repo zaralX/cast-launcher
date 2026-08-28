@@ -8,6 +8,7 @@ import {INSTANCE_TYPE_LABELS} from "~/types/instance";
 
 const emit = defineEmits<{ imported: [instanceId: string] }>()
 
+const {t} = useI18n()
 const instanceStore = useInstanceStore()
 
 const picking = ref(false)
@@ -31,12 +32,12 @@ const facts = computed(() => {
   if (!found) return []
 
   return [
-    {label: "Формат", value: found.kindLabel},
+    {label: t("import_pack.facts.format"), value: found.kindLabel},
     {label: "Minecraft", value: found.minecraftVersion || "-"},
-    {label: "Загрузчик", value: found.loader ? found.loaderLabel : "-"},
-    {label: "Версия пака", value: found.version || "-"},
-    {label: "Файлов", value: found.files ? String(found.files) : "внутри архива"},
-    {label: "Размер", value: formatBytes(found.size)}
+    {label: t("import_pack.facts.loader"), value: found.loader ? found.loaderLabel : "-"},
+    {label: t("import_pack.facts.version"), value: found.version || "-"},
+    {label: t("import_pack.facts.files"), value: found.files ? String(found.files) : t("import_pack.facts.files_inside")},
+    {label: t("import_pack.facts.size"), value: formatBytes(found.size)}
   ]
 })
 
@@ -44,7 +45,7 @@ async function choose() {
   if (busy.value) return
 
   picking.value = true
-  const path = await safeRun(() => call("pick_modpack_file"), {context: {action: "Выбор файла модпака"}})
+  const path = await safeRun(() => call("pick_modpack_file"), {context: {action: t("import_pack.pick_action")}})
   picking.value = false
 
   if (path) await read(path)
@@ -55,7 +56,7 @@ async function read(path: string) {
   pack.value = null
 
   const result = await attempt(() => call("inspect_modpack_file", {path}), {
-    context: {action: "Чтение файла модпака"}
+    context: {action: t("import_pack.read_action")}
   })
 
   reading.value = false
@@ -104,7 +105,7 @@ async function run() {
       name: name.value.trim(),
       description: description.value.trim()
     }
-  }), {context: {action: "Импорт модпака из файла"}})
+  }), {context: {action: t("import_pack.import_action")}})
 
   if (!created.ok) {
     importing.value = false
@@ -113,7 +114,7 @@ async function run() {
 
   await safeRun(() => instanceStore.installInstance(created.value.id), {
     code: "NETWORK",
-    context: {action: "Установка модпака", instanceName: created.value.name}
+    context: {action: t("import_pack.install_action"), instanceName: created.value.name}
   })
 
   importing.value = false
@@ -136,11 +137,10 @@ async function run() {
           :class="reading ? 'animate-spin' : ''"
       />
       <span class="font-mono text-[10px] uppercase tracking-[0.24em]">
-        {{ reading ? 'Чтение архива' : pack ? 'Выбрать другой файл' : 'Выбрать файл модпака' }}
+        {{ reading ? $t('import_pack.reading') : pack ? $t('import_pack.pick_another') : $t('import_pack.pick') }}
       </span>
       <span class="text-[12px] leading-relaxed text-fg-muted">
-        Перетащите сюда или выберите <span class="text-fg">.mrpack</span> Modrinth, архив CurseForge
-        или экспорт MultiMC / Prism
+        {{ $t('import_pack.hint_before') }} <span class="text-fg">.mrpack</span> {{ $t('import_pack.hint_after') }}
       </span>
     </button>
 
@@ -153,14 +153,14 @@ async function run() {
         class="mt-6 flex items-start gap-2.5 border border-amber-400/30 bg-ink-900 px-4 py-3 text-[12px] leading-relaxed text-fg-muted"
     >
       <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-      Этот файл лаунчер установить не сможет: {{ pack.blocked }}.
+      {{ $t('import_pack.blocked', { reason: pack.blocked }) }}
     </div>
 
     <form v-if="pack" class="mt-6 space-y-8" @submit.prevent="run">
       <div class="space-y-5">
         <div>
           <label for="file-pack-name" class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            Название
+            {{ $t('import_pack.name') }}
           </label>
           <UInput
               id="file-pack-name"
@@ -176,9 +176,14 @@ async function run() {
               for="file-pack-description"
               class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
           >
-            Описание
+            {{ $t('import_pack.description') }}
           </label>
-          <UInput id="file-pack-description" v-model="description" placeholder="Необязательно" class="w-full"/>
+          <UInput
+              id="file-pack-description"
+              v-model="description"
+              :placeholder="$t('import_pack.description_placeholder')"
+              class="w-full"
+          />
         </div>
       </div>
 
@@ -198,13 +203,12 @@ async function run() {
 
       <p v-if="pack.kind === 'curseforge'" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-hand" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-        В архиве CurseForge лежат только ссылки на моды. Те, что авторы запретили скачивать лаунчерам,
-        придётся скачать вручную - лаунчер попросит и покажет ссылки.
+        {{ $t('import_pack.curseforge_hint') }}
       </p>
 
       <p v-else-if="pack.kind === 'multimc'" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
         <UIcon name="i-lucide-info" class="mt-0.5 size-3.5 shrink-0 text-fg-faint"/>
-        Моды, конфиги и миры возьмутся прямо из архива, а клиент, библиотеки и Java лаунчер докачает сам.
+        {{ $t('import_pack.multimc_hint') }}
       </p>
 
       <AppButton
@@ -220,7 +224,7 @@ async function run() {
               class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
           />
         </template>
-        {{ importing ? 'Создание сборки' : 'Импортировать' }}
+        {{ importing ? $t('import_pack.creating') : $t('import_pack.import') }}
       </AppButton>
     </form>
   </div>

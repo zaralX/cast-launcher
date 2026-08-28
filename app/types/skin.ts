@@ -47,15 +47,15 @@ export const VARIANT_LABELS: Record<SkinVariant, string> = {
     SLIM: "Slim"
 }
 
-export const VARIANT_HINTS: Record<SkinVariant, string> = {
-    CLASSIC: "Руки 4 пикселя - как у Steve",
-    SLIM: "Руки 3 пикселя - как у Alex"
+export const VARIANT_HINT_KEYS: Record<SkinVariant, string> = {
+    CLASSIC: "skins.variant.classic_hint",
+    SLIM: "skins.variant.slim_hint"
 }
 
-export const SOURCE_LABELS: Record<SkinSource, string> = {
-    profile: "Из профиля",
-    local: "Загружен",
-    player: "По нику"
+export const SOURCE_KEYS: Record<SkinSource, string> = {
+    profile: "skins.source.profile",
+    local: "skins.source.local",
+    player: "skins.source.player"
 }
 
 export function sameLook(a: Look, b: Look) {

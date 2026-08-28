@@ -14,36 +14,38 @@ import {
 interface SourceInfo {
   kind: LauncherKind
   label: string
-  hint: string
+  hintKey: string
   icon: string
   placeholder: string
-  librariesHint: string
+  librariesHintKey: string
 }
 
 const SOURCES: SourceInfo[] = [
   {
     kind: "prism",
     label: "PrismLauncher",
-    hint: "Сборки, ассеты, библиотеки и Java",
+    hintKey: "settings.import.prism.hint",
     icon: "i-lucide-package",
     placeholder: "%APPDATA%\\PrismLauncher",
-    librariesHint: "Библиотеки игры и загрузчиков, включая уже собранные Forge и NeoForge."
+    librariesHintKey: "settings.import.prism.libraries_hint"
   },
   {
     kind: "modrinth",
     label: "Modrinth App",
-    hint: "Сборки, ассеты, библиотеки и Java",
+    hintKey: "settings.import.modrinth.hint",
     icon: "i-lucide-box",
     placeholder: "%APPDATA%\\ModrinthApp",
-    librariesHint: "Библиотеки игры и загрузчиков. Установщики Forge и NeoForge Modrinth App не хранит - их скачаем сами."
+    librariesHintKey: "settings.import.modrinth.libraries_hint"
   }
 ]
 
-const STAGE_LABELS: Record<ImportProgress["stage"], string> = {
-  shared: "Общие файлы",
-  instances: "Сборки",
-  done: "Готово"
+const STAGE_KEYS: Record<ImportProgress["stage"], string> = {
+  shared: "settings.import.stage.shared",
+  instances: "settings.import.stage.instances",
+  done: "settings.import.stage.done"
 }
+
+const {t} = useI18n()
 
 const source = ref<LauncherKind>("prism")
 const path = ref("")
@@ -53,22 +55,22 @@ const current = computed(() => SOURCES.find(option => option.kind === source.val
 const detected = computed(() => launchers.value.find(launcher => launcher.kind === source.value) ?? null)
 
 const rows = computed(() => [
-  {key: "libraries" as const, title: "Библиотеки", hint: current.value.librariesHint},
+  {key: "libraries" as const, title: t("settings.import.rows.libraries"), hint: t(current.value.librariesHintKey)},
   {
     key: "assets" as const,
-    title: "Ассеты",
-    hint: "Рекомендовано при первом переносе чтобы не скачивать гигабайты снова."
+    title: t("settings.import.rows.assets"),
+    hint: t("settings.import.rows.assets_hint")
   },
   {
     key: "java" as const,
-    title: "Java",
-    hint: "Рекомендовано при первом переносе. Скопируем уже скачанные java runtimes."
+    title: t("settings.import.rows.java"),
+    hint: t("settings.import.rows.java_hint")
   },
-  {key: "icons" as const, title: "Иконки", hint: "Иконки перенесённых сборок."},
+  {key: "icons" as const, title: t("settings.import.rows.icons"), hint: t("settings.import.rows.icons_hint")},
   {
     key: "linkPacks" as const,
-    title: "Привязать модпаки",
-    hint: "Для паков с Modrinth и CurseForge останется связь для обновления версий."
+    title: t("settings.import.rows.link_packs"),
+    hint: t("settings.import.rows.link_packs_hint")
   }
 ])
 
@@ -140,7 +142,7 @@ async function scan() {
     selected.value = found.filter(instance => !instance.blocked).map(instance => instance.folder)
   } catch (e) {
     scanned.value = null
-    captureError(e, {context: {stage: `Сканирование ${current.value.label}`, path: path.value}})
+    captureError(e, {context: {stage: t("settings.import.scan_stage", {launcher: current.value.label}), path: path.value}})
   } finally {
     scanning.value = false
   }
@@ -160,7 +162,7 @@ async function start() {
       folders: selected.value,
       options: options.value
     }
-  }), {context: {stage: `Перенос сборок из ${current.value.label}`, path: path.value}})
+  }), {context: {stage: t("settings.import.import_stage", {launcher: current.value.label}), path: path.value}})
 
   running.value = false
   progress.value = null
@@ -191,7 +193,7 @@ onBeforeUnmount(() => unlisten?.())
 <template>
   <SettingsPanel
       index="04"
-      title="Копирование из другого лаунчера"
+      :title="$t('settings.import.title')"
       icon="i-lucide-import"
   >
     <div class="space-y-7">
@@ -210,15 +212,17 @@ onBeforeUnmount(() => unlisten?.())
           <div class="min-w-0 flex-1">
             <p class="truncate text-[13px] text-fg">{{ option.label }}</p>
             <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              {{ option.hint }}
+              {{ $t(option.hintKey) }}
             </p>
           </div>
         </button>
       </div>
 
       <SettingsField
-          :label="`Каталог данных ${current.label}`"
-          :hint="detected ? `Найдено автоматически: ${detected.instances} сборок` : `${current.label} не найден - укажите папку вручную`"
+          :label="$t('settings.import.dir', { launcher: current.label })"
+          :hint="detected
+            ? $t('settings.import.detected', { count: detected.instances })
+            : $t('settings.import.not_detected', { launcher: current.label })"
       >
         <div class="flex gap-2">
           <UInput
@@ -235,7 +239,7 @@ onBeforeUnmount(() => unlisten?.())
               :disabled="running"
               @click="browse"
           >
-            Обзор
+            {{ $t('common.browse') }}
           </AppButton>
 
           <AppButton
@@ -245,7 +249,7 @@ onBeforeUnmount(() => unlisten?.())
               :disabled="!canScan"
               @click="scan"
           >
-            {{ scanning ? 'Поиск' : 'Сканировать' }}
+            {{ scanning ? $t('settings.java.searching') : $t('settings.import.scan') }}
           </AppButton>
         </div>
       </SettingsField>
@@ -253,7 +257,7 @@ onBeforeUnmount(() => unlisten?.())
       <div v-if="scanned">
         <div class="mb-2 flex items-center justify-between gap-4">
           <span class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            Сборки · выбрано {{ selected.length }} из {{ importable.length }}
+            {{ $t('settings.import.selected', { selected: selected.length, total: importable.length }) }}
           </span>
 
           <AppButton
@@ -263,7 +267,7 @@ onBeforeUnmount(() => unlisten?.())
               :disabled="running || !importable.length"
               @click="toggleAll"
           >
-            {{ allSelected ? 'Снять всё' : 'Выбрать всё' }}
+            {{ allSelected ? $t('settings.import.unselect_all') : $t('settings.import.select_all') }}
           </AppButton>
         </div>
 
@@ -292,7 +296,7 @@ onBeforeUnmount(() => unlisten?.())
                 {{ instance.minecraftVersion || '-' }} · {{ instance.loaderLabel }}
                 <template v-if="instance.pack"> · {{ instance.pack.provider }}</template>
                 <template v-if="formatPlaytime(instance.playtime?.totalSeconds ?? 0)">
-                  · наиграно {{ formatPlaytime(instance.playtime.totalSeconds) }}
+                  · {{ $t('settings.import.playtime', { playtime: formatPlaytime(instance.playtime.totalSeconds) }) }}
                 </template>
               </p>
               <p v-if="instance.blocked" class="mt-1 truncate font-mono text-[10px] text-amber-400">
@@ -306,11 +310,11 @@ onBeforeUnmount(() => unlisten?.())
             v-if="!scanned.length"
             class="border-b border-line py-6 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
         >
-          Сборок в этом каталоге нет
+          {{ $t('settings.import.empty') }}
         </p>
 
         <p v-else-if="blocked.length" class="mt-3 font-mono text-[10px] leading-relaxed text-fg-faint/70">
-          {{ blocked.length }} сборок перенести нельзя - они останутся в {{ current.label }}.
+          {{ $t('settings.import.blocked', { count: blocked.length, launcher: current.label }) }}
         </p>
       </div>
 
@@ -332,7 +336,7 @@ onBeforeUnmount(() => unlisten?.())
       <div v-if="running" class="border border-line bg-ink-700 px-5 py-4">
         <div class="flex items-center justify-between gap-4">
           <p class="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.24em] text-acid">
-            {{ progress ? STAGE_LABELS[progress.stage] : 'Подготовка' }}
+            {{ progress ? $t(STAGE_KEYS[progress.stage]) : $t('settings.import.preparing') }}
             <span v-if="progress?.step" class="text-fg-muted"> · {{ progress.step }}</span>
           </p>
 
@@ -342,29 +346,31 @@ onBeforeUnmount(() => unlisten?.())
               icon="i-lucide-x"
               @click="cancel"
           >
-            Отменить
+            {{ $t('settings.import.cancel') }}
           </AppButton>
         </div>
 
         <p class="mt-3 font-mono text-[10px] text-fg-faint">
           <template v-if="progress">
-            {{ progress.stats.files }} файлов · {{ formatBytes(progress.stats.bytes) }}
-            <template v-if="progress.stats.skipped"> · пропущено {{ progress.stats.skipped }}</template>
-            <template v-if="progress.total"> · сборок {{ progress.done }}/{{ progress.total }}</template>
+            {{ $t('settings.import.files', { files: progress.stats.files, bytes: formatBytes(progress.stats.bytes) }) }}
+            <template v-if="progress.stats.skipped"> · {{ $t('settings.import.skipped', { count: progress.stats.skipped }) }}</template>
+            <template v-if="progress.total"> · {{ $t('settings.import.instances_progress', { done: progress.done, total: progress.total }) }}</template>
           </template>
-          <template v-else>Читаем каталог {{ current.label }}</template>
+          <template v-else>{{ $t('settings.import.reading', { launcher: current.label }) }}</template>
         </p>
       </div>
 
       <div v-else-if="report" class="border border-line bg-ink-700 px-5 py-4">
         <p class="font-mono text-[10px] uppercase tracking-[0.24em]" :class="report.cancelled ? 'text-amber-400' : 'text-acid'">
-          {{ report.cancelled ? 'Перенос прерван' : 'Перенос завершён' }}
+          {{ report.cancelled ? $t('settings.import.cancelled') : $t('settings.import.finished') }}
         </p>
 
         <p class="mt-3 text-[12px] leading-relaxed text-fg-muted">
-          Перенесено сборок: {{ report.imported.length }}.
-          Скопировано {{ report.stats.files }} файлов ({{ formatBytes(report.stats.bytes) }}).
-          Сборки появятся в списке и доустановятся при первом запуске установки.
+          {{ $t('settings.import.report', {
+            imported: report.imported.length,
+            files: report.stats.files,
+            bytes: formatBytes(report.stats.bytes)
+          }) }}
         </p>
 
         <ul v-if="report.skipped.length" class="mt-3 space-y-1">
@@ -387,7 +393,7 @@ onBeforeUnmount(() => unlisten?.())
           :disabled="!canImport"
           @click="start"
       >
-        {{ running ? 'Переносим' : `Перенести (${selected.length})` }}
+        {{ running ? $t('settings.import.running') : $t('settings.import.start', { count: selected.length }) }}
       </AppButton>
     </div>
   </SettingsPanel>

@@ -16,30 +16,32 @@ type Entry = {
 
 const REPO = "https://github.com/zaralX/cast-launcher"
 
-const contacts: Entry[] = [
-  {label: "Сайт", value: "zaralx.ru", icon: "i-lucide-globe", url: "https://zaralx.ru"},
+const {t} = useI18n()
+
+const contacts = computed<Entry[]>(() => [
+  {label: t("credits.contacts.site"), value: "zaralx.ru", icon: "i-lucide-globe", url: "https://zaralx.ru"},
   {label: "GitHub", value: "@zaralX", icon: "i-simple-icons-github", url: "https://github.com/zaralX"},
   {label: "Telegram", value: "@zWork1", icon: "i-simple-icons-telegram", url: "https://t.me/zWork1"},
-  {label: "Почта", value: "admin@zaralx.ru", icon: "i-lucide-mail", copy: "admin@zaralx.ru"}
-]
+  {label: t("credits.contacts.mail"), value: "admin@zaralx.ru", icon: "i-lucide-mail", copy: "admin@zaralx.ru"}
+])
 
-const project: Entry[] = [
-  {label: "Исходники", value: "zaralX/cast-launcher", icon: "i-lucide-code-xml", url: REPO},
-  {label: "Баги и идеи", value: "Issues", icon: "i-lucide-bug", url: `${REPO}/issues`},
-  {label: "Версии", value: "Releases", icon: "i-lucide-package", url: `${REPO}/releases`},
-  {label: "Лицензия", value: "Apache-2.0", icon: "i-lucide-scale", url: `${REPO}/blob/main/LICENSE`}
-]
+const project = computed<Entry[]>(() => [
+  {label: t("credits.project.sources"), value: "zaralX/cast-launcher", icon: "i-lucide-code-xml", url: REPO},
+  {label: t("credits.project.issues"), value: "Issues", icon: "i-lucide-bug", url: `${REPO}/issues`},
+  {label: t("credits.project.releases"), value: "Releases", icon: "i-lucide-package", url: `${REPO}/releases`},
+  {label: t("credits.project.license"), value: "Apache-2.0", icon: "i-lucide-scale", url: `${REPO}/blob/main/LICENSE`}
+])
 
 const stack = [
   "Rust", "Tauri 2", "Nuxt 4", "Vue 3", "TypeScript", "Tailwind CSS", "Nuxt UI", "Pinia"
 ]
 
-const thanks = [
-  {name: "Mojang Studios", note: "Minecraft и метаданные в открытом доступе"},
-  {name: "Modrinth", note: "открытое API и референс дизайна лаунчера"},
-  {name: "PrismLauncher", note: "образец того, как надо делать лаунчеры"},
-  {name: "Все, кто тестирует и репортит баги", note: "w w вы крутышки"}
-]
+const thanks = computed(() => [
+  {name: "Mojang Studios", note: t("credits.thanks.mojang")},
+  {name: "Modrinth", note: t("credits.thanks.modrinth")},
+  {name: "PrismLauncher", note: t("credits.thanks.prism")},
+  {name: t("credits.thanks.testers_name"), note: t("credits.thanks.testers")}
+])
 
 const toast = useToast()
 
@@ -63,7 +65,7 @@ onMounted(async () => {
 async function activate(entry: Entry) {
   if (entry.url) {
     await safeRun(() => call("open_url", {url: entry.url!}), {
-      context: {action: "Открытие ссылки", url: entry.url}
+      context: {action: t("credits.open_action"), url: entry.url}
     })
     return
   }
@@ -73,7 +75,7 @@ async function activate(entry: Entry) {
   const copied = await copyToClipboard(entry.copy)
 
   toast.add({
-    title: copied ? "Скопировано" : "Не получилось скопировать",
+    title: copied ? t("credits.copied") : t("credits.copy_failed"),
     description: entry.copy,
     color: copied ? "success" : "error",
     icon: copied ? "i-lucide-clipboard-check" : "i-lucide-clipboard-x"
@@ -95,14 +97,14 @@ async function activate(entry: Entry) {
           <span class="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-acid to-transparent"/>
         </div>
 
-        <p class="mt-7 font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">Об авторах</p>
+        <p class="mt-7 font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">{{ $t('credits.eyebrow') }}</p>
 
         <h1 class="mt-4 font-unbounded text-[clamp(30px,6vw,52px)] font-bold leading-[0.9] tracking-[-0.06em] text-fg">
           CAST<span class="text-acid">.</span>LAUNCHER
         </h1>
 
         <p class="mt-5 max-w-md text-[12px] leading-relaxed text-fg-muted">
-          Очень крутой важный текст без которого страница выглядит скучно, вопрос лишь в том, зачем ты это читаешь.
+          {{ $t('credits.intro') }}
         </p>
 
         <div class="mt-7 flex flex-wrap items-center justify-center gap-2">
@@ -125,7 +127,7 @@ async function activate(entry: Entry) {
       </header>
 
       <section class="animate-rise mt-14 w-full [animation-delay:80ms]">
-        <SectionHeading index="01" title="Разработчик" meta="zaralX"/>
+        <SectionHeading index="01" :title="$t('credits.developer')" meta="zaralX"/>
 
         <div class="mt-5 grid gap-3 sm:grid-cols-2">
           <button
@@ -157,7 +159,7 @@ async function activate(entry: Entry) {
       </section>
 
       <section class="animate-rise mt-12 w-full [animation-delay:160ms]">
-        <SectionHeading index="02" title="Проект" meta="Cast Launcher"/>
+        <SectionHeading index="02" :title="$t('credits.project_title')" meta="Cast Launcher"/>
 
         <div class="mt-5 grid gap-3 sm:grid-cols-2">
           <button
@@ -187,12 +189,12 @@ async function activate(entry: Entry) {
         </div>
 
         <p class="mt-4 text-center text-[12px] leading-relaxed text-fg-muted">
-          Пул реквесты приветствуются
+          {{ $t('credits.pull_requests') }}
         </p>
       </section>
 
       <section class="animate-rise mt-12 w-full [animation-delay:240ms]">
-        <SectionHeading index="03" title="Стек" :meta="`${stack.length} шт.`"/>
+        <SectionHeading index="03" :title="$t('credits.stack')" :meta="$t('credits.stack_meta', { count: stack.length })"/>
 
         <div class="mt-5 flex flex-wrap justify-center gap-2">
           <span
@@ -206,7 +208,7 @@ async function activate(entry: Entry) {
       </section>
 
       <section class="animate-rise mt-12 w-full [animation-delay:320ms]">
-        <SectionHeading index="04" title="Спасибо"/>
+        <SectionHeading index="04" :title="$t('credits.thanks_title')"/>
 
         <ul class="mt-5 divide-y divide-line border border-line bg-ink-800">
           <li
@@ -223,11 +225,10 @@ async function activate(entry: Entry) {
       <footer class="animate-rise mt-14 flex flex-col items-center gap-3 text-center [animation-delay:400ms]">
         <span class="h-px w-24 bg-line"/>
         <p class="max-w-md font-mono text-[10px] uppercase leading-relaxed tracking-[0.18em] text-fg-faint">
-          Не является официальным продуктом Minecraft. Не одобрено Mojang или Microsoft
-          и никак с ними не связано.
+          {{ $t('credits.disclaimer') }}
         </p>
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
-          Сделано с ♥ — zaralX
+          {{ $t('credits.made_by') }}
         </p>
       </footer>
     </div>

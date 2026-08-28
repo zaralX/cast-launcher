@@ -37,15 +37,17 @@ const expanded = ref("")
 const selected = ref<string[]>([])
 const busy = ref<string[]>([])
 const working = ref(false)
+const {t} = useI18n()
+
 const confirming = ref(false)
 const dragging = ref(false)
 
-const FILTERS = [
-  {label: "Все", value: "all"},
-  {label: "Включённые", value: "enabled"},
-  {label: "Выключенные", value: "disabled"},
-  {label: "С обновлениями", value: "outdated"}
-]
+const FILTERS = computed(() => [
+  {label: t("instance.mods.filter.all"), value: "all"},
+  {label: t("instance.mods.filter.enabled"), value: "enabled"},
+  {label: t("instance.mods.filter.disabled"), value: "disabled"},
+  {label: t("instance.mods.filter.outdated"), value: "outdated"}
+])
 
 const identifying = computed(() => modsStore.isIdentifying(instanceId.value))
 const checking = computed(() => modsStore.isChecking(instanceId.value))
@@ -116,7 +118,7 @@ async function loadIcons(list: ModFile[]) {
 async function load(force = false) {
   const result = await attempt(
       () => modsStore.load(instanceId.value, force),
-      {context: {instanceId: instanceId.value, action: "Список модов"}}
+      {context: {instanceId: instanceId.value, action: t("instance.mods.list_action")}}
   )
 
   if (!result.ok) return
@@ -131,22 +133,22 @@ async function identify() {
 
   await attempt(
       () => modsStore.identify(instanceId.value),
-      {context: {instanceId: instanceId.value, action: "Опознание модов"}}
+      {context: {instanceId: instanceId.value, action: t("instance.mods.identify_action")}}
   )
 }
 
 async function checkUpdates() {
   const result = await attempt(
       () => modsStore.checkUpdates(instanceId.value),
-      {context: {instanceId: instanceId.value, action: "Проверка обновлений модов"}}
+      {context: {instanceId: instanceId.value, action: t("instance.mods.check_action")}}
   )
 
   if (!result.ok) return
 
   toast.add({
     title: result.value.length
-        ? `Обновлений: ${result.value.length}`
-        : "Все моды свежие",
+        ? t("instance.mods.updates_count", {count: result.value.length})
+        : t("instance.mods.up_to_date"),
     color: result.value.length ? "success" : "neutral",
     icon: "i-lucide-arrow-up-circle"
   })
@@ -159,7 +161,7 @@ async function applyUpdates(paths: string[]) {
 
   const result = await attempt(
       () => modsStore.update(instanceId.value, paths),
-      {context: {instanceId: instanceId.value, action: "Обновление модов"}}
+      {context: {instanceId: instanceId.value, action: t("instance.mods.update_action")}}
   )
 
   working.value = false
@@ -169,8 +171,8 @@ async function applyUpdates(paths: string[]) {
   const {updated, failed} = result.value
 
   toast.add({
-    title: updated.length ? `Обновлено: ${updated.length}` : "Ничего не обновилось",
-    description: failed.length ? `Не удалось: ${failed.join(", ")}` : undefined,
+    title: updated.length ? t("instance.mods.updated_count", {count: updated.length}) : t("instance.mods.nothing_updated"),
+    description: failed.length ? t("instance.mods.update_failed", {list: failed.join(", ")}) : undefined,
     color: failed.length ? "warning" : "success",
     icon: "i-lucide-arrow-up-circle"
   })
@@ -187,7 +189,7 @@ async function setEnabled(mod: ModFile, enabled: boolean) {
 
   const result = await attempt(
       () => modsStore.setEnabled(instanceId.value, mod.path, enabled),
-      {context: {instanceId: instanceId.value, action: enabled ? "Включение мода" : "Выключение мода"}}
+      {context: {instanceId: instanceId.value, action: enabled ? t("instance.mods.enable_action") : t("instance.mods.disable_action")}}
   )
 
   busy.value = busy.value.filter(path => path !== mod.path)
@@ -207,7 +209,7 @@ async function setPickedEnabled(enabled: boolean) {
   for (const mod of targets) {
     const result = await attempt(
         () => modsStore.setEnabled(instanceId.value, mod.path, enabled),
-        {context: {instanceId: instanceId.value, action: enabled ? "Включение мода" : "Выключение мода"}}
+        {context: {instanceId: instanceId.value, action: enabled ? t("instance.mods.enable_action") : t("instance.mods.disable_action")}}
     )
 
     if (!result.ok) break
@@ -227,7 +229,7 @@ async function removePicked() {
 
   const result = await attempt(
       () => modsStore.remove(instanceId.value, paths),
-      {context: {instanceId: instanceId.value, action: "Удаление модов"}}
+      {context: {instanceId: instanceId.value, action: t("instance.mods.remove_action")}}
   )
 
   working.value = false
@@ -239,7 +241,7 @@ async function removePicked() {
   keepAlive()
 
   toast.add({
-    title: paths.length === 1 ? "Мод удалён" : `Удалено модов: ${paths.length}`,
+    title: paths.length === 1 ? t("instance.mods.removed_one") : t("instance.mods.removed_many", {count: paths.length}),
     color: "success",
     icon: "i-lucide-trash-2"
   })
@@ -247,16 +249,16 @@ async function removePicked() {
 
 function report(installed: InstalledMods) {
   const parts = [
-    installed.added.length ? `добавлено ${installed.added.length}` : "",
-    installed.replaced.length ? `заменено ${installed.replaced.length}` : "",
-    installed.skipped.length ? `пропущено ${installed.skipped.length}` : "",
-    installed.failed.length ? `не удалось ${installed.failed.length}` : ""
+    installed.added.length ? t("instance.mods.report.added", {count: installed.added.length}) : "",
+    installed.replaced.length ? t("instance.mods.report.replaced", {count: installed.replaced.length}) : "",
+    installed.skipped.length ? t("instance.mods.report.skipped", {count: installed.skipped.length}) : "",
+    installed.failed.length ? t("instance.mods.report.failed", {count: installed.failed.length}) : ""
   ].filter(Boolean)
 
   const aside = [...installed.skipped, ...installed.failed]
 
   toast.add({
-    title: parts.length ? parts.join(", ") : "Ничего не добавлено",
+    title: parts.length ? parts.join(", ") : t("instance.mods.report.nothing"),
     description: aside.length ? aside.join(", ") : undefined,
     color: installed.failed.length ? "error" : installed.added.length || installed.replaced.length ? "success" : "warning",
     icon: "i-lucide-package-plus"
@@ -270,7 +272,7 @@ async function addFiles(paths: string[]) {
 
   const result = await attempt(
       () => modsStore.add(instanceId.value, paths),
-      {context: {instanceId: instanceId.value, action: "Добавление модов"}}
+      {context: {instanceId: instanceId.value, action: t("instance.mods.add_action")}}
   )
 
   working.value = false
@@ -291,7 +293,7 @@ async function afterCatalogInstall() {
 async function pickFiles() {
   const result = await attempt(
       () => call("pick_mod_files"),
-      {context: {instanceId: instanceId.value, action: "Выбор файлов модов"}}
+      {context: {instanceId: instanceId.value, action: t("instance.mods.pick_action")}}
   )
 
   if (result.ok) await addFiles(result.value)
@@ -299,12 +301,12 @@ async function pickFiles() {
 
 const openFolder = () => safeRun(
     () => call("open_instance_dir", {instanceId: instanceId.value, target: "mods"}),
-    {context: {instanceId: instanceId.value, action: "Открытие папки модов"}}
+    {context: {instanceId: instanceId.value, action: t("instance.mods.open_folder_action")}}
 )
 
 const openHomepage = (url: string) => safeRun(
     () => call("open_url", {url}),
-    {context: {instanceId: instanceId.value, action: "Открытие страницы мода"}}
+    {context: {instanceId: instanceId.value, action: t("instance.mods.open_page_action")}}
 )
 
 let unlisten: UnlistenFn | null = null
@@ -325,7 +327,7 @@ onMounted(async () => {
     const files = payload.paths.filter(path => isModFile(path))
 
     if (!files.length) {
-      toast.add({title: "Это не моды", description: "Перетащите jar, zip или litemod", color: "warning"})
+      toast.add({title: t("instance.mods.not_mods"), description: t("instance.mods.not_mods_hint"), color: "warning"})
       return
     }
 
@@ -349,24 +351,24 @@ watch(instanceId, () => {
 <template>
   <SettingsPanel
       index="01"
-      title="Моды"
+      :title="$t('instance.mods.title')"
       icon="i-lucide-blocks"
-      description="Содержимое папки mods этой сборки: то, что лежит на диске, а не то, что заявлено в модпаке."
+      :description="$t('instance.mods.description')"
   >
     <div
         class="space-y-5"
         :class="dragging ? 'outline outline-1 outline-acid outline-offset-8' : ''"
     >
       <div class="flex flex-wrap items-end gap-4">
-        <SettingsField label="Поиск" class="min-w-[14rem] flex-1">
-          <UInput v-model="query" placeholder="Название, modId или файл" class="w-full">
+        <SettingsField :label="$t('instance.mods.search')" class="min-w-[14rem] flex-1">
+          <UInput v-model="query" :placeholder="$t('instance.mods.search_placeholder')" class="w-full">
             <template #trailing>
               <UIcon name="i-lucide-search" class="size-3.5 text-fg-faint"/>
             </template>
           </UInput>
         </SettingsField>
 
-        <SettingsField label="Показывать" class="min-w-[10rem]">
+        <SettingsField :label="$t('instance.mods.show')" class="min-w-[10rem]">
           <USelect v-model="filter" :items="FILTERS" class="w-full"/>
         </SettingsField>
 
@@ -376,7 +378,7 @@ watch(instanceId, () => {
               icon="i-lucide-search"
               @click="catalogOpen = true"
           >
-            Найти мод
+            {{ $t('instance.mods.find') }}
           </AppButton>
 
           <AppButton
@@ -385,7 +387,7 @@ watch(instanceId, () => {
               :loading="working"
               @click="pickFiles"
           >
-            Добавить файлы
+            {{ $t('instance.mods.add_files') }}
           </AppButton>
 
           <AppButton
@@ -395,7 +397,7 @@ watch(instanceId, () => {
               :disabled="!mods.length"
               @click="checkUpdates"
           >
-            Проверить обновления
+            {{ $t('instance.mods.check_updates') }}
           </AppButton>
 
           <AppButton
@@ -404,7 +406,7 @@ watch(instanceId, () => {
               :loading="loading"
               @click="load(true)"
           >
-            Перечитать
+            {{ $t('instance.mods.reload') }}
           </AppButton>
 
           <AppButton
@@ -412,7 +414,7 @@ watch(instanceId, () => {
               icon="i-lucide-folder-open"
               @click="openFolder"
           >
-            Папка
+            {{ $t('instance.mods.folder') }}
           </AppButton>
         </div>
       </div>
@@ -421,12 +423,13 @@ watch(instanceId, () => {
         <div class="flex items-center gap-4">
           <label v-if="visible.length" class="flex cursor-pointer items-center gap-2.5">
             <UCheckbox :model-value="allVisiblePicked" @update:model-value="toggleAllVisible"/>
-            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">Выбрать все</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.mods.select_all') }}</span>
           </label>
 
           <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-            {{ visible.length }}<template v-if="visible.length !== mods.length"> из {{ mods.length }}</template>
-            модов<template v-if="disabledCount"> · {{ disabledCount }} выключено</template>
+            <template v-if="visible.length !== mods.length">{{ $t('instance.mods.count_of', { visible: visible.length, total: mods.length }) }}</template>
+            <template v-else>{{ $t('instance.mods.count', { count: visible.length }) }}</template>
+            <template v-if="disabledCount"> · {{ $t('instance.mods.disabled_count', { count: disabledCount }) }}</template>
           </p>
         </div>
 
@@ -436,10 +439,10 @@ watch(instanceId, () => {
             :class="dragging ? 'text-acid' : 'text-fg-faint'"
         >
           <span class="size-1.5 animate-blink" :class="dragging ? 'bg-acid' : 'bg-fg-faint'"/>
-          <template v-if="dragging">Отпустите файлы здесь</template>
-          <template v-else-if="loading">Читаем папку</template>
-          <template v-else-if="checking">Спрашиваем каталоги</template>
-          <template v-else>Опознаём моды</template>
+          <template v-if="dragging">{{ $t('instance.mods.drop_here') }}</template>
+          <template v-else-if="loading">{{ $t('instance.mods.reading') }}</template>
+          <template v-else-if="checking">{{ $t('instance.mods.asking') }}</template>
+          <template v-else>{{ $t('instance.mods.identifying') }}</template>
         </p>
       </div>
 
@@ -448,7 +451,7 @@ watch(instanceId, () => {
           class="flex flex-wrap items-center justify-between gap-4 border border-acid/40 bg-ink-900 px-4 py-3"
       >
         <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-muted">
-          Обновлений: {{ updates.length }}
+          {{ $t('instance.mods.updates_count', { count: updates.length }) }}
         </p>
 
         <AppButton
@@ -457,7 +460,7 @@ watch(instanceId, () => {
             :loading="working"
             @click="applyUpdates(updates.map(update => update.path))"
         >
-          Обновить все
+          {{ $t('instance.mods.update_all') }}
         </AppButton>
       </div>
 
@@ -466,7 +469,7 @@ watch(instanceId, () => {
           class="flex flex-wrap items-center justify-between gap-4 border border-line bg-ink-900 px-4 py-3"
       >
         <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-muted">
-          Выбрано: {{ picked.length }}
+          {{ $t('instance.mods.picked', { count: picked.length }) }}
         </p>
 
         <div class="flex items-center gap-4">
@@ -477,7 +480,7 @@ watch(instanceId, () => {
               :disabled="working"
               @click="setPickedEnabled(true)"
           >
-            Включить
+            {{ $t('instance.mods.enable') }}
           </AppButton>
 
           <AppButton
@@ -487,7 +490,7 @@ watch(instanceId, () => {
               :disabled="working"
               @click="setPickedEnabled(false)"
           >
-            Выключить
+            {{ $t('instance.mods.disable') }}
           </AppButton>
 
           <AppButton
@@ -497,7 +500,7 @@ watch(instanceId, () => {
               :disabled="working"
               @click="confirming = true"
           >
-            Удалить
+            {{ $t('common.delete') }}
           </AppButton>
 
           <AppButton
@@ -506,7 +509,7 @@ watch(instanceId, () => {
               icon="i-lucide-x"
               @click="selected = []"
           >
-            Снять
+            {{ $t('instance.mods.unpick') }}
           </AppButton>
         </div>
       </div>
@@ -556,7 +559,7 @@ watch(instanceId, () => {
                       v-if="mod.managed"
                       name="i-lucide-package"
                       class="size-3.5 shrink-0 text-fg-faint"
-                      title="Мод из модпака"
+                      :title="$t('instance.mods.managed')"
                   />
                 </span>
 
@@ -590,24 +593,24 @@ watch(instanceId, () => {
 
             <dl class="grid gap-x-8 gap-y-2 sm:grid-cols-2">
               <div v-if="modAuthors(mod)" class="min-w-0">
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Авторы</dt>
+                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.mods.authors') }}</dt>
                 <dd class="truncate text-[12px] text-fg-muted">{{ modAuthors(mod) }}</dd>
               </div>
 
               <div v-if="mod.details.license" class="min-w-0">
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Лицензия</dt>
+                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.mods.license') }}</dt>
                 <dd class="truncate text-[12px] text-fg-muted">{{ mod.details.license }}</dd>
               </div>
 
               <div class="min-w-0">
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Файл</dt>
+                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.mods.file') }}</dt>
                 <dd class="truncate font-mono text-[11px] text-fg-muted" :title="mod.fileName">
                   {{ mod.fileName }}<template v-if="modSize(mod.size)"> · {{ modSize(mod.size) }}</template>
                 </dd>
               </div>
 
               <div v-if="mod.details.homepage" class="min-w-0">
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">Страница</dt>
+                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.mods.page') }}</dt>
                 <dd>
                   <button
                       type="button"
@@ -638,13 +641,13 @@ watch(instanceId, () => {
                   :loading="working"
                   @click="applyUpdates([mod.path])"
               >
-                Обновить до {{ updateOf(mod.path)?.to }}
+                {{ $t('instance.mods.update_to', { version: updateOf(mod.path)?.to }) }}
               </AppButton>
             </div>
 
             <p v-if="mod.managed" class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
               <UIcon name="i-lucide-package" class="size-3.5"/>
-              Мод из модпака - обновляется вместе с ним
+              {{ $t('instance.mods.managed_hint') }}
             </p>
           </div>
         </div>
@@ -653,10 +656,10 @@ watch(instanceId, () => {
       <div v-else class="flex items-center gap-3 border-t border-line py-10">
         <span class="size-1.5 bg-fg-faint animate-blink"/>
         <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-fg-faint">
-          <template v-if="loading || !loaded">Читаем папку модов</template>
-          <template v-else-if="mods.length">Ничего не найдено</template>
-          <template v-else-if="instance.type === 'vanilla'">Сборка без загрузчика модов</template>
-          <template v-else>В папке mods пусто - перетащите сюда jar</template>
+          <template v-if="loading || !loaded">{{ $t('instance.mods.reading_folder') }}</template>
+          <template v-else-if="mods.length">{{ $t('instance.mods.nothing_found') }}</template>
+          <template v-else-if="instance.type === 'vanilla'">{{ $t('instance.mods.no_loader') }}</template>
+          <template v-else>{{ $t('instance.mods.empty') }}</template>
         </p>
       </div>
     </div>
@@ -669,14 +672,14 @@ watch(instanceId, () => {
 
     <UModal
         :open="confirming"
-        title="Удалить моды?"
+        :title="$t('instance.mods.remove_title')"
         :ui="{ content: 'max-w-lg' }"
         @update:open="value => confirming = value"
     >
       <template #body>
         <div class="space-y-5">
           <p class="text-[12px] leading-relaxed text-fg-muted">
-            Файлы будут удалены с диска без корзины. Отменить это нельзя.
+            {{ $t('instance.mods.remove_hint') }}
           </p>
 
           <ul class="max-h-52 space-y-1.5 overflow-auto border border-line bg-ink-900 p-4">
@@ -690,7 +693,7 @@ watch(instanceId, () => {
               class="flex items-start gap-2 font-mono text-[10px] uppercase leading-relaxed tracking-[0.2em] text-amber-400"
           >
             <span class="mt-1 size-1.5 shrink-0 bg-amber-400 animate-blink"/>
-            Из модпака: {{ pickedManaged.length }} - вернутся при следующем обновлении сборки
+            {{ $t('instance.mods.remove_managed', { count: pickedManaged.length }) }}
           </p>
 
           <div class="flex items-center justify-end gap-4 border-t border-line pt-5">
@@ -700,7 +703,7 @@ watch(instanceId, () => {
                 :disabled="working"
                 @click="confirming = false"
             >
-              Отмена
+              {{ $t('common.cancel') }}
             </AppButton>
 
             <AppButton
@@ -709,7 +712,7 @@ watch(instanceId, () => {
                 :loading="working"
                 @click="removePicked"
             >
-              Удалить {{ picked.length }}
+              {{ $t('instance.mods.remove_confirm', { count: picked.length }) }}
             </AppButton>
           </div>
         </div>

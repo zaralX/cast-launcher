@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import type {AppConfig} from "~/types/app";
-import {AFTER_LAUNCH_OPTIONS} from "~/types/app";
+import {AFTER_LAUNCH_VALUES} from "~/types/app";
 import {ACCENTS} from "~/composables/useAppearance";
 import {call} from "~/types/backend";
 
 const config = defineModel<AppConfig | null>()
 
+const {t} = useI18n()
+
 const locales = useAvailableLocales()
 
+const afterLaunchOptions = computed(() => AFTER_LAUNCH_VALUES.map(value => ({
+  value,
+  label: t(`settings.after_launch.${value}.label`),
+  hint: t(`settings.after_launch.${value}.hint`)
+})))
+
 const afterLaunchHint = computed(() =>
-    AFTER_LAUNCH_OPTIONS.find(option => option.value === config.value?.launcher.after_launch)?.hint
+    afterLaunchOptions.value.find(option => option.value === config.value?.launcher.after_launch)?.hint
 )
 
 async function pickLauncherDir() {
   const picked = await safeRun(() => call("pick_folder", {
-    title: "Файлы лаунчера",
+    title: t("settings.launcher.dir.label"),
     directory: config.value?.launcher.dir
   }))
 
@@ -25,12 +33,12 @@ async function pickLauncherDir() {
 <template>
   <SettingsPanel
       index="01"
-      title="Лаунчер"
+      :title="$t('settings.launcher.title')"
       icon="i-lucide-app-window"
   >
     <div class="space-y-7">
       <div class="grid gap-6 sm:grid-cols-2">
-        <SettingsField label="Язык">
+        <SettingsField :label="$t('settings.launcher.language')">
           <ULocaleSelect
               v-model="config!.launcher.language"
               :locales="locales"
@@ -38,19 +46,19 @@ async function pickLauncherDir() {
           />
         </SettingsField>
 
-        <SettingsField label="Тема">
+        <SettingsField :label="$t('settings.launcher.theme')">
           <UColorModeSelect class="w-full"/>
         </SettingsField>
       </div>
 
-      <SettingsField label="Основной цвет" hint="Меняется сразу, но сохраняется только по кнопке.">
+      <SettingsField :label="$t('settings.launcher.accent.label')" :hint="$t('settings.launcher.accent.hint')">
         <div class="flex flex-wrap gap-2">
           <button
               v-for="accent in ACCENTS"
               :key="accent.value"
               type="button"
-              :title="accent.label"
-              :aria-label="accent.label"
+              :title="$t(accent.labelKey)"
+              :aria-label="$t(accent.labelKey)"
               :aria-pressed="config!.launcher.accent === accent.value"
               class="group grid size-8 cursor-pointer place-items-center border transition-colors duration-300"
               :class="config!.launcher.accent === accent.value
@@ -66,18 +74,18 @@ async function pickLauncherDir() {
         </div>
       </SettingsField>
 
-      <SettingsField label="После запуска игры" :hint="afterLaunchHint">
+      <SettingsField :label="$t('settings.launcher.after_launch.label')" :hint="afterLaunchHint">
         <USelect
             v-model="config!.launcher.after_launch"
-            :items="AFTER_LAUNCH_OPTIONS"
+            :items="afterLaunchOptions"
             value-key="value"
             class="w-full sm:w-1/2"
         />
       </SettingsField>
 
       <SettingsField
-          label="Файлы лаунчера"
-          hint="Сюда попадают все файлы связанные с игрой: сборки, библиотеки, ассеты, Java."
+          :label="$t('settings.launcher.dir.label')"
+          :hint="$t('settings.launcher.dir.hint')"
       >
         <div class="flex gap-2">
           <UInput
@@ -92,16 +100,16 @@ async function pickLauncherDir() {
               icon="i-lucide-folder-open"
               @click="pickLauncherDir"
           >
-            Выбрать
+            {{ $t('common.pick') }}
           </AppButton>
         </div>
       </SettingsField>
 
       <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
         <div class="min-w-0">
-          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Компактный режим</p>
+          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('settings.launcher.compact.label') }}</p>
           <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-            Главная страница почти как в Prism Launcher.
+            {{ $t('settings.launcher.compact.hint') }}
           </p>
         </div>
         <USwitch v-model="config!.launcher.compact" size="lg"/>
@@ -109,9 +117,9 @@ async function pickLauncherDir() {
 
       <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
         <div class="min-w-0">
-          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Автообновление</p>
+          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('settings.launcher.auto_update.label') }}</p>
           <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-            Проверять и устанавливать новую версию лаунчера при запуске.
+            {{ $t('settings.launcher.auto_update.hint') }}
           </p>
         </div>
         <USwitch v-model="config!.launcher.auto_update" size="lg"/>
@@ -119,9 +127,9 @@ async function pickLauncherDir() {
 
       <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
         <div class="min-w-0">
-          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Анонимная статистика</p>
+          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('settings.launcher.telemetry.label') }}</p>
           <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-            Помогает чинить вылеты и ошибки установки. Ник, пути и логи не отправляются.
+            {{ $t('settings.launcher.telemetry.hint') }}
           </p>
         </div>
         <USwitch v-model="config!.launcher.telemetry" size="lg"/>

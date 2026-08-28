@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type {PackFilters, PackHit, PackProviderInfo, PackSort} from "~/types/catalog";
-import {PROVIDER_LOGOS, SORT_LABELS} from "~/types/catalog";
+import {PROVIDER_LOGOS, SORT_KEYS} from "~/types/catalog";
 import type {PackEnvironment} from "~/types/catalog";
 import type {PackProvider} from "~/types/instance";
 import type {CatalogPack} from "~/types/castpack";
@@ -11,6 +11,8 @@ import {LauncherError} from "~/types/error";
 definePageMeta({
   layout: "main"
 });
+
+const {t} = useI18n()
 
 type Source = PackProvider | "castpack"
 
@@ -31,8 +33,8 @@ const searchSource = ref<PackProvider>("modrinth")
 const provider = computed(() => providers.value.find(item => item.id === searchSource.value) ?? null)
 
 const SORT_ITEMS = computed(() =>
-    (provider.value?.sorts ?? (Object.keys(SORT_LABELS) as PackSort[])).map(value => ({
-      label: SORT_LABELS[value],
+    (provider.value?.sorts ?? (Object.keys(SORT_KEYS) as PackSort[])).map(value => ({
+      label: t(SORT_KEYS[value]!),
       value
     }))
 )
@@ -90,7 +92,7 @@ async function search(offset = 0) {
     total.value = page.totalHits
   } catch (e) {
     if (id !== requestId) return
-    searchError.value = captureError(e, {code: "NETWORK", context: {action: "Поиск модпаков"}})
+    searchError.value = captureError(e, {code: "NETWORK", context: {action: t("search.search_action")}})
   } finally {
     if (id === requestId) {
       searching.value = false
@@ -209,7 +211,7 @@ const packInstallOf = (packId: string) => {
 async function loadCatalog(force = false) {
   await safeRun(() => castpackStore.loadCatalog(force), {
     code: "NETWORK",
-    context: {action: "Загрузка каталога CastPack"}
+    context: {action: t("search.catalog_action")}
   })
 }
 
@@ -217,14 +219,14 @@ async function installPack(packId: string) {
   const pack = castpackStore.packs.find(item => item.id === packId)
 
   const started = await attempt(() => castpackStore.installPack(packId), {
-    context: {action: "Установка сборки CastPack", packId}
+    context: {action: t("search.install_action"), packId}
   })
 
   if (!started.ok) return
 
   toast.add({
-    title: `Установка «${pack?.name ?? packId}»`,
-    description: "Файлы сборки скачиваются в фоне",
+    title: t("search.installing", {name: pack?.name ?? packId}),
+    description: t("search.installing_hint"),
     color: "success",
     icon: "i-lucide-arrow-down-to-line"
   })
@@ -232,7 +234,7 @@ async function installPack(packId: string) {
 
 const playPack = (instanceId: string) => safeRun(
     () => instanceStore.playInstance(instanceId),
-    {context: {instanceId, action: "Запуск сборки"}}
+    {context: {instanceId, action: t("instance.context.play")}}
 )
 </script>
 
@@ -240,13 +242,13 @@ const playPack = (instanceId: string) => safeRun(
   <div class="min-h-full w-full px-6 pb-10 pt-6 xl:px-10">
     <header class="animate-rise flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
       <div>
-        <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">Каталог</p>
+        <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">{{ $t('search.eyebrow') }}</p>
         <h1 class="mt-2.5 font-unbounded text-lg font-bold leading-none tracking-[-0.055em] text-fg xl:text-xl">
-          Поиск сборок<span class="text-acid">.</span>
+          {{ $t('search.title') }}<span class="text-acid">.</span>
         </h1>
       </div>
 
-      <div role="radiogroup" aria-label="Источник сборок" class="flex border border-line">
+      <div role="radiogroup" :aria-label="$t('search.sources')" class="flex border border-line">
         <button
             v-for="item in providers"
             :key="item.id"
@@ -268,7 +270,7 @@ const playPack = (instanceId: string) => safeRun(
           />
           <img :src="PROVIDER_LOGOS[item.id]" class="size-3.5" alt=""/>
           <span class="font-mono text-[10px] uppercase tracking-[0.16em]">{{ item.label }}</span>
-          <span v-if="!item.ready" class="font-mono text-[9px] tracking-[0.12em] text-fg-faint">нет ключа</span>
+          <span v-if="!item.ready" class="font-mono text-[9px] tracking-[0.12em] text-fg-faint">{{ $t('search.no_key') }}</span>
         </button>
 
         <button
@@ -307,7 +309,7 @@ const playPack = (instanceId: string) => safeRun(
         <div class="flex flex-wrap items-center gap-3">
           <UInput
               v-model="query"
-              placeholder="Название модпака"
+              :placeholder="$t('search.placeholder')"
               icon="i-lucide-search"
               size="lg"
               class="min-w-0 flex-1"
@@ -318,7 +320,7 @@ const playPack = (instanceId: string) => safeRun(
 
         <div class="mt-4 flex items-center gap-4">
           <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-            {{ searching ? 'Идёт поиск' : `Найдено: ${total}` }}
+            {{ searching ? $t('search.searching') : $t('search.found', { count: total }) }}
           </span>
           <span class="h-px flex-1 bg-line"/>
         </div>
@@ -337,7 +339,7 @@ const playPack = (instanceId: string) => safeRun(
                   icon="i-lucide-rotate-cw"
                   @click="search()"
               >
-                Повторить
+                {{ $t('search.retry') }}
               </AppButton>
             </div>
           </div>
@@ -348,7 +350,7 @@ const playPack = (instanceId: string) => safeRun(
         </div>
 
         <p v-else-if="!hits.length" class="mt-8 text-[13px] leading-relaxed text-fg-muted">
-          Ничего не нашлось. Попробуйте смягчить фильтры или изменить запрос.
+          {{ $t('search.nothing_found') }}
         </p>
 
         <div v-else class="mt-4 grid gap-3 2xl:grid-cols-2">
@@ -368,7 +370,7 @@ const playPack = (instanceId: string) => safeRun(
               :loading="loadingMore"
               @click="search(hits.length)"
           >
-            Показать ещё
+            {{ $t('search.show_more') }}
           </AppButton>
         </div>
       </div>
@@ -378,7 +380,7 @@ const playPack = (instanceId: string) => safeRun(
       <div class="flex flex-wrap items-center gap-3">
         <UInput
             v-model="catalogQuery"
-            placeholder="Поиск по каталогу"
+            :placeholder="$t('search.catalog_placeholder')"
             icon="i-lucide-search"
             size="lg"
             class="min-w-0 flex-1"
@@ -391,7 +393,7 @@ const playPack = (instanceId: string) => safeRun(
             :loading="catalogLoading"
             @click="loadCatalog(true)"
         >
-          Обновить
+          {{ $t('search.refresh') }}
         </AppButton>
       </div>
 
@@ -399,20 +401,20 @@ const playPack = (instanceId: string) => safeRun(
           v-if="outdated"
           class="animate-rise mt-6 border border-amber-400/30 bg-amber-400/[0.04] px-4 py-3 text-[12px] leading-relaxed text-fg-muted"
       >
-        Обновления есть у {{ outdated }} сборок — они докачаются сами при нажатии «Играть».
+        {{ $t('search.outdated', { count: outdated }) }}
       </p>
 
       <div v-if="catalogLoading && !catalogLoaded" class="flex flex-col items-center gap-4 py-20">
         <span class="relative block h-px w-40 overflow-hidden bg-line">
           <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep"/>
         </span>
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">Загрузка каталога</p>
+        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.catalog_loading') }}</p>
       </div>
 
       <div v-else-if="!catalogPacks.length" class="flex items-center gap-3 py-20">
         <span class="size-1.5 bg-fg-faint animate-blink"/>
         <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-          {{ catalogQuery ? 'Ничего не нашлось' : 'Каталог пуст' }}
+          {{ catalogQuery ? $t('search.catalog_nothing_found') : $t('search.catalog_empty') }}
         </p>
       </div>
 
@@ -434,11 +436,11 @@ const playPack = (instanceId: string) => safeRun(
       </div>
 
       <p v-if="catalog?.updatedAt" class="mt-8 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-        Каталог обновлён: {{ catalog.updatedAt }}
+        {{ $t('search.catalog_updated', { date: catalog.updatedAt }) }}
       </p>
     </section>
 
-    <UModal v-model:open="installOpen" title="Установка сборки">
+    <UModal v-model:open="installOpen" :title="$t('search.install_title')">
       <template #body>
         <SearchInstallModalBody
             v-if="installTarget"

@@ -9,19 +9,19 @@ const instanceStore = useInstanceStore()
 const awaiting = computed(() => instanceStore.installs.find(install => install.awaitingFiles) ?? null)
 
 const links = [{
-  name: "Библиотека",
+  nameKey: "layout.nav.library",
   icon: "i-lucide-box",
   to: "/main"
 }, {
-  name: "Поиск сборок",
+  nameKey: "layout.nav.search",
   icon: "i-lucide-search",
   to: "/search"
 }, {
-  name: "Скины",
+  nameKey: "layout.nav.skins",
   icon: "i-lucide-shirt",
   to: "/skins"
 }, {
-  name: "Настройки",
+  nameKey: "layout.nav.settings",
   icon: "i-lucide-sliders-horizontal",
   to: "/settings"
 }]
@@ -70,7 +70,7 @@ onMounted(async () => {
         <UButton
             color="neutral"
             variant="ghost"
-            aria-label="Свернуть"
+            :aria-label="$t('layout.window.minimize')"
             class="group h-11 w-11 justify-center text-fg-faint hover:bg-ink-600 hover:text-fg"
             @click="appWindow?.minimize()"
         >
@@ -80,7 +80,7 @@ onMounted(async () => {
         <UButton
             color="neutral"
             variant="ghost"
-            aria-label="Развернуть"
+            :aria-label="$t('layout.window.maximize')"
             class="group h-11 w-11 justify-center text-fg-faint hover:bg-ink-600 hover:text-fg"
             @click="appWindow?.toggleMaximize()"
         >
@@ -90,7 +90,7 @@ onMounted(async () => {
         <UButton
             color="neutral"
             variant="ghost"
-            aria-label="Закрыть"
+            :aria-label="$t('layout.window.close')"
             class="group h-11 w-11 justify-center text-fg-faint hover:bg-red-500 hover:text-white"
             @click="appWindow?.close()"
         >
@@ -124,7 +124,7 @@ onMounted(async () => {
             <span
                 class="pointer-events-none absolute left-[calc(100%+10px)] whitespace-nowrap border border-line bg-ink-700 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-fg opacity-0 -translate-x-2 transition-all duration-300 ease-deck group-hover:translate-x-0 group-hover:opacity-100"
             >
-              {{ link.name }}
+              {{ $t(link.nameKey) }}
             </span>
           </NuxtLink>
         </div>
@@ -150,7 +150,7 @@ onMounted(async () => {
             <span
                 class="pointer-events-none absolute left-[calc(100%+10px)] whitespace-nowrap border border-line bg-ink-700 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-fg opacity-0 -translate-x-2 transition-all duration-300 ease-deck group-hover:translate-x-0 group-hover:opacity-100"
             >
-              Об авторах
+              {{ $t('layout.nav.credits') }}
             </span>
           </NuxtLink>
 

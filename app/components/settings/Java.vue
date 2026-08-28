@@ -9,12 +9,12 @@ const gb = (mb?: number) => ((mb ?? 0) / 1024).toFixed(1).replace(".", ",")
 <template>
   <SettingsPanel
       index="03"
-      title="Java"
+      :title="$t('settings.java.title')"
       icon="i-lucide-cpu"
   >
     <div class="space-y-7">
       <div class="grid gap-6 sm:grid-cols-2">
-        <SettingsField label="Минимум RAM" :hint="`≈ ${gb(config!.java.min_ram)} ГБ`">
+        <SettingsField :label="$t('settings.java.min_ram')" :hint="$t('settings.java.ram_hint', { value: gb(config!.java.min_ram) })">
           <UInput
               v-model="config!.java.min_ram"
               type="number"
@@ -28,7 +28,7 @@ const gb = (mb?: number) => ((mb ?? 0) / 1024).toFixed(1).replace(".", ",")
           </UInput>
         </SettingsField>
 
-        <SettingsField label="Максимум RAM" :hint="`≈ ${gb(config!.java.max_ram)} ГБ`">
+        <SettingsField :label="$t('settings.java.max_ram')" :hint="$t('settings.java.ram_hint', { value: gb(config!.java.max_ram) })">
           <UInput
               v-model="config!.java.max_ram"
               type="number"

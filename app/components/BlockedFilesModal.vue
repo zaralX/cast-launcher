@@ -6,6 +6,8 @@ import {call} from "~/types/backend";
 
 const FOCUS_COOLDOWN = 2000
 
+const {t} = useI18n()
+
 const props = defineProps<{ install: InstallSnapshot }>()
 
 const files = ref<BlockedFile[]>(props.install.blocked ?? [])
@@ -61,7 +63,7 @@ async function scan() {
 
   const result = await safeRun(
       () => call("scan_for_files", {instanceId: props.install.instanceId, folder: folder.value}),
-      {context: {action: "Поиск скачанных файлов", instanceId: props.install.instanceId}}
+      {context: {action: t("blocked.scan_action"), instanceId: props.install.instanceId}}
   )
 
   if (result?.length) files.value = result
@@ -70,7 +72,7 @@ async function scan() {
 }
 
 async function pickFolder() {
-  const picked = await safeRun(() => call("pick_folder", {title: "Папка со скачанными модами"}))
+  const picked = await safeRun(() => call("pick_folder", {title: t("blocked.picker_title")}))
 
   if (!picked) return
 
@@ -100,15 +102,13 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
       :open="true"
       :dismissible="false"
       :close="false"
-      title="Нужно скачать вручную"
+      :title="$t('blocked.title')"
       :ui="{ content: 'max-w-2xl' }"
   >
     <template #body>
       <div class="space-y-6">
         <p class="text-[12px] leading-relaxed text-fg-muted">
-          Авторы этих файлов запретили сторонним лаунчерам их раздавать - CurseForge не даёт на них прямых
-          ссылок. Скачайте их со страниц ниже: лаунчер сам следит за папкой загрузок, сверяет файлы по
-          контрольной сумме и отмечает их здесь. Переименовывать скачанное не нужно, но и не страшно.
+          {{ $t('blocked.description') }}
         </p>
 
         <div>
@@ -116,10 +116,10 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
               for="blocked-folder"
               class="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
           >
-            <span>Где искать</span>
+            <span>{{ $t('blocked.where') }}</span>
             <span v-if="!allFound" class="flex items-center gap-1.5 text-acid/70">
               <span class="size-1 animate-pulse rounded-full bg-acid"/>
-              проверяется автоматически
+              {{ $t('blocked.auto') }}
             </span>
           </label>
 
@@ -127,7 +127,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
             <UInput
                 id="blocked-folder"
                 v-model="folder"
-                placeholder="Папка загрузок"
+                :placeholder="$t('blocked.folder_placeholder')"
                 class="min-w-0 flex-1"
                 @keydown.enter.prevent="scan"
             />
@@ -137,7 +137,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
                 icon="i-lucide-folder-open"
                 @click="pickFolder"
             >
-              Обзор
+              {{ $t('blocked.browse') }}
             </AppButton>
             <AppButton
                 tone="quiet"
@@ -147,7 +147,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
                 :disabled="!folder.trim()"
                 @click="scan"
             >
-              Искать
+              {{ $t('blocked.scan') }}
             </AppButton>
           </div>
         </div>
@@ -157,7 +157,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
               class="font-mono text-[10px] uppercase tracking-[0.2em]"
               :class="allFound ? 'text-acid' : 'text-fg-faint'"
           >
-            Найдено {{ found.length }} из {{ files.length }}
+            {{ $t('blocked.found', { found: found.length, total: files.length }) }}
           </span>
           <span class="h-px flex-1 bg-line"/>
           <AppButton
@@ -167,7 +167,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
               icon="i-lucide-external-link"
               @click="openMissing"
           >
-            Открыть все недостающие
+            {{ $t('blocked.open_missing') }}
           </AppButton>
         </div>
 
@@ -196,19 +196,17 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
                 icon="i-lucide-download"
                 @click="openFile(file)"
             >
-              Скачать
+              {{ $t('blocked.download') }}
             </AppButton>
           </li>
         </ul>
 
         <p v-if="missing.length" class="text-[12px] leading-relaxed text-fg-muted">
-          Недостающие файлы отметятся сами, как только докачаются. Если браузер складывает их не в эту
-          папку - укажите нужную. Можно продолжить и без них: тогда пак встанет неполным, а список
-          останется во вкладке «Модпак».
+          {{ $t('blocked.missing_hint') }}
         </p>
 
         <p v-else-if="allFound" class="text-[12px] leading-relaxed text-fg-muted">
-          Всё на месте. Дальше лаунчер докачает остальные файлы пака сам - больше он не остановится.
+          {{ $t('blocked.all_found_hint') }}
         </p>
 
         <div class="flex items-center justify-between gap-4 border-t border-line pt-5">
@@ -218,7 +216,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
               icon="i-lucide-circle-stop"
               @click="cancel"
           >
-            Прервать установку
+            {{ $t('blocked.cancel') }}
           </AppButton>
 
           <AppButton
@@ -226,7 +224,7 @@ const cancel = () => safeRun(() => call("cancel_install", {instanceId: props.ins
               :loading="finishing"
               @click="finish"
           >
-            {{ allFound ? 'Продолжить' : 'Продолжить без них' }}
+            {{ allFound ? $t('blocked.continue') : $t('blocked.continue_without') }}
           </AppButton>
         </div>
       </div>

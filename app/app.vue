@@ -10,6 +10,7 @@ const TOAST_COLOR: Record<ErrorSeverity, "error" | "warning" | "info"> = {
   info: "info"
 }
 
+const {t} = useI18n()
 const toast = useToast()
 const errorCenterOpen = useErrorCenterOpen()
 
@@ -26,7 +27,7 @@ const unregister = registerErrorSink((entry) => {
     color: TOAST_COLOR[entry.severity],
     duration: entry.severity === "info" ? 4000 : 8000,
     actions: [{
-      label: "Подробнее",
+      label: t("common.details"),
       color: "neutral",
       variant: "outline",
       onClick: () => {

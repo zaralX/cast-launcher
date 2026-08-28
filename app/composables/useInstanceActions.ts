@@ -3,13 +3,14 @@ import {call, type InstanceDir} from "~/types/backend"
 
 export type InstanceState = "running" | "installing" | "ready" | "absent"
 
-export const INSTANCE_DIR_LABELS: Record<InstanceDir, string> = {
-    root: "Папка сборки",
-    minecraft: "Папка .minecraft",
-    logs: "Папка логов"
+export const INSTANCE_DIR_KEYS: Record<InstanceDir, string> = {
+    root: "instance.dir.root",
+    minecraft: "instance.dir.minecraft",
+    logs: "instance.dir.logs"
 }
 
 export function useInstanceActions() {
+    const {t} = useI18n()
     const store = useInstanceStore()
 
     const stateOf = (instance: Instance): InstanceState => {
@@ -22,32 +23,32 @@ export function useInstanceActions() {
 
     const play = (id: string) => safeRun(
         () => store.playInstance(id),
-        {context: {instanceId: id, action: "Запуск сборки"}}
+        {context: {instanceId: id, action: t("instance.context.play")}}
     )
 
     const stop = (id: string) => safeRun(
         () => store.stopInstance(id),
-        {context: {instanceId: id, action: "Остановка сборки"}}
+        {context: {instanceId: id, action: t("instance.context.stop")}}
     )
 
     const install = (id: string) => safeRun(
         () => store.installInstance(id),
-        {context: {instanceId: id, action: "Установка сборки"}}
+        {context: {instanceId: id, action: t("instance.context.install")}}
     )
 
     const cancelInstall = (id: string) => safeRun(
         () => store.abortInstall(id),
-        {context: {instanceId: id, action: "Отмена установки"}}
+        {context: {instanceId: id, action: t("instance.context.cancel")}}
     )
 
     const openDir = (id: string, target: InstanceDir) => safeRun(
         () => call("open_instance_dir", {instanceId: id, target}),
-        {context: {instanceId: id, action: INSTANCE_DIR_LABELS[target]}}
+        {context: {instanceId: id, action: t(INSTANCE_DIR_KEYS[target])}}
     )
 
     const remove = (id: string) => attempt(
         () => store.deleteInstance(id),
-        {context: {instanceId: id, action: "Удаление сборки"}}
+        {context: {instanceId: id, action: t("instance.remove_action")}}
     )
 
     const primary = (instance: Instance) => {

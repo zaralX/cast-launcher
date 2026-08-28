@@ -7,6 +7,7 @@ definePageMeta({
   layout: "main"
 })
 
+const {t} = useI18n()
 const instanceStore = useInstanceStore()
 const toast = useToast()
 
@@ -47,7 +48,7 @@ async function confirmRemove() {
   removeTarget.value = null
 
   toast.add({
-    title: `Сборка «${target.name}» удалена`,
+    title: t("home.removed", {name: target.name}),
     color: "success",
     icon: "i-lucide-trash-2"
   })
@@ -69,8 +70,8 @@ function onImported(instanceId: string) {
   const instance = instances.value.find(item => item.id === instanceId)
 
   toast.add({
-    title: `Сборка «${instance?.name ?? "из файла"}» импортирована`,
-    description: "Файлы модпака скачиваются в фоне",
+    title: t("home.imported", {name: instance?.name ?? t("home.imported_fallback")}),
+    description: t("home.imported_hint"),
     color: "success",
     icon: "i-lucide-file-archive"
   })
@@ -78,7 +79,7 @@ function onImported(instanceId: string) {
 
 const run = (id: string) => safeRun(
     () => playInstance(id),
-    {context: {instanceId: id, action: "Запуск сборки"}}
+    {context: {instanceId: id, action: t("instance.context.play")}}
 )
 </script>
 
@@ -90,7 +91,7 @@ const run = (id: string) => safeRun(
   >
     <div class="min-w-0" :class="compact ? 'flex-1 px-6 pb-10 pt-6 xl:px-10' : ''">
       <section>
-        <SectionHeading index="01" title="Ваши сборки">
+        <SectionHeading index="01" :title="$t('home.title')">
           <template #action>
             <AppButton class="group/imp ml-2 h-7 px-3 text-[10px]" tone="quiet" @click="importModalOpen = true">
               <template #leading>
@@ -99,14 +100,14 @@ const run = (id: string) => safeRun(
                     class="size-3 transition-transform duration-500 group-hover/imp:-translate-y-0.5"
                 />
               </template>
-              Из файла
+              {{ $t('home.from_file') }}
             </AppButton>
 
             <AppButton class="group/new ml-2 h-7 px-3 text-[10px]" @click="openCreateModal">
               <template #leading>
                 <UIcon name="i-lucide-plus" class="size-3 transition-transform duration-500 group-hover/new:rotate-90"/>
               </template>
-              Создать
+              {{ $t('home.create') }}
             </AppButton>
           </template>
         </SectionHeading>
@@ -133,7 +134,7 @@ const run = (id: string) => safeRun(
                 name="i-lucide-plus"
                 class="size-4 transition-transform duration-500 ease-deck group-hover:rotate-90"
             />
-            <span class="text-[11px] leading-tight">Новая</span>
+            <span class="text-[11px] leading-tight">{{ $t('home.new') }}</span>
           </button>
         </div>
 
@@ -163,7 +164,7 @@ const run = (id: string) => safeRun(
                   name="i-lucide-plus"
                   class="size-4 transition-transform duration-500 ease-deck group-hover:rotate-90"
               />
-              <span class="text-[10px] tracking-[0.2em]">Новая сборка</span>
+              <span class="text-[10px] tracking-[0.2em]">{{ $t('home.new_instance') }}</span>
             </span>
           </UButton>
         </div>
@@ -177,13 +178,13 @@ const run = (id: string) => safeRun(
         @remove="askRemove"
     />
 
-    <UModal v-model:open="createModalOpen" title="Создание сборки">
+    <UModal v-model:open="createModalOpen" :title="$t('home.create_title')">
       <template #body>
         <CreateInstanceModalBody @created="createModalOpen = false"/>
       </template>
     </UModal>
 
-    <UModal v-model:open="importModalOpen" title="Импорт модпака из файла">
+    <UModal v-model:open="importModalOpen" :title="$t('home.import_title')">
       <template #body>
         <ImportPackModalBody @imported="onImported"/>
       </template>
@@ -191,19 +192,19 @@ const run = (id: string) => safeRun(
 
     <UModal
         :open="!!removeTarget"
-        title="Удаление сборки"
+        :title="$t('home.remove_title')"
         @update:open="value => { if (!value) removeTarget = null }"
     >
       <template #body>
         <p class="text-[12px] leading-relaxed text-fg-muted">
-          Сборка «{{ removeTarget?.name }}» и все её файлы будут удалены безвозвратно.
+          {{ $t('home.remove_text', { name: removeTarget?.name }) }}
         </p>
       </template>
 
       <template #footer>
         <div class="flex w-full items-center justify-end gap-3">
           <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="removeTarget = null">
-            Отмена
+            {{ $t('common.cancel') }}
           </AppButton>
 
           <AppButton
@@ -212,7 +213,7 @@ const run = (id: string) => safeRun(
               :loading="removing"
               @click="confirmRemove"
           >
-            Удалить
+            {{ $t('common.delete') }}
           </AppButton>
         </div>
       </template>

@@ -17,12 +17,12 @@ const emit = defineEmits<{
   play: [instanceId: string]
 }>()
 
-const ACTIONS: Record<PackState, { label: string, icon: string }> = {
-  absent: {label: "Установить", icon: "i-lucide-arrow-down-to-line"},
-  installing: {label: "Установка", icon: "i-lucide-loader"},
-  outdated: {label: "Обновить и играть", icon: "i-lucide-refresh-cw"},
-  ready: {label: "Играть", icon: "i-lucide-play"},
-  running: {label: "Запущено", icon: "i-lucide-activity"}
+const ACTIONS: Record<PackState, { labelKey: string, icon: string }> = {
+  absent: {labelKey: "castpack.action.absent", icon: "i-lucide-arrow-down-to-line"},
+  installing: {labelKey: "castpack.action.installing", icon: "i-lucide-loader"},
+  outdated: {labelKey: "castpack.action.outdated", icon: "i-lucide-refresh-cw"},
+  ready: {labelKey: "castpack.action.ready", icon: "i-lucide-play"},
+  running: {labelKey: "castpack.action.running", icon: "i-lucide-activity"}
 }
 
 const action = computed(() => ACTIONS[props.state])
@@ -58,7 +58,7 @@ function activate() {
             v-if="state === 'outdated'"
             class="ml-auto shrink-0 border border-amber-400/40 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-amber-400"
         >
-          Обновление
+          {{ $t('castpack.update') }}
         </span>
       </div>
 
@@ -98,7 +98,7 @@ function activate() {
 
       <div v-if="state === 'installing'" class="flex shrink-0 flex-col items-end gap-1.5">
         <span class="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
-          {{ phase || 'Установка' }}
+          {{ phase || $t('castpack.action.installing') }}
           <span v-if="progress != null" class="text-acid">{{ Math.round(progress * 100) }}%</span>
         </span>
 
@@ -119,7 +119,7 @@ function activate() {
           :disabled="state === 'running'"
           @click="activate"
       >
-        {{ action.label }}
+        {{ $t(action.labelKey) }}
         <UIcon
             :name="action.icon"
             class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-1"

@@ -21,17 +21,24 @@ const autoupdate = computed({
   set: (enabled: boolean) => toggle(enabled)
 })
 
+const {t} = useI18n()
+
 const blocked = computed(() => {
-  if (running.value) return "Сборка запущена - сначала закройте игру"
-  if (installing.value) return "Дождитесь окончания текущей установки"
+  if (running.value) return t("instance.pack.blocked_running")
+  if (installing.value) return t("instance.pack.blocked_installing")
   return null
 })
 
 const facts = computed(() => [
-  {label: "Сборка", value: source.value?.catalogId ?? "-"},
-  {label: "Установленная версия", value: source.value?.version || "ещё не установлена"},
-  {label: "Автообновление", value: source.value?.autoupdate ? "включено" : "выключено"},
-  {label: "Манифест", value: source.value?.manifestUrl ?? "-"}
+  {label: t("instance.castpack.facts.pack"), value: source.value?.catalogId ?? "-"},
+  {label: t("instance.castpack.facts.version"), value: source.value?.version || t("instance.castpack.facts.version_absent")},
+  {
+    label: t("instance.castpack.facts.autoupdate"),
+    value: source.value?.autoupdate
+        ? t("instance.castpack.facts.autoupdate_on")
+        : t("instance.castpack.facts.autoupdate_off")
+  },
+  {label: t("instance.castpack.facts.manifest"), value: source.value?.manifestUrl ?? "-"}
 ])
 
 async function check() {
@@ -41,7 +48,7 @@ async function check() {
 
   const result = await attempt(() => castpackStore.checkUpdate(props.instance.id), {
     code: "NETWORK",
-    context: {instanceId: props.instance.id, action: "Проверка обновления сборки"}
+    context: {instanceId: props.instance.id, action: t("instance.castpack.check_action")}
   })
 
   checking.value = false
@@ -53,16 +60,16 @@ onMounted(check)
 
 async function toggle(enabled: boolean) {
   const result = await attempt(() => castpackStore.setAutoupdate(props.instance.id, enabled), {
-    context: {instanceId: props.instance.id, action: "Переключение автообновления"}
+    context: {instanceId: props.instance.id, action: t("instance.castpack.toggle_action")}
   })
 
   if (!result.ok) return
 
   toast.add({
-    title: enabled ? "Автообновление включено" : "Автообновление выключено",
+    title: enabled ? t("instance.castpack.autoupdate_on_title") : t("instance.castpack.autoupdate_off_title"),
     description: enabled
-        ? "Перед запуском лаунчер будет догонять новые версии сборки"
-        : "Обновлять сборку придётся кнопкой вручную",
+        ? t("instance.castpack.autoupdate_on_hint")
+        : t("instance.castpack.autoupdate_off_hint"),
     color: "success",
     icon: "i-lucide-refresh-cw"
   })
@@ -73,14 +80,14 @@ async function reinstall() {
 
   const started = await attempt(() => instanceStore.installInstance(props.instance.id), {
     code: "NETWORK",
-    context: {instanceId: props.instance.id, action: "Переустановка сборки"}
+    context: {instanceId: props.instance.id, action: t("instance.castpack.reinstall_action")}
   })
 
   if (!started.ok) return
 
   toast.add({
-    title: "Файлы сборки проверяются",
-    description: "Недостающее докачается, лишнее уберётся",
+    title: t("instance.castpack.repair_title"),
+    description: t("instance.castpack.repair_hint"),
     color: "success",
     icon: "i-lucide-refresh-cw"
   })
@@ -91,9 +98,9 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
 
 <template>
   <div class="space-y-6">
-    <SettingsPanel index="01" title="Сборка CastPack" icon="i-lucide-layers">
+    <SettingsPanel index="01" :title="$t('instance.castpack.title')" icon="i-lucide-layers">
       <div v-if="!source" class="text-[12px] leading-relaxed text-fg-muted">
-        Эта сборка не из каталога CastPack.
+        {{ $t('instance.castpack.not_castpack') }}
       </div>
 
       <div v-else class="space-y-7">
@@ -103,8 +110,10 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
         >
           <div class="min-w-0">
             <p class="text-[12px] leading-relaxed text-fg-muted">
-              Доступна версия <span class="text-fg">{{ update.version }}</span>.
-              Она установится сама при следующем запуске.
+              <i18n-t keypath="instance.castpack.update_available" tag="span">
+                <template #version><span class="text-fg">{{ update.version }}</span></template>
+              </i18n-t>
+              {{ $t('instance.castpack.update_auto') }}
             </p>
             <p v-if="update.changelog" class="mt-2 whitespace-pre-line text-[12px] leading-relaxed text-fg-muted">
               {{ update.changelog }}
@@ -118,7 +127,7 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
               :disabled="!!blocked"
               @click="reinstall"
           >
-            Обновить
+            {{ $t('instance.castpack.update') }}
           </AppButton>
         </div>
 
@@ -127,25 +136,24 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
             class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
         >
           <UIcon name="i-lucide-wifi-off" class="mt-0.5 size-3.5 shrink-0 text-amber-400"/>
-          Проверить обновление не вышло: {{ update.error }}. Играть это не мешает.
+          {{ $t('instance.castpack.check_failed', { error: update.error }) }}
         </p>
 
         <p v-else-if="update" class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
           <UIcon name="i-lucide-check" class="mt-0.5 size-3.5 shrink-0 text-acid"/>
-          Установлена последняя версия сборки.
+          {{ $t('instance.castpack.up_to_date') }}
         </p>
 
         <SettingsField
-            label="Автообновление"
-            hint="Перед запуском лаунчер сверяется с манифестом и докачивает новую версию"
+            :label="$t('instance.castpack.autoupdate')"
+            :hint="$t('instance.castpack.autoupdate_hint')"
         >
           <USwitch v-model="autoupdate"/>
         </SettingsField>
 
         <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
           <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            Моды и конфиги сборки лаунчер держит сам: изменённые файлы перезапишутся, а те, что
-            исчезли из новой версии, удалятся. Миры, скриншоты и настройки игры останутся на месте.
+            {{ $t('instance.castpack.files_hint') }}
           </p>
 
           <div class="flex shrink-0 gap-2">
@@ -156,7 +164,7 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
                 :loading="checking"
                 @click="check"
             >
-              Проверить
+              {{ $t('instance.castpack.check') }}
             </AppButton>
 
             <AppButton
@@ -165,7 +173,7 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
                 :disabled="!!blocked"
                 @click="reinstall"
             >
-              Починить файлы
+              {{ $t('instance.castpack.repair') }}
             </AppButton>
           </div>
         </div>
@@ -176,11 +184,11 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
       </div>
     </SettingsPanel>
 
-    <SettingsPanel v-if="source?.changelog" index="02" title="Что изменилось" icon="i-lucide-scroll-text">
+    <SettingsPanel v-if="source?.changelog" index="02" :title="$t('instance.castpack.changelog_title')" icon="i-lucide-scroll-text">
       <p class="whitespace-pre-line text-[12px] leading-relaxed text-fg-muted">{{ source.changelog }}</p>
     </SettingsPanel>
 
-    <SettingsPanel :index="source?.changelog ? '03' : '02'" title="Источник" icon="i-lucide-link">
+    <SettingsPanel :index="source?.changelog ? '03' : '02'" :title="$t('instance.castpack.source_title')" icon="i-lucide-link">
       <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         <div v-for="fact in facts" :key="fact.label" class="min-w-0">
           <dt class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ fact.label }}</dt>
@@ -195,7 +203,7 @@ const openSite = (url: string) => safeRun(() => call("open_url", {url}))
           icon="i-lucide-external-link"
           @click="openSite(source.manifestUrl)"
       >
-        Открыть манифест
+        {{ $t('instance.castpack.open_manifest') }}
       </AppButton>
     </SettingsPanel>
   </div>

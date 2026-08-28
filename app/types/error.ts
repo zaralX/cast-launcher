@@ -30,119 +30,45 @@ export interface ErrorContext {
 }
 
 interface ErrorDefinition {
-    title: string
-    hint?: string
+    key: string
     severity: ErrorSeverity
     icon: string
 }
 
 export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
-    NETWORK: {
-        title: "Нет связи с сервером",
-        hint: "Проверьте интернет-соединение и попробуйте ещё раз.",
-        severity: "error",
-        icon: "i-lucide-wifi-off"
-    },
-    DOWNLOAD_FAILED: {
-        title: "Не удалось скачать файл",
-        hint: "Сервер раздачи недоступен или соединение оборвалось. Повторите установку.",
-        severity: "error",
-        icon: "i-lucide-cloud-download"
-    },
-    HASH_MISMATCH: {
-        title: "Файл скачался повреждённым",
-        hint: "Контрольная сумма не совпала. Повторите установку - файл будет скачан заново.",
-        severity: "error",
-        icon: "i-lucide-file-x"
-    },
-    FS_ERROR: {
-        title: "Ошибка доступа к файлам",
-        hint: "Проверьте, что папка лаунчера существует и не занята другой программой.",
-        severity: "error",
-        icon: "i-lucide-folder-x"
-    },
-    ARCHIVE_INVALID: {
-        title: "Повреждённый архив",
-        hint: "Не удалось распаковать jar. Удалите кэш лаунчера и повторите установку.",
-        severity: "error",
-        icon: "i-lucide-file-archive"
-    },
-    MANIFEST_INVALID: {
-        title: "Некорректный ответ сервера",
-        hint: "Mojang, Fabric или Forge вернули неожиданные данные.",
-        severity: "error",
-        icon: "i-lucide-file-question"
-    },
-    VERSION_NOT_FOUND: {
-        title: "Версия не найдена",
-        hint: "Такой версии нет в манифесте. Выберите другую при создании сборки.",
-        severity: "error",
-        icon: "i-lucide-search-x"
-    },
-    JAVA_NOT_FOUND: {
-        title: "Java не найдена",
-        hint: "Укажите путь к Java в настройках или установите её.",
-        severity: "error",
-        icon: "i-lucide-coffee"
-    },
-    LAUNCH_FAILED: {
-        title: "Не удалось запустить Minecraft",
-        severity: "error",
-        icon: "i-lucide-play"
-    },
-    FORGE_INSTALL_FAILED: {
-        title: "Не удалось установить Forge",
-        hint: "Сборка клиента Forge не удалась. Подробности - в деталях.",
-        severity: "error",
-        icon: "i-lucide-hammer"
-    },
-    AUTH_FAILED: {
-        title: "Ошибка входа",
-        hint: "Не удалось авторизоваться через Microsoft. Попробуйте войти заново.",
-        severity: "error",
-        icon: "i-lucide-user-x"
-    },
-    AUTH_PORT_BUSY: {
-        title: "Порт входа занят",
-        hint: "Порт 55325 уже используется. Закройте другую копию лаунчера и попробуйте снова.",
-        severity: "error",
-        icon: "i-lucide-plug-zap"
-    },
-    AUTH_EXPIRED: {
-        title: "Сессия истекла",
-        hint: "Войдите в аккаунт Microsoft заново.",
-        severity: "warning",
-        icon: "i-lucide-clock-alert"
-    },
-    NO_ACCOUNT: {
-        title: "Аккаунт не выбран",
-        hint: "Добавьте аккаунт в настройках, прежде чем запускать игру.",
-        severity: "warning",
-        icon: "i-lucide-user-round-x"
-    },
-    CONFIG_ERROR: {
-        title: "Ошибка конфигурации",
-        hint: "Файл настроек повреждён. Лаунчер продолжит работу со значениями по умолчанию.",
-        severity: "warning",
-        icon: "i-lucide-settings-2"
-    },
-    UPDATE_FAILED: {
-        title: "Обновление не установлено",
-        hint: "Лаунчер продолжит работу на текущей версии.",
-        severity: "warning",
-        icon: "i-lucide-download"
-    },
-    INSTALL_ABORTED: {
-        title: "Установка прервана",
-        severity: "info",
-        icon: "i-lucide-circle-stop"
-    },
-    UNKNOWN: {
-        title: "Непредвиденная ошибка",
-        hint: "Скопируйте детали и приложите их к сообщению об ошибке.",
-        severity: "error",
-        icon: "i-lucide-triangle-alert"
-    }
+    NETWORK: {key: "error.network", severity: "error", icon: "i-lucide-wifi-off"},
+    DOWNLOAD_FAILED: {key: "error.download_failed", severity: "error", icon: "i-lucide-cloud-download"},
+    HASH_MISMATCH: {key: "error.hash_mismatch", severity: "error", icon: "i-lucide-file-x"},
+    FS_ERROR: {key: "error.fs", severity: "error", icon: "i-lucide-folder-x"},
+    ARCHIVE_INVALID: {key: "error.archive_invalid", severity: "error", icon: "i-lucide-file-archive"},
+    MANIFEST_INVALID: {key: "error.manifest_invalid", severity: "error", icon: "i-lucide-file-question"},
+    VERSION_NOT_FOUND: {key: "error.version_not_found", severity: "error", icon: "i-lucide-search-x"},
+    JAVA_NOT_FOUND: {key: "error.java_not_found", severity: "error", icon: "i-lucide-coffee"},
+    LAUNCH_FAILED: {key: "error.launch_failed", severity: "error", icon: "i-lucide-play"},
+    FORGE_INSTALL_FAILED: {key: "error.forge_install_failed", severity: "error", icon: "i-lucide-hammer"},
+    AUTH_FAILED: {key: "error.auth_failed", severity: "error", icon: "i-lucide-user-x"},
+    AUTH_PORT_BUSY: {key: "error.auth_port_busy", severity: "error", icon: "i-lucide-plug-zap"},
+    AUTH_EXPIRED: {key: "error.auth_expired", severity: "warning", icon: "i-lucide-clock-alert"},
+    NO_ACCOUNT: {key: "error.no_account", severity: "warning", icon: "i-lucide-user-round-x"},
+    CONFIG_ERROR: {key: "error.config", severity: "warning", icon: "i-lucide-settings-2"},
+    UPDATE_FAILED: {key: "error.update_failed", severity: "warning", icon: "i-lucide-download"},
+    INSTALL_ABORTED: {key: "error.install_aborted", severity: "info", icon: "i-lucide-circle-stop"},
+    UNKNOWN: {key: "error.unknown", severity: "error", icon: "i-lucide-triangle-alert"}
+}
+
+function translate(key: string): string {
+    return useNuxtApp().$i18n.t(key)
+}
+
+export function errorTitle(code: ErrorCode): string {
+    return translate(`${ERROR_CATALOG[code].key}.title`)
+}
+
+export function errorHint(code: ErrorCode): string | undefined {
+    const key = `${ERROR_CATALOG[code].key}.hint`
+    const i18n = useNuxtApp().$i18n
+
+    return i18n.te(key) ? i18n.t(key) : undefined
 }
 
 export interface LauncherErrorOptions {
@@ -158,7 +84,7 @@ export class LauncherError extends Error {
     readonly context: ErrorContext
 
     constructor(code: ErrorCode, options: LauncherErrorOptions = {}) {
-        super(options.message ?? ERROR_CATALOG[code].title, { cause: options.cause })
+        super(options.message ?? errorTitle(code), { cause: options.cause })
         this.name = "LauncherError"
         this.code = code
         this.details = options.details
@@ -166,11 +92,11 @@ export class LauncherError extends Error {
     }
 
     get title(): string {
-        return ERROR_CATALOG[this.code].title
+        return errorTitle(this.code)
     }
 
     get hint(): string | undefined {
-        return ERROR_CATALOG[this.code].hint
+        return errorHint(this.code)
     }
 
     get severity(): ErrorSeverity {
@@ -190,12 +116,12 @@ export class LauncherError extends Error {
         const lines = [
             `[${this.code}] ${this.title}`,
             this.message !== this.title ? this.message : null,
-            this.details ? `\nДетали:\n${this.details}` : null
+            this.details ? `\n${translate("error.report.details")}\n${this.details}` : null
         ].filter(Boolean)
 
         const context = Object.entries(this.context).filter(([, v]) => v !== undefined)
         if (context.length) {
-            lines.push("\nКонтекст:")
+            lines.push(`\n${translate("error.report.context")}`)
             for (const [key, value] of context) {
                 lines.push(`  ${key}: ${stringify(value)}`)
             }

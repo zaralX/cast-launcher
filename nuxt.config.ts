@@ -44,7 +44,8 @@ export default defineNuxtConfig({
     defaultLocale: 'ru',
     detectBrowserLanguage: false,
     locales: [
-      {code: 'ru', file: 'ru.json'}
+      {code: 'ru', file: 'ru.json'},
+      {code: 'en', file: 'en.json'}
     ]
   },
   ignore: ['**/src-tauri/**'],

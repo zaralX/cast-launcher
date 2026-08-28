@@ -17,11 +17,7 @@ export interface LauncherConfig {
 
 export type AfterLaunch = "nothing" | "hide" | "close"
 
-export const AFTER_LAUNCH_OPTIONS: { value: AfterLaunch, label: string, hint: string }[] = [
-    {value: "nothing", label: "Оставить открытым", hint: "Лаунчер никуда не денется."},
-    {value: "hide", label: "Скрыть лаунчер", hint: "Окно вернётся, когда игра закроется."},
-    {value: "close", label: "Закрыть лаунчер", hint: "Лаунчер доработает в фоне и выйдет вместе с игрой."}
-]
+export const AFTER_LAUNCH_VALUES: AfterLaunch[] = ["nothing", "hide", "close"]
 
 export type JavaMode = "auto" | "system" | "manual"
 
@@ -63,12 +59,12 @@ export interface JavaRuntime {
     source: JavaSource
 }
 
-export const JAVA_SOURCE_LABELS: Record<JavaSource, string> = {
-    path: "PATH",
-    java_home: "JAVA_HOME",
-    registry: "Реестр",
-    system: "Система",
-    minecraft: "Minecraft",
-    launcher: "Лаунчер",
-    manual: "Вручную"
+export const JAVA_SOURCE_KEYS: Record<JavaSource, string> = {
+    path: "java.source.path",
+    java_home: "java.source.java_home",
+    registry: "java.source.registry",
+    system: "java.source.system",
+    minecraft: "java.source.minecraft",
+    launcher: "java.source.launcher",
+    manual: "java.source.manual"
 }
