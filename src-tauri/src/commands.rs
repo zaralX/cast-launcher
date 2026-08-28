@@ -646,8 +646,6 @@ async fn mods_scan(state: &Ctx<'_>, instance_id: &str) -> CommandResult<mods::Mo
     })
 }
 
-/// Что положил в mods модпак: удаление такого мода вернётся при следующем
-/// обновлении пака, и об этом стоит предупредить.
 async fn managed_mods(dirs: &cast_core::paths::InstancePaths) -> BTreeSet<String> {
     let record = PackFiles::load(&dirs.pack_files()).await;
 

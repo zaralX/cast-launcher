@@ -3,7 +3,7 @@ import {useAppStore} from "~/stores/app"
 
 type UiLocale = typeof ru
 
-const UI_LOCALES: Record<string, UiLocale> = {ru, en}
+const UI_LOCALES: Record<string, UiLocale | undefined> = {ru, en}
 
 function uiLocaleOf(code: string): UiLocale {
     return UI_LOCALES[code] ?? ru
@@ -14,7 +14,7 @@ export function useLanguage() {
     const store = useAppStore()
 
     watch(() => store.config?.launcher.language, (language) => {
-        const next = language && localeCodes.value.includes(language) ? language : defaultLocale
+        const next = localeCodes.value.find(code => code === language) ?? defaultLocale
 
         if (next !== locale.value) setLocale(next)
     }, {immediate: true})

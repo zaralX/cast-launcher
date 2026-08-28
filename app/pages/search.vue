@@ -16,7 +16,7 @@ const {t} = useI18n()
 
 type Source = PackProvider | "castpack"
 
-const CASTPACK: Source = "castpack"
+const CASTPACK = "castpack" as const
 
 const PAGE_SIZE = 20
 const DEBOUNCE = 350

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type {ContextMenuItem} from "@nuxt/ui";
 import type {Instance} from "~/types/instance";
-import type {InstanceDir} from "~/types/backend";
 
 const props = defineProps<{
   instance: Instance
@@ -18,8 +17,6 @@ const actions = useInstanceActions()
 
 const state = computed(() => actions.stateOf(props.instance))
 const install = computed(() => actions.installOf(props.instance.id))
-
-const DIRS: InstanceDir[] = ["root", "minecraft", "logs"]
 
 const items = computed<ContextMenuItem[][]>(() => {
   const id = props.instance.id
@@ -40,7 +37,7 @@ const items = computed<ContextMenuItem[][]>(() => {
     primary,
     [
       {label: t("instance.action.settings"), icon: "i-lucide-settings", onSelect: () => navigateTo(`/instance/${id}`)},
-      ...DIRS.map(target => ({
+      ...INSTANCE_DIRS.map(target => ({
         label: t(INSTANCE_DIR_KEYS[target]),
         icon: "i-lucide-folder-open",
         onSelect: () => actions.openDir(id, target)

@@ -204,7 +204,7 @@ async function remove() {
               class="h-9 shrink-0 justify-center border border-red-400/30 px-3.5 text-[10px] tracking-[0.18em] text-red-400 transition-colors duration-300 hover:bg-red-500 hover:text-white"
               icon="i-lucide-trash-2"
               :disabled="running"
-              @click="removeOpen = true"
+              @click="() => { removeOpen = true }"
           >
             {{ $t('common.delete') }}
           </UButton>

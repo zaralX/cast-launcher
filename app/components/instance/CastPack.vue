@@ -2,6 +2,7 @@
 import type {Instance} from "~/types/instance"
 import type {CastPackUpdate} from "~/types/castpack"
 import {useCastPackStore} from "~/stores/castpack"
+import {call} from "~/types/backend"
 
 const props = defineProps<{ instance: Instance }>()
 

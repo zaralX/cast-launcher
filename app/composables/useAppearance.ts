@@ -27,19 +27,11 @@ export function accentOf(value: string | undefined | null): string {
     return ACCENTS.some(accent => accent.value === value) ? value! : DEFAULT_ACCENT
 }
 
-/**
- * Основной цвет приложения из конфига.
- * Меняет палитру `primary` у Nuxt UI, от неё же берётся `--cast-acid`.
- */
 export function useAccent() {
     const store = useAppStore()
     return computed(() => accentOf(store.config?.launcher.accent))
 }
 
-/**
- * Компактный режим интерфейса.
- * Помимо этого флага на `<html>` висит класс `compact` — можно цеплять из CSS.
- */
 export function useCompact() {
     const store = useAppStore()
     return computed(() => store.config?.launcher.compact === true)

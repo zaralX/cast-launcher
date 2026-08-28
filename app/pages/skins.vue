@@ -20,11 +20,11 @@ const {accountConfig} = storeToRefs(accountStore)
 
 const licensed = computed(() => (accountConfig.value?.accounts ?? []).filter(item => item.type === "microsoft"))
 
-const activeUuid = ref<string | null>(null)
+const activeUuid = ref<string>()
 
 watch(licensed, list => {
   if (!activeUuid.value || !list.some(item => item.uuid === activeUuid.value)) {
-    activeUuid.value = list[0]?.uuid ?? null
+    activeUuid.value = list[0]?.uuid
   }
 }, {immediate: true})
 
@@ -38,7 +38,7 @@ const accountItems = computed(() => licensed.value.map(item => ({
 
 // превью
 
-const POSES: { key: SkinPose, icon: string, label: string }[] = [
+const POSES: { key: SkinPose, icon: string, labelKey: string }[] = [
   {key: "stand", icon: "i-lucide-user-round", labelKey: "skins.pose.stand"},
   {key: "walk", icon: "i-lucide-footprints", labelKey: "skins.pose.walk"},
   {key: "run", icon: "i-lucide-wind", labelKey: "skins.pose.run"}
@@ -274,7 +274,7 @@ const guard = useUnsavedChanges({
 
 const VARIANTS: SkinVariant[] = ["CLASSIC", "SLIM"]
 
-async function reload(uuid: string | null) {
+async function reload(uuid?: string) {
   if (uuid) {
     await safeRun(() => skinStore.load(uuid), {context: {action: t("skins.load_action")}})
     return
@@ -395,7 +395,7 @@ watch(activeUuid, uuid => reload(uuid))
                   :aria-label="$t(item.labelKey)"
                   class="size-8 justify-center transition-colors duration-300"
                   :class="pose === item.key ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
-                  @click="pose = item.key"
+                  @click="() => { pose = item.key }"
               />
 
               <span class="mx-1 h-4 w-px bg-line"/>
@@ -408,7 +408,7 @@ watch(activeUuid, uuid => reload(uuid))
                   :aria-label="$t('skins.preview.rotate')"
                   class="size-8 justify-center transition-colors duration-300"
                   :class="spinning ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
-                  @click="spinning = !spinning"
+                  @click="() => { spinning = !spinning }"
               />
 
               <UButton
@@ -419,7 +419,7 @@ watch(activeUuid, uuid => reload(uuid))
                   :aria-label="$t('skins.preview.second_layer')"
                   class="size-8 justify-center transition-colors duration-300"
                   :class="layers ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
-                  @click="layers = !layers"
+                  @click="() => { layers = !layers }"
               />
             </div>
 

@@ -155,8 +155,6 @@ fn key(file_name: &str) -> String {
     format!("{FOLDER}/{file_name}")
 }
 
-/// Из фронта приходит путь вида `mods/jei.jar`. Всё остальное - мимо папки
-/// модов, и трогать это лаунчер не станет.
 fn target(scan: &ModsScan, path: &str) -> CommandResult<(String, PathBuf)> {
     let outside = || CommandError::fs(format!("Мод «{path}» лежит не в папке модов"));
 

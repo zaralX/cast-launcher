@@ -3,7 +3,9 @@ import {call, type InstanceDir} from "~/types/backend"
 
 export type InstanceState = "running" | "installing" | "ready" | "absent"
 
-export const INSTANCE_DIR_KEYS: Record<InstanceDir, string> = {
+export const INSTANCE_DIRS = ["root", "minecraft", "logs"] as const satisfies readonly InstanceDir[]
+
+export const INSTANCE_DIR_KEYS: Record<typeof INSTANCE_DIRS[number], string> = {
     root: "instance.dir.root",
     minecraft: "instance.dir.minecraft",
     logs: "instance.dir.logs"
@@ -41,7 +43,7 @@ export function useInstanceActions() {
         {context: {instanceId: id, action: t("instance.context.cancel")}}
     )
 
-    const openDir = (id: string, target: InstanceDir) => safeRun(
+    const openDir = (id: string, target: typeof INSTANCE_DIRS[number]) => safeRun(
         () => call("open_instance_dir", {instanceId: id, target}),
         {context: {instanceId: id, action: t(INSTANCE_DIR_KEYS[target])}}
     )

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type {Instance} from "~/types/instance";
 import {formatLastPlayed, formatPlaytime, INSTANCE_TYPE_LABELS} from "~/types/instance";
-import type {InstanceDir} from "~/types/backend";
 
 const props = defineProps<{
   instance: Instance | null
@@ -23,9 +22,7 @@ const {t} = useI18n()
 const playtime = computed(() => formatPlaytime(total.value) || t("instance.playtime.never"))
 const lastPlayed = computed(() => formatLastPlayed(props.instance?.playtime?.lastPlayedAt ?? 0))
 
-const DIRS: InstanceDir[] = ["root", "minecraft", "logs"]
-
-const DIR_ICONS: Record<InstanceDir, string> = {
+const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
   root: "i-lucide-folder-open",
   minecraft: "i-lucide-box",
   logs: "i-lucide-scroll-text"
@@ -117,7 +114,7 @@ const DIR_ICONS: Record<InstanceDir, string> = {
 
           <div class="grid grid-cols-3 gap-2">
             <button
-                v-for="target in DIRS"
+                v-for="target in INSTANCE_DIRS"
                 :key="target"
                 type="button"
                 :title="$t(INSTANCE_DIR_KEYS[target])"

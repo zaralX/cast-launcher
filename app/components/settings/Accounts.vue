@@ -91,7 +91,7 @@ async function confirmRemove() {
               :aria-label="$t('settings.accounts.remove')"
               class="shrink-0 p-1 text-fg-faint transition-colors duration-300 hover:bg-transparent hover:text-red-400"
               :disabled="!account.uuid"
-              @click.stop="removeTarget = account"
+              @click.stop="() => { removeTarget = account }"
           />
         </li>
       </ul>

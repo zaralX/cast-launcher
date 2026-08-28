@@ -426,7 +426,6 @@ fn logo_url(project: &RawMod) -> Option<String> {
     (!url.is_empty()).then(|| url.clone())
 }
 
-/// Свежайший файл мода под лоадер и версию игры конкретной сборки.
 pub async fn latest_mod(
     project_id: &str,
     loader: LoaderType,

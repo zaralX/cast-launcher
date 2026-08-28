@@ -20,8 +20,6 @@ const MCMOD_INFO: &str = "mcmod.info";
 const LITEMOD_JSON: &str = "litemod.json";
 const MANIFEST: &str = "META-INF/MANIFEST.MF";
 
-/// Имя файла метаданных плюс лоадер, которому он принадлежит. Порядок задаёт
-/// приоритет разбора, когда в jar лежит сразу несколько описаний.
 const SOURCES: &[(&str, ModLoader)] = &[
     (NEOFORGE_TOML, ModLoader::NeoForge),
     (FORGE_TOML, ModLoader::Forge),

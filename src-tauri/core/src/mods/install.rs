@@ -41,7 +41,6 @@ impl Default for ModSearch {
 }
 
 impl ModSearch {
-    /// У vanilla-сборки фильтровать нечего: загрузчика нет.
     pub fn loader_key(&self) -> Option<&'static str> {
         match self.loader {
             LoaderType::Vanilla => None,
