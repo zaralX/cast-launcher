@@ -38,6 +38,15 @@ export default defineNuxtConfig({
       sizeLimitKb: 0,
     },
   },
+  i18n: {
+    vueI18n: 'i18n.config.ts',
+    strategy: 'no_prefix',
+    defaultLocale: 'ru',
+    detectBrowserLanguage: false,
+    locales: [
+      {code: 'ru', file: 'ru.json'}
+    ]
+  },
   ignore: ['**/src-tauri/**'],
-  modules: ['@pinia/nuxt', '@nuxt/ui']
+  modules: ['@pinia/nuxt', '@nuxt/ui', '@nuxtjs/i18n']
 })
