@@ -265,6 +265,9 @@ mod tests {
             sha1: Some("aaa".into()),
             size: Some(100),
             date: None,
+            release: "release".into(),
+            blocked: false,
+            dependencies: Vec::new(),
         }
     }
 

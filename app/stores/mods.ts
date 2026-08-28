@@ -1,5 +1,16 @@
 import {defineStore} from 'pinia'
-import type {CatalogMatch, InstalledMods, ModFile, ModUpdate, UpdatedModsReport} from '~/types/mods'
+import type {
+    CatalogMatch,
+    CatalogVersion,
+    InstallPlan,
+    InstallReport,
+    InstalledMods,
+    ModFile,
+    ModSearchQuery,
+    ModUpdate,
+    UpdatedModsReport
+} from '~/types/mods'
+import type {PackSearchPage} from '~/types/catalog'
 import {call} from '~/types/backend'
 
 const pendingIcons = new Map<string, Promise<string | null>>()
@@ -125,6 +136,35 @@ export const useModsStore = defineStore('mods', {
 
             this.byInstance[instanceId] = mods
             this.updates[instanceId] = this.updatesOf(instanceId).filter(update => !paths.includes(update.path))
+
+            return report
+        },
+
+        async searchMods(instanceId: string, query: ModSearchQuery): Promise<PackSearchPage> {
+            return await call("search_mods", {instanceId, query})
+        },
+
+        async modVersions(
+            instanceId: string,
+            provider: CatalogMatch["provider"],
+            projectId: string
+        ): Promise<CatalogVersion[]> {
+            return await call("mod_versions", {instanceId, provider, projectId})
+        },
+
+        async planInstall(
+            instanceId: string,
+            provider: CatalogMatch["provider"],
+            projectId: string,
+            versionId: string
+        ): Promise<InstallPlan> {
+            return await call("plan_mod_install", {instanceId, provider, projectId, versionId})
+        },
+
+        async installMod(instanceId: string, planId: string, optional: string[]): Promise<InstallReport> {
+            const {mods, report} = await call("install_mod", {instanceId, planId, optional})
+
+            this.byInstance[instanceId] = mods
 
             return report
         },

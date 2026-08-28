@@ -11,7 +11,17 @@ import type {
     RunningGame
 } from "~/types/instance"
 import type {IconFile, ItemCatalog} from "~/types/icon"
-import type {CatalogMatch, InstalledMods, ModFile, ModUpdate, UpdatedModsReport} from "~/types/mods"
+import type {
+    CatalogMatch,
+    CatalogVersion,
+    InstallPlan,
+    InstallReport,
+    InstalledMods,
+    ModFile,
+    ModSearchQuery,
+    ModUpdate,
+    UpdatedModsReport
+} from "~/types/mods"
 import type {AccountLook, SkinEntry, SkinLibrary, SkinVariant} from "~/types/skin"
 import type {
     DetectedLauncher,
@@ -89,6 +99,13 @@ interface Commands {
     identify_instance_mods: [{ instanceId: string }, Record<string, CatalogMatch>]
     check_mod_updates: [{ instanceId: string }, ModUpdate[]]
     update_mods: [{ instanceId: string, paths: string[] }, UpdatedMods]
+    search_mods: [{ instanceId: string, query: ModSearchQuery }, PackSearchPage]
+    mod_versions: [{ instanceId: string, provider: PackProvider, projectId: string }, CatalogVersion[]]
+    plan_mod_install: [
+        { instanceId: string, provider: PackProvider, projectId: string, versionId: string },
+        InstallPlan
+    ]
+    install_mod: [{ instanceId: string, planId: string, optional: string[] }, InstalledFromCatalog]
 
     list_icons: [void, IconFile[]]
     read_icon: [{ name: string }, string]
@@ -175,6 +192,11 @@ export interface AddedMods {
 export interface UpdatedMods {
     mods: ModFile[]
     report: UpdatedModsReport
+}
+
+export interface InstalledFromCatalog {
+    mods: ModFile[]
+    report: InstallReport
 }
 
 export type PlayOutcome =

@@ -19,11 +19,12 @@ use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::{neoforge, vanilla};
-use cast_core::mods::catalog::CatalogMatch;
+use cast_core::mods::catalog::{CatalogMatch, CatalogVersion};
+use cast_core::mods::install::{InstallPlan, ModSearch};
 use cast_core::mods::updates::ModUpdate;
 use cast_core::mods::{self, ModFile};
 use cast_core::mojang::version::VersionManifest;
-use cast_core::packs;
+use cast_core::packs::{self, PackPage};
 use cast_core::paths::PathsSnapshot;
 use cast_core::skins::{self, AccountLook, SkinEntry, SkinLibrary, SkinVariant};
 
@@ -489,6 +490,114 @@ pub async fn update_mods(
         mods: mods::list(&scan, false).await?,
         report,
     })
+}
+
+#[tauri::command]
+pub async fn search_mods(state: Ctx<'_>, instance_id: String, query: ModSearch) -> CommandResult<PackPage> {
+    mods::install::search(&with_instance(&state, &instance_id, query).await?).await
+}
+
+#[tauri::command]
+pub async fn mod_versions(
+    state: Ctx<'_>,
+    instance_id: String,
+    provider: PackProvider,
+    project_id: String,
+) -> CommandResult<Vec<CatalogVersion>> {
+    let instance = state.instances.get(&instance_id).await?;
+
+    mods::install::versions(provider, &project_id, instance.loader, &instance.minecraft_version).await
+}
+
+#[tauri::command]
+pub async fn plan_mod_install(
+    state: Ctx<'_>,
+    instance_id: String,
+    provider: PackProvider,
+    project_id: String,
+    version_id: String,
+) -> CommandResult<InstallPlan> {
+    let instance = state.instances.get(&instance_id).await?;
+    let installed = installed_projects(&state, &instance_id).await?;
+
+    let plan = mods::install::plan(mods::install::PlanRequest {
+        provider,
+        project_id: &project_id,
+        version_id: &version_id,
+        loader: instance.loader,
+        game_version: &instance.minecraft_version,
+        installed: &installed,
+    })
+    .await?;
+
+    state.mod_plans.write().await.insert(plan.id.clone(), plan.clone());
+
+    Ok(plan)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledMods {
+    pub mods: Vec<ModFile>,
+    pub report: mods::install::InstallReport,
+}
+
+#[tauri::command]
+pub async fn install_mod(
+    state: Ctx<'_>,
+    instance_id: String,
+    plan_id: String,
+    optional: Vec<String>,
+) -> CommandResult<InstalledMods> {
+    let lock = state.mods.of(&instance_id).await;
+    let _guard = lock.lock().await;
+
+    let plan = state
+        .mod_plans
+        .read()
+        .await
+        .get(&plan_id)
+        .cloned()
+        .ok_or_else(|| CommandError::unknown("План установки устарел - выберите версию заново"))?;
+
+    let scan = mods_scan(&state, &instance_id).await?;
+    let paths = state.paths().await;
+
+    let report = mods::install::apply(
+        &scan,
+        &state.downloads,
+        &plan,
+        &optional,
+        &paths.mod_catalog(),
+    )
+    .await?;
+
+    state.mod_plans.write().await.remove(&plan_id);
+
+    Ok(InstalledMods {
+        mods: mods::list(&scan, false).await?,
+        report,
+    })
+}
+
+async fn with_instance(state: &Ctx<'_>, instance_id: &str, query: ModSearch) -> CommandResult<ModSearch> {
+    let instance = state.instances.get(instance_id).await?;
+
+    Ok(ModSearch {
+        loader: instance.loader,
+        game_version: instance.minecraft_version,
+        ..query
+    })
+}
+
+async fn installed_projects(state: &Ctx<'_>, instance_id: &str) -> CommandResult<BTreeSet<String>> {
+    let scan = mods_scan(state, instance_id).await?;
+    let paths = state.paths().await;
+
+    let mods = mods::list(&scan, false).await?;
+    let matches = mods::catalog::identify(&scan, &mods, &paths.mod_catalog()).await?;
+
+    Ok(matches.values().map(|matched| matched.project_id.clone()).collect())
 }
 
 #[tauri::command]

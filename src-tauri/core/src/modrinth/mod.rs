@@ -10,7 +10,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::http;
 use crate::net::meta_cache::MetaCache;
-use crate::mods::catalog::{CatalogMatch, CatalogVersion};
+use crate::mods::catalog::{CatalogMatch, CatalogProject, CatalogVersion, Dependency};
 use crate::packs::{Category, FileHashes, PackFile, PackFilters, PackHit, PackPage, PackVersion};
 
 pub const API: &str = "https://api.modrinth.com/v2";
@@ -207,6 +207,19 @@ pub struct Version {
     pub loaders: Vec<String>,
     #[serde(default)]
     pub files: Vec<VersionFile>,
+    #[serde(default)]
+    pub dependencies: Vec<RawDependency>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RawDependency {
+    #[serde(default)]
+    pub project_id: Option<String>,
+    #[serde(default)]
+    pub version_id: Option<String>,
+    #[serde(default)]
+    pub dependency_type: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -499,6 +512,33 @@ struct Project {
     icon_url: Option<String>,
 }
 
+impl From<Project> for CatalogProject {
+    fn from(project: Project) -> Self {
+        Self {
+            page_url: page_url(&project),
+            project_id: project.id,
+            title: project.title,
+            slug: project.slug,
+            icon_url: project.icon_url.unwrap_or_default(),
+            authors: Vec::new(),
+        }
+    }
+}
+
+pub async fn projects_info(ids: &[String]) -> CommandResult<BTreeMap<String, CatalogProject>> {
+    if ids.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let ids: Vec<&str> = ids.iter().map(|id| id.as_str()).collect();
+    let projects: Vec<Project> = get_json(&ids_url("projects", &ids)).await?;
+
+    Ok(projects
+        .into_iter()
+        .map(|project| (project.id.clone(), CatalogProject::from(project)))
+        .collect())
+}
+
 pub async fn identify(hashes: &[String]) -> CommandResult<BTreeMap<String, CatalogMatch>> {
     let found = versions_by_sha1(hashes).await?;
 
@@ -560,10 +600,121 @@ pub async fn latest_mod(
     loaders: &[&str],
     game_version: &str,
 ) -> CommandResult<Option<CatalogVersion>> {
+    let versions = compatible_versions(project_id, loaders, game_version).await?;
+
+    Ok(versions
+        .into_iter()
+        .max_by(|a, b| a.date_published.cmp(&b.date_published))
+        .and_then(catalog_version))
+}
+
+fn catalog_version(version: Version) -> Option<CatalogVersion> {
+    let file = version.primary_file()?.clone();
+    let dependencies = version.dependencies.iter().filter_map(dependency).collect();
+
+    Some(CatalogVersion {
+        version_id: version.id,
+        version_number: version.version_number,
+        file_name: file.filename,
+        url: file.url,
+        sha1: file.hashes.sha1,
+        size: file.size,
+        date: version.date_published,
+        release: version.version_type,
+        blocked: false,
+        dependencies,
+    })
+}
+
+fn dependency(raw: &RawDependency) -> Option<Dependency> {
+    let required = match raw.dependency_type.trim() {
+        "required" => true,
+        "optional" => false,
+        _ => return None,
+    };
+
+    let project_id = raw.project_id.clone().filter(|id| !id.trim().is_empty())?;
+
+    Some(Dependency {
+        project_id,
+        version_id: raw.version_id.clone().filter(|id| !id.trim().is_empty()),
+        required,
+    })
+}
+
+pub async fn search_mods(query: &crate::mods::install::ModSearch) -> CommandResult<PackPage> {
+    let page: SearchPage = get_json(&mod_search_url(query)).await?;
+
+    Ok(PackPage {
+        hits: page.hits.into_iter().map(PackHit::from).collect(),
+        offset: page.offset,
+        limit: page.limit,
+        total_hits: page.total_hits,
+    })
+}
+
+pub(crate) fn mod_search_url(query: &crate::mods::install::ModSearch) -> String {
+    let mut url = Url::parse(&format!("{API}/search")).expect("постоянный адрес поиска Modrinth");
+
+    let mut groups: Vec<Vec<String>> = vec![vec!["project_type:mod".to_string()]];
+
+    if let Some(loader) = query.loader_key() {
+        groups.push(vec![format!("categories:{loader}")]);
+    }
+
+    let game_version = query.game_version.trim();
+    if !game_version.is_empty() {
+        groups.push(vec![format!("versions:{game_version}")]);
+    }
+
+    {
+        let mut pairs = url.query_pairs_mut();
+
+        let text = query.query.trim();
+        if !text.is_empty() {
+            pairs.append_pair("query", text);
+        }
+
+        let facets = serde_json::to_string(&groups).unwrap_or_default();
+
+        pairs.append_pair("facets", &facets);
+        pairs.append_pair("index", query.sort_key(SORTS));
+        pairs.append_pair("offset", &query.offset.to_string());
+        pairs.append_pair("limit", &query.limit.clamp(1, MAX_LIMIT).to_string());
+    }
+
+    url.into()
+}
+
+pub async fn mod_versions(
+    project_id: &str,
+    loaders: &[&str],
+    game_version: &str,
+) -> CommandResult<Vec<CatalogVersion>> {
+    let mut versions = compatible_versions(project_id, loaders, game_version).await?;
+
+    versions.sort_by(|a, b| b.date_published.cmp(&a.date_published));
+
+    Ok(versions.into_iter().filter_map(catalog_version).collect())
+}
+
+pub async fn mod_version(version_id: &str) -> CommandResult<Option<CatalogVersion>> {
+    let id = segment(version_id)?;
+    let raw: Version = get_json(&format!("{API}/version/{id}")).await?;
+
+    Ok(catalog_version(raw))
+}
+
+async fn compatible_versions(
+    project_id: &str,
+    loaders: &[&str],
+    game_version: &str,
+) -> CommandResult<Vec<Version>> {
     let id = segment(project_id)?;
 
-    let mut url = Url::parse(&format!("{API}/project/{id}/version"))
-        .map_err(|_| CommandError::manifest(format!("Недопустимый идентификатор Modrinth: {project_id}")))?;
+    let mut url = Url::parse(&format!("{API}/project/{id}/version")).map_err(|_| {
+        CommandError::manifest(format!("Недопустимый идентификатор Modrinth: {project_id}"))
+    })?;
 
     {
         let mut pairs = url.query_pairs_mut();
@@ -577,26 +728,7 @@ pub async fn latest_mod(
         }
     }
 
-    let versions: Vec<Version> = get_json(url.as_str()).await?;
-
-    Ok(versions
-        .into_iter()
-        .max_by(|a, b| a.date_published.cmp(&b.date_published))
-        .and_then(catalog_version))
-}
-
-fn catalog_version(version: Version) -> Option<CatalogVersion> {
-    let file = version.primary_file()?.clone();
-
-    Some(CatalogVersion {
-        version_id: version.id,
-        version_number: version.version_number,
-        file_name: file.filename,
-        url: file.url,
-        sha1: file.hashes.sha1,
-        size: file.size,
-        date: version.date_published,
-    })
+    get_json(url.as_str()).await
 }
 
 fn json_array(values: &[&str]) -> String {
@@ -722,6 +854,63 @@ async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn mod_query(text: &str, loader: LoaderType, game_version: &str) -> crate::mods::install::ModSearch {
+        crate::mods::install::ModSearch {
+            provider: PackProvider::Modrinth,
+            query: text.to_string(),
+            loader,
+            game_version: game_version.to_string(),
+            ..Default::default()
+        }
+    }
+
+    fn facets_of(url: &str) -> Vec<Vec<String>> {
+        let parsed = Url::parse(url).unwrap();
+
+        let raw = parsed
+            .query_pairs()
+            .find(|(key, _)| key == "facets")
+            .map(|(_, value)| value.to_string())
+            .unwrap();
+
+        serde_json::from_str(&raw).unwrap()
+    }
+
+    #[test]
+    fn the_mod_search_asks_for_mods_and_not_for_modpacks() {
+        let url = mod_search_url(&mod_query("sodium", LoaderType::Fabric, "1.20.1"));
+        let facets = facets_of(&url);
+
+        assert!(facets.contains(&vec!["project_type:mod".to_string()]));
+        assert!(facets.contains(&vec!["categories:fabric".to_string()]));
+        assert!(facets.contains(&vec!["versions:1.20.1".to_string()]));
+        assert!(!facets.iter().any(|group| group.iter().any(|facet| facet.contains("modpack"))));
+    }
+
+    #[test]
+    fn a_vanilla_instance_searches_without_a_loader_facet() {
+        let facets = facets_of(&mod_search_url(&mod_query("", LoaderType::Vanilla, "")));
+
+        assert_eq!(facets, vec![vec!["project_type:mod".to_string()]]);
+    }
+
+    #[test]
+    fn only_required_and_optional_dependencies_reach_the_plan() {
+        let of = |kind: &str, project: Option<&str>| {
+            dependency(&RawDependency {
+                project_id: project.map(str::to_string),
+                version_id: None,
+                dependency_type: kind.to_string(),
+            })
+        };
+
+        assert!(of("required", Some("fabric-api")).unwrap().required);
+        assert!(!of("optional", Some("sodium")).unwrap().required);
+        assert!(of("incompatible", Some("optifine")).is_none());
+        assert!(of("embedded", Some("shim")).is_none());
+        assert!(of("required", None).is_none(), "зависимость без проекта бесполезна");
+    }
 
     fn parse_facets(query: &SearchQuery) -> Vec<Vec<String>> {
         serde_json::from_str(&query.facets()).unwrap()

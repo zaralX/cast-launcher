@@ -10,7 +10,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::http;
 use crate::net::meta_cache::MetaCache;
-use crate::mods::catalog::{CatalogMatch, CatalogVersion};
+use crate::mods::catalog::{CatalogMatch, CatalogProject, CatalogVersion, Dependency};
 use crate::packs::{
     Category, FileHashes, PackFile, PackFilters, PackHit, PackPage, PackVersion, SearchQuery,
 };
@@ -21,6 +21,8 @@ pub const GAME_ID: u32 = 432;
 
 pub const MODPACK_CLASS: u32 = 4471;
 
+pub const MOD_CLASS: u32 = 6;
+
 pub const WORLD_CLASS: u32 = 17;
 
 pub const RESOURCE_PACK_CLASS: u32 = 12;
@@ -28,6 +30,8 @@ pub const RESOURCE_PACK_CLASS: u32 = 12;
 pub const SHADER_CLASS: u32 = 6552;
 
 pub const DATA_PACK_CLASS: u32 = 6945;
+
+const SORTS: &[&str] = &["relevance", "downloads", "updated"];
 
 pub const MAX_LIMIT: u32 = 50;
 pub const MAX_OFFSET: u32 = 10_000;
@@ -241,6 +245,164 @@ pub async fn identify(fingerprints: &[u32]) -> CommandResult<BTreeMap<u32, Catal
         .collect())
 }
 
+pub async fn projects_info(ids: &[String]) -> CommandResult<BTreeMap<String, CatalogProject>> {
+    let numeric: Vec<u64> = ids.iter().filter_map(|id| id.trim().parse().ok()).collect();
+
+    if numeric.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let projects = mods_by_id(&numeric).await?;
+
+    Ok(projects
+        .into_iter()
+        .map(|(id, project)| {
+            let info = CatalogProject {
+                project_id: id.to_string(),
+                title: project.name.clone(),
+                slug: project.slug.clone(),
+                icon_url: logo_url(&project).unwrap_or_default(),
+                page_url: project.website_url().unwrap_or_default().to_string(),
+                authors: project.authors.iter().map(|author| author.name.clone()).collect(),
+            };
+
+            (id.to_string(), info)
+        })
+        .collect())
+}
+
+pub async fn search_mods(query: &crate::mods::install::ModSearch) -> CommandResult<PackPage> {
+    let limit = query.limit.clamp(1, MAX_LIMIT);
+    let offset = query.offset.min(MAX_OFFSET.saturating_sub(limit));
+
+    let page: Envelope<Vec<RawMod>> = get_json(&mod_search_url(query)).await?;
+    let total = page.pagination.map(|p| p.total_count).unwrap_or(0);
+
+    Ok(PackPage {
+        hits: page.data.into_iter().map(PackHit::from).collect(),
+        offset,
+        limit,
+        total_hits: total.min(MAX_OFFSET),
+    })
+}
+
+pub(crate) fn mod_search_url(query: &crate::mods::install::ModSearch) -> String {
+    let limit = query.limit.clamp(1, MAX_LIMIT);
+    let offset = query.offset.min(MAX_OFFSET.saturating_sub(limit));
+
+    let mut url = Url::parse(&format!("{API}/mods/search")).expect("постоянный адрес поиска CurseForge");
+
+    {
+        let mut pairs = url.query_pairs_mut();
+
+        pairs.append_pair("gameId", &GAME_ID.to_string());
+        pairs.append_pair("classId", &MOD_CLASS.to_string());
+        pairs.append_pair("index", &offset.to_string());
+        pairs.append_pair("pageSize", &limit.to_string());
+        pairs.append_pair("sortField", &sort_field(query.sort_key(SORTS)).to_string());
+        pairs.append_pair("sortOrder", "desc");
+
+        let text = query.query.trim();
+        if !text.is_empty() {
+            pairs.append_pair("searchFilter", text);
+        }
+
+        let game_version = query.game_version.trim();
+        if !game_version.is_empty() {
+            pairs.append_pair("gameVersion", game_version);
+        }
+
+        if let Some(loader) = query.loader_key().and_then(loader_id) {
+            pairs.append_pair("modLoaderType", &loader.to_string());
+        }
+    }
+
+    url.into()
+}
+
+pub async fn mod_versions(
+    project_id: &str,
+    loader: LoaderType,
+    game_version: &str,
+) -> CommandResult<Vec<CatalogVersion>> {
+    let mut files = compatible_files(project_id, loader, game_version).await?;
+
+    files.sort_by(|a, b| b.file_date.cmp(&a.file_date));
+
+    Ok(files.into_iter().map(catalog_version).collect())
+}
+
+pub async fn mod_version(project_id: &str, version_id: &str) -> CommandResult<Option<CatalogVersion>> {
+    let project = numeric(project_id)?;
+    let file = numeric(version_id)?;
+
+    let raw: Envelope<RawFile> = get_json(&format!("{API}/mods/{project}/files/{file}")).await?;
+
+    Ok(Some(catalog_version(raw.data)))
+}
+
+async fn compatible_files(
+    project_id: &str,
+    loader: LoaderType,
+    game_version: &str,
+) -> CommandResult<Vec<RawFile>> {
+    let id = numeric(project_id)?;
+
+    let mut url = Url::parse(&format!("{API}/mods/{id}/files")).map_err(|_| {
+        CommandError::manifest(format!("Недопустимый идентификатор CurseForge: {project_id}"))
+    })?;
+
+    {
+        let mut pairs = url.query_pairs_mut();
+
+        pairs.append_pair("pageSize", "50");
+
+        let game_version = game_version.trim();
+        if !game_version.is_empty() {
+            pairs.append_pair("gameVersion", game_version);
+        }
+
+        if let Some(loader) = loader_id(loader.key()) {
+            pairs.append_pair("modLoaderType", &loader.to_string());
+        }
+    }
+
+    let page: Envelope<Vec<RawFile>> = get_json(url.as_str()).await?;
+
+    Ok(page.data)
+}
+
+fn catalog_version(file: RawFile) -> CatalogVersion {
+    let url = file.download_url().unwrap_or_default().to_string();
+
+    CatalogVersion {
+        version_id: file.id.to_string(),
+        version_number: file.display_name.clone(),
+        file_name: file.file_name.clone(),
+        blocked: url.is_empty(),
+        url,
+        sha1: file.sha1(),
+        size: file.size(),
+        date: file.file_date.clone(),
+        release: release_type(file.release_type).to_string(),
+        dependencies: file.dependencies.iter().filter_map(dependency).collect(),
+    }
+}
+
+fn dependency(relation: &RawRelation) -> Option<Dependency> {
+    let required = match relation.relation_type {
+        3 => true,
+        2 => false,
+        _ => return None,
+    };
+
+    (relation.mod_id > 0).then(|| Dependency {
+        project_id: relation.mod_id.to_string(),
+        version_id: None,
+        required,
+    })
+}
+
 async fn mods_by_id(ids: &[u64]) -> CommandResult<BTreeMap<u64, RawMod>> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -297,15 +459,7 @@ pub async fn latest_mod(
         .into_iter()
         .filter(|file| file.download_url().is_some())
         .max_by(|a, b| a.file_date.cmp(&b.file_date))
-        .map(|file| CatalogVersion {
-            version_id: file.id.to_string(),
-            version_number: file.display_name.clone(),
-            file_name: file.file_name.clone(),
-            url: file.download_url().unwrap_or_default().to_string(),
-            sha1: file.sha1(),
-            size: file.size(),
-            date: file.file_date.clone(),
-        }))
+        .map(catalog_version))
 }
 
 pub async fn download_page(project_id: &str, version_id: &str) -> CommandResult<String> {
@@ -552,6 +706,18 @@ pub(crate) struct RawFile {
     hashes: Vec<RawHash>,
     #[serde(default)]
     file_fingerprint: u64,
+    #[serde(default)]
+    dependencies: Vec<RawRelation>,
+}
+
+/// https://docs.curseforge.com/rest-api/#tocS_FileRelationType
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RawRelation {
+    #[serde(default)]
+    mod_id: u64,
+    #[serde(default)]
+    relation_type: u32,
 }
 
 impl RawFile {
@@ -757,6 +923,57 @@ fn api_error(body: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn pairs_of(url: &str) -> std::collections::BTreeMap<String, String> {
+        Url::parse(url)
+            .unwrap()
+            .query_pairs()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn the_mod_search_asks_for_the_mod_class() {
+        let query = crate::mods::install::ModSearch {
+            provider: PackProvider::CurseForge,
+            query: "jei".into(),
+            loader: LoaderType::Forge,
+            game_version: "1.20.1".into(),
+            ..Default::default()
+        };
+
+        let pairs = pairs_of(&mod_search_url(&query));
+
+        assert_eq!(pairs.get("classId").unwrap(), &MOD_CLASS.to_string());
+        assert_eq!(pairs.get("gameVersion").unwrap(), "1.20.1");
+        assert_eq!(pairs.get("modLoaderType").unwrap(), "1");
+        assert_eq!(pairs.get("searchFilter").unwrap(), "jei");
+    }
+
+    #[test]
+    fn a_vanilla_instance_searches_without_a_loader() {
+        let query = crate::mods::install::ModSearch {
+            provider: PackProvider::CurseForge,
+            ..Default::default()
+        };
+
+        let pairs = pairs_of(&mod_search_url(&query));
+
+        assert!(!pairs.contains_key("modLoaderType"));
+        assert!(!pairs.contains_key("gameVersion"));
+    }
+
+    #[test]
+    fn only_required_and_optional_relations_reach_the_plan() {
+        let of = |relation_type: u32, mod_id: u64| dependency(&RawRelation { mod_id, relation_type });
+
+        assert!(of(3, 238222).unwrap().required);
+        assert!(!of(2, 238222).unwrap().required);
+        assert_eq!(of(3, 238222).unwrap().project_id, "238222");
+        assert!(of(5, 238222).is_none(), "несовместимость - не зависимость");
+        assert!(of(6, 238222).is_none(), "включённое внутрь уже там");
+        assert!(of(3, 0).is_none());
+    }
     use crate::packs::SearchQuery;
 
     fn query() -> SearchQuery {

@@ -9,6 +9,7 @@ use cast_core::account::AccountStore;
 use cast_core::config::{self, AppConfig};
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::instance::InstanceRegistry;
+use cast_core::mods::install::InstallPlan;
 use cast_core::mods::updates::ModUpdate;
 use cast_core::java::JavaRegistry;
 use cast_core::net::download::DownloadRegistry;
@@ -36,6 +37,7 @@ pub struct AppState {
     pub accounts: AccountStore,
     pub mods: ModLocks,
     pub mod_updates: RwLock<HashMap<String, Vec<ModUpdate>>>,
+    pub mod_plans: RwLock<HashMap<String, InstallPlan>>,
 }
 
 #[derive(Default)]
@@ -87,6 +89,7 @@ impl AppState {
             accounts,
             mods: ModLocks::default(),
             mod_updates: RwLock::new(HashMap::new()),
+            mod_plans: RwLock::new(HashMap::new()),
         });
 
         let paths = state.paths().await;

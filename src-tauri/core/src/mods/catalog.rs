@@ -41,15 +41,42 @@ pub struct CatalogMatch {
     pub authors: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CatalogVersion {
     pub version_id: String,
     pub version_number: String,
     pub file_name: String,
     pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sha1: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub date: Option<String>,
+    pub release: String,
+    pub blocked: bool,
+    pub dependencies: Vec<Dependency>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Dependency {
+    pub project_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version_id: Option<String>,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogProject {
+    pub project_id: String,
+    pub title: String,
+    pub slug: String,
+    pub icon_url: String,
+    pub page_url: String,
+    pub authors: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,6 +128,23 @@ impl CatalogCache {
                 checked_at: now,
             },
         );
+    }
+}
+
+pub async fn remember_all(cache_file: &Path, entries: &[(String, CatalogMatch)]) {
+    if entries.is_empty() {
+        return;
+    }
+
+    let mut cache = CatalogCache::load(cache_file).await;
+    let now = now_millis();
+
+    for (sha1, matched) in entries {
+        cache.remember(sha1, Some(matched.clone()), now);
+    }
+
+    if let Err(error) = cache.save(cache_file).await {
+        eprintln!("Не удалось сохранить кэш каталога: {}", error.message);
     }
 }
 

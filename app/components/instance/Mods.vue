@@ -31,6 +31,7 @@ const loaded = computed(() => modsStore.isLoaded(instanceId.value))
 
 const query = ref("")
 const filter = ref<Filter>("all")
+const catalogOpen = ref(false)
 const expanded = ref("")
 const selected = ref<string[]>([])
 const busy = ref<string[]>([])
@@ -277,6 +278,12 @@ async function addFiles(paths: string[]) {
   await loadIcons(mods.value)
 }
 
+async function afterCatalogInstall() {
+  keepAlive()
+  await loadIcons(mods.value)
+  await identify()
+}
+
 async function pickFiles() {
   const result = await attempt(
       () => call("pick_mod_files"),
@@ -362,11 +369,19 @@ watch(instanceId, () => {
         <div class="flex items-center gap-3 pb-1">
           <AppButton
               class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+              icon="i-lucide-search"
+              @click="catalogOpen = true"
+          >
+            Найти мод
+          </AppButton>
+
+          <AppButton
+              class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
               icon="i-lucide-package-plus"
               :loading="working"
               @click="pickFiles"
           >
-            Добавить
+            Добавить файлы
           </AppButton>
 
           <AppButton
@@ -641,6 +656,12 @@ watch(instanceId, () => {
         </p>
       </div>
     </div>
+
+    <InstanceModCatalog
+        v-model:open="catalogOpen"
+        :instance="instance"
+        @installed="afterCatalogInstall"
+    />
 
     <UModal
         :open="confirming"

@@ -68,6 +68,66 @@ export const CATALOG_LABELS: Record<CatalogMatch["provider"], string> = {
     curseforge: "CurseForge"
 }
 
+export interface CatalogVersion {
+    versionId: string
+    versionNumber: string
+    fileName: string
+    url: string
+    sha1?: string
+    size?: number
+    date?: string
+    release: string
+    blocked: boolean
+    dependencies: {
+        projectId: string
+        versionId?: string
+        required: boolean
+    }[]
+}
+
+export interface ModSearchQuery {
+    provider: CatalogMatch["provider"]
+    query?: string
+    sort?: string
+    offset?: number
+    limit?: number
+}
+
+export interface PlannedMod {
+    provider: CatalogMatch["provider"]
+    projectId: string
+    versionId: string
+    versionNumber: string
+    title: string
+    fileName: string
+    url: string
+    sha1?: string
+    size?: number
+    iconUrl: string
+    pageUrl: string
+    blocked: boolean
+}
+
+export interface InstallPlan {
+    id: string
+    target: PlannedMod
+    required: PlannedMod[]
+    optional: PlannedMod[]
+    installed: string[]
+}
+
+export interface InstallReport {
+    installed: string[]
+    failed: string[]
+    blocked: string[]
+}
+
+export const RELEASE_LABELS: Record<string, string> = {
+    release: "релиз",
+    beta: "бета",
+    alpha: "альфа"
+}
+
 export const MOD_EXTENSIONS = ["jar", "zip", "litemod"]
 
 export function isModFile(name: string): boolean {
