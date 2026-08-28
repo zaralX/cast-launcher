@@ -79,6 +79,7 @@ jobs:
         run: npm ci
 
       - uses: tauri-apps/tauri-action@v0
+        id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -99,3 +100,24 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: build and attach portable zip (windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
+        run: |
+          $exe = 'src-tauri/target/release/cast-launcher.exe'
+          if (-not (Test-Path $exe)) {
+            echo "::error::$exe not found - did the bundle step change the binary name?"
+            exit 1
+          }
+          $version = node -p "require('./src-tauri/tauri.conf.json').version"
+          $zip = "cast-launcher_${version}_x64_portable.zip"
+          Compress-Archive -Path $exe -DestinationPath $zip -Force
+          gh api --method POST `
+            -H 'Accept: application/vnd.github+json' `
+            -H 'Content-Type: application/zip' `
+            "https://uploads.github.com/repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID/assets?name=$zip" `
+            --input $zip

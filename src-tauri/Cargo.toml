@@ -4,8 +4,11 @@ members = ["core"]
 [package]
 name = "cast-launcher"
 version = "1.5.1"
-description = "A Cast Launcher"
+description = "Minecraft launcher and modpack manager"
 authors = ["zaralX"]
+homepage = "https://github.com/zaralX/cast-launcher"
+repository = "https://github.com/zaralX/cast-launcher"
+license = "Apache-2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

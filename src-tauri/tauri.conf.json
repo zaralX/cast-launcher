@@ -28,6 +28,13 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "publisher": "zaralX",
+    "homepage": "https://github.com/zaralX/cast-launcher",
+    "copyright": "Copyright © 2026 zaralX",
+    "license": "Apache-2.0",
+    "category": "Game",
+    "shortDescription": "Minecraft launcher and modpack manager",
+    "longDescription": "Cast Launcher installs and runs Minecraft, manages instances and modpacks from Modrinth and CurseForge, and keeps them up to date.",
     "targets": ["nsis", "deb", "rpm", "appimage", "app", "dmg"],
     "icon": [
       "icons/32x32.png",
