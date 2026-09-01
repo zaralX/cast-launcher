@@ -26,6 +26,7 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@iconify-json/flag": "^1.2.12",
     "@iconify-json/lucide": "^1.2.121",
     "@iconify-json/simple-icons": "^1.2.93",
     "@tailwindcss/vite": "^4.1.18",

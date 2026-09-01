@@ -5,8 +5,17 @@ type UiLocale = typeof ru
 
 const UI_LOCALES: Record<string, UiLocale | undefined> = {ru, en}
 
+const LOCALE_FLAGS: Record<string, string | undefined> = {
+    ru: "flag:ru-1x1",
+    en: "flag:gb-1x1"
+}
+
 function uiLocaleOf(code: string): UiLocale {
     return UI_LOCALES[code] ?? ru
+}
+
+export function flagOf(code: string): string | null {
+    return LOCALE_FLAGS[code] ?? null
 }
 
 export function useLanguage() {

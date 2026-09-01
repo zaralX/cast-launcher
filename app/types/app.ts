@@ -13,6 +13,7 @@ export interface LauncherConfig {
     compact: boolean
     telemetry: boolean
     after_launch: AfterLaunch
+    onboarded: boolean
 }
 
 export type AfterLaunch = "nothing" | "hide" | "close"

@@ -104,7 +104,7 @@ async function confirmRemove() {
         <AppButton
             block
             class="h-10 text-[10px] tracking-[0.18em]"
-            icon="mdi:microsoft"
+            icon="simple-icons:microsoft"
             :loading="loggingIn"
             @click="createMicrosoftAccount"
         >

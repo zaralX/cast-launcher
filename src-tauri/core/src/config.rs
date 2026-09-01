@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, write_json_atomic};
 
-pub const CONFIG_VERSION: u32 = 6;
+pub const CONFIG_VERSION: u32 = 7;
 
 pub const DEFAULT_ACCENT: &str = "sky";
 
@@ -33,6 +33,8 @@ pub struct LauncherConfig {
     pub telemetry: bool,
     #[serde(default)]
     pub after_launch: AfterLaunch,
+    #[serde(default)]
+    pub onboarded: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,6 +117,7 @@ impl AppConfig {
                 compact: false,
                 telemetry: true,
                 after_launch: AfterLaunch::Nothing,
+                onboarded: false,
             },
             java: JavaConfig {
                 java_mode: JavaMode::Auto,
@@ -191,6 +194,10 @@ fn migrate(mut raw: Value) -> Value {
         set_in(&mut raw, "launcher", "after_launch", value);
     }
 
+    if version <= 6 {
+        set_in(&mut raw, "launcher", "onboarded", Value::Bool(true));
+    }
+
     raw["version"] = Value::from(CONFIG_VERSION);
     raw
 }
@@ -214,6 +221,7 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
                 .and_then(|launcher| launcher.get("after_launch"))
                 .and_then(|mode| serde_json::from_value(mode.clone()).ok())
                 .unwrap_or(defaults.launcher.after_launch),
+            onboarded: bool_or(launcher, "onboarded", defaults.launcher.onboarded),
         },
         java: JavaConfig {
             java_mode: java
@@ -362,6 +370,39 @@ mod tests {
         assert_eq!(config.version, CONFIG_VERSION);
         assert_eq!(config.launcher.after_launch, AfterLaunch::Nothing);
         assert!(!config.launcher.telemetry);
+    }
+
+    #[test]
+    fn v6_config_is_considered_already_onboarded() {
+        let config = migrated(json!({
+            "version": 6,
+            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "accent": "violet" }
+        }));
+
+        assert_eq!(config.version, CONFIG_VERSION);
+        assert!(config.launcher.onboarded);
+    }
+
+    #[test]
+    fn a_fresh_config_still_needs_onboarding() {
+        assert!(!AppConfig::defaults(Path::new("/cfg")).launcher.onboarded);
+    }
+
+    #[test]
+    fn a_finished_onboarding_survives_a_round_trip() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "onboarded": true }
+        }));
+
+        assert!(config.launcher.onboarded);
+
+        let unfinished = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "onboarded": false }
+        }));
+
+        assert!(!unfinished.launcher.onboarded);
     }
 
     #[test]

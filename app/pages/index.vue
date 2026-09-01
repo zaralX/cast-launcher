@@ -26,7 +26,7 @@ onMounted(async () => {
   currentStep.value += 1
 
   loading.value = false
-  navigateTo("/main")
+  navigateTo(appStore.needsOnboarding ? "/welcome" : "/main")
 })
 </script>
 

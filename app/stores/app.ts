@@ -18,6 +18,8 @@ export const useAppStore = defineStore('app', {
     getters: {
         hasConfig: (state) => !!state.config,
 
+        needsOnboarding: (state) => state.config?.launcher.onboarded === false,
+
         systemJavaRuntime: (state): JavaRuntime | null =>
             state.javaRuntimes.find(runtime => runtime.source === "path" || runtime.source === "java_home")
             ?? state.javaRuntimes[0]
@@ -43,6 +45,15 @@ export const useAppStore = defineStore('app', {
                 useIconStore().forgetLibrary()
                 await useAccountStore().reload()
             }
+        },
+
+        async finishOnboarding() {
+            if (!this.config || this.config.launcher.onboarded) return
+
+            await this.updateConfig({
+                ...this.config,
+                launcher: {...this.config.launcher, onboarded: true}
+            })
         },
 
         async scanJava(force = false): Promise<JavaRuntime[]> {

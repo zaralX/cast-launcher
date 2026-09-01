@@ -26,6 +26,13 @@
     --animate-sweep: sweep 1.35s cubic-bezier(0.65, 0, 0.35, 1) infinite;
     --animate-blink: blink 1.1s steps(1, end) infinite;
     --animate-breathe: breathe 2.4s ease-in-out infinite;
+    --animate-drift: drift 19s ease-in-out infinite;
+    --animate-drift-slow: drift 27s ease-in-out infinite reverse;
+    --animate-scanline: scanline 8s linear infinite;
+    --animate-pop: pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-stream: stream 2.6s linear infinite;
+    --animate-tick: tick 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+    --animate-orbit: orbit 14s linear infinite;
 }
 
 @keyframes rise {
@@ -65,5 +72,74 @@
     50% {
         opacity: 0.35;
         transform: scale(1.6);
+    }
+}
+
+@keyframes drift {
+    0%, 100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    33% {
+        transform: translate3d(6%, 8%, 0) scale(1.12);
+    }
+    66% {
+        transform: translate3d(-5%, 4%, 0) scale(0.94);
+    }
+}
+
+@keyframes scanline {
+    0% {
+        transform: translateY(-2%);
+        opacity: 0;
+    }
+    12%, 88% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(102vh);
+        opacity: 0;
+    }
+}
+
+@keyframes pop {
+    from {
+        opacity: 0;
+        transform: scale(0.6);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes stream {
+    0% {
+        left: 0;
+        opacity: 0;
+    }
+    15%, 85% {
+        opacity: 1;
+    }
+    100% {
+        left: 100%;
+        opacity: 0;
+    }
+}
+
+@keyframes tick {
+    from {
+        stroke-dashoffset: 48;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes orbit {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
     }
 }
