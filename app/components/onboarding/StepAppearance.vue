@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import {ACCENTS} from "~/composables/useAppearance"
+import {flagOf} from "~/composables/useLanguage"
 import {useAppStore} from "~/stores/app"
 
 const store = useAppStore()
+const locales = useAvailableLocales()
+
+const language = computed({
+  get: () => store.config?.launcher.language ?? "ru",
+  set: (value: string) => {
+    if (store.config) store.config.launcher.language = value
+  }
+})
 
 const accent = computed({
   get: () => store.config?.launcher.accent ?? "sky",
@@ -20,84 +29,72 @@ const compact = computed({
 </script>
 
 <template>
-  <OnboardingPane
-      index="02 / 06"
-      :title="$t('onboarding.appearance.title')"
-  >
-    <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <div class="space-y-7">
-        <div>
-          <p class="mb-3 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            {{ $t('settings.launcher.accent.label') }}
-          </p>
-
-          <div class="grid grid-cols-6 gap-2 sm:grid-cols-8 lg:grid-cols-6 xl:grid-cols-8">
+  <OnboardingPane :title="$t('onboarding.appearance.title')">
+    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div class="space-y-8">
+        <SettingsField :label="$t('settings.launcher.language')">
+          <div class="flex flex-wrap gap-2">
             <button
-                v-for="(item, i) in ACCENTS"
+                v-for="locale in locales"
+                :key="locale.code"
+                type="button"
+                class="flex cursor-pointer items-center gap-2.5 border px-3.5 py-2 transition-colors duration-300"
+                :class="language === locale.code
+                  ? 'border-fg text-fg'
+                  : 'border-line text-fg-muted hover:border-line-strong hover:text-fg'"
+                @click="language = locale.code"
+            >
+              <UIcon
+                  v-if="flagOf(locale.code)"
+                  :name="flagOf(locale.code)!"
+                  mode="svg"
+                  class="size-4 shrink-0"
+              />
+              <span class="text-[13px]">{{ locale.name }}</span>
+            </button>
+          </div>
+        </SettingsField>
+
+        <SettingsField :label="$t('settings.launcher.accent.label')">
+          <div class="flex flex-wrap gap-2">
+            <button
+                v-for="item in ACCENTS"
                 :key="item.value"
                 type="button"
                 :title="$t(item.labelKey)"
                 :aria-label="$t(item.labelKey)"
                 :aria-pressed="accent === item.value"
-                class="group animate-rise relative grid aspect-square cursor-pointer place-items-center border transition-colors duration-300"
+                class="group grid size-9 cursor-pointer place-items-center border transition-colors duration-300"
                 :class="accent === item.value ? 'border-fg' : 'border-line hover:border-line-strong'"
-                :style="{ animationDelay: `${i * 35}ms` }"
                 @click="accent = item.value"
             >
               <span
-                  class="transition-all duration-500 ease-deck"
-                  :class="accent === item.value ? 'size-7' : 'size-5 group-hover:size-6'"
+                  class="size-4 transition-transform duration-300 ease-deck group-hover:scale-110"
                   :style="{ backgroundColor: item.preview }"
-              />
-              <span
-                  v-if="accent === item.value"
-                  class="animate-pop absolute -right-px -top-px size-1.5 bg-fg"
               />
             </button>
           </div>
+        </SettingsField>
 
-          <Transition name="label" mode="out-in">
-            <p :key="accent" class="mt-3 font-mono text-[10px] uppercase tracking-[0.24em] text-acid">
-              {{ $t(ACCENTS.find(item => item.value === accent)?.labelKey ?? 'accent.sky') }}
+        <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
+          <div class="min-w-0">
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+              {{ $t('settings.launcher.compact.label') }}
             </p>
-          </Transition>
+            <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
+              {{ $t('settings.launcher.compact.hint') }}
+            </p>
+          </div>
+          <USwitch v-model="compact" size="lg"/>
         </div>
-
-        <OnboardingToggle
-            v-model="compact"
-            icon="i-lucide-rows-3"
-            :label="$t('settings.launcher.compact.label')"
-            :hint="$t('settings.launcher.compact.hint')"
-        />
       </div>
 
       <aside class="space-y-3">
-        <div class="flex items-center gap-2.5">
-          <UIcon name="i-lucide-monitor-play" class="size-3.5 text-acid"/>
-          <p class="font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
-            {{ $t('onboarding.appearance.preview') }}
-          </p>
-        </div>
-
+        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+          {{ $t('onboarding.appearance.preview') }}
+        </p>
         <OnboardingPreview :compact="compact"/>
       </aside>
     </div>
   </OnboardingPane>
 </template>
-
-<style scoped>
-.label-enter-active,
-.label-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.label-enter-from {
-  opacity: 0;
-  transform: translateX(-6px);
-}
-
-.label-leave-to {
-  opacity: 0;
-  transform: translateX(6px);
-}
-</style>
