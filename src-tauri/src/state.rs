@@ -68,9 +68,13 @@ impl AppState {
 
         cast_core::fs_util::ensure_dir(&config_root).await?;
 
+        log::info!("Каталог конфигурации: {}", config_root.display());
+
         let bootstrap = LauncherPaths::new(config_root.clone(), None);
         let config = config::load(&config_root, &bootstrap.config_file()).await?;
         let paths = LauncherPaths::new(config_root.clone(), Some(&config.launcher.dir));
+
+        log::info!("Рабочий каталог лаунчера: {}", paths.root().display());
 
         let accounts = AccountStore::load(paths.accounts_file()).await;
 

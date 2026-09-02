@@ -11,6 +11,22 @@ pub struct CommandError {
 
 pub type CommandResult<T> = Result<T, CommandError>;
 
+pub fn error_chain(error: &dyn std::error::Error) -> String {
+    let mut chain = error.to_string();
+    let mut source = error.source();
+
+    while let Some(cause) = source {
+        let text = cause.to_string();
+        if !chain.ends_with(&text) {
+            chain.push_str(": ");
+            chain.push_str(&text);
+        }
+        source = cause.source();
+    }
+
+    chain
+}
+
 impl CommandError {
     pub fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
@@ -22,6 +38,13 @@ impl CommandError {
 
     pub fn with_details(mut self, details: impl Into<String>) -> Self {
         self.details = Some(details.into());
+
+        if self.is_aborted() {
+            log::debug!("{self}");
+        } else {
+            log::warn!("{self}");
+        }
+
         self
     }
 
@@ -148,3 +171,62 @@ impl fmt::Display for CommandError {
 }
 
 impl std::error::Error for CommandError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fmt;
+
+    #[derive(Debug)]
+    struct Layer {
+        text: &'static str,
+        cause: Option<Box<Layer>>,
+    }
+
+    impl fmt::Display for Layer {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(self.text)
+        }
+    }
+
+    impl std::error::Error for Layer {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            self.cause.as_deref().map(|cause| cause as &dyn std::error::Error)
+        }
+    }
+
+    fn layer(text: &'static str, cause: Option<Layer>) -> Layer {
+        Layer {
+            text,
+            cause: cause.map(Box::new),
+        }
+    }
+
+    #[test]
+    fn the_real_cause_is_at_the_bottom_of_the_chain() {
+        let error = layer(
+            "error sending request for url (https://example.com)",
+            Some(layer("client error (Connect)", Some(layer("tcp connect error", None)))),
+        );
+
+        assert_eq!(
+            error_chain(&error),
+            "error sending request for url (https://example.com): \
+             client error (Connect): tcp connect error"
+        );
+    }
+
+    #[test]
+    fn an_error_without_a_cause_reads_the_same_as_before() {
+        let error = layer("нет места на диске", None);
+
+        assert_eq!(error_chain(&error), "нет места на диске");
+    }
+
+    #[test]
+    fn a_layer_that_only_repeats_its_cause_is_not_printed_twice() {
+        let error = layer("вложенная причина", Some(layer("вложенная причина", None)));
+
+        assert_eq!(error_chain(&error), "вложенная причина");
+    }
+}

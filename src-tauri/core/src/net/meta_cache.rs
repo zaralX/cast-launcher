@@ -53,7 +53,7 @@ impl MetaCache {
         let bytes = self.fetch_bytes_with(url, headers).await?;
 
         serde_json::from_slice(&bytes).map_err(|e| {
-            CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(e.to_string())
+            CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(crate::error::error_chain(&e))
         })
     }
 
@@ -132,7 +132,7 @@ impl MetaCache {
             .bytes()
             .await
             .map_err(|e| {
-                CommandError::network(format!("Обрыв ответа: {url}")).with_details(e.to_string())
+                CommandError::network(format!("Обрыв ответа: {url}")).with_details(crate::error::error_chain(&e))
             })?
             .to_vec();
 
@@ -155,7 +155,7 @@ impl MetaCache {
         }
 
         let response = request.send().await.map_err(|e| {
-            CommandError::network(format!("Не удалось подключиться к {url}")).with_details(e.to_string())
+            CommandError::network(format!("Не удалось подключиться к {url}")).with_details(crate::error::error_chain(&e))
         })?;
 
         let status = response.status();
@@ -173,7 +173,7 @@ impl MetaCache {
         let body = response
             .bytes()
             .await
-            .map_err(|e| CommandError::network(format!("Обрыв ответа: {url}")).with_details(e.to_string()))?
+            .map_err(|e| CommandError::network(format!("Обрыв ответа: {url}")).with_details(crate::error::error_chain(&e)))?
             .to_vec();
 
         self.store(body_path, meta_path, &body, &entry).await;

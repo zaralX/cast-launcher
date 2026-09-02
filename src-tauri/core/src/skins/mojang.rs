@@ -36,7 +36,7 @@ pub async fn upload_skin(
     let part = Part::bytes(bytes)
         .file_name("skin.png")
         .mime_str("image/png")
-        .map_err(|e| CommandError::unknown("Не удалось собрать запрос").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::unknown("Не удалось собрать запрос").with_details(crate::error::error_chain(&e)))?;
 
     let form = Form::new()
         .text("variant", variant.as_api())
@@ -49,7 +49,7 @@ pub async fn upload_skin(
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось отправить скин в Mojang").with_details(e.to_string())
+            CommandError::network("Не удалось отправить скин в Mojang").with_details(crate::error::error_chain(&e))
         })?;
 
     parse(response, SKINS_URL).await
@@ -62,7 +62,7 @@ pub async fn reset_skin(token: &str) -> CommandResult<()> {
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось сбросить скин").with_details(e.to_string())
+            CommandError::network("Не удалось сбросить скин").with_details(crate::error::error_chain(&e))
         })?;
 
     drain(response, ACTIVE_SKIN_URL).await
@@ -75,7 +75,7 @@ pub async fn set_cape(token: &str, cape_id: &str) -> CommandResult<ProfileRespon
         .json(&json!({ "capeId": cape_id }))
         .send()
         .await
-        .map_err(|e| CommandError::network("Не удалось надеть плащ").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::network("Не удалось надеть плащ").with_details(crate::error::error_chain(&e)))?;
 
     parse(response, ACTIVE_CAPE_URL).await
 }
@@ -86,7 +86,7 @@ pub async fn clear_cape(token: &str) -> CommandResult<()> {
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|e| CommandError::network("Не удалось снять плащ").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::network("Не удалось снять плащ").with_details(crate::error::error_chain(&e)))?;
 
     drain(response, ACTIVE_CAPE_URL).await
 }
@@ -96,7 +96,7 @@ pub async fn download(url: &str) -> CommandResult<Vec<u8>> {
         .get(url)
         .send()
         .await
-        .map_err(|e| CommandError::network("Не удалось скачать текстуру").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::network("Не удалось скачать текстуру").with_details(crate::error::error_chain(&e)))?;
 
     let status = response.status();
 
@@ -108,7 +108,7 @@ pub async fn download(url: &str) -> CommandResult<Vec<u8>> {
         .bytes()
         .await
         .map(|bytes| bytes.to_vec())
-        .map_err(|e| CommandError::download("Текстура скачалась не полностью").with_details(e.to_string()))
+        .map_err(|e| CommandError::download("Текстура скачалась не полностью").with_details(crate::error::error_chain(&e)))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -131,7 +131,7 @@ pub async fn player_skin(name: &str) -> CommandResult<PlayerSkin> {
         .get(&lookup_url)
         .send()
         .await
-        .map_err(|e| CommandError::network("Не удалось найти игрока").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::network("Не удалось найти игрока").with_details(crate::error::error_chain(&e)))?;
 
     if response.status().as_u16() == 404 || response.status().as_u16() == 204 {
         return Err(CommandError::fs(format!("Игрок {name} не найден")));
@@ -150,10 +150,10 @@ pub async fn player_skin(name: &str) -> CommandResult<PlayerSkin> {
         .get(&session_url)
         .send()
         .await
-        .map_err(|e| CommandError::network("Не удалось получить профиль игрока").with_details(e.to_string()))?
+        .map_err(|e| CommandError::network("Не удалось получить профиль игрока").with_details(crate::error::error_chain(&e)))?
         .json()
         .await
-        .map_err(|e| CommandError::manifest("Некорректный ответ сессии").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::manifest("Некорректный ответ сессии").with_details(crate::error::error_chain(&e)))?;
 
     let encoded = session
         .get("properties")
@@ -169,10 +169,10 @@ pub async fn player_skin(name: &str) -> CommandResult<PlayerSkin> {
 
     let decoded = STANDARD
         .decode(encoded)
-        .map_err(|e| CommandError::manifest("Текстуры игрока не читаются").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::manifest("Текстуры игрока не читаются").with_details(crate::error::error_chain(&e)))?;
 
     let textures: Value = serde_json::from_slice(&decoded)
-        .map_err(|e| CommandError::manifest("Текстуры игрока не читаются").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::manifest("Текстуры игрока не читаются").with_details(crate::error::error_chain(&e)))?;
 
     let skin = textures
         .get("textures")
@@ -208,7 +208,7 @@ async fn parse<T: serde::de::DeserializeOwned>(response: Response, url: &str) ->
     }
 
     response.json().await.map_err(|e| {
-        CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(e.to_string())
+        CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(crate::error::error_chain(&e))
     })
 }
 

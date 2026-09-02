@@ -11,12 +11,30 @@ mod window;
 
 use tauri::Manager;
 
+fn log_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    use tauri_plugin_log::{Target, TargetKind};
+
+    tauri_plugin_log::Builder::new()
+        .targets([
+            Target::new(TargetKind::Stdout),
+            Target::new(TargetKind::LogDir {
+                file_name: Some("cast-launcher".into()),
+            }),
+        ])
+        .level(log::LevelFilter::Info)
+        .level_for("hyper", log::LevelFilter::Warn)
+        .level_for("hyper_util", log::LevelFilter::Warn)
+        .level_for("reqwest", log::LevelFilter::Warn)
+        .max_file_size(2 * 1024 * 1024)
+        .build()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = tauri::async_runtime::handle();
     let _runtime_guard = runtime.inner().enter();
 
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().plugin(log_plugin());
 
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -31,6 +49,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let handle = app.handle().clone();
+
+            log::info!(
+                "Cast Launcher {} запускается ({} {})",
+                env!("CARGO_PKG_VERSION"),
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
 
             tauri::async_runtime::block_on(async move {
                 let state = state::AppState::initialize(&handle).await?;

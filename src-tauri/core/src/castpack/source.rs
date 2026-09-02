@@ -57,7 +57,7 @@ pub async fn installed_manifest(path: &Path) -> Option<Manifest> {
 
 pub async fn save_manifest(path: &Path, manifest: &Manifest) -> CommandResult<()> {
     let bytes = serde_json::to_vec_pretty(manifest).map_err(|e| {
-        CommandError::unknown("Не удалось сохранить манифест сборки").with_details(e.to_string())
+        CommandError::unknown("Не удалось сохранить манифест сборки").with_details(crate::error::error_chain(&e))
     })?;
 
     write_atomic(path, &bytes).await
@@ -77,7 +77,7 @@ pub async fn probe(url: &str) -> CommandResult<ProbedFile> {
     let url = https_url(url)?;
 
     let response = http::client().get(url).send().await.map_err(|e| {
-        CommandError::network(format!("Не удалось скачать {url}")).with_details(e.to_string())
+        CommandError::network(format!("Не удалось скачать {url}")).with_details(crate::error::error_chain(&e))
     })?;
 
     let status = response.status();
@@ -86,7 +86,7 @@ pub async fn probe(url: &str) -> CommandResult<ProbedFile> {
     }
 
     let bytes = response.bytes().await.map_err(|e| {
-        CommandError::download(format!("Обрыв загрузки: {url}")).with_details(e.to_string())
+        CommandError::download(format!("Обрыв загрузки: {url}")).with_details(crate::error::error_chain(&e))
     })?;
 
     Ok(ProbedFile {
@@ -115,7 +115,7 @@ pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
         .await
         .map_err(|e| {
             CommandError::network(format!("Не удалось скачать иконку: {url}"))
-                .with_details(e.to_string())
+                .with_details(crate::error::error_chain(&e))
         })?;
 
     let status = response.status();
@@ -132,7 +132,7 @@ pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
         .await
         .map_err(|e| {
             CommandError::download(format!("Обрыв загрузки иконки: {url}"))
-                .with_details(e.to_string())
+                .with_details(crate::error::error_chain(&e))
         })?
         .to_vec();
 
@@ -153,7 +153,7 @@ async fn fetch(url: &str) -> CommandResult<Vec<u8>> {
         .await
         .map_err(|e| {
             CommandError::network(format!("Не удалось получить данные CastPack: {url}"))
-                .with_details(e.to_string())
+                .with_details(crate::error::error_chain(&e))
         })?;
 
     let status = response.status();
@@ -169,7 +169,7 @@ async fn fetch(url: &str) -> CommandResult<Vec<u8>> {
         .bytes()
         .await
         .map_err(|e| {
-            CommandError::network(format!("Обрыв загрузки CastPack: {url}")).with_details(e.to_string())
+            CommandError::network(format!("Обрыв загрузки CastPack: {url}")).with_details(crate::error::error_chain(&e))
         })?
         .to_vec();
 

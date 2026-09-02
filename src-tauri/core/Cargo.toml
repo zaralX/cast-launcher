@@ -8,6 +8,7 @@ edition = "2021"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
+log = "0.4"
 reqwest = { version = "0.13.1", features = ["json", "form", "multipart"] }
 tokio = { version = "1", features = ["sync", "fs", "io-util", "time", "process", "rt", "macros"] }
 zip = "7.2.0"

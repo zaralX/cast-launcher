@@ -739,7 +739,7 @@ fn json_array(values: &[&str]) -> String {
 
 async fn post_json<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> CommandResult<T> {
     let response = http::client().post(url).json(body).send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{e}"))
+        CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     let status = response.status();
@@ -748,7 +748,7 @@ async fn post_json<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> Co
     }
 
     response.json::<T>().await.map_err(|e| {
-        CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{e}"))
+        CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
 
@@ -838,7 +838,7 @@ fn segment(value: &str) -> CommandResult<&str> {
 
 async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
     let response = http::client().get(url).send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{e}"))
+        CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     let status = response.status();
@@ -847,7 +847,7 @@ async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
     }
 
     response.json::<T>().await.map_err(|e| {
-        CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{e}"))
+        CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
 

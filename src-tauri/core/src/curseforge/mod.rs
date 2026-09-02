@@ -835,7 +835,7 @@ pub(crate) async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T>
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с CurseForge").with_details(format!("{url}\n{e}"))
+        CommandError::network("Не удалось связаться с CurseForge").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     read_json(response, url).await
@@ -852,7 +852,7 @@ pub(crate) async fn post_json<B: Serialize, T: DeserializeOwned>(
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с CurseForge").with_details(format!("{url}\n{e}"))
+        CommandError::network("Не удалось связаться с CurseForge").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     read_json(response, url).await
@@ -879,12 +879,12 @@ async fn read_json<T: DeserializeOwned>(response: reqwest::Response, url: &str) 
     }
 
     let body = response.bytes().await.map_err(|e| {
-        CommandError::network(format!("Обрыв ответа CurseForge: {url}")).with_details(e.to_string())
+        CommandError::network(format!("Обрыв ответа CurseForge: {url}")).with_details(crate::error::error_chain(&e))
     })?;
 
     serde_json::from_slice(&body).map_err(|e| {
         CommandError::manifest("CurseForge ответил в неожиданном формате")
-            .with_details(format!("{url}\n{e}"))
+            .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
 

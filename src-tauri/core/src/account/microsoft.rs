@@ -136,13 +136,13 @@ async fn request_token(params: &[(&str, &str)]) -> CommandResult<MicrosoftTokens
         .await
         .map_err(|e| {
             CommandError::network("Не удалось связаться с сервером Microsoft")
-                .with_details(e.to_string())
+                .with_details(crate::error::error_chain(&e))
         })?;
 
     let status = response.status();
     let json: Value = response.json().await.map_err(|e| {
         CommandError::auth(format!("Некорректный ответ Microsoft (HTTP {status})"))
-            .with_details(e.to_string())
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     if let Some(error) = json.get("error").and_then(Value::as_str) {
@@ -157,7 +157,7 @@ async fn request_token(params: &[(&str, &str)]) -> CommandResult<MicrosoftTokens
     }
 
     serde_json::from_value(json).map_err(|e| {
-        CommandError::auth("Microsoft вернул ответ без токенов").with_details(e.to_string())
+        CommandError::auth("Microsoft вернул ответ без токенов").with_details(crate::error::error_chain(&e))
     })
 }
 
@@ -207,7 +207,7 @@ pub async fn profile(minecraft_access_token: &str) -> CommandResult<MinecraftPro
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось получить профиль Minecraft").with_details(e.to_string())
+            CommandError::network("Не удалось получить профиль Minecraft").with_details(crate::error::error_chain(&e))
         })?;
 
     parse(response, MINECRAFT_PROFILE_URL).await
@@ -225,7 +225,7 @@ async fn post_json<T: serde::de::DeserializeOwned>(
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network(format!("Запрос не выполнен: {url}")).with_details(e.to_string())
+        CommandError::network(format!("Запрос не выполнен: {url}")).with_details(crate::error::error_chain(&e))
     })?;
 
     parse(response, url).await
@@ -248,7 +248,7 @@ async fn parse<T: serde::de::DeserializeOwned>(response: Response, url: &str) ->
     }
 
     response.json().await.map_err(|e| {
-        CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(e.to_string())
+        CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(crate::error::error_chain(&e))
     })
 }
 

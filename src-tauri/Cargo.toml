@@ -32,6 +32,8 @@ tauri-plugin-process = "2"
 uuid = { version = "1", features = ["v4"] }
 tokio = { version = "1", features = ["sync", "fs", "io-util", "process", "rt"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-log = "2"
+log = "0.4"
 tauri-plugin-aptabase = "1"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 url = "2"

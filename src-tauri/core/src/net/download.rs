@@ -466,7 +466,7 @@ async fn fetch_to_file(
 ) -> CommandResult<FetchOutcome> {
     let mut response = client.get(&task.url).send().await.map_err(|e| {
         CommandError::network(format!("Не удалось подключиться к {}", task.url))
-            .with_details(e.to_string())
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     let status = response.status();
@@ -509,7 +509,7 @@ async fn fetch_to_file(
             })?
             .map_err(|e| {
                 CommandError::download(format!("Обрыв загрузки: {}", task.url))
-                    .with_details(e.to_string())
+                    .with_details(crate::error::error_chain(&e))
             })?;
 
         let Some(chunk) = chunk else { break };

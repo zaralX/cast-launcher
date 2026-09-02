@@ -323,7 +323,7 @@ pub fn icon_file_name(provider: PackProvider, project_id: &str, url: &str) -> St
 
 pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u8>> {
     let parsed = url::Url::parse(url)
-        .map_err(|e| CommandError::network("Некорректная ссылка на иконку").with_details(e.to_string()))?;
+        .map_err(|e| CommandError::network("Некорректная ссылка на иконку").with_details(crate::error::error_chain(&e)))?;
 
     let allowed = parsed.scheme() == "https"
         && parsed
@@ -338,7 +338,7 @@ pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u
     }
 
     let response = crate::net::http::client().get(parsed.as_str()).send().await.map_err(|e| {
-        CommandError::network("Не удалось скачать иконку").with_details(format!("{url}\n{e}"))
+        CommandError::network("Не удалось скачать иконку").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     let status = response.status();
@@ -353,7 +353,7 @@ pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u
     let bytes = response
         .bytes()
         .await
-        .map_err(|e| CommandError::download(format!("Обрыв загрузки иконки: {url}")).with_details(e.to_string()))?;
+        .map_err(|e| CommandError::download(format!("Обрыв загрузки иконки: {url}")).with_details(crate::error::error_chain(&e)))?;
 
     if bytes.len() as u64 > crate::icons::MAX_SIZE {
         return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
