@@ -4,6 +4,7 @@ import {LauncherError} from "~/types/error"
 import {useAppStore} from "~/stores/app"
 import {useInstanceStore} from "~/stores/instance"
 import {useAccountStore} from "~/stores/account"
+import {useImportStore} from "~/stores/import"
 import {setTelemetryEnabled} from "~/composables/useTelemetry"
 
 let started: Promise<void> | null = null
@@ -23,6 +24,7 @@ async function connect() {
     const appStore = useAppStore()
     const instanceStore = useInstanceStore()
     const accountStore = useAccountStore()
+    const importStore = useImportStore()
 
     const bootstrap = await call("bootstrap")
 
@@ -31,11 +33,18 @@ async function connect() {
     appStore.applyBootstrap(bootstrap.config, bootstrap.paths)
     accountStore.applyBootstrap(bootstrap.accounts)
     instanceStore.applyBootstrap(bootstrap.instances, bootstrap.installs, bootstrap.running)
+    importStore.applyBootstrap(bootstrap.import)
 
     await onLauncherEvent(event => {
         switch (event.type) {
             case "install":
                 instanceStore.applyInstall(event)
+                break
+            case "import":
+                importStore.applyProgress(event)
+                break
+            case "importFinished":
+                importStore.applyReport(event.report)
                 break
             case "instances":
                 instanceStore.applyInstances(event.instances)

@@ -53,6 +53,7 @@ const LAUNCHER_EVENT = "launcher://event"
 export type LauncherEvent =
     | (InstallSnapshot & { type: "install" })
     | (ImportProgress & { type: "import" })
+    | { type: "importFinished", report: ImportReport }
     | { type: "instances", instances: Instance[] }
     | { type: "gameStarted", game: RunningGame }
     | { type: "gameStatus", runId: string, instanceId: string, status: RunningGame["status"] }
@@ -67,6 +68,7 @@ export interface Bootstrap {
     instances: Instance[]
     installs: InstallSnapshot[]
     running: RunningGame[]
+    import?: ImportProgress | null
 }
 
 interface Commands {

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::import::ImportProgress;
+use crate::import::{ImportProgress, ImportReport};
 use crate::install::progress::InstallSnapshot;
 use crate::instance::Instance;
 use crate::launch::game::{GameStatus, RunningGame};
@@ -12,6 +12,7 @@ pub const LAUNCHER_EVENT: &str = "launcher://event";
 pub enum LauncherEvent {
     Install(InstallSnapshot),
     Import(ImportProgress),
+    ImportFinished { report: ImportReport },
     Instances { instances: Vec<Instance> },
     GameStarted {
         game: RunningGame,
@@ -154,6 +155,20 @@ mod tests {
         assert_eq!(event["instanceId"], "instance");
         assert_eq!(event["instanceName"], "Сборка");
         assert_eq!(event["error"], "Java не найдена");
+    }
+
+    #[test]
+    fn a_finished_import_carries_its_report() {
+        let event = wire(LauncherEvent::ImportFinished {
+            report: ImportReport {
+                cancelled: true,
+                ..Default::default()
+            },
+        });
+
+        assert_eq!(event["type"], "importFinished");
+        assert_eq!(event["report"]["cancelled"], true);
+        assert!(event["report"]["imported"].is_array());
     }
 
     #[test]

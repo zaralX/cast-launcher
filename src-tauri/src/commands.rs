@@ -14,7 +14,7 @@ use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
 use cast_core::install::pack_files::PackFiles;
-use cast_core::import::{ImportReport, LauncherKind, ScannedInstance};
+use cast_core::import::{ImportProgress, ImportReport, LauncherKind, ScannedInstance};
 use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
@@ -48,6 +48,7 @@ pub struct Bootstrap {
     pub instances: Vec<Instance>,
     pub installs: Vec<InstallSnapshot>,
     pub running: Vec<RunningGame>,
+    pub import: Option<ImportProgress>,
 }
 
 #[tauri::command]
@@ -61,6 +62,7 @@ pub async fn bootstrap(state: Ctx<'_>) -> CommandResult<Bootstrap> {
         instances: state.instances.all().await,
         installs: state.installs.snapshots().await,
         running: state.processes.running().await,
+        import: state.imports.progress(),
     })
 }
 

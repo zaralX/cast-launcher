@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import {call, onLauncherEvent} from "~/types/backend"
+import {storeToRefs} from "pinia"
+import {call} from "~/types/backend"
+import {useImportStore} from "~/stores/import"
 import {formatPlaytime} from "~/types/instance"
 import {
   defaultImportOptions,
@@ -82,9 +84,8 @@ const selected = ref<string[]>([])
 
 const options = ref(defaultImportOptions())
 
-const running = ref(false)
-const progress = ref<ImportProgress | null>(null)
-const report = ref<ImportReport | null>(null)
+const importStore = useImportStore()
+const {progress, report, running} = storeToRefs(importStore)
 
 const importable = computed(() => scanned.value?.filter(instance => !instance.blocked) ?? [])
 const blocked = computed(() => scanned.value?.filter(instance => instance.blocked) ?? [])
@@ -153,9 +154,7 @@ async function scan() {
 async function start() {
   if (!canImport.value) return
 
-  running.value = true
-  progress.value = null
-  report.value = null
+  importStore.begin()
 
   const result = await attempt(() => call("import_launcher_instances", {
     request: {
@@ -166,11 +165,9 @@ async function start() {
     }
   }), {context: {stage: t("settings.import.import_stage", {launcher: current.value.label}), path: path.value}})
 
-  running.value = false
-  progress.value = null
+  importStore.settle()
 
   if (result.ok) {
-    report.value = result.value
     emit("imported", result.value)
     await scan()
   }
@@ -178,19 +175,11 @@ async function start() {
 
 const cancel = () => safeRun(() => call("cancel_import"))
 
-let unlisten: (() => void) | null = null
-
 onMounted(async () => {
+  if (progress.value) source.value = progress.value.source
+
   await detect()
-
-  unlisten = await onLauncherEvent(event => {
-    if (event.type !== "import") return
-
-    progress.value = event.stage === "done" ? null : event
-  })
 })
-
-onBeforeUnmount(() => unlisten?.())
 </script>
 
 <template>

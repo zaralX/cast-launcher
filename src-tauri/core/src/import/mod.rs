@@ -5,7 +5,7 @@ pub mod prism;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -329,11 +329,28 @@ pub fn select(scanned: Vec<ScannedInstance>, folders: &[String]) -> (Vec<Scanned
 pub struct ImportRegistry {
     running: AtomicBool,
     cancelled: AtomicBool,
+    progress: Mutex<Option<ImportProgress>>,
 }
 
 impl ImportRegistry {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn publish(&self, progress: ImportProgress) {
+        *self.slot() = Some(progress);
+    }
+
+    pub fn progress(&self) -> Option<ImportProgress> {
+        self.slot().clone()
+    }
+
+    pub fn clear_progress(&self) {
+        *self.slot() = None;
+    }
+
+    fn slot(&self) -> std::sync::MutexGuard<'_, Option<ImportProgress>> {
+        self.progress.lock().unwrap_or_else(|error| error.into_inner())
     }
 
     pub fn cancel(&self) {
@@ -365,6 +382,7 @@ pub struct ImportGuard {
 
 impl Drop for ImportGuard {
     fn drop(&mut self) {
+        self.registry.clear_progress();
         self.registry.cancelled.store(false, Ordering::SeqCst);
         self.registry.running.store(false, Ordering::SeqCst);
     }

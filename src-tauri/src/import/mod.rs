@@ -96,6 +96,13 @@ pub async fn run(
         .num("duration_s", started.elapsed().as_secs_f64())
         .flag("shared", shared);
 
+    if let Ok(report) = &outcome {
+        LauncherEvent::ImportFinished {
+            report: report.clone(),
+        }
+        .emit(&app);
+    }
+
     match &outcome {
         Ok(report) => telemetry::track(
             &app,
@@ -129,7 +136,7 @@ async fn import_all(
     let (selected, mut report) = cast_core::import::select(scanned, &request.folders);
     let total = selected.len() + usize::from(request.options.copies_shared());
 
-    let publish = publisher(app.clone(), request.kind, total);
+    let publish = publisher(app.clone(), Arc::clone(&state), request.kind, total);
     let cancelled = {
         let imports = Arc::clone(&state.imports);
         move || imports.is_cancelled()
@@ -346,19 +353,23 @@ async fn link_pack(
 
 fn publisher(
     app: AppHandle,
+    state: Arc<AppState>,
     source: LauncherKind,
     total: usize,
 ) -> impl Fn(ImportStage, &str, usize, CopyStats) + Send + Sync {
     move |stage, step, done, stats| {
-        LauncherEvent::Import(ImportProgress {
+        let progress = ImportProgress {
             source,
             stage,
             step: step.to_string(),
             done,
             total,
             stats,
-        })
-        .emit(&app);
+        };
+
+        state.imports.publish(progress.clone());
+
+        LauncherEvent::Import(progress).emit(&app);
     }
 }
 
@@ -369,6 +380,8 @@ async fn finish(
     stats: CopyStats,
     total: usize,
 ) {
+    state.imports.clear_progress();
+
     LauncherEvent::Import(ImportProgress {
         source,
         stage: ImportStage::Done,
