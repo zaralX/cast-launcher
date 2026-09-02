@@ -445,7 +445,7 @@ dependencies = [
 
 [[package]]
 name = "cast-core"
-version = "1.5.1"
+version = "1.6.0"
 dependencies = [
  "base64 0.22.1",
  "png 0.18.1",
@@ -467,7 +467,7 @@ dependencies = [
 
 [[package]]
 name = "cast-launcher"
-version = "1.5.1"
+version = "1.6.0"
 dependencies = [
  "cast-core",
  "serde",
