@@ -48,7 +48,7 @@ async fn heal_icons(app: &AppHandle, state: &Arc<AppState>, catalog: &Catalog) {
             instance
                 .castpack
                 .as_ref()
-                .is_some_and(|source| source.catalog_id == pack.id)
+                .is_some_and(|source| !source.is_file() && source.catalog_id == pack.id)
         }) else {
             continue;
         };
@@ -181,27 +181,12 @@ async fn upsert(
     let paths = state.paths().await;
     let id = entry.instance_id();
 
-    let (pack, loader, minecraft_version) = match base {
-        Some((pack, loader, version)) => (Some(pack), loader, version),
-        None => (
-            None,
-            manifest
-                .loader()
-                .map(|(loader, _)| loader)
-                .unwrap_or(LoaderType::Vanilla),
-            manifest.minecraft_version().unwrap_or_default().to_string(),
-        ),
-    };
-
-    let (loader, loader_version) = match manifest.loader() {
-        Some((loader, version)) => (loader, version),
-        None => (loader, None),
-    };
-
-    let minecraft_version = manifest
-        .minecraft_version()
-        .map(str::to_string)
-        .unwrap_or(minecraft_version);
+    let castpack::Target {
+        pack,
+        loader,
+        loader_version,
+        minecraft_version,
+    } = castpack::target(manifest, base);
 
     let icon = save_icon(state, entry).await;
 
@@ -257,6 +242,7 @@ async fn upsert(
                         pack,
                         castpack: Some(source),
                         local_pack: None,
+                        cast_export: None,
                         settings: Default::default(),
                         playtime: Default::default(),
                         dir: String::new(),
@@ -309,6 +295,22 @@ pub async fn set_autoupdate(
 ) -> CommandResult<Instance> {
     let paths = state.paths().await;
 
+    let instance = state.instances.get(instance_id).await?;
+
+    match &instance.castpack {
+        None => {
+            return Err(CommandError::invalid_input(
+                "error.reason.castpack.not_castpack",
+            ))
+        }
+        Some(source) if source.is_file() => {
+            return Err(CommandError::invalid_input(
+                "error.reason.cast.no_autoupdate",
+            ))
+        }
+        Some(_) => {}
+    }
+
     let updated = state
         .instances
         .update(&paths, instance_id, move |current| {
@@ -317,12 +319,6 @@ pub async fn set_autoupdate(
             }
         })
         .await?;
-
-    if updated.castpack.is_none() {
-        return Err(CommandError::invalid_input(
-            "error.reason.castpack.not_castpack",
-        ));
-    }
 
     telemetry::track(
         app,

@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use cast_core::castpack::{self, Manifest, Overlay};
-use cast_core::error::CommandResult;
-use cast_core::instance::{CastPackSource, Instance, PackSource};
+use cast_core::error::{CommandError, CommandResult};
+use cast_core::instance::{CastPackOrigin, CastPackSource, Instance, PackSource};
 use cast_core::packs::ResolvedPack;
 use cast_core::paths::LauncherPaths;
 use cast_core::text::UiText;
@@ -16,6 +16,8 @@ pub struct CastPack {
     pub manifest: Manifest,
     resolved: ResolvedPack,
     archive: Option<PathBuf>,
+    /// The `.cast` file the embedded files come from.
+    file: Option<PathBuf>,
     base: Option<PackSource>,
 }
 
@@ -41,9 +43,28 @@ pub async fn prepare(
         UiText::new("install.message.castpack_manifest"),
     );
 
-    let saved = paths.instance(&instance.id).castpack_manifest();
-    let url = crate::castpack::manifest_url(state, &instance.id, source).await;
-    let manifest = read_manifest(&url, &saved).await?;
+    let (manifest, file) = match source.origin {
+        CastPackOrigin::Catalog => {
+            let saved = paths.instance(&instance.id).castpack_manifest();
+            let url = crate::castpack::manifest_url(state, &instance.id, source).await;
+
+            (read_manifest(&url, &saved).await?, None)
+        }
+        CastPackOrigin::File => {
+            let archive = paths.instance(&instance.id).pack_archive();
+
+            if !archive.is_file() {
+                return Err(
+                    CommandError::not_found("error.reason.modpack.archive_missing")
+                        .param("name", &instance.name),
+                );
+            }
+
+            let opened = castpack::file::open(&archive).await?;
+
+            (opened.file.manifest, Some(archive))
+        }
+    };
 
     reporter.set_fraction(1.0);
     super::check_cancelled(reporter)?;
@@ -85,7 +106,7 @@ pub async fn prepare(
         loader: manifest.loader(),
         files,
         seed: manifest.seed_files(&minecraft)?,
-        embedded: Vec::new(),
+        embedded: manifest.embedded_files()?,
         delete: manifest.delete_keys()?,
         blocked: mods.blocked,
         recommended_ram: manifest.settings.recommended_ram,
@@ -101,6 +122,7 @@ pub async fn prepare(
         manifest,
         resolved,
         archive,
+        file,
         base: base_pack,
     })
 }
@@ -181,6 +203,7 @@ pub async fn apply(
         modpack::Applied {
             resolved: prepared.resolved(),
             archive: prepared.archive.as_deref(),
+            files: prepared.file.as_deref(),
             version_id: &prepared.manifest.version,
             phase: "castpack",
             message: "install.message.castpack_files",
@@ -188,6 +211,11 @@ pub async fn apply(
         reporter,
     )
     .await?;
+
+    // A pack from a file is read from the file every time, a saved copy would only go stale.
+    if prepared.file.is_some() {
+        return Ok(());
+    }
 
     castpack::source::save_manifest(
         &paths.instance(&instance.id).castpack_manifest(),

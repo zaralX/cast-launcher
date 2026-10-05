@@ -9,6 +9,7 @@ use zip::{CompressionMethod, DateTime, ZipArchive, ZipWriter};
 
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::safe_join;
+use crate::instance::{LoaderType, PackProvider};
 
 use super::manifest::{json_error, EmbeddedFile, FileEntry, FileMode, Origin, MAX_FILE_ENTRIES};
 use super::Manifest;
@@ -19,7 +20,13 @@ pub const EXTENSION: &str = "cast";
 
 pub const MANIFEST_ENTRY: &str = "cast.json";
 
-pub const ICON_ENTRY: &str = "icon.png";
+const ICON_STEM: &str = "icon";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Icon {
+    pub extension: String,
+    pub bytes: Vec<u8>,
+}
 
 const FILES_DIR: &str = "files";
 
@@ -107,7 +114,132 @@ impl CastFile {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CastBase {
+    pub provider: PackProvider,
+    pub project_id: String,
+    pub version_id: String,
+    pub name: String,
+    pub version: String,
+}
+
+/// An instance that already holds a pack with the same id.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExistingPack {
+    pub instance_id: String,
+    pub name: String,
+    pub version: String,
+    pub minecraft_version: String,
+    pub loader: LoaderType,
+}
+
+/// What the import dialog shows about a `.cast` before anything is installed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CastPreview {
+    pub id: String,
+    pub changelog: String,
+    pub exported_by: String,
+    pub exported_at: u64,
+    pub modrinth_mods: usize,
+    pub curseforge_mods: usize,
+    pub linked_files: usize,
+    pub embedded_files: usize,
+    pub embedded_size: u64,
+    /// Embedded mods: code that came from neither Modrinth nor CurseForge.
+    pub embedded_code: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base: Option<CastBase>,
+    pub has_icon: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub existing: Option<ExistingPack>,
+}
+
+impl CastFile {
+    pub fn preview(&self, has_icon: bool) -> CastPreview {
+        let manifest = &self.manifest;
+
+        let count = |provider: PackProvider| {
+            manifest
+                .mods
+                .iter()
+                .filter(|entry| entry.provider == Some(provider))
+                .count()
+        };
+
+        let embedded: Vec<&FileEntry> =
+            manifest.files.iter().filter(|file| file.embedded).collect();
+
+        CastPreview {
+            id: manifest.id.clone(),
+            changelog: manifest.changelog.clone(),
+            exported_by: self.exported_by.clone(),
+            exported_at: self.exported_at,
+            modrinth_mods: count(PackProvider::Modrinth),
+            curseforge_mods: count(PackProvider::CurseForge),
+            linked_files: manifest
+                .mods
+                .iter()
+                .filter(|entry| entry.provider.is_none())
+                .count()
+                + manifest.files.len()
+                - embedded.len(),
+            embedded_files: embedded.len(),
+            embedded_size: self.embedded_size(),
+            embedded_code: embedded
+                .iter()
+                .filter(|file| is_code(&file.path))
+                .map(|file| file.path.clone())
+                .collect(),
+            base: manifest.base.as_ref().map(|base| {
+                let info = self.base_info.clone().unwrap_or_default();
+
+                CastBase {
+                    provider: base.provider,
+                    project_id: base.project_id.clone(),
+                    version_id: base.version_id.clone(),
+                    name: info.name,
+                    version: info.version,
+                }
+            }),
+            has_icon,
+            existing: None,
+        }
+    }
+
+    pub fn needs_curseforge(&self) -> bool {
+        self.manifest
+            .base
+            .as_ref()
+            .is_some_and(|base| base.provider == PackProvider::CurseForge)
+            || self
+                .manifest
+                .mods
+                .iter()
+                .any(|entry| entry.provider == Some(PackProvider::CurseForge))
+    }
+}
+
+fn is_code(key: &str) -> bool {
+    let in_mods = key.starts_with(&format!("{}/", crate::mods::FOLDER));
+    let key = key
+        .strip_suffix(crate::mods::DISABLED_SUFFIX)
+        .unwrap_or(key);
+
+    match extension(key).as_deref() {
+        Some("jar" | "litemod") => true,
+        Some("zip") => in_mods,
+        _ => false,
+    }
+}
+
 pub fn forbidden(key: &str) -> bool {
+    let key = key
+        .strip_suffix(crate::mods::DISABLED_SUFFIX)
+        .unwrap_or(key);
+
     extension(key).is_some_and(|extension| FORBIDDEN_EXTENSIONS.contains(&extension.as_str()))
 }
 
@@ -151,7 +283,7 @@ pub fn file_name(name: &str, version: &str) -> String {
 pub struct Opened {
     pub file: CastFile,
     pub size: u64,
-    pub icon: Option<Vec<u8>>,
+    pub icon: Option<Icon>,
 }
 
 pub async fn open(path: &Path) -> CommandResult<Opened> {
@@ -236,15 +368,28 @@ fn megabytes(bytes: u64) -> u64 {
     bytes.div_ceil(1024 * 1024)
 }
 
-fn read_icon(archive: &mut ZipArchive<File>) -> Option<Vec<u8>> {
-    let mut entry = archive.by_name(ICON_ENTRY).ok()?;
+fn read_icon(archive: &mut ZipArchive<File>) -> Option<Icon> {
+    for extension in crate::icons::extensions() {
+        let name = format!("{ICON_STEM}.{extension}");
 
-    if entry.size() > crate::icons::MAX_SIZE {
-        log::warn!("The icon inside the .cast file is too large, skipping it");
-        return None;
+        let Ok(mut entry) = archive.by_name(&name) else {
+            continue;
+        };
+
+        if entry.size() > crate::icons::MAX_SIZE {
+            log::warn!("The icon inside the .cast file is too large, skipping it");
+            return None;
+        }
+
+        return read_limited(&mut entry, crate::icons::MAX_SIZE, &name)
+            .ok()
+            .map(|bytes| Icon {
+                extension: extension.to_string(),
+                bytes,
+            });
     }
 
-    read_limited(&mut entry, crate::icons::MAX_SIZE, ICON_ENTRY).ok()
+    None
 }
 
 fn read_limited(reader: &mut impl Read, limit: u64, entry: &str) -> CommandResult<Vec<u8>> {
@@ -448,7 +593,7 @@ pub struct Embed {
 }
 
 pub struct WriteOptions<'a> {
-    pub icon: Option<&'a [u8]>,
+    pub icon: Option<&'a Icon>,
     pub progress: &'a dyn Fn(u64),
     pub cancelled: &'a dyn Fn() -> bool,
 }
@@ -520,9 +665,11 @@ pub fn write(
     file.validate()?;
 
     if let Some(icon) = options.icon {
-        zip.start_file(ICON_ENTRY, entry_options(ICON_ENTRY, icon.len() as u64))
+        let name = format!("{ICON_STEM}.{}", icon.extension.to_ascii_lowercase());
+
+        zip.start_file(&name, entry_options(&name, icon.bytes.len() as u64))
             .map_err(|e| zip_error(target, e))?;
-        zip.write_all(icon)
+        zip.write_all(&icon.bytes)
             .map_err(|e| CommandError::io("error.reason.fs.write_file", target, e))?;
     }
 
@@ -649,6 +796,11 @@ mod tests {
         let dir = temp_dir();
         let target = dir.join("pack.cast");
 
+        let icon = Icon {
+            extension: "WEBP".into(),
+            bytes: b"webp".to_vec(),
+        };
+
         let written = write(
             &target,
             cast(json!({})),
@@ -658,7 +810,7 @@ mod tests {
                 embed(&dir, "options.txt", b"fov:80", FileMode::Once),
             ],
             WriteOptions {
-                icon: Some(b"png"),
+                icon: Some(&icon),
                 ..quiet()
             },
         )
@@ -677,7 +829,13 @@ mod tests {
 
         let opened = open(&target).await.unwrap();
         assert_eq!(opened.file, written);
-        assert_eq!(opened.icon.as_deref(), Some(&b"png"[..]));
+        assert_eq!(
+            opened.icon,
+            Some(Icon {
+                extension: "webp".into(),
+                bytes: b"webp".to_vec(),
+            })
+        );
         assert_eq!(opened.file.embedded_size(), 9 + 5 + 6);
 
         let minecraft = dir.join("minecraft");
@@ -906,6 +1064,7 @@ mod tests {
 
         assert_eq!(error.code, ErrorCode::InvalidInput);
         assert!(forbidden("mods/natives/LIB.DLL"));
+        assert!(forbidden("mods/setup.exe.disabled"));
         assert!(!forbidden("kubejs/server_scripts/main.js"));
         assert!(!forbidden("mods/sodium.jar"));
 
@@ -953,6 +1112,43 @@ mod tests {
         assert!(error.is_aborted());
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn the_preview_counts_sources_and_names_embedded_code() {
+        let mut pack = cast(json!({
+            "base": {"provider": "curseforge", "projectId": "925200", "versionId": "5432100"},
+            "mods": [
+                {"provider": "modrinth", "projectId": "a", "versionId": "b"},
+                {"provider": "curseforge", "projectId": "1", "versionId": "2"},
+                {"url": "https://cdn.zaralx.ru/core.jar", "path": "mods/core.jar", "sha1": "a"}
+            ],
+            "files": [
+                {"path": "mods/private.jar", "embedded": true, "sha1": "a", "size": 10},
+                {"path": "mods/old.jar.disabled", "embedded": true, "sha1": "b", "size": 5},
+                {"path": "resourcepacks/pack.zip", "embedded": true, "sha1": "c", "size": 1},
+                {"path": "config/a.toml", "url": "https://x/a.toml", "sha1": "d"}
+            ]
+        }));
+        pack.base_info = Some(BaseInfo {
+            name: "TerraFirmaGreg".into(),
+            version: "0.10".into(),
+        });
+
+        let preview = pack.preview(true);
+
+        assert_eq!(preview.modrinth_mods, 1);
+        assert_eq!(preview.curseforge_mods, 1);
+        assert_eq!(preview.linked_files, 2, "a direct mod and a linked file");
+        assert_eq!(preview.embedded_files, 3);
+        assert_eq!(preview.embedded_size, 16);
+        assert_eq!(
+            preview.embedded_code,
+            vec!["mods/private.jar", "mods/old.jar.disabled"],
+            "a resource pack is not code"
+        );
+        assert_eq!(preview.base.unwrap().name, "TerraFirmaGreg");
+        assert!(pack.needs_curseforge());
     }
 
     #[test]

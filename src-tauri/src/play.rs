@@ -89,7 +89,7 @@ async fn needs_install(state: &Arc<AppState>, paths: &LauncherPaths, instance: &
     }
 
     if let Some(source) = &instance.castpack {
-        if source.autoupdate {
+        if source.autoupdate && !source.is_file() {
             let url = crate::castpack::manifest_url(state, &instance.id, source).await;
 
             match castpack::source::manifest(&url).await {
@@ -146,6 +146,15 @@ pub async fn check_update(
         .castpack
         .as_ref()
         .ok_or_else(|| CommandError::invalid_input("error.reason.castpack.not_castpack"))?;
+
+    if source.is_file() {
+        return Ok(CastPackUpdate {
+            available: false,
+            version: source.version.clone(),
+            changelog: source.changelog.clone(),
+            error: None,
+        });
+    }
 
     let url = crate::castpack::manifest_url(state, &instance.id, source).await;
 

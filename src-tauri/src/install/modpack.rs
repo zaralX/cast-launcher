@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use cast_core::archive;
+use cast_core::castpack::{EmbeddedFile, FileMode};
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::fs_util::child_file;
 use cast_core::install::pack_files::{self, PackFiles};
@@ -274,6 +275,8 @@ pub async fn await_blocked(
 pub struct Applied<'a> {
     pub resolved: &'a ResolvedPack,
     pub archive: Option<&'a Path>,
+    /// The `.cast` file that carries `resolved.embedded`.
+    pub files: Option<&'a Path>,
     pub version_id: &'a str,
     pub phase: &'a str,
     /// i18n key of the progress message.
@@ -352,6 +355,30 @@ pub async fn apply(
         }
     }
 
+    let (embedded, embedded_seed): (Vec<EmbeddedFile>, Vec<EmbeddedFile>) = resolved
+        .embedded
+        .iter()
+        .cloned()
+        .partition(|file| file.mode == FileMode::Always);
+
+    if !embedded.is_empty() {
+        let file = embedded_archive(what.files)?;
+
+        reporter.set_message(
+            UiText::new("install.message.unpacking_cast").param("count", embedded.len()),
+        );
+
+        owned.extend(embedded.iter().map(|file| file.key.clone()));
+
+        cast_core::castpack::file::extract(
+            file.to_path_buf(),
+            embedded,
+            minecraft.clone(),
+            pack_files::has_toggled_copy,
+        )
+        .await?;
+    }
+
     // A file may come both from the pack list and from overrides: track it as downloaded.
     extracted.retain(|key| !owned.contains(key) && !resolved.protected.contains(key));
 
@@ -375,7 +402,21 @@ pub async fn apply(
         pack_files::remove(&minecraft, &stale).await;
     }
 
-    let seeded = seed(state, instance, &previous, resolved, reporter).await?;
+    let mut seeded = seed(state, instance, &previous, resolved, reporter).await?;
+
+    if !embedded_seed.is_empty() {
+        let file = embedded_archive(what.files)?;
+
+        seeded.extend(embedded_seed.iter().map(|file| file.key.clone()));
+
+        cast_core::castpack::file::extract(
+            file.to_path_buf(),
+            embedded_seed,
+            minecraft.clone(),
+            |path| path.exists() || pack_files::has_toggled_copy(path),
+        )
+        .await?;
+    }
 
     PackFiles::new(what.version_id, owned)
         .with_seeded(seeded)
@@ -395,6 +436,13 @@ pub async fn apply(
     reporter.set_fraction(1.0);
 
     Ok(())
+}
+
+fn embedded_archive(file: Option<&Path>) -> CommandResult<&Path> {
+    file.ok_or_else(|| {
+        CommandError::unknown("error.reason.task_failed")
+            .with_details("the pack lists embedded files but has no .cast file to take them from")
+    })
 }
 
 async fn seed(

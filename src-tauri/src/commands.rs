@@ -1434,8 +1434,11 @@ pub async fn pick_modpack_file(
 }
 
 #[tauri::command]
-pub async fn inspect_modpack_file(path: String) -> CommandResult<packs::local::LocalPack> {
-    import::pack::inspect(&path).await
+pub async fn inspect_modpack_file(
+    state: Ctx<'_>,
+    path: String,
+) -> CommandResult<packs::local::LocalPack> {
+    import::pack::inspect(state.inner(), &path).await
 }
 
 #[tauri::command]

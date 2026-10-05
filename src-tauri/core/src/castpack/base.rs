@@ -4,6 +4,41 @@ use crate::packs::{self, PackVersion};
 
 use super::Manifest;
 
+/// What an instance of a CastPack starts with before its first install settles the rest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Target {
+    pub pack: Option<PackSource>,
+    pub loader: LoaderType,
+    pub loader_version: Option<String>,
+    pub minecraft_version: String,
+}
+
+/// The manifest wins over its base pack, the base pack over nothing.
+pub fn target(manifest: &Manifest, base: Option<(PackSource, LoaderType, String)>) -> Target {
+    let (pack, base_loader, base_minecraft) = match base {
+        Some((pack, loader, minecraft)) => (Some(pack), Some(loader), Some(minecraft)),
+        None => (None, None, None),
+    };
+
+    let (loader, loader_version) = match manifest.loader() {
+        Some((loader, version)) => (loader, version),
+        None => (base_loader.unwrap_or(LoaderType::Vanilla), None),
+    };
+
+    let minecraft_version = manifest
+        .minecraft_version()
+        .map(str::to_string)
+        .or(base_minecraft)
+        .unwrap_or_default();
+
+    Target {
+        pack,
+        loader,
+        loader_version,
+        minecraft_version,
+    }
+}
+
 /// Resolves the modpack a CastPack builds on, if its manifest names one.
 pub async fn base_pack(
     manifest: &Manifest,
@@ -78,6 +113,65 @@ mod tests {
             blocked,
             supported: loader.is_some() && file && !blocked,
         }
+    }
+
+    fn manifest(extra: serde_json::Value) -> Manifest {
+        let mut value = serde_json::json!({
+            "schemaVersion": super::super::SCHEMA_VERSION,
+            "id": "a",
+            "name": "a",
+            "version": "1"
+        });
+
+        for (key, field) in extra.as_object().unwrap() {
+            value[key] = field.clone();
+        }
+
+        serde_json::from_value(value).unwrap()
+    }
+
+    fn base() -> (PackSource, LoaderType, String) {
+        let (pack, loader, minecraft) = resolve(
+            PackProvider::Modrinth,
+            "pack",
+            version(Some(LoaderType::Forge), true, false),
+        )
+        .unwrap();
+
+        (pack, loader, minecraft)
+    }
+
+    #[test]
+    fn the_base_pack_fills_what_the_manifest_leaves_out() {
+        let target = target(&manifest(serde_json::json!({})), Some(base()));
+
+        assert_eq!(target.loader, LoaderType::Forge);
+        assert_eq!(target.minecraft_version, "1.20.1");
+        assert_eq!(target.loader_version, None);
+        assert!(target.pack.is_some());
+    }
+
+    #[test]
+    fn the_manifest_overrides_its_base_pack() {
+        let target = target(
+            &manifest(serde_json::json!({
+                "minecraft": "1.21.1",
+                "loader": {"type": "neoforge", "version": "21.1.1"}
+            })),
+            Some(base()),
+        );
+
+        assert_eq!(target.loader, LoaderType::NeoForge);
+        assert_eq!(target.loader_version.as_deref(), Some("21.1.1"));
+        assert_eq!(target.minecraft_version, "1.21.1");
+    }
+
+    #[test]
+    fn without_a_base_or_a_loader_the_pack_is_vanilla() {
+        let target = target(&manifest(serde_json::json!({"minecraft": "1.20.1"})), None);
+
+        assert_eq!(target.loader, LoaderType::Vanilla);
+        assert_eq!(target.pack, None);
     }
 
     #[test]

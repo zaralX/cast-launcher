@@ -361,6 +361,7 @@ async fn run(
                 modpack::Applied {
                     resolved,
                     archive: Some(pack.archive()),
+                    files: None,
                     version_id: pack_version_id(instance),
                     phase: "modpack",
                     message: "install.message.modpack_files",

@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use zip::ZipArchive;
 
+use crate::castpack::file::{CastFile, CastPreview};
 use crate::curseforge::pack::{Manifest, MANIFEST_ENTRY};
 use crate::error::{CommandError, CommandResult};
 use crate::import::prism::{self, CONFIG_FILE, PACK_FILE};
@@ -21,7 +22,7 @@ const MAX_MANIFEST: u64 = 64 * 1024 * 1024;
 
 const MAX_ROOTS: usize = 16;
 
-pub const EXTENSIONS: [&str; 2] = ["mrpack", "zip"];
+pub const EXTENSIONS: [&str; 3] = ["mrpack", "zip", crate::castpack::file::EXTENSION];
 
 #[derive(Debug)]
 pub struct Opened {
@@ -36,6 +37,10 @@ enum Contents {
     MultiMc {
         scanned: Box<ScannedInstance>,
         game_dir: Option<String>,
+    },
+    Cast {
+        file: Box<CastFile>,
+        has_icon: bool,
     },
 }
 
@@ -58,6 +63,8 @@ pub struct LocalPack {
     pub files: usize,
     pub settings: InstanceSettings,
     pub blocked: Option<UiText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cast: Option<CastPreview>,
 }
 
 impl LocalPack {
@@ -95,6 +102,7 @@ impl Opened {
             Contents::Modrinth(_) => LocalPackKind::Modrinth,
             Contents::CurseForge(_) => LocalPackKind::CurseForge,
             Contents::MultiMc { .. } => LocalPackKind::MultiMc,
+            Contents::Cast { .. } => LocalPackKind::Cast,
         }
     }
 
@@ -119,6 +127,7 @@ impl Opened {
             files: 0,
             settings: InstanceSettings::default(),
             blocked: None,
+            cast: None,
         };
 
         match &self.contents {
@@ -174,6 +183,34 @@ impl Opened {
                     pack.blocked = Some(UiText::new("import.blocked.no_game_dir"));
                 }
             }
+            Contents::Cast { file, has_icon } => {
+                let manifest = &file.manifest;
+
+                pack.name = manifest.name.trim().to_string();
+                pack.version = manifest.version.clone();
+                pack.author = file.author.clone();
+                pack.description = file.description.clone();
+                pack.minecraft_version = manifest.minecraft_version().unwrap_or_default().into();
+                pack.files = manifest.mods.len() + manifest.files.len();
+                pack.cast = Some(file.preview(*has_icon));
+
+                match manifest.loader() {
+                    Some((loader, version)) => {
+                        pack.loader = Some(loader);
+                        pack.loader_label = match &version {
+                            Some(version) => format!("{} {version}", loader.label()),
+                            None => loader.label().to_string(),
+                        };
+                        pack.loader_version = version;
+                    }
+                    None if manifest.base.is_none() => pack.loader = Some(LoaderType::Vanilla),
+                    None => {}
+                }
+
+                if file.needs_curseforge() && !crate::curseforge::is_available() {
+                    pack.blocked = Some(UiText::new("import.blocked.no_curseforge_key"));
+                }
+            }
         }
 
         pack
@@ -216,6 +253,11 @@ impl Opened {
                     embedded: Vec::new(),
                     protected: Default::default(),
                 }
+            }
+            Contents::Cast { .. } => {
+                return Err(CommandError::unsupported(
+                    "error.reason.cast.installs_as_castpack",
+                ))
             }
         };
 
@@ -264,6 +306,18 @@ fn open_blocking(path: &Path) -> CommandResult<Opened> {
     let mut archive = crate::archive::open(path)?;
     let names: BTreeSet<String> = archive.file_names().map(str::to_string).collect();
 
+    if crate::castpack::file::is_cast(&names) {
+        let opened = crate::castpack::file::open_blocking(path)?;
+
+        return Ok(Opened {
+            root: String::new(),
+            contents: Contents::Cast {
+                file: Box::new(opened.file),
+                has_icon: opened.icon.is_some(),
+            },
+        });
+    }
+
     let Some((kind, root)) = detect(&names) else {
         return Err(CommandError::invalid_input(
             "error.reason.modpack.unknown_file",
@@ -271,6 +325,11 @@ fn open_blocking(path: &Path) -> CommandResult<Opened> {
     };
 
     let contents = match kind {
+        LocalPackKind::Cast => {
+            return Err(CommandError::invalid_input(
+                "error.reason.modpack.unknown_file",
+            ))
+        }
         LocalPackKind::Modrinth => Contents::Modrinth(Box::new(PackIndex::parse(&read(
             &mut archive,
             &format!("{root}{INDEX_ENTRY}"),
@@ -508,6 +567,46 @@ mod tests {
             pack.is_importable(),
             crate::curseforge::is_available(),
             "without an API key the mod links can not be found anyway"
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn a_cast_file_is_recognised_and_previewed() {
+        let dir = temp_dir();
+        let path = dir.join("Мой пак-1.0.cast");
+
+        let pack = serde_json::json!({
+            "format": 1,
+            "author": "zaralX",
+            "description": "Описание",
+            "manifest": {
+                "schemaVersion": 1,
+                "id": "c1f0",
+                "name": "Мой пак",
+                "version": "1.0",
+                "minecraft": "1.20.1",
+                "loader": {"type": "fabric", "version": "0.16.5"},
+                "mods": [{"provider": "modrinth", "projectId": "a", "versionId": "b"}]
+            }
+        });
+
+        write_zip(&path, &[("cast.json", &pack.to_string())]);
+
+        let found = inspect(&path).await.unwrap();
+
+        assert_eq!(found.kind, LocalPackKind::Cast);
+        assert_eq!(found.name, "Мой пак");
+        assert_eq!(found.author, "zaralX");
+        assert_eq!(found.loader, Some(LoaderType::Fabric));
+        assert_eq!(found.loader_version.as_deref(), Some("0.16.5"));
+        assert_eq!(found.cast.as_ref().unwrap().modrinth_mods, 1);
+        assert!(found.is_importable());
+
+        assert!(
+            resolve(&path, Path::new("/mc")).await.is_err(),
+            "a .cast installs as a CastPack, not as a local modpack"
         );
 
         std::fs::remove_dir_all(&dir).ok();

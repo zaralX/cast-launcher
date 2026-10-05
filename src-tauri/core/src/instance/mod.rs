@@ -86,16 +86,18 @@ pub enum LocalPackKind {
     Modrinth,
     CurseForge,
     MultiMc,
+    Cast,
 }
 
 impl LocalPackKind {
-    pub const ALL: [Self; 3] = [Self::Modrinth, Self::CurseForge, Self::MultiMc];
+    pub const ALL: [Self; 4] = [Self::Modrinth, Self::CurseForge, Self::MultiMc, Self::Cast];
 
     pub fn label(self) -> &'static str {
         match self {
             Self::Modrinth => "Modrinth (.mrpack)",
             Self::CurseForge => "CurseForge",
             Self::MultiMc => "MultiMC / Prism",
+            Self::Cast => "Cast Launcher (.cast)",
         }
     }
 
@@ -104,6 +106,7 @@ impl LocalPackKind {
             Self::Modrinth => "modrinth",
             Self::CurseForge => "curseforge",
             Self::MultiMc => "multimc",
+            Self::Cast => "cast",
         }
     }
     pub fn resolves_files(self) -> bool {
@@ -138,9 +141,22 @@ pub struct PackSource {
     pub file_size: Option<u64>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CastPackOrigin {
+    /// Listed in the catalog and fetched by link.
+    #[default]
+    Catalog,
+    /// Imported from a `.cast` file, which the instance keeps as its pack archive.
+    File,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CastPackSource {
+    #[serde(default)]
+    pub origin: CastPackOrigin,
+    /// The catalog entry, or the manifest id for a pack from a file.
     pub catalog_id: String,
     pub manifest_url: String,
     #[serde(default = "yes")]
@@ -164,6 +180,7 @@ impl CastPackSource {
         autoupdate: bool,
     ) -> Self {
         Self {
+            origin: CastPackOrigin::Catalog,
             catalog_id: catalog_id.into(),
             manifest_url: manifest_url.into(),
             autoupdate,
@@ -171,6 +188,17 @@ impl CastPackSource {
             changelog: String::new(),
             ram_applied: false,
         }
+    }
+
+    pub fn from_file(pack_id: impl Into<String>) -> Self {
+        Self {
+            origin: CastPackOrigin::File,
+            ..Self::new(pack_id, String::new(), false)
+        }
+    }
+
+    pub fn is_file(&self) -> bool {
+        self.origin == CastPackOrigin::File
     }
 
     pub fn is_outdated(&self, available: &str) -> bool {
@@ -184,6 +212,16 @@ impl CastPackSource {
             .unwrap_or_else(|| self.manifest_url.trim())
             .to_string()
     }
+}
+
+/// What the last `.cast` export of an instance used: the next export keeps the pack id, so
+/// whoever imported the file before can update it.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CastExport {
+    pub id: String,
+    pub version: String,
+    pub author: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -337,6 +375,8 @@ pub struct Instance {
     pub castpack: Option<CastPackSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub local_pack: Option<LocalPackSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cast_export: Option<CastExport>,
     #[serde(default)]
     pub settings: InstanceSettings,
     #[serde(default)]

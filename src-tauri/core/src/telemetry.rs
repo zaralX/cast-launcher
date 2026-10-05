@@ -78,6 +78,11 @@ impl Event {
 }
 
 pub fn source_key(instance: &Instance) -> &'static str {
+    let from_file = instance
+        .castpack
+        .as_ref()
+        .is_some_and(|source| source.is_file());
+
     match Source::of(instance) {
         Source::Plain => "plain",
         Source::Pack(PackProvider::Modrinth) => "modrinth",
@@ -85,6 +90,12 @@ pub fn source_key(instance: &Instance) -> &'static str {
         Source::LocalPack(LocalPackKind::Modrinth) => "file:modrinth",
         Source::LocalPack(LocalPackKind::CurseForge) => "file:curseforge",
         Source::LocalPack(LocalPackKind::MultiMc) => "file:multimc",
+        Source::LocalPack(LocalPackKind::Cast) => "file:cast",
+        Source::CastPack(base) if from_file => match base {
+            None => "cast",
+            Some(PackProvider::Modrinth) => "cast:modrinth",
+            Some(PackProvider::CurseForge) => "cast:curseforge",
+        },
         Source::CastPack(None) => "castpack",
         Source::CastPack(Some(PackProvider::Modrinth)) => "castpack:modrinth",
         Source::CastPack(Some(PackProvider::CurseForge)) => "castpack:curseforge",
@@ -282,8 +293,20 @@ mod tests {
             "castpack"
         );
         assert_eq!(
-            source_key(&instance(json!({"castpack": castpack, "pack": pack}))),
+            source_key(&instance(
+                json!({"castpack": castpack, "pack": pack.clone()})
+            )),
             "castpack:modrinth"
+        );
+
+        let from_file = json!({"origin": "file", "catalogId": "c1f0", "manifestUrl": ""});
+        assert_eq!(
+            source_key(&instance(json!({"castpack": from_file.clone()}))),
+            "cast"
+        );
+        assert_eq!(
+            source_key(&instance(json!({"castpack": from_file, "pack": pack}))),
+            "cast:modrinth"
         );
     }
 
