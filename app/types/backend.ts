@@ -6,6 +6,7 @@ import type { CatalogMatch, CatalogVersion, InstallPlan, InstallReport, Installe
 import type { AccountLook, SkinEntry, SkinLibrary, SkinVariant } from '~/types/skin'
 import type { DetectedLauncher, FileImportRequest, ImportProgress, ImportReport, ImportRequest, LauncherKind, LocalPack, ScannedInstance } from '~/types/import'
 import type { Catalog, CastPackUpdate } from '~/types/castpack'
+import type { ExportProgress, ExportRequest, ExportResult, ExportScan } from '~/types/cast'
 import type { BlockedFile, PackFilters, PackProviderInfo, PackSearchPage, PackSearchQuery, PackVersion } from '~/types/catalog'
 import type { CommandError } from '~/types/error'
 
@@ -38,6 +39,8 @@ export type LauncherEvent
     | { type: 'gameLog', runId: string, instanceId: string, line: string, isError: boolean }
     | { type: 'gameExited', runId: string, instanceId: string, code: number | null, logTail?: string }
     | { type: 'launchFailed', instanceId: string, instanceName: string, error: CommandError }
+    | (ExportProgress & { type: 'castExport' })
+    | { type: 'filesOpened' }
 
 export interface Bootstrap {
   config: AppConfig
@@ -159,6 +162,11 @@ export interface Commands {
   pick_modpack_file: Command<{ dialog: DialogText }, string | null>
   inspect_modpack_file: Command<{ path: string }, LocalPack>
   import_modpack_file: Command<{ request: FileImportRequest }, Instance>
+  take_opened_files: Command<void, string[]>
+
+  cast_export_scan: Command<{ instanceId: string }, ExportScan>
+  cast_export: Command<{ instanceId: string, request: ExportRequest, dialog: DialogText }, ExportResult | null>
+  cancel_cast_export: Command<void, void>
 
   list_minecraft_versions: Command<void, VersionManifest>
   list_fabric_versions: Command<void, string[]>

@@ -14,6 +14,7 @@ const { instances, installs } = storeToRefs(instanceStore)
 
 const createModalOpen = ref(false)
 const importModalOpen = ref(false)
+const announceImport = useImportToast()
 
 const compact = useCompact()
 
@@ -62,17 +63,9 @@ const openCreateModal = () => {
   createModalOpen.value = true
 }
 
-function onImported(instanceId: string) {
+function onImported(instanceId: string, updated: boolean) {
   importModalOpen.value = false
-
-  const instance = instances.value.find(item => item.id === instanceId)
-
-  toast.add({
-    title: t('home.imported', { name: instance?.name ?? t('home.imported_fallback') }),
-    description: t('home.imported_hint'),
-    color: 'success',
-    icon: 'i-lucide-file-archive',
-  })
+  announceImport(instanceId, updated)
 }
 
 const run = (id: string) => safeRun(

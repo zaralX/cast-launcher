@@ -1,6 +1,7 @@
 import type { JavaMode } from '~/types/app'
 import type { BlockedFile } from '~/types/catalog'
 import type { CastPackSource } from '~/types/castpack'
+import type { CastExport } from '~/types/cast'
 import type { InstanceDir, UiText } from '~/types/backend'
 import type { CommandError } from '~/types/error'
 
@@ -40,12 +41,13 @@ export interface PackSource {
   fileSize?: number
 }
 
-export type LocalPackKind = 'modrinth' | 'curseforge' | 'multimc'
+export type LocalPackKind = 'modrinth' | 'curseforge' | 'multimc' | 'cast'
 
 export const LOCAL_PACK_KIND_LABELS: Record<LocalPackKind, string> = {
   modrinth: 'Modrinth (.mrpack)',
   curseforge: 'CurseForge',
   multimc: 'MultiMC / Prism',
+  cast: 'Cast Launcher (.cast)',
 }
 
 export interface LocalPackSource {
@@ -74,6 +76,7 @@ export interface Instance {
   pack?: PackSource
   castpack?: CastPackSource
   localPack?: LocalPackSource
+  castExport?: CastExport
   settings: InstanceSettings
   playtime: Playtime
 }

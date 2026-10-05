@@ -10,8 +10,10 @@ const toast = useToast()
 
 const checking = ref(false)
 const update = ref<CastPackUpdate | null>(null)
+const updateFromFile = ref(false)
 
 const source = computed(() => props.instance.castpack)
+const fromFile = computed(() => source.value?.origin === 'file')
 const running = computed(() => instanceStore.isRunning(props.instance.id))
 const installing = computed(() => !!instanceStore.getInstall(props.instance.id))
 
@@ -28,20 +30,42 @@ const blocked = computed(() => {
   return null
 })
 
-const facts = computed(() => [
-  { label: t('instance.castpack.facts.pack'), value: source.value?.catalogId ?? '-' },
-  { label: t('instance.castpack.facts.version'), value: source.value?.version || t('instance.castpack.facts.version_absent') },
-  {
-    label: t('instance.castpack.facts.autoupdate'),
-    value: source.value?.autoupdate
-      ? t('instance.castpack.facts.autoupdate_on')
-      : t('instance.castpack.facts.autoupdate_off'),
-  },
-  { label: t('instance.castpack.facts.manifest'), value: source.value?.manifestUrl ?? '-' },
-])
+const facts = computed(() => {
+  const version = {
+    label: t('instance.castpack.facts.version'),
+    value: source.value?.version || t('instance.castpack.facts.version_absent'),
+  }
+
+  if (fromFile.value) {
+    return [
+      { label: t('instance.castpack.facts.pack_id'), value: source.value?.catalogId ?? '-' },
+      version,
+      { label: t('instance.castpack.facts.source'), value: t('instance.castpack.facts.source_file') },
+    ]
+  }
+
+  return [
+    { label: t('instance.castpack.facts.pack'), value: source.value?.catalogId ?? '-' },
+    version,
+    {
+      label: t('instance.castpack.facts.autoupdate'),
+      value: source.value?.autoupdate
+        ? t('instance.castpack.facts.autoupdate_on')
+        : t('instance.castpack.facts.autoupdate_off'),
+    },
+    { label: t('instance.castpack.facts.manifest'), value: source.value?.manifestUrl ?? '-' },
+  ]
+})
+
+const announceImport = useImportToast()
+
+function onUpdated(instanceId: string, updated: boolean) {
+  updateFromFile.value = false
+  announceImport(instanceId, updated)
+}
 
 async function check() {
-  if (checking.value) return
+  if (checking.value || fromFile.value) return
 
   checking.value = true
 
@@ -107,6 +131,53 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
         class="text-[12px] leading-relaxed text-fg-muted"
       >
         {{ $t('instance.castpack.not_castpack') }}
+      </div>
+
+      <div
+        v-else-if="fromFile"
+        class="space-y-7"
+      >
+        <p class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
+          <UIcon
+            name="i-lucide-file-archive"
+            class="mt-0.5 size-3.5 shrink-0 text-acid"
+          />
+          {{ $t('instance.castpack.file_hint') }}
+        </p>
+
+        <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
+          <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
+            {{ $t('instance.castpack.files_hint') }}
+          </p>
+
+          <div class="flex shrink-0 gap-2">
+            <AppButton
+              tone="quiet"
+              class="h-9 text-[10px] tracking-[0.18em]"
+              icon="i-lucide-wrench"
+              :disabled="!!blocked"
+              @click="reinstall"
+            >
+              {{ $t('instance.castpack.repair') }}
+            </AppButton>
+
+            <AppButton
+              class="h-9 text-[10px] tracking-[0.18em]"
+              icon="i-lucide-file-up"
+              :disabled="!!blocked"
+              @click="updateFromFile = true"
+            >
+              {{ $t('instance.castpack.update_from_file') }}
+            </AppButton>
+          </div>
+        </div>
+
+        <p
+          v-if="blocked"
+          class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+        >
+          {{ blocked }}
+        </p>
       </div>
 
       <div
@@ -248,7 +319,7 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
       </dl>
 
       <AppButton
-        v-if="source?.manifestUrl"
+        v-if="source?.manifestUrl && !fromFile"
         tone="quiet"
         class="mt-5 text-[10px] tracking-[0.16em]"
         icon="i-lucide-external-link"
@@ -257,5 +328,17 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
         {{ $t('instance.castpack.open_manifest') }}
       </AppButton>
     </SettingsPanel>
+
+    <UModal
+      v-model:open="updateFromFile"
+      :title="$t('instance.castpack.update_from_file_title', { name: instance.name })"
+    >
+      <template #body>
+        <ImportPackModalBody
+          :update-target="instance.id"
+          @imported="onUpdated"
+        />
+      </template>
+    </UModal>
   </div>
 </template>

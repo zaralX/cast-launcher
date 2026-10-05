@@ -16,7 +16,8 @@ export const useCastPackStore = defineStore('castpack', {
       const instances = useInstanceStore()
 
       return (packId: string): Instance | undefined =>
-        instances.instances.find(instance => instance.castpack?.catalogId === packId)
+        instances.instances.find(instance =>
+          instance.castpack?.origin !== 'file' && instance.castpack?.catalogId === packId)
     },
 
     stateOf(): (pack: CatalogPack) => PackState {

@@ -20,6 +20,7 @@ const { t } = useI18n()
 
 const tab = ref<Tab>('general')
 const saving = ref(false)
+const exportOpen = ref(false)
 
 const TABS = computed(() => {
   const items: { key: Tab, label: string, icon: string }[] = [
@@ -27,7 +28,13 @@ const TABS = computed(() => {
     { key: 'mods', label: t('instance.tabs.mods'), icon: 'i-lucide-blocks' },
   ]
 
-  if (instance.value?.castpack) items.push({ key: 'castpack', label: 'CastPack', icon: 'i-lucide-layers' })
+  if (instance.value?.castpack) {
+    items.push({
+      key: 'castpack',
+      label: instance.value.castpack.origin === 'file' ? t('instance.tabs.cast_file') : 'CastPack',
+      icon: 'i-lucide-layers',
+    })
+  }
   if (instance.value?.pack || instance.value?.localPack) {
     items.push({ key: 'pack', label: t('instance.tabs.pack'), icon: 'i-lucide-package' })
   }
@@ -231,6 +238,16 @@ const guard = useUnsavedChanges({
           {{ $t('instance.action.play') }}
         </AppButton>
 
+        <AppButton
+          tone="quiet"
+          class="mt-4 text-[10px] tracking-[0.18em]"
+          icon="i-lucide-file-down"
+          :disabled="installing"
+          @click="exportOpen = true"
+        >
+          {{ $t('instance.export_cast') }}
+        </AppButton>
+
         <div
           v-if="dirty"
           class="mt-4 flex items-center justify-between gap-3"
@@ -307,6 +324,12 @@ const guard = useUnsavedChanges({
         {{ $t('instance.not_found') }}
       </p>
     </div>
+
+    <CastExportModal
+      v-if="instance"
+      v-model:open="exportOpen"
+      :instance="instance"
+    />
 
     <AppUnsavedChangesModal
       :guard="guard"

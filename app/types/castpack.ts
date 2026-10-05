@@ -3,7 +3,11 @@ import type { InstanceType } from '~/types/instance'
 
 export const CASTPACK_SCHEMA_VERSION = 1
 
+// A pack from the catalog follows its manifest link, a pack from a .cast file is updated with another file.
+export type CastPackOrigin = 'catalog' | 'file'
+
 export interface CastPackSource {
+  origin: CastPackOrigin
   catalogId: string
   manifestUrl: string
   autoupdate: boolean

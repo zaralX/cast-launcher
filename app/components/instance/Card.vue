@@ -63,9 +63,9 @@ const playtime = computed(() => formatPlaytime(total.value) || t('instance.playt
         <p
           v-if="instance.castpack"
           class="mt-1 flex items-center gap-1.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
-          :title="$t('instance.castpack_tooltip', { version: instance.castpack.version })"
+          :title="$t(instance.castpack.origin === 'file' ? 'instance.cast_file_tooltip' : 'instance.castpack_tooltip', { version: instance.castpack.version })"
         >
-          <span class="truncate">CastPack{{ instance.castpack.version ? ` ${instance.castpack.version}` : '' }}</span>
+          <span class="truncate">{{ instance.castpack.origin === 'file' ? '.cast' : 'CastPack' }}{{ instance.castpack.version ? ` ${instance.castpack.version}` : '' }}</span>
         </p>
         <p
           class="mt-1 flex items-center gap-1.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"

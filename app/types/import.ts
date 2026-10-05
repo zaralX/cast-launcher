@@ -1,4 +1,5 @@
 import type { UiText } from '~/types/backend'
+import type { CastPreview } from '~/types/cast'
 import type { InstanceSettings, InstanceType, LocalPackKind, Playtime } from '~/types/instance'
 
 export type LauncherKind = 'prism' | 'modrinth'
@@ -50,12 +51,15 @@ export interface LocalPack {
   files: number
   settings: InstanceSettings
   blocked?: UiText
+  cast?: CastPreview
 }
 
 export interface FileImportRequest {
   path: string
   name?: string
   description?: string
+  // A .cast replaces the pack of this instance instead of making a new one.
+  update?: string
 }
 
 export interface ImportOptions {

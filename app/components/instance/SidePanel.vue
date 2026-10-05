@@ -177,7 +177,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
             class="flex items-baseline justify-between gap-3"
           >
             <dt class="text-fg-faint">
-              CastPack
+              {{ instance.castpack.origin === 'file' ? '.cast' : 'CastPack' }}
             </dt>
             <dd class="min-w-0 truncate text-fg-muted">
               {{ instance.castpack.version || '—' }}

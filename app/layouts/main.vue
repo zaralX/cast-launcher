@@ -75,6 +75,7 @@ onMounted(async () => {
           :key="awaiting.instanceId"
           :install="awaiting"
         />
+        <ImportOpenedFile />
       </div>
 
       <div class="flex items-stretch">

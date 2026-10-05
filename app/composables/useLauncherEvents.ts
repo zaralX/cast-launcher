@@ -16,6 +16,7 @@ async function connect() {
   const instanceStore = useInstanceStore()
   const accountStore = useAccountStore()
   const importStore = useImportStore()
+  const castStore = useCastStore()
 
   const bootstrap = await call('bootstrap')
 
@@ -62,6 +63,14 @@ async function connect() {
           context: { instanceId: event.instanceId, instanceName: event.instanceName },
         })
         break
+      case 'castExport':
+        castStore.applyExportProgress(event)
+        break
+      case 'filesOpened':
+        safeRun(() => castStore.takeOpened())
+        break
     }
   })
+
+  await safeRun(() => castStore.takeOpened())
 }

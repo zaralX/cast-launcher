@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import type { LocalPack } from '~/types/import'
+import { CAST_EXTENSION } from '~/types/cast'
 
-const emit = defineEmits<{ imported: [instanceId: string] }>()
+const props = defineProps<{
+  // A file to read right away, for example one opened from the system.
+  path?: string
+  // The instance a .cast file updates, when the dialog was opened from it.
+  updateTarget?: string
+}>()
+
+const emit = defineEmits<{ imported: [instanceId: string, updated: boolean] }>()
 
 const { t } = useI18n()
 const instanceStore = useInstanceStore()
@@ -14,16 +22,53 @@ const pack = ref<LocalPack | null>(null)
 
 const name = ref('')
 const description = ref('')
+const mode = ref<'create' | 'update'>('create')
 
 const busy = computed(() => picking.value || reading.value || importing.value)
 
+const targetId = computed(() => {
+  if (props.updateTarget) return props.updateTarget
+  if (mode.value === 'update') return pack.value?.cast?.existing?.instanceId ?? null
+  return null
+})
+
+const target = computed(() => targetId.value ? instanceStore.getInstance(targetId.value) ?? null : null)
+const updating = computed(() => !!targetId.value)
+
+// An update needs a .cast file: other formats only make new instances.
+const wrongFile = computed(() => !!props.updateTarget && !!pack.value && !pack.value.cast)
+
 const canImport = computed(() =>
-  !!pack.value && !pack.value.blocked && !busy.value && name.value.trim().length > 0,
+  !!pack.value
+  && !pack.value.blocked
+  && !wrongFile.value
+  && !busy.value
+  && (updating.value || name.value.trim().length > 0),
 )
 
 const facts = computed(() => {
   const found = pack.value
   if (!found) return []
+
+  const cast = found.cast
+
+  if (cast) {
+    const fromBase = cast.base ? t('import_pack.cast.from_base') : '-'
+
+    return [
+      { label: t('import_pack.facts.format'), value: found.kindLabel },
+      { label: 'Minecraft', value: found.minecraftVersion || fromBase },
+      { label: t('import_pack.facts.loader'), value: found.loader ? found.loaderLabel : fromBase },
+      { label: t('import_pack.facts.version'), value: found.version || '-' },
+      { label: t('import_pack.cast.mods'), value: String(cast.modrinthMods + cast.curseforgeMods) },
+      {
+        label: t('import_pack.cast.inside'),
+        value: cast.embeddedFiles
+          ? `${cast.embeddedFiles} · ${formatBytes(cast.embeddedSize)}`
+          : t('import_pack.cast.inside_none'),
+      },
+    ]
+  }
 
   return [
     { label: t('import_pack.facts.format'), value: found.kindLabel },
@@ -63,9 +108,14 @@ async function read(path: string) {
   pack.value = result.value
   name.value = result.value.name
   description.value = result.value.description
+  mode.value = result.value.cast?.existing ? 'update' : 'create'
 }
 
-const EXTENSIONS = ['.mrpack', '.zip']
+onMounted(() => {
+  if (props.path) read(props.path)
+})
+
+const EXTENSIONS = ['.mrpack', '.zip', CAST_EXTENSION]
 
 function isPack(path: string): boolean {
   return EXTENSIONS.some(extension => path.toLowerCase().endsWith(extension))
@@ -83,13 +133,16 @@ async function run() {
 
   importing.value = true
 
+  const updated = updating.value
+
   const created = await attempt(() => call('import_modpack_file', {
     request: {
       path: pack.value!.path,
-      name: name.value.trim(),
-      description: description.value.trim(),
+      name: updated ? undefined : name.value.trim(),
+      description: updated ? undefined : description.value.trim(),
+      update: targetId.value ?? undefined,
     },
-  }), { context: { action: t('import_pack.import_action') } })
+  }), { context: { action: t(updated ? 'import_pack.cast.update_action' : 'import_pack.import_action') } })
 
   if (!created.ok) {
     importing.value = false
@@ -102,7 +155,7 @@ async function run() {
   })
 
   importing.value = false
-  emit('imported', created.value.id)
+  emit('imported', created.value.id, updated)
 }
 </script>
 
@@ -123,7 +176,16 @@ async function run() {
       <span class="font-mono text-[10px] uppercase tracking-[0.24em]">
         {{ reading ? $t('import_pack.reading') : pack ? $t('import_pack.pick_another') : $t('import_pack.pick') }}
       </span>
-      <span class="text-[12px] leading-relaxed text-fg-muted">
+      <span
+        v-if="updateTarget"
+        class="text-[12px] leading-relaxed text-fg-muted"
+      >
+        {{ $t('import_pack.hint_before') }} <span class="text-fg">{{ CAST_EXTENSION }}</span> {{ $t('import_pack.cast.update_hint') }}
+      </span>
+      <span
+        v-else
+        class="text-[12px] leading-relaxed text-fg-muted"
+      >
         {{ $t('import_pack.hint_before') }} <span class="text-fg">.mrpack</span> {{ $t('import_pack.hint_after') }}
       </span>
     </button>
@@ -147,12 +209,26 @@ async function run() {
       {{ $t('import_pack.blocked', { reason: uiText(pack.blocked) }) }}
     </div>
 
+    <div
+      v-else-if="wrongFile"
+      class="mt-6 flex items-start gap-2.5 border border-amber-400/30 bg-ink-900 px-4 py-3 text-[12px] leading-relaxed text-fg-muted"
+    >
+      <UIcon
+        name="i-lucide-triangle-alert"
+        class="mt-0.5 size-3.5 shrink-0 text-amber-400"
+      />
+      {{ $t('import_pack.cast.not_cast') }}
+    </div>
+
     <form
       v-if="pack"
       class="mt-6 space-y-8"
       @submit.prevent="run"
     >
-      <div class="space-y-5">
+      <div
+        v-if="!updating"
+        class="space-y-5"
+      >
         <div>
           <label
             for="file-pack-name"
@@ -204,8 +280,17 @@ async function run() {
         </div>
       </dl>
 
+      <ImportCastDetails
+        v-if="pack.cast"
+        v-model:mode="mode"
+        :pack="pack"
+        :preview="pack.cast"
+        :target="target"
+        :choosable="!updateTarget"
+      />
+
       <p
-        v-if="pack.kind === 'curseforge'"
+        v-if="pack.kind === 'curseforge' || (pack.cast?.curseforgeMods ?? 0) > 0"
         class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
       >
         <UIcon
@@ -239,7 +324,12 @@ async function run() {
             class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
           />
         </template>
-        {{ importing ? $t('import_pack.creating') : $t('import_pack.import') }}
+        <template v-if="updating">
+          {{ importing ? $t('import_pack.cast.updating') : $t('import_pack.cast.update') }}
+        </template>
+        <template v-else>
+          {{ importing ? $t('import_pack.creating') : $t('import_pack.import') }}
+        </template>
       </AppButton>
     </form>
   </div>
