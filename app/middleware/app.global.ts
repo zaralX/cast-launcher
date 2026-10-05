@@ -1,23 +1,20 @@
-import {useAppStore} from "~/stores/app";
-import {storeToRefs} from "pinia";
+const WELCOME = '/welcome'
 
-const WELCOME = "/welcome"
+export default defineNuxtRouteMiddleware(async (to) => {
+  if (to.path === '/') return
 
-export default defineNuxtRouteMiddleware(async (to, from) => {
-    if (to.path === '/') return;
+  const store = useAppStore()
+  const { hasConfig, needsOnboarding } = storeToRefs(store)
 
-    const store = useAppStore();
-    const {hasConfig, needsOnboarding} = storeToRefs(store)
+  if (!hasConfig.value) {
+    return navigateTo('/', { redirectCode: 301 })
+  }
 
-    if (!hasConfig.value) {
-        return navigateTo("/", { redirectCode: 301 })
-    }
+  if (needsOnboarding.value) {
+    return to.path === WELCOME ? undefined : navigateTo(WELCOME)
+  }
 
-    if (needsOnboarding.value) {
-        return to.path === WELCOME ? undefined : navigateTo(WELCOME)
-    }
-
-    if (to.path === WELCOME) {
-        return navigateTo("/main")
-    }
+  if (to.path === WELCOME) {
+    return navigateTo('/main')
+  }
 })

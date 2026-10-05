@@ -1,178 +1,172 @@
-import {defineStore} from 'pinia'
-import type {
-    CatalogMatch,
-    CatalogVersion,
-    InstallPlan,
-    InstallReport,
-    InstalledMods,
-    ModFile,
-    ModSearchQuery,
-    ModUpdate,
-    UpdatedModsReport
-} from '~/types/mods'
-import type {PackSearchPage} from '~/types/catalog'
-import {call} from '~/types/backend'
+import type { CatalogMatch, CatalogVersion, InstallPlan, InstallReport, InstalledMods, ModFile, ModSearchQuery, ModUpdate, UpdatedModsReport } from '~/types/mods'
+import type { PackSearchPage } from '~/types/catalog'
 
 const pendingIcons = new Map<string, Promise<string | null>>()
 
 export const useModsStore = defineStore('mods', {
-    state: () => ({
-        byInstance: {} as Record<string, ModFile[]>,
-        loading: [] as string[],
-        icons: {} as Record<string, string>,
-        catalog: {} as Record<string, Record<string, CatalogMatch>>,
-        updates: {} as Record<string, ModUpdate[]>,
-        identifying: [] as string[],
-        checking: [] as string[]
-    }),
-    getters: {
-        listOf: (state) => (instanceId: string): ModFile[] => state.byInstance[instanceId] ?? [],
-        isLoading: (state) => (instanceId: string) => state.loading.includes(instanceId),
-        isLoaded: (state) => (instanceId: string) => !!state.byInstance[instanceId],
-        iconOf: (state) => (key?: string | null): string | null => (key && state.icons[key]) || null,
-        matchOf: (state) => (instanceId: string, path: string): CatalogMatch | null =>
-            state.catalog[instanceId]?.[path] ?? null,
-        updatesOf: (state) => (instanceId: string): ModUpdate[] => state.updates[instanceId] ?? [],
-        isIdentifying: (state) => (instanceId: string) => state.identifying.includes(instanceId),
-        isChecking: (state) => (instanceId: string) => state.checking.includes(instanceId)
+  state: () => ({
+    byInstance: {} as Record<string, ModFile[]>,
+    loading: [] as string[],
+    icons: {} as Record<string, string>,
+    catalog: {} as Record<string, Record<string, CatalogMatch>>,
+    updates: {} as Record<string, ModUpdate[]>,
+    identifying: [] as string[],
+    checking: [] as string[],
+  }),
+  getters: {
+    listOf: state => (instanceId: string): ModFile[] => state.byInstance[instanceId] ?? [],
+    isLoading: state => (instanceId: string) => state.loading.includes(instanceId),
+    isLoaded: state => (instanceId: string) => !!state.byInstance[instanceId],
+    iconOf: state => (key?: string | null): string | null => (key && state.icons[key]) || null,
+    matchOf: state => (instanceId: string, path: string): CatalogMatch | null =>
+      state.catalog[instanceId]?.[path] ?? null,
+    updatesOf: state => (instanceId: string): ModUpdate[] => state.updates[instanceId] ?? [],
+    isIdentifying: state => (instanceId: string) => state.identifying.includes(instanceId),
+    isChecking: state => (instanceId: string) => state.checking.includes(instanceId),
+  },
+  actions: {
+    async load(instanceId: string, force = false): Promise<ModFile[]> {
+      if (!instanceId) return []
+      if (this.byInstance[instanceId] && !force) return this.byInstance[instanceId]!
+      if (this.loading.includes(instanceId)) return this.byInstance[instanceId] ?? []
+
+      this.loading.push(instanceId)
+
+      try {
+        const mods = await call(force ? 'refresh_instance_mods' : 'list_instance_mods', { instanceId })
+
+        this.byInstance[instanceId] = mods
+
+        return mods
+      }
+      finally {
+        this.loading = this.loading.filter(id => id !== instanceId)
+      }
     },
-    actions: {
-        async load(instanceId: string, force = false): Promise<ModFile[]> {
-            if (!instanceId) return []
-            if (this.byInstance[instanceId] && !force) return this.byInstance[instanceId]!
-            if (this.loading.includes(instanceId)) return this.byInstance[instanceId] ?? []
 
-            this.loading.push(instanceId)
+    async ensureIcon(key?: string | null): Promise<string | null> {
+      if (!key) return null
+      if (this.icons[key]) return this.icons[key]!
 
-            try {
-                const mods = await call(force ? "refresh_instance_mods" : "list_instance_mods", {instanceId})
+      const pending = pendingIcons.get(key)
+      if (pending) return await pending
 
-                this.byInstance[instanceId] = mods
+      const request = call('read_mod_icon', { key })
+        .then((url) => {
+          this.icons[key] = url
+          return url
+        })
+        .catch(() => null)
+        .finally(() => pendingIcons.delete(key))
 
-                return mods
-            } finally {
-                this.loading = this.loading.filter(id => id !== instanceId)
-            }
-        },
+      pendingIcons.set(key, request)
 
-        async ensureIcon(key?: string | null): Promise<string | null> {
-            if (!key) return null
-            if (this.icons[key]) return this.icons[key]!
+      return await request
+    },
 
-            const pending = pendingIcons.get(key)
-            if (pending) return await pending
+    async setEnabled(instanceId: string, path: string, enabled: boolean): Promise<ModFile[]> {
+      const mods = await call('set_mod_enabled', { instanceId, path, enabled })
 
-            const request = call("read_mod_icon", {key})
-                .then(url => {
-                    this.icons[key] = url
-                    return url
-                })
-                .catch(() => null)
-                .finally(() => pendingIcons.delete(key))
+      this.byInstance[instanceId] = mods
 
-            pendingIcons.set(key, request)
+      return mods
+    },
 
-            return await request
-        },
+    async remove(instanceId: string, paths: string[]): Promise<ModFile[]> {
+      const mods = await call('delete_mods', { instanceId, paths })
 
-        async setEnabled(instanceId: string, path: string, enabled: boolean): Promise<ModFile[]> {
-            const mods = await call("set_mod_enabled", {instanceId, path, enabled})
+      this.byInstance[instanceId] = mods
 
-            this.byInstance[instanceId] = mods
+      return mods
+    },
 
-            return mods
-        },
+    async add(instanceId: string, paths: string[]): Promise<InstalledMods> {
+      const { mods, report } = await call('add_mods', { instanceId, paths })
 
-        async remove(instanceId: string, paths: string[]): Promise<ModFile[]> {
-            const mods = await call("delete_mods", {instanceId, paths})
+      this.byInstance[instanceId] = mods
 
-            this.byInstance[instanceId] = mods
+      return report
+    },
 
-            return mods
-        },
+    async identify(instanceId: string): Promise<Record<string, CatalogMatch>> {
+      if (this.identifying.includes(instanceId)) return this.catalog[instanceId] ?? {}
 
-        async add(instanceId: string, paths: string[]): Promise<InstalledMods> {
-            const {mods, report} = await call("add_mods", {instanceId, paths})
+      this.identifying.push(instanceId)
 
-            this.byInstance[instanceId] = mods
+      try {
+        const matches = await call('identify_instance_mods', { instanceId })
 
-            return report
-        },
+        this.catalog[instanceId] = matches
 
-        async identify(instanceId: string): Promise<Record<string, CatalogMatch>> {
-            if (this.identifying.includes(instanceId)) return this.catalog[instanceId] ?? {}
+        return matches
+      }
+      finally {
+        this.identifying = this.identifying.filter(id => id !== instanceId)
+      }
+    },
 
-            this.identifying.push(instanceId)
+    async checkUpdates(instanceId: string): Promise<ModUpdate[]> {
+      if (this.checking.includes(instanceId)) return this.updatesOf(instanceId)
 
-            try {
-                const matches = await call("identify_instance_mods", {instanceId})
+      this.checking.push(instanceId)
 
-                this.catalog[instanceId] = matches
+      try {
+        const updates = await call('check_mod_updates', { instanceId })
 
-                return matches
-            } finally {
-                this.identifying = this.identifying.filter(id => id !== instanceId)
-            }
-        },
+        this.updates[instanceId] = updates
 
-        async checkUpdates(instanceId: string): Promise<ModUpdate[]> {
-            if (this.checking.includes(instanceId)) return this.updatesOf(instanceId)
+        return updates
+      }
+      finally {
+        this.checking = this.checking.filter(id => id !== instanceId)
+      }
+    },
 
-            this.checking.push(instanceId)
+    async update(instanceId: string, paths: string[]): Promise<UpdatedModsReport> {
+      const { mods, report } = await call('update_mods', { instanceId, paths })
 
-            try {
-                const updates = await call("check_mod_updates", {instanceId})
+      this.byInstance[instanceId] = mods
+      this.updates[instanceId] = this.updatesOf(instanceId).filter(update => !paths.includes(update.path))
 
-                this.updates[instanceId] = updates
+      return report
+    },
 
-                return updates
-            } finally {
-                this.checking = this.checking.filter(id => id !== instanceId)
-            }
-        },
+    async searchMods(instanceId: string, query: ModSearchQuery): Promise<PackSearchPage> {
+      return await call('search_mods', { instanceId, query })
+    },
 
-        async update(instanceId: string, paths: string[]): Promise<UpdatedModsReport> {
-            const {mods, report} = await call("update_mods", {instanceId, paths})
+    async modVersions(
+      instanceId: string,
+      provider: CatalogMatch['provider'],
+      projectId: string,
+    ): Promise<CatalogVersion[]> {
+      return await call('mod_versions', { instanceId, provider, projectId })
+    },
 
-            this.byInstance[instanceId] = mods
-            this.updates[instanceId] = this.updatesOf(instanceId).filter(update => !paths.includes(update.path))
+    async planInstall(
+      instanceId: string,
+      provider: CatalogMatch['provider'],
+      projectId: string,
+      versionId: string,
+    ): Promise<InstallPlan> {
+      return await call('plan_mod_install', { instanceId, provider, projectId, versionId })
+    },
 
-            return report
-        },
+    async installMod(instanceId: string, planId: string, optional: string[]): Promise<InstallReport> {
+      const { mods, report } = await call('install_mod', { instanceId, planId, optional })
 
-        async searchMods(instanceId: string, query: ModSearchQuery): Promise<PackSearchPage> {
-            return await call("search_mods", {instanceId, query})
-        },
+      this.byInstance[instanceId] = mods
 
-        async modVersions(
-            instanceId: string,
-            provider: CatalogMatch["provider"],
-            projectId: string
-        ): Promise<CatalogVersion[]> {
-            return await call("mod_versions", {instanceId, provider, projectId})
-        },
+      return report
+    },
 
-        async planInstall(
-            instanceId: string,
-            provider: CatalogMatch["provider"],
-            projectId: string,
-            versionId: string
-        ): Promise<InstallPlan> {
-            return await call("plan_mod_install", {instanceId, provider, projectId, versionId})
-        },
-
-        async installMod(instanceId: string, planId: string, optional: string[]): Promise<InstallReport> {
-            const {mods, report} = await call("install_mod", {instanceId, planId, optional})
-
-            this.byInstance[instanceId] = mods
-
-            return report
-        },
-
-        forget(instanceId: string) {
-            delete this.byInstance[instanceId]
-            delete this.catalog[instanceId]
-            delete this.updates[instanceId]
-        }
-    }
+    forget(instanceId: string) {
+      const { [instanceId]: _mods, ...byInstance } = this.byInstance
+      const { [instanceId]: _catalog, ...catalog } = this.catalog
+      const { [instanceId]: _updates, ...updates } = this.updates
+      this.byInstance = byInstance
+      this.catalog = catalog
+      this.updates = updates
+    },
+  },
 })

@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import {setTelemetryEnabled} from "~/composables/useTelemetry"
-import {useAppStore} from "~/stores/app"
-import type {ImportReport} from "~/types/import"
+import type { ImportReport } from '~/types/import'
 
-const model = defineModel<ImportReport | null>({default: null})
+const model = defineModel<ImportReport | null>({ default: null })
 
 const store = useAppStore()
 
@@ -11,7 +9,7 @@ const autoUpdate = computed({
   get: () => store.config?.launcher.auto_update ?? true,
   set: (value: boolean) => {
     if (store.config) store.config.launcher.auto_update = value
-  }
+  },
 })
 
 const telemetry = computed({
@@ -19,7 +17,7 @@ const telemetry = computed({
   set: (value: boolean) => {
     if (store.config) store.config.launcher.telemetry = value
     setTelemetryEnabled(value)
-  }
+  },
 })
 </script>
 
@@ -36,7 +34,10 @@ const telemetry = computed({
               {{ $t('settings.launcher.auto_update.hint') }}
             </p>
           </div>
-          <USwitch v-model="autoUpdate" size="lg"/>
+          <USwitch
+            v-model="autoUpdate"
+            size="lg"
+          />
         </div>
 
         <div class="flex items-center justify-between gap-6 border-t border-line py-5">
@@ -48,7 +49,10 @@ const telemetry = computed({
               {{ $t('settings.launcher.telemetry.hint') }}
             </p>
           </div>
-          <USwitch v-model="telemetry" size="lg"/>
+          <USwitch
+            v-model="telemetry"
+            size="lg"
+          />
         </div>
       </div>
 
@@ -57,7 +61,7 @@ const telemetry = computed({
           {{ $t('settings.import.title') }}
         </p>
 
-        <ImportWizard @imported="report => model = report"/>
+        <ImportWizard @imported="report => model = report" />
       </div>
     </div>
   </OnboardingPane>

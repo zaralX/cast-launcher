@@ -1,136 +1,108 @@
-import type {InstanceSettings, InstanceType, LocalPackKind, Playtime} from "~/types/instance"
+import type { InstanceSettings, InstanceType, LocalPackKind, Playtime } from '~/types/instance'
 
-export type LauncherKind = "prism" | "modrinth"
+export type LauncherKind = 'prism' | 'modrinth'
 
 export interface DetectedLauncher {
-    kind: LauncherKind
-    label: string
-    path: string
-    instances: number
+  kind: LauncherKind
+  label: string
+  path: string
+  instances: number
 }
 
 export interface ScannedPack {
-    provider: string
-    projectId: string
-    versionId: string
-    versionName: string
-    name: string
+  provider: string
+  projectId: string
+  versionId: string
+  versionName: string
+  name: string
 }
 
 export interface ScannedInstance {
-    folder: string
-    name: string
-    description: string
-    minecraftVersion: string
-    loader?: InstanceType
-    loaderVersion?: string
-    loaderLabel: string
-    icon?: string
-    settings: InstanceSettings
-    playtime: Playtime
-    pack?: ScannedPack
-    blocked?: string
+  folder: string
+  name: string
+  description: string
+  minecraftVersion: string
+  loader?: InstanceType
+  loaderVersion?: string
+  loaderLabel: string
+  icon?: string
+  settings: InstanceSettings
+  playtime: Playtime
+  pack?: ScannedPack
+  blocked?: string
 }
 
 export interface LocalPack {
-    kind: LocalPackKind
-    kindLabel: string
-    path: string
-    fileName: string
-    size: number
-    name: string
-    version: string
-    author: string
-    description: string
-    minecraftVersion: string
-    loader?: InstanceType
-    loaderVersion?: string
-    loaderLabel: string
-    files: number
-    settings: InstanceSettings
-    blocked?: string
+  kind: LocalPackKind
+  kindLabel: string
+  path: string
+  fileName: string
+  size: number
+  name: string
+  version: string
+  author: string
+  description: string
+  minecraftVersion: string
+  loader?: InstanceType
+  loaderVersion?: string
+  loaderLabel: string
+  files: number
+  settings: InstanceSettings
+  blocked?: string
 }
 
 export interface FileImportRequest {
-    path: string
-    name?: string
-    description?: string
+  path: string
+  name?: string
+  description?: string
 }
 
 export interface ImportOptions {
-    assets: boolean
-    libraries: boolean
-    java: boolean
-    icons: boolean
-    linkPacks: boolean
-}
-
-export function defaultImportOptions(): ImportOptions {
-    return {
-        assets: true,
-        libraries: true,
-        java: true,
-        icons: true,
-        linkPacks: true
-    }
+  assets: boolean
+  libraries: boolean
+  java: boolean
+  icons: boolean
+  linkPacks: boolean
 }
 
 export interface ImportRequest {
-    kind: LauncherKind
-    path: string
-    folders: string[]
-    options: ImportOptions
+  kind: LauncherKind
+  path: string
+  folders: string[]
+  options: ImportOptions
 }
 
-export type ImportStage = "shared" | "instances" | "done"
+export type ImportStage = 'shared' | 'instances' | 'done'
 
 export interface CopyStats {
-    files: number
-    bytes: number
-    skipped: number
+  files: number
+  bytes: number
+  skipped: number
 }
 
 export interface ImportProgress {
-    source: LauncherKind
-    stage: ImportStage
-    step: string
-    done: number
-    total: number
-    stats: CopyStats
+  source: LauncherKind
+  stage: ImportStage
+  step: string
+  done: number
+  total: number
+  stats: CopyStats
 }
 
 export interface ImportedInstance {
-    id: string
-    name: string
-    linked: boolean
+  id: string
+  name: string
+  linked: boolean
 }
 
 export interface SkippedInstance {
-    name: string
-    reason: string
+  name: string
+  reason: string
 }
 
 export interface ImportReport {
-    imported: ImportedInstance[]
-    skipped: SkippedInstance[]
-    stats: CopyStats
-    cancelled: boolean
-}
-
-const UNITS = ["common.unit.b", "common.unit.kb", "common.unit.mb", "common.unit.gb", "common.unit.tb"]
-
-export function formatBytes(bytes: number): string {
-    const {$i18n} = useNuxtApp()
-
-    if (bytes <= 0) return `0 ${$i18n.t("common.unit.b")}`
-
-    let value = bytes
-    let unit = 0
-
-    while (value >= 1024 && unit < UNITS.length - 1) {
-        value /= 1024
-        unit++
-    }
-
-    return `${value >= 100 || unit === 0 ? Math.round(value) : value.toFixed(1)} ${$i18n.t(UNITS[unit]!)}`
+  imported: ImportedInstance[]
+  skipped: SkippedInstance[]
+  stats: CopyStats
+  cancelled: boolean
 }

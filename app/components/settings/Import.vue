@@ -3,10 +3,10 @@
 
 <template>
   <SettingsPanel
-      index="04"
-      :title="$t('settings.import.title')"
-      icon="i-lucide-import"
+    index="04"
+    :title="$t('settings.import.title')"
+    icon="i-lucide-import"
   >
-    <ImportWizard/>
+    <ImportWizard />
   </SettingsPanel>
 </template>

@@ -1,79 +1,79 @@
 <script setup lang="ts">
-import type {Instance, InstanceSettings} from "~/types/instance";
-import {emptyInstanceSettings, INSTANCE_TYPE_LABELS} from "~/types/instance";
+import type { Instance, InstanceSettings } from '~/types/instance'
+import { INSTANCE_TYPE_LABELS } from '~/types/instance'
 
 definePageMeta({
-  layout: "main"
+  layout: 'main',
 })
 
-type Tab = "general" | "mods" | "castpack" | "pack" | "java" | "logs"
+type Tab = 'general' | 'mods' | 'castpack' | 'pack' | 'java' | 'logs'
 
 const route = useRoute()
 const toast = useToast()
 
 const instanceStore = useInstanceStore()
 
-const instanceId = computed(() => String(route.params.id ?? ""))
+const instanceId = computed(() => String(route.params.id ?? ''))
 const instance = computed(() => instanceStore.getInstance(instanceId.value))
 
-const {t} = useI18n()
+const { t } = useI18n()
 
-const tab = ref<Tab>("general")
+const tab = ref<Tab>('general')
 const saving = ref(false)
 
 const TABS = computed(() => {
   const items: { key: Tab, label: string, icon: string }[] = [
-    {key: "general", label: t("instance.tabs.general"), icon: "i-lucide-box"},
-    {key: "mods", label: t("instance.tabs.mods"), icon: "i-lucide-blocks"}
+    { key: 'general', label: t('instance.tabs.general'), icon: 'i-lucide-box' },
+    { key: 'mods', label: t('instance.tabs.mods'), icon: 'i-lucide-blocks' },
   ]
 
-  if (instance.value?.castpack) items.push({key: "castpack", label: "CastPack", icon: "i-lucide-layers"})
+  if (instance.value?.castpack) items.push({ key: 'castpack', label: 'CastPack', icon: 'i-lucide-layers' })
   if (instance.value?.pack || instance.value?.localPack) {
-    items.push({key: "pack", label: t("instance.tabs.pack"), icon: "i-lucide-package"})
+    items.push({ key: 'pack', label: t('instance.tabs.pack'), icon: 'i-lucide-package' })
   }
 
-  items.push({key: "java", label: "Java", icon: "i-lucide-cpu"})
-  items.push({key: "logs", label: t("instance.tabs.logs"), icon: "i-lucide-scroll-text"})
+  items.push({ key: 'java', label: 'Java', icon: 'i-lucide-cpu' })
+  items.push({ key: 'logs', label: t('instance.tabs.logs'), icon: 'i-lucide-scroll-text' })
 
-  return items.map((item, i) => ({...item, index: String(i + 1).padStart(2, "0")}))
+  return items.map((item, i) => ({ ...item, index: String(i + 1).padStart(2, '0') }))
 })
 
-watch(TABS, items => {
-  if (!items.some(item => item.key === tab.value)) tab.value = "general"
+watch(TABS, (items) => {
+  if (!items.some(item => item.key === tab.value)) tab.value = 'general'
 })
 
 const running = computed(() => instanceStore.isRunning(instanceId.value))
 const installing = computed(() => !!instanceStore.getInstall(instanceId.value))
 
 const run = () => safeRun(
-    () => instanceStore.playInstance(instanceId.value),
-    {context: {instanceId: instanceId.value, action: t("instance.context.play")}}
+  () => instanceStore.playInstance(instanceId.value),
+  { context: { instanceId: instanceId.value, action: t('instance.context.play') } },
 )
 
 const stop = () => safeRun(
-    () => instanceStore.stopInstance(instanceId.value),
-    {context: {instanceId: instanceId.value, action: t("instance.context.stop")}}
+  () => instanceStore.stopInstance(instanceId.value),
+  { context: { instanceId: instanceId.value, action: t('instance.context.stop') } },
 )
 
 const draft = ref({
-  name: "",
-  description: "",
-  icon: "",
-  settings: emptyInstanceSettings()
+  name: '',
+  description: '',
+  icon: '',
+  settings: emptyInstanceSettings(),
 })
 
 function snapshot(source: Instance) {
   return {
     name: source.name,
-    description: source.description ?? "",
-    icon: source.icon ?? "",
-    settings: {...emptyInstanceSettings(), ...(source.settings ?? {})} as InstanceSettings
+    description: source.description ?? '',
+    icon: source.icon ?? '',
+    settings: { ...emptyInstanceSettings(), ...(source.settings ?? {}) } as InstanceSettings,
   }
 }
 
 watch(instanceId, () => {
   if (instance.value) draft.value = snapshot(instance.value)
-}, {immediate: true})
+}, { immediate: true })
 
 watch(instance, (loaded, previous) => {
   if (loaded && !previous) draft.value = snapshot(loaded)
@@ -95,24 +95,24 @@ async function save() {
     name: draft.value.name.trim(),
     description: draft.value.description.trim(),
     icon: draft.value.icon,
-    settings: draft.value.settings
-  }), {context: {instanceId: instanceId.value, action: t("instance.save_action")}})
+    settings: draft.value.settings,
+  }), { context: { instanceId: instanceId.value, action: t('instance.save_action') } })
 
   saving.value = false
 
   if (!result.ok) {
     toast.add({
-      title: t("instance.save_failed.title"),
-      description: t("instance.save_failed.hint"),
-      color: "error",
-      icon: "i-lucide-save"
+      title: t('instance.save_failed.title'),
+      description: t('instance.save_failed.hint'),
+      color: 'error',
+      icon: 'i-lucide-save',
     })
     return false
   }
 
   draft.value = snapshot(result.value)
 
-  toast.add({title: t("instance.saved"), color: "success", icon: "i-lucide-save"})
+  toast.add({ title: t('instance.saved'), color: 'success', icon: 'i-lucide-save' })
 
   return true
 }
@@ -125,33 +125,46 @@ const guard = useUnsavedChanges({
   dirty,
   canSave: () => !!draft.value.name.trim(),
   save,
-  discard: reset
+  discard: reset,
 })
 </script>
 
 <template>
   <div class="min-h-full w-full px-8 pb-16 xl:px-14">
-    <div v-if="instance" class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14">
+    <div
+      v-if="instance"
+      class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14"
+    >
       <aside class="lg:sticky pt-10 lg:top-0 lg:self-start">
         <NuxtLink
-            to="/main"
-            class="group inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint transition-colors duration-300 hover:text-acid"
+          to="/main"
+          class="group inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint transition-colors duration-300 hover:text-acid"
         >
           <UIcon
-              name="i-lucide-arrow-left"
-              class="size-3.5 transition-transform duration-500 ease-deck group-hover:-translate-x-0.5"
+            name="i-lucide-arrow-left"
+            class="size-3.5 transition-transform duration-500 ease-deck group-hover:-translate-x-0.5"
           />
           {{ $t('instance.back') }}
         </NuxtLink>
 
         <div class="mt-4 flex lg:block lg:space-y-4 items-start gap-4">
-          <InstanceIcon :icon="draft.icon" :type="instance.type" size="md" class="lg:hidden"/>
-          <InstanceIcon :icon="draft.icon" :type="instance.type" size="lg" class="hidden lg:block"/>
+          <InstanceIcon
+            :icon="draft.icon"
+            :type="instance.type"
+            size="md"
+            class="lg:hidden"
+          />
+          <InstanceIcon
+            :icon="draft.icon"
+            :type="instance.type"
+            size="lg"
+            class="hidden lg:block"
+          />
 
           <div class="min-w-0">
             <h1
-                class="break-words font-unbounded text-[clamp(18px,2vw,24px)] font-bold leading-[1] tracking-[-0.055em] text-fg"
-                :title="instance.name"
+              class="break-words font-unbounded text-[clamp(18px,2vw,24px)] font-bold leading-[1] tracking-[-0.055em] text-fg"
+              :title="instance.name"
             >
               {{ instance.name }}<span class="text-acid">.</span>
             </h1>
@@ -164,108 +177,142 @@ const guard = useUnsavedChanges({
 
         <nav class="mt-7 border-t border-line">
           <button
-              v-for="item in TABS"
-              :key="item.key"
-              type="button"
-              class="group relative flex w-full items-center gap-3 border-b border-line py-3 pl-4 pr-2 text-left transition-colors duration-300 hover:bg-ink-700"
-              :class="tab === item.key ? 'text-fg' : 'text-fg-faint'"
-              @click="tab = item.key"
+            v-for="item in TABS"
+            :key="item.key"
+            type="button"
+            class="group relative flex w-full items-center gap-3 border-b border-line py-3 pl-4 pr-2 text-left transition-colors duration-300 hover:bg-ink-700"
+            :class="tab === item.key ? 'text-fg' : 'text-fg-faint'"
+            @click="tab = item.key"
           >
             <span
-                class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-                :class="tab === item.key ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
+              class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
+              :class="tab === item.key ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
             />
 
-            <UIcon :name="item.icon" class="size-4 shrink-0" :class="tab === item.key ? 'text-acid' : ''"/>
+            <UIcon
+              :name="item.icon"
+              class="size-4 shrink-0"
+              :class="tab === item.key ? 'text-acid' : ''"
+            />
             <span class="flex-1 font-mono text-[11px] uppercase tracking-[0.2em]">{{ item.label }}</span>
             <span class="font-mono text-[9px] tracking-[0.2em] text-fg-faint/60">{{ item.index }}</span>
           </button>
         </nav>
 
         <AppButton
-            block
-            class="mt-8 h-11 tracking-[0.2em]"
-            icon="i-lucide-save"
-            :loading="saving"
-            :disabled="!canSave"
-            @click="save"
+          block
+          class="mt-8 h-11 tracking-[0.2em]"
+          icon="i-lucide-save"
+          :loading="saving"
+          :disabled="!canSave"
+          @click="save"
         >
           {{ saving ? $t('common.saving') : $t('common.save') }}
         </AppButton>
 
         <AppButton
-            v-if="running"
-            block
-            class="mt-3 h-9 text-[10px] tracking-[0.18em]"
-            icon="i-lucide-square"
-            @click="stop"
+          v-if="running"
+          block
+          class="mt-3 h-9 text-[10px] tracking-[0.18em]"
+          icon="i-lucide-square"
+          @click="stop"
         >
           {{ $t('instance.stop_game') }}
         </AppButton>
 
         <AppButton
-            v-else-if="instance.installed"
-            block
-            class="mt-3 h-9 text-[10px] tracking-[0.18em]"
-            icon="i-lucide-play"
-            :disabled="installing"
-            @click="run"
+          v-else-if="instance.installed"
+          block
+          class="mt-3 h-9 text-[10px] tracking-[0.18em]"
+          icon="i-lucide-play"
+          :disabled="installing"
+          @click="run"
         >
           {{ $t('instance.action.play') }}
         </AppButton>
 
-        <div v-if="dirty" class="mt-4 flex items-center justify-between gap-3">
+        <div
+          v-if="dirty"
+          class="mt-4 flex items-center justify-between gap-3"
+        >
           <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
-            <span class="size-1.5 bg-amber-400 animate-blink"/>
+            <span class="size-1.5 bg-amber-400 animate-blink" />
             {{ $t('instance.unsaved') }}
           </span>
 
-          <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="reset">
+          <AppButton
+            tone="quiet"
+            class="text-[10px] tracking-[0.18em]"
+            @click="reset"
+          >
             {{ $t('common.reset') }}
           </AppButton>
         </div>
 
-        <p v-if="!draft.name.trim()" class="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
+        <p
+          v-if="!draft.name.trim()"
+          class="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400"
+        >
           {{ $t('instance.name_required') }}
         </p>
       </aside>
 
       <div class="min-w-0 pt-10">
         <InstanceGeneral
-            v-show="tab === 'general'"
-            :instance="instance"
-            v-model:name="draft.name"
-            v-model:description="draft.description"
-            v-model:icon="draft.icon"
-            class="animate-rise"
+          v-show="tab === 'general'"
+          v-model:name="draft.name"
+          v-model:icon="draft.icon"
+          :instance="instance"
+          class="animate-rise"
         />
 
-        <InstanceMods v-if="tab === 'mods'" :instance="instance" class="animate-rise"/>
+        <InstanceMods
+          v-if="tab === 'mods'"
+          :instance="instance"
+          class="animate-rise"
+        />
 
-        <InstanceCastPack v-if="tab === 'castpack' && instance.castpack" :instance="instance" class="animate-rise"/>
+        <InstanceCastPack
+          v-if="tab === 'castpack' && instance.castpack"
+          :instance="instance"
+          class="animate-rise"
+        />
 
         <InstancePack
-            v-if="tab === 'pack' && (instance.pack || instance.localPack)"
-            :instance="instance"
-            class="animate-rise"
+          v-if="tab === 'pack' && (instance.pack || instance.localPack)"
+          :instance="instance"
+          class="animate-rise"
         />
 
-        <InstanceJava v-show="tab === 'java'" v-model="draft.settings" class="animate-rise"/>
+        <InstanceJava
+          v-show="tab === 'java'"
+          v-model="draft.settings"
+          class="animate-rise"
+        />
 
-        <InstanceLogs v-if="tab === 'logs'" :instance-id="instance.id" class="animate-rise"/>
+        <InstanceLogs
+          v-if="tab === 'logs'"
+          :instance-id="instance.id"
+          class="animate-rise"
+        />
       </div>
     </div>
 
-    <div v-else class="flex items-center gap-3 py-14">
-      <span class="size-1.5 bg-fg-faint animate-blink"/>
-      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.not_found') }}</p>
+    <div
+      v-else
+      class="flex items-center gap-3 py-14"
+    >
+      <span class="size-1.5 bg-fg-faint animate-blink" />
+      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+        {{ $t('instance.not_found') }}
+      </p>
     </div>
 
-    <UnsavedChangesModal
-        :guard="guard"
-        :description="$t('instance.leave.description')"
-        :blocked="$t('instance.name_required')"
-        :discard-label="$t('unsaved.discard')"
+    <AppUnsavedChangesModal
+      :guard="guard"
+      :description="$t('instance.leave.description')"
+      :blocked="$t('instance.name_required')"
+      :discard-label="$t('unsaved.discard')"
     />
   </div>
 </template>

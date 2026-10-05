@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type {PackCapabilities, PackCategory, PackFilters, PackEnvironment} from "~/types/catalog";
-import {categoryLabel} from "~/types/catalog";
+import type { PackCapabilities, PackCategory, PackFilters, PackEnvironment } from '~/types/catalog'
 
 const props = defineProps<{
   filters: PackFilters | null
@@ -11,53 +10,53 @@ const props = defineProps<{
 const can = computed<PackCapabilities>(() => props.capabilities ?? {
   multipleGameVersions: true,
   environment: true,
-  blockableFiles: false
+  blockableFiles: false,
 })
 
-const loaders = defineModel<string[]>("loaders", {required: true})
-const gameVersions = defineModel<string[]>("gameVersions", {required: true})
-const categories = defineModel<string[]>("categories", {required: true})
-const environment = defineModel<PackEnvironment | null>("environment", {required: true})
+const loaders = defineModel<string[]>('loaders', { required: true })
+const gameVersions = defineModel<string[]>('gameVersions', { required: true })
+const categories = defineModel<string[]>('categories', { required: true })
+const environment = defineModel<PackEnvironment | null>('environment', { required: true })
 
-const {t} = useI18n()
+const { t } = useI18n()
 
 const ENVIRONMENTS = computed<{ value: PackEnvironment | null, label: string }[]>(() => [
-  {value: null, label: t("search.filters.env_any")},
-  {value: "client", label: t("search.filters.env_client")},
-  {value: "server", label: t("search.filters.env_server")}
+  { value: null, label: t('search.filters.env_any') },
+  { value: 'client', label: t('search.filters.env_client') },
+  { value: 'server', label: t('search.filters.env_server') },
 ])
 
 const groups = computed(() => {
   const byHeader = new Map<string, PackCategory[]>()
 
   for (const category of props.filters?.categories ?? []) {
-    const header = category.header || "categories"
+    const header = category.header || 'categories'
     byHeader.set(header, [...(byHeader.get(header) ?? []), category])
   }
 
-  return [...byHeader.entries()].map(([header, items]) => ({header, items}))
+  return [...byHeader.entries()].map(([header, items]) => ({ header, items }))
 })
 
-const ANY_VERSION = "any"
+const ANY_VERSION = 'any'
 
 const gameVersionItems = computed(() => [
-  {label: t("search.filters.any_version"), value: ANY_VERSION},
-  ...(props.filters?.gameVersions ?? []).map(version => ({label: version, value: version}))
+  { label: t('search.filters.any_version'), value: ANY_VERSION },
+  ...(props.filters?.gameVersions ?? []).map(version => ({ label: version, value: version })),
 ])
 
 const singleGameVersion = computed({
   get: () => gameVersions.value[0] ?? ANY_VERSION,
   set: (value: string) => {
     gameVersions.value = value && value !== ANY_VERSION ? [value] : []
-  }
+  },
 })
 
 const selectedCount = computed(() =>
-    loaders.value.length + gameVersions.value.length + categories.value.length + (environment.value ? 1 : 0)
+  loaders.value.length + gameVersions.value.length + categories.value.length + (environment.value ? 1 : 0),
 )
 
 const toggled = (list: string[], value: string) =>
-    list.includes(value) ? list.filter(item => item !== value) : [...list, value]
+  list.includes(value) ? list.filter(item => item !== value) : [...list, value]
 
 const toggleLoader = (value: string) => {
   loaders.value = toggled(loaders.value, value)
@@ -79,9 +78,9 @@ const reset = () => {
 }
 
 const HEADER_KEYS: Record<string, string> = {
-  categories: "search.filters.group.categories",
-  resolutions: "search.filters.group.resolutions",
-  "performance impact": "search.filters.group.performance"
+  'categories': 'search.filters.group.categories',
+  'resolutions': 'search.filters.group.resolutions',
+  'performance impact': 'search.filters.group.performance',
 }
 </script>
 
@@ -89,36 +88,45 @@ const HEADER_KEYS: Record<string, string> = {
   <aside class="flex flex-col gap-7">
     <div class="flex items-center gap-3">
       <span class="font-mono text-[10px] uppercase tracking-[0.28em] text-acid">{{ $t('search.filters.title') }}</span>
-      <span class="h-px flex-1 bg-line"/>
+      <span class="h-px flex-1 bg-line" />
       <UButton
-          v-if="selectedCount"
-          color="neutral"
-          variant="ghost"
-          class="px-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint hover:bg-transparent hover:text-acid"
-          @click="reset"
+        v-if="selectedCount"
+        color="neutral"
+        variant="ghost"
+        class="px-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint hover:bg-transparent hover:text-acid"
+        @click="reset"
       >
         {{ $t('search.filters.reset', { count: selectedCount }) }}
       </UButton>
     </div>
 
-    <div v-if="loading" class="space-y-3">
-      <span v-for="row in 4" :key="row" class="block h-7 w-full animate-pulse bg-ink-700"/>
+    <div
+      v-if="loading"
+      class="space-y-3"
+    >
+      <span
+        v-for="row in 4"
+        :key="row"
+        class="block h-7 w-full animate-pulse bg-ink-700"
+      />
     </div>
 
     <template v-else-if="filters">
       <section v-if="filters.loaders.length">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.filters.loader') }}</p>
+        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+          {{ $t('search.filters.loader') }}
+        </p>
         <div class="flex flex-wrap gap-2">
           <button
-              v-for="loader in filters.loaders"
-              :key="loader"
-              type="button"
-              :aria-pressed="loaders.includes(loader)"
-              class="border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors duration-300"
-              :class="loaders.includes(loader)
-                ? 'border-acid text-acid'
-                : 'border-line text-fg-faint hover:border-line-strong hover:text-fg-muted'"
-              @click="toggleLoader(loader)"
+            v-for="loader in filters.loaders"
+            :key="loader"
+            type="button"
+            :aria-pressed="loaders.includes(loader)"
+            class="border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors duration-300"
+            :class="loaders.includes(loader)
+              ? 'border-acid text-acid'
+              : 'border-line text-fg-faint hover:border-line-strong hover:text-fg-muted'"
+            @click="toggleLoader(loader)"
           >
             {{ loader }}
           </button>
@@ -126,21 +134,23 @@ const HEADER_KEYS: Record<string, string> = {
       </section>
 
       <section v-if="filters.gameVersions.length">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.filters.game_version') }}</p>
+        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+          {{ $t('search.filters.game_version') }}
+        </p>
         <USelectMenu
-            v-if="can.multipleGameVersions"
-            v-model="gameVersions"
-            :items="filters.gameVersions"
-            multiple
-            :placeholder="$t('search.filters.any_version')"
-            class="w-full"
+          v-if="can.multipleGameVersions"
+          v-model="gameVersions"
+          :items="filters.gameVersions"
+          multiple
+          :placeholder="$t('search.filters.any_version')"
+          class="w-full"
         />
         <template v-else>
           <USelectMenu
-              v-model="singleGameVersion"
-              :items="gameVersionItems"
-              value-key="value"
-              class="w-full"
+            v-model="singleGameVersion"
+            :items="gameVersionItems"
+            value-key="value"
+            class="w-full"
           />
           <p class="mt-2 text-[11px] leading-relaxed text-fg-faint">
             {{ $t('search.filters.single_version') }}
@@ -149,40 +159,45 @@ const HEADER_KEYS: Record<string, string> = {
       </section>
 
       <section v-if="can.environment">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.filters.environment') }}</p>
+        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+          {{ $t('search.filters.environment') }}
+        </p>
         <div class="grid grid-cols-3 border border-line">
           <button
-              v-for="(option, i) in ENVIRONMENTS"
-              :key="option.label"
-              type="button"
-              :aria-pressed="environment === option.value"
-              class="py-2 font-mono text-[9px] uppercase tracking-[0.12em] transition-colors duration-300"
-              :class="[
-                i > 0 ? 'border-l border-line' : '',
-                environment === option.value ? 'bg-ink-700 text-acid' : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted'
-              ]"
-              @click="selectEnvironment(option.value)"
+            v-for="(option, i) in ENVIRONMENTS"
+            :key="option.label"
+            type="button"
+            :aria-pressed="environment === option.value"
+            class="py-2 font-mono text-[9px] uppercase tracking-[0.12em] transition-colors duration-300"
+            :class="[
+              i > 0 ? 'border-l border-line' : '',
+              environment === option.value ? 'bg-ink-700 text-acid' : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted',
+            ]"
+            @click="selectEnvironment(option.value)"
           >
             {{ option.label }}
           </button>
         </div>
       </section>
 
-      <section v-for="group in groups" :key="group.header">
+      <section
+        v-for="group in groups"
+        :key="group.header"
+      >
         <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
           {{ HEADER_KEYS[group.header] ? $t(HEADER_KEYS[group.header]!) : group.header }}
         </p>
         <div class="flex flex-wrap gap-2">
           <button
-              v-for="category in group.items"
-              :key="category.id"
-              type="button"
-              :aria-pressed="categories.includes(category.id)"
-              class="border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors duration-300"
-              :class="categories.includes(category.id)
-                ? 'border-acid text-acid'
-                : 'border-line text-fg-faint hover:border-line-strong hover:text-fg-muted'"
-              @click="toggleCategory(category.id)"
+            v-for="category in group.items"
+            :key="category.id"
+            type="button"
+            :aria-pressed="categories.includes(category.id)"
+            class="border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors duration-300"
+            :class="categories.includes(category.id)
+              ? 'border-acid text-acid'
+              : 'border-line text-fg-faint hover:border-line-strong hover:text-fg-muted'"
+            @click="toggleCategory(category.id)"
           >
             {{ categoryLabel(category) }}
           </button>
@@ -190,7 +205,10 @@ const HEADER_KEYS: Record<string, string> = {
       </section>
     </template>
 
-    <p v-else class="text-[12px] leading-relaxed text-fg-muted">
+    <p
+      v-else
+      class="text-[12px] leading-relaxed text-fg-muted"
+    >
       {{ $t('search.filters.failed') }}
     </p>
   </aside>

@@ -698,7 +698,6 @@
   "skins.rename": "Rename",
   "skins.remove": "Delete",
   "skins.drop_hint": "Drop{br}png 64x64",
-  "skins.nothing_found": "Nothing found",
   "skins.library_empty": "The library is empty",
   "skins.cape_title_named": "Cape of the «{name}» set",
   "skins.cape_title": "Set cape",

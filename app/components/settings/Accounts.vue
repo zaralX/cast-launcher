@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import {storeToRefs} from "pinia";
-import type {Account} from "~/types/account";
-import {useAccountStore} from "~/stores/account";
+import type { Account } from '~/types/account'
 
-const {t} = useI18n()
-const accountStore = useAccountStore();
-const {accountConfig, loggingIn} = storeToRefs(accountStore)
+const { t } = useI18n()
+const accountStore = useAccountStore()
+const { accountConfig, loggingIn } = storeToRefs(accountStore)
 const toast = useToast()
 
-const offlineNickname = ref("")
+const offlineNickname = ref('')
 const removeTarget = ref<Account | null>(null)
 const removing = ref(false)
 
@@ -17,10 +15,10 @@ const createOfflineAccount = async () => {
   if (!name) return
 
   await safeRun(() => accountStore.addOfflineAccount(name))
-  offlineNickname.value = ""
+  offlineNickname.value = ''
 }
 
-const createMicrosoftAccount = () => safeRun(() => accountStore.microsoftLogin(), {code: "AUTH_FAILED"})
+const createMicrosoftAccount = () => safeRun(() => accountStore.microsoftLogin(), { code: 'AUTH_FAILED' })
 
 const selectAccount = (index: number) => safeRun(() => accountStore.selectAccount(index))
 
@@ -37,87 +35,95 @@ async function confirmRemove() {
   removeTarget.value = null
 
   toast.add({
-    title: t("settings.accounts.removed", {name: target.name}),
-    color: "success",
-    icon: "i-lucide-trash-2"
+    title: t('settings.accounts.removed', { name: target.name }),
+    color: 'success',
+    icon: 'i-lucide-trash-2',
   })
 }
 </script>
 
 <template>
   <SettingsPanel
-      index="02"
-      :title="$t('settings.accounts.title')"
-      icon="i-lucide-user-round"
+    index="02"
+    :title="$t('settings.accounts.title')"
+    icon="i-lucide-user-round"
   >
     <div class="space-y-7">
-      <ul v-if="accountConfig?.accounts?.length" class="border-t border-line">
+      <ul
+        v-if="accountConfig?.accounts?.length"
+        class="border-t border-line"
+      >
         <li
-            v-for="(account, i) in accountConfig!.accounts"
-            :key="`${account.type}-${account.name}-${i}`"
-            class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 px-4 transition-colors duration-300 hover:bg-ink-700"
-            @click="selectAccount(i)"
+          v-for="(account, i) in accountConfig!.accounts"
+          :key="`${account.type}-${account.name}-${i}`"
+          class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 px-4 transition-colors duration-300 hover:bg-ink-700"
+          @click="selectAccount(i)"
         >
           <span
-              class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-              :class="accountConfig?.selected === i ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
+            class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
+            :class="accountConfig?.selected === i ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
           />
 
           <img
-              :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${account.name}/full`"
-              class="size-8 shrink-0 transition-transform duration-500 ease-deck group-hover:scale-105"
-              :alt="account.name"
-              @error="fallbackFace"
-          />
+            :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${account.name}/full`"
+            class="size-8 shrink-0 transition-transform duration-500 ease-deck group-hover:scale-105"
+            :alt="account.name"
+            @error="fallbackFace"
+          >
 
           <div class="min-w-0 flex-1">
-            <p class="truncate text-[13px] text-fg">{{ account.name }}</p>
+            <p class="truncate text-[13px] text-fg">
+              {{ account.name }}
+            </p>
             <p class="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
               {{ account.type === 'microsoft' ? 'Microsoft' : $t('settings.accounts.offline') }}
             </p>
           </div>
 
           <span
-              v-if="accountConfig?.selected === i"
-              class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
+            v-if="accountConfig?.selected === i"
+            class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
           >
             {{ $t('settings.accounts.active') }}
           </span>
 
           <UButton
-              color="neutral"
-              variant="ghost"
-              icon="i-lucide-trash-2"
-              :aria-label="$t('settings.accounts.remove')"
-              class="shrink-0 p-1 text-fg-faint transition-colors duration-300 hover:bg-transparent hover:text-red-400"
-              :disabled="!account.uuid"
-              @click.stop="() => { removeTarget = account }"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-trash-2"
+            :aria-label="$t('settings.accounts.remove')"
+            class="shrink-0 p-1 text-fg-faint transition-colors duration-300 hover:bg-transparent hover:text-red-400"
+            :disabled="!account.uuid"
+            @click.stop="() => { removeTarget = account }"
           />
         </li>
       </ul>
 
-      <p v-else class="border-y border-line py-6 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+      <p
+        v-else
+        class="border-y border-line py-6 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+      >
         {{ $t('settings.accounts.empty') }}
       </p>
 
       <div class="grid gap-4 sm:grid-cols-2">
         <AppButton
-            block
-            class="h-10 text-[10px] tracking-[0.18em]"
-            icon="simple-icons:microsoft"
-            :loading="loggingIn"
-            @click="createMicrosoftAccount"
+          block
+          class="h-10 text-[10px] tracking-[0.18em]"
+          icon="simple-icons:microsoft"
+          :loading="loggingIn"
+          @click="createMicrosoftAccount"
         >
           Microsoft
         </AppButton>
 
         <UPopover mode="hover">
           <UButton
-              block
-              color="neutral"
-              variant="ghost"
-              icon="i-lucide-globe"
-              class="h-10 justify-center border border-line text-[10px] tracking-[0.18em] text-fg-muted hover:border-line-strong hover:bg-transparent hover:text-fg"
+            block
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-globe"
+            class="h-10 justify-center border border-line text-[10px] tracking-[0.18em] text-fg-muted hover:border-line-strong hover:bg-transparent hover:text-fg"
           >
             {{ $t('settings.accounts.offline') }}
           </UButton>
@@ -125,13 +131,17 @@ async function confirmRemove() {
           <template #content>
             <div class="w-64 space-y-4 p-5">
               <SettingsField :label="$t('settings.accounts.nickname')">
-                <UInput v-model="offlineNickname" placeholder="nickname" class="w-full"/>
+                <UInput
+                  v-model="offlineNickname"
+                  placeholder="nickname"
+                  class="w-full"
+                />
               </SettingsField>
               <AppButton
-                  block
-                  class="h-9 text-[10px] tracking-[0.18em]"
-                  :disabled="!offlineNickname.trim()"
-                  @click="createOfflineAccount"
+                block
+                class="h-9 text-[10px] tracking-[0.18em]"
+                :disabled="!offlineNickname.trim()"
+                @click="createOfflineAccount"
               >
                 {{ $t('common.add') }}
               </AppButton>
@@ -142,9 +152,9 @@ async function confirmRemove() {
     </div>
 
     <UModal
-        :open="!!removeTarget"
-        :title="$t('settings.accounts.remove_title')"
-        @update:open="value => { if (!value) removeTarget = null }"
+      :open="!!removeTarget"
+      :title="$t('settings.accounts.remove_title')"
+      @update:open="value => { if (!value) removeTarget = null }"
     >
       <template #body>
         <p class="text-[12px] leading-relaxed text-fg-muted">
@@ -154,15 +164,19 @@ async function confirmRemove() {
 
       <template #footer>
         <div class="flex w-full items-center justify-end gap-3">
-          <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="removeTarget = null">
+          <AppButton
+            tone="quiet"
+            class="text-[10px] tracking-[0.18em]"
+            @click="removeTarget = null"
+          >
             {{ $t('common.cancel') }}
           </AppButton>
 
           <AppButton
-              class="h-8 text-[10px] tracking-[0.18em] hover:border-red-500 hover:before:bg-red-500 hover:text-white"
-              icon="i-lucide-trash-2"
-              :loading="removing"
-              @click="confirmRemove"
+            class="h-8 text-[10px] tracking-[0.18em] hover:border-red-500 hover:before:bg-red-500 hover:text-white"
+            icon="i-lucide-trash-2"
+            :loading="removing"
+            @click="confirmRemove"
           >
             {{ $t('common.delete') }}
           </AppButton>

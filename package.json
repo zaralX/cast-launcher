@@ -10,6 +10,9 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
@@ -29,9 +32,12 @@
     "@iconify-json/flag": "^1.2.12",
     "@iconify-json/lucide": "^1.2.121",
     "@iconify-json/simple-icons": "^1.2.93",
+    "@nuxt/eslint": "^1.17.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tauri-apps/cli": "^2",
+    "eslint": "^10.12.0",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.12"
   }
 }

@@ -1,224 +1,224 @@
-import {defineStore} from "pinia"
-import type {AccountLook, CapeView, Look, SkinEntry, SkinLibrary, SkinVariant} from "~/types/skin"
-import {lookOf, sameLook} from "~/types/skin"
-import {call} from "~/types/backend"
+import type { AccountLook, CapeView, Look, SkinEntry, SkinLibrary, SkinVariant } from '~/types/skin'
 
 export const COOLDOWN_MS = 30_000
 
-const emptyLibrary = (): SkinLibrary => ({skins: []})
+const emptyLibrary = (): SkinLibrary => ({ skins: [] })
 
-const emptyLook = (): Look => ({skinId: null, capeId: null, variant: "CLASSIC"})
+const emptyLook = (): Look => ({ skinId: null, capeId: null, variant: 'CLASSIC' })
 
-export const useSkinStore = defineStore("skin", {
-    state: () => ({
-        loading: false,
-        saving: false,
-        uuid: null as string | null,
-        name: "",
-        stale: false,
-        library: emptyLibrary(),
-        capes: [] as CapeView[],
-        applied: emptyLook(),
-        draft: emptyLook(),
-        previous: null as Look | null,
-        cooldownUntil: 0,
-        textures: {} as Record<string, string>
-    }),
+export const useSkinStore = defineStore('skin', {
+  state: () => ({
+    loading: false,
+    saving: false,
+    uuid: null as string | null,
+    name: '',
+    stale: false,
+    library: emptyLibrary(),
+    capes: [] as CapeView[],
+    applied: emptyLook(),
+    draft: emptyLook(),
+    previous: null as Look | null,
+    cooldownUntil: 0,
+    textures: {} as Record<string, string>,
+  }),
 
-    getters: {
-        skins: (state): SkinEntry[] => state.library.skins,
+  getters: {
+    skins: (state): SkinEntry[] => state.library.skins,
 
-        skinById: (state) => (id: string | null) =>
-            state.library.skins.find(entry => entry.id === id) ?? null,
+    skinById: state => (id: string | null) =>
+      state.library.skins.find(entry => entry.id === id) ?? null,
 
-        capeById: (state) => (id: string | null) =>
-            state.capes.find(cape => cape.id === id) ?? null,
+    capeById: state => (id: string | null) =>
+      state.capes.find(cape => cape.id === id) ?? null,
 
-        draftSkin(): SkinEntry | null {
-            return this.skinById(this.draft.skinId)
-        },
-
-        draftCape(): CapeView | null {
-            return this.capeById(this.draft.capeId)
-        },
-
-        textureOf: (state) => (entry: SkinEntry | null) =>
-            entry ? state.textures[entry.texture] ?? null : null,
-
-        draftTexture(): string | null {
-            return this.textureOf(this.draftSkin)
-        },
-
-        dirty: (state) => !!state.uuid && !sameLook(state.draft, state.applied)
+    draftSkin(): SkinEntry | null {
+      return this.skinById(this.draft.skinId)
     },
 
-    actions: {
-        apply(look: AccountLook) {
-            this.uuid = look.uuid
-            this.name = look.name
-            this.stale = look.stale
-            this.library = look.library
-            this.capes = look.capes
-            this.applied = lookOf(look)
-            this.draft = lookOf(look)
+    draftCape(): CapeView | null {
+      return this.capeById(this.draft.capeId)
+    },
 
-            this.ensureTextures()
-        },
+    textureOf: state => (entry: SkinEntry | null) =>
+      entry ? state.textures[entry.texture] ?? null : null,
 
-        applyLibrary(library: SkinLibrary) {
-            this.library = library
+    draftTexture(): string | null {
+      return this.textureOf(this.draftSkin)
+    },
 
-            if (!this.skinById(this.draft.skinId)) this.select(library.skins[0] ?? null)
+    dirty: state => !!state.uuid && !sameLook(state.draft, state.applied),
+  },
 
-            this.ensureTextures()
-        },
+  actions: {
+    apply(look: AccountLook) {
+      this.uuid = look.uuid
+      this.name = look.name
+      this.stale = look.stale
+      this.library = look.library
+      this.capes = look.capes
+      this.applied = lookOf(look)
+      this.draft = lookOf(look)
 
-        async load(uuid: string, refresh = true) {
-            if (this.loading) return
+      this.ensureTextures()
+    },
 
-            this.loading = true
+    applyLibrary(library: SkinLibrary) {
+      this.library = library
 
-            try {
-                this.apply(await call("account_look", {uuid, refresh}))
-            } finally {
-                this.loading = false
-            }
-        },
+      if (!this.skinById(this.draft.skinId)) this.select(library.skins[0] ?? null)
 
-        async loadLibrary() {
-            this.applyLibrary(await call("skin_library"))
-        },
+      this.ensureTextures()
+    },
 
-        async ensureTexture(texture: string) {
-            if (this.textures[texture]) return
+    async load(uuid: string, refresh = true) {
+      if (this.loading) return
 
-            this.textures[texture] = await call("skin_texture", {texture})
-        },
+      this.loading = true
 
-        ensureTextures() {
-            for (const entry of this.library.skins) {
-                if (!this.textures[entry.texture]) safeRun(() => this.ensureTexture(entry.texture))
-            }
-        },
+      try {
+        this.apply(await call('account_look', { uuid, refresh }))
+      }
+      finally {
+        this.loading = false
+      }
+    },
 
-        select(entry: SkinEntry | null) {
-            this.draft = {
-                skinId: entry?.id ?? null,
-                capeId: entry?.capeId ?? null,
-                variant: entry?.variant ?? "CLASSIC"
-            }
-        },
+    async loadLibrary() {
+      this.applyLibrary(await call('skin_library'))
+    },
 
-        pickSkin(id: string) {
-            this.select(this.skinById(id))
-        },
+    async ensureTexture(texture: string) {
+      if (this.textures[texture]) return
 
-        async pickCape(capeId: string | null) {
-            this.draft.capeId = capeId
+      this.textures[texture] = await call('skin_texture', { texture })
+    },
 
-            const id = this.draft.skinId
-            if (!id) return
+    ensureTextures() {
+      for (const entry of this.library.skins) {
+        if (!this.textures[entry.texture]) safeRun(() => this.ensureTexture(entry.texture))
+      }
+    },
 
-            this.library = await call("set_skin_cape", {id, capeId})
-        },
+    select(entry: SkinEntry | null) {
+      this.draft = {
+        skinId: entry?.id ?? null,
+        capeId: entry?.capeId ?? null,
+        variant: entry?.variant ?? 'CLASSIC',
+      }
+    },
 
-        async setVariant(variant: SkinVariant) {
-            this.draft.variant = variant
+    pickSkin(id: string) {
+      this.select(this.skinById(id))
+    },
 
-            const id = this.draft.skinId
-            if (!id) return
+    async pickCape(capeId: string | null) {
+      this.draft.capeId = capeId
 
-            this.library = await call("set_skin_variant", {id, variant})
-        },
+      const id = this.draft.skinId
+      if (!id) return
 
-        async duplicate(id: string) {
-            const entry = await call("duplicate_skin", {id, capeId: this.draft.capeId})
+      this.library = await call('set_skin_cape', { id, capeId })
+    },
 
-            await this.loadLibrary()
-            this.select(this.skinById(entry.id))
+    async setVariant(variant: SkinVariant) {
+      this.draft.variant = variant
 
-            return entry
-        },
+      const id = this.draft.skinId
+      if (!id) return
 
-        async importFile(path?: string) {
-            const entry = await call("import_skin", path ? {path} : {})
+      this.library = await call('set_skin_variant', { id, variant })
+    },
 
-            if (entry) {
-                await this.loadLibrary()
-                this.select(this.skinById(entry.id))
-            }
+    async duplicate(id: string) {
+      const entry = await call('duplicate_skin', { id, capeId: this.draft.capeId })
 
-            return entry
-        },
+      await this.loadLibrary()
+      this.select(this.skinById(entry.id))
 
-        async importPlayer(name: string) {
-            const entry = await call("import_player_skin", {name})
+      return entry
+    },
 
-            await this.loadLibrary()
-            this.select(this.skinById(entry.id))
+    async importFile(path?: string) {
+      const entry = await call('import_skin', path ? { path } : {})
 
-            return entry
-        },
+      if (entry) {
+        await this.loadLibrary()
+        this.select(this.skinById(entry.id))
+      }
 
-        async rename(id: string, name: string) {
-            this.applyLibrary(await call("rename_skin", {id, name}))
-        },
+      return entry
+    },
 
-        async remove(id: string) {
-            this.applyLibrary(await call("delete_skin", {id}))
-        },
+    async importPlayer(name: string) {
+      const entry = await call('import_player_skin', { name })
 
-        async save() {
-            if (this.saving || !this.uuid) return false
+      await this.loadLibrary()
+      this.select(this.skinById(entry.id))
 
-            const uuid = this.uuid
-            const before = {...this.applied}
-            const target = {...this.draft}
+      return entry
+    },
 
-            this.saving = true
+    async rename(id: string, name: string) {
+      this.applyLibrary(await call('rename_skin', { id, name }))
+    },
 
-            try {
-                if (target.skinId && target.skinId !== this.applied.skinId) {
-                    this.apply(await call("apply_skin", {uuid, id: target.skinId}))
-                }
+    async remove(id: string) {
+      this.applyLibrary(await call('delete_skin', { id }))
+    },
 
-                if (target.capeId !== this.applied.capeId) {
-                    this.apply(await call("apply_cape", {uuid, capeId: target.capeId}))
-                }
+    async save() {
+      if (this.saving || !this.uuid) return false
 
-                this.previous = before
-                this.cooldownUntil = Date.now() + COOLDOWN_MS
+      const uuid = this.uuid
+      const before = { ...this.applied }
+      const target = { ...this.draft }
 
-                return true
-            } finally {
-                this.saving = false
-            }
-        },
+      this.saving = true
 
-        async undo() {
-            if (!this.previous) return false
-
-            this.draft = {...this.previous}
-            this.previous = null
-
-            return await this.save()
-        },
-
-        async resetSkin() {
-            if (!this.uuid) return
-
-            this.saving = true
-
-            try {
-                this.apply(await call("reset_skin", {uuid: this.uuid}))
-                this.cooldownUntil = Date.now() + COOLDOWN_MS
-            } finally {
-                this.saving = false
-            }
-        },
-
-        reset() {
-            this.draft = {...this.applied}
+      try {
+        if (target.skinId && target.skinId !== this.applied.skinId) {
+          this.apply(await call('apply_skin', { uuid, id: target.skinId }))
         }
-    }
+
+        if (target.capeId !== this.applied.capeId) {
+          this.apply(await call('apply_cape', { uuid, capeId: target.capeId }))
+        }
+
+        this.previous = before
+        this.cooldownUntil = Date.now() + COOLDOWN_MS
+
+        return true
+      }
+      finally {
+        this.saving = false
+      }
+    },
+
+    async undo() {
+      if (!this.previous) return false
+
+      this.draft = { ...this.previous }
+      this.previous = null
+
+      return await this.save()
+    },
+
+    async resetSkin() {
+      if (!this.uuid) return
+
+      this.saving = true
+
+      try {
+        this.apply(await call('reset_skin', { uuid: this.uuid }))
+        this.cooldownUntil = Date.now() + COOLDOWN_MS
+      }
+      finally {
+        this.saving = false
+      }
+    },
+
+    reset() {
+      this.draft = { ...this.applied }
+    },
+  },
 })

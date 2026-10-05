@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import {registerErrorSink} from "~/stores/error";
-import type {ErrorSeverity} from "~/types/error";
+import type { ErrorSeverity } from '~/types/error'
 
 const toaster = { position: 'bottom-right' } as const
 
-const TOAST_COLOR: Record<ErrorSeverity, "error" | "warning" | "info"> = {
-  error: "error",
-  warning: "warning",
-  info: "info"
+const TOAST_COLOR: Record<ErrorSeverity, 'error' | 'warning' | 'info'> = {
+  error: 'error',
+  warning: 'warning',
+  info: 'info',
 }
 
-const {t} = useI18n()
+const { t } = useI18n()
 const toast = useToast()
 const errorCenterOpen = useErrorCenterOpen()
 
@@ -25,15 +24,15 @@ const unregister = registerErrorSink((entry) => {
     description: entry.hint ?? entry.message,
     icon: entry.icon,
     color: TOAST_COLOR[entry.severity],
-    duration: entry.severity === "info" ? 4000 : 8000,
+    duration: entry.severity === 'info' ? 4000 : 8000,
     actions: [{
-      label: t("common.details"),
-      color: "neutral",
-      variant: "outline",
+      label: t('common.details'),
+      color: 'neutral',
+      variant: 'outline',
       onClick: () => {
         errorCenterOpen.value = true
-      }
-    }]
+      },
+    }],
   })
 })
 
@@ -42,9 +41,12 @@ onUnmounted(unregister)
 
 <template>
   <div class="grain relative max-w-screen max-h-screen overflow-hidden bg-ink-900 text-fg antialiased">
-    <UApp :toaster="toaster" :locale="uiLocale">
+    <UApp
+      :toaster="toaster"
+      :locale="uiLocale"
+    >
       <NuxtLayout>
-        <NuxtPage/>
+        <NuxtPage />
       </NuxtLayout>
     </UApp>
   </div>

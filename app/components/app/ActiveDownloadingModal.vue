@@ -1,7 +1,7 @@
 <script setup lang="ts">
-const {t} = useI18n()
+const { t } = useI18n()
 const instanceStore = useInstanceStore()
-const {installs} = storeToRefs(instanceStore)
+const { installs } = storeToRefs(instanceStore)
 
 const open = ref(false)
 
@@ -14,9 +14,9 @@ const averageProgress = computed(() => {
 const percent = (value: number) => Math.round(value * 100)
 
 const formatSize = (bytes: number) => {
-  if (!bytes) return "-"
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t("common.unit.kb")}`
-  return `${(bytes / 1024 / 1024).toFixed(1)} ${t("common.unit.mb")}`
+  if (!bytes) return '-'
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t('common.unit.kb')}`
+  return `${(bytes / 1024 / 1024).toFixed(1)} ${t('common.unit.mb')}`
 }
 
 watch(installs, (value) => {
@@ -25,14 +25,19 @@ watch(installs, (value) => {
 </script>
 
 <template>
-  <UModal v-if="installs.length" v-model:open="open" :title="$t('download.title')" class="ml-auto mr-0">
+  <UModal
+    v-if="installs.length"
+    v-model:open="open"
+    :title="$t('download.title')"
+    class="ml-auto mr-0"
+  >
     <button
-        type="button"
-        class="group relative ml-0! flex min-w-64 max-w-md items-center gap-2.5 overflow-hidden border border-line bg-ink-700 px-3 py-1 text-left transition-colors duration-300 hover:border-acid/50 hover:bg-ink-600"
+      type="button"
+      class="group relative ml-0! flex min-w-64 max-w-md items-center gap-2.5 overflow-hidden border border-line bg-ink-700 px-3 py-1 text-left transition-colors duration-300 hover:border-acid/50 hover:bg-ink-600"
     >
       <span class="relative grid size-1.5 shrink-0 place-items-center">
-        <span class="absolute size-1.5 bg-acid animate-breathe"/>
-        <span class="size-1.5 bg-acid"/>
+        <span class="absolute size-1.5 bg-acid animate-breathe" />
+        <span class="size-1.5 bg-acid" />
       </span>
 
       <template v-if="installs.length === 1">
@@ -51,14 +56,17 @@ watch(installs, (value) => {
       </span>
 
       <span
-          class="absolute bottom-0 left-0 h-px bg-acid transition-[width] duration-500 ease-deck"
-          :style="{ width: `${percent(averageProgress)}%` }"
+        class="absolute bottom-0 left-0 h-px bg-acid transition-[width] duration-500 ease-deck"
+        :style="{ width: `${percent(averageProgress)}%` }"
       />
     </button>
 
     <template #body>
       <div class="space-y-8">
-        <section v-for="install in installs" :key="install.instanceId">
+        <section
+          v-for="install in installs"
+          :key="install.instanceId"
+        >
           <header class="flex items-baseline justify-between gap-4">
             <div class="min-w-0">
               <h3 class="truncate font-unbounded text-[14px] font-semibold tracking-[-0.035em] text-fg">
@@ -76,13 +84,20 @@ watch(installs, (value) => {
 
           <div class="mt-3 h-px w-full bg-line">
             <div
-                class="h-px bg-acid transition-[width] duration-500 ease-deck"
-                :style="{ width: `${percent(install.progress)}%` }"
+              class="h-px bg-acid transition-[width] duration-500 ease-deck"
+              :style="{ width: `${percent(install.progress)}%` }"
             />
           </div>
 
-          <ul v-if="install.files.length" class="mt-4 space-y-2.5">
-            <li v-for="file in install.files" :key="file.url" class="flex items-center gap-3">
+          <ul
+            v-if="install.files.length"
+            class="mt-4 space-y-2.5"
+          >
+            <li
+              v-for="file in install.files"
+              :key="file.url"
+              class="flex items-center gap-3"
+            >
               <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-fg-muted">{{ file.name }}</span>
 
               <span class="shrink-0 font-mono text-[10px] tabular-nums text-fg-faint">
@@ -91,22 +106,27 @@ watch(installs, (value) => {
 
               <span class="relative block h-px w-20 shrink-0 bg-line">
                 <span
-                    class="absolute inset-y-0 left-0 bg-fg-muted transition-[width] duration-300 ease-deck"
-                    :style="{ width: `${percent(file.percent)}%` }"
+                  class="absolute inset-y-0 left-0 bg-fg-muted transition-[width] duration-300 ease-deck"
+                  :style="{ width: `${percent(file.percent)}%` }"
                 />
               </span>
             </li>
           </ul>
 
-          <p v-else class="mt-4 truncate font-mono text-[10px] text-fg-faint">{{ install.message }}</p>
+          <p
+            v-else
+            class="mt-4 truncate font-mono text-[10px] text-fg-faint"
+          >
+            {{ install.message }}
+          </p>
 
           <AppButton
-              tone="quiet"
-              class="mt-4 text-[10px] tracking-[0.16em] text-fg-faint hover:text-red-400"
-              icon="i-lucide-circle-stop"
-              :loading="install.aborting"
-              :disabled="install.aborting"
-              @click="instanceStore.abortInstall(install.instanceId)"
+            tone="quiet"
+            class="mt-4 text-[10px] tracking-[0.16em] text-fg-faint hover:text-red-400"
+            icon="i-lucide-circle-stop"
+            :loading="install.aborting"
+            :disabled="install.aborting"
+            @click="instanceStore.abortInstall(install.instanceId)"
           >
             {{ install.aborting ? $t('download.aborting') : $t('download.abort') }}
           </AppButton>

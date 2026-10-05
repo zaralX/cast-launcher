@@ -16,18 +16,23 @@ defineProps<{
         <h2 class="font-unbounded text-[12px] font-semibold uppercase leading-none tracking-[0.2em] text-fg">
           {{ title }}
         </h2>
-        <p v-if="description" class="mt-2.5 text-[12px] leading-relaxed text-fg-muted">{{ description }}</p>
+        <p
+          v-if="description"
+          class="mt-2.5 text-[12px] leading-relaxed text-fg-muted"
+        >
+          {{ description }}
+        </p>
       </div>
 
       <UIcon
-          v-if="icon"
-          :name="icon"
-          class="size-4 shrink-0 text-fg-faint transition-colors duration-500 group-hover:text-fg-muted"
+        v-if="icon"
+        :name="icon"
+        class="size-4 shrink-0 text-fg-faint transition-colors duration-500 group-hover:text-fg-muted"
       />
     </header>
 
     <div class="px-6 py-7">
-      <slot/>
+      <slot />
     </div>
   </section>
 </template>

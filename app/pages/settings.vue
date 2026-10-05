@@ -1,23 +1,20 @@
 <script setup lang="ts">
-import {useAppStore} from "~/stores/app";
-import {storeToRefs} from "pinia";
-
 definePageMeta({
-  layout: "main"
-});
+  layout: 'main',
+})
 
-const store = useAppStore();
-const {config} = storeToRefs(store);
+const store = useAppStore()
+const { config } = storeToRefs(store)
 
-const {t} = useI18n()
+const { t } = useI18n()
 const toast = useToast()
 const saving = ref(false)
 
 const saved = ref<string | null>(null)
 
-watch(config, value => {
+watch(config, (value) => {
   if (value && saved.value === null) saved.value = JSON.stringify(value)
-}, {immediate: true})
+}, { immediate: true })
 
 const dirty = computed(() => {
   if (!config.value || saved.value === null) return false
@@ -25,7 +22,7 @@ const dirty = computed(() => {
 })
 
 async function saveConfig() {
-  if (!config.value || saving.value) return false;
+  if (!config.value || saving.value) return false
   saving.value = true
   try {
     await store.updateConfig(config.value)
@@ -33,18 +30,20 @@ async function saveConfig() {
     toast.add({
       title: t('settings.saved'),
       color: 'success',
-      icon: 'i-lucide-save'
+      icon: 'i-lucide-save',
     })
     return true
-  } catch (e) {
+  }
+  catch {
     toast.add({
       title: t('settings.save_failed.title'),
       description: t('settings.save_failed.hint'),
       color: 'error',
-      icon: 'i-lucide-save'
+      icon: 'i-lucide-save',
     })
     return false
-  } finally {
+  }
+  finally {
     saving.value = false
   }
 }
@@ -56,7 +55,7 @@ function reset() {
 const guard = useUnsavedChanges({
   dirty,
   save: saveConfig,
-  discard: reset
+  discard: reset,
 })
 </script>
 
@@ -64,7 +63,9 @@ const guard = useUnsavedChanges({
   <div class="min-h-full w-full px-8 pb-8 xl:px-14">
     <div class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14">
       <aside class="lg:sticky pt-10 lg:top-0 lg:self-start">
-        <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">{{ $t('settings.eyebrow') }}</p>
+        <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">
+          {{ $t('settings.eyebrow') }}
+        </p>
         <h1 class="mt-4 font-unbounded text-[clamp(26px,3vw,34px)] font-bold leading-[0.95] tracking-[-0.055em] text-fg">
           {{ $t('settings.title') }}<span class="text-acid">.</span>
         </h1>
@@ -73,45 +74,66 @@ const guard = useUnsavedChanges({
         </p>
 
         <AppButton
-            block
-            class="mt-8 h-11 tracking-[0.2em]"
-            icon="i-lucide-save"
-            :loading="saving"
-            :disabled="!config || !dirty"
-            @click="saveConfig"
+          block
+          class="mt-8 h-11 tracking-[0.2em]"
+          icon="i-lucide-save"
+          :loading="saving"
+          :disabled="!config || !dirty"
+          @click="saveConfig"
         >
           {{ saving ? $t('common.saving') : $t('common.save') }}
         </AppButton>
 
-        <div v-if="dirty" class="mt-4 flex items-center justify-between gap-3">
+        <div
+          v-if="dirty"
+          class="mt-4 flex items-center justify-between gap-3"
+        >
           <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
-            <span class="size-1.5 bg-amber-400 animate-blink"/>
+            <span class="size-1.5 bg-amber-400 animate-blink" />
             {{ $t('settings.unsaved') }}
           </span>
 
-          <AppButton tone="quiet" class="text-[10px] tracking-[0.18em]" @click="reset">
+          <AppButton
+            tone="quiet"
+            class="text-[10px] tracking-[0.18em]"
+            @click="reset"
+          >
             {{ $t('common.reset') }}
           </AppButton>
         </div>
       </aside>
 
-      <div v-if="config" class="space-y-6 pt-10">
-        <SettingsLauncher v-model="config" class="animate-rise"/>
-        <SettingsAccounts class="animate-rise [animation-delay:80ms]"/>
-        <SettingsJava v-model="config" class="animate-rise [animation-delay:160ms]"/>
-        <SettingsImport class="animate-rise [animation-delay:240ms]"/>
+      <div
+        v-if="config"
+        class="space-y-6 pt-10"
+      >
+        <SettingsLauncher
+          v-model="config"
+          class="animate-rise"
+        />
+        <SettingsAccounts class="animate-rise [animation-delay:80ms]" />
+        <SettingsJava
+          v-model="config"
+          class="animate-rise [animation-delay:160ms]"
+        />
+        <SettingsImport class="animate-rise [animation-delay:240ms]" />
       </div>
 
-      <div v-else class="flex items-center gap-3 py-14">
-        <span class="size-1.5 bg-fg-faint animate-blink"/>
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('settings.empty') }}</p>
+      <div
+        v-else
+        class="flex items-center gap-3 py-14"
+      >
+        <span class="size-1.5 bg-fg-faint animate-blink" />
+        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+          {{ $t('settings.empty') }}
+        </p>
       </div>
     </div>
 
-    <UnsavedChangesModal
-        :guard="guard"
-        :description="$t('settings.leave.description')"
-        :discard-label="$t('settings.leave.discard')"
+    <AppUnsavedChangesModal
+      :guard="guard"
+      :description="$t('settings.leave.description')"
+      :discard-label="$t('settings.leave.discard')"
     />
   </div>
 </template>

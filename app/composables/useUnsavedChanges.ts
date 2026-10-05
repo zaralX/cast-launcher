@@ -1,74 +1,74 @@
-import {onBeforeRouteLeave, onBeforeRouteUpdate} from "vue-router"
-import type {MaybeRefOrGetter} from "vue"
+import type { MaybeRefOrGetter } from 'vue'
 
 export interface UnsavedChangesOptions {
-    dirty: MaybeRefOrGetter<boolean>
-    canSave?: MaybeRefOrGetter<boolean>
-    save: () => Promise<boolean | void> | boolean | void
-    discard?: () => void
+  dirty: MaybeRefOrGetter<boolean>
+  canSave?: MaybeRefOrGetter<boolean>
+  save: () => unknown
+  discard?: () => void
 }
 
 export function useUnsavedChanges(options: UnsavedChangesOptions) {
-    const open = ref(false)
-    const saving = ref(false)
+  const open = ref(false)
+  const saving = ref(false)
 
-    const dirty = computed(() => toValue(options.dirty))
-    const canSave = computed(() => toValue(options.canSave ?? true))
+  const dirty = computed(() => toValue(options.dirty))
+  const canSave = computed(() => toValue(options.canSave ?? true))
 
-    let resolveLeave: ((leave: boolean) => void) | null = null
+  let resolveLeave: ((leave: boolean) => void) | null = null
 
-    function settle(leave: boolean) {
-        const resolve = resolveLeave
+  function settle(leave: boolean) {
+    const resolve = resolveLeave
 
-        resolveLeave = null
-        open.value = false
+    resolveLeave = null
+    open.value = false
 
-        resolve?.(leave)
-    }
+    resolve?.(leave)
+  }
 
-    function intercept() {
-        if (!dirty.value) return true
-        if (open.value) return false
+  function intercept() {
+    if (!dirty.value) return true
+    if (open.value) return false
 
-        open.value = true
+    open.value = true
 
-        return new Promise<boolean>(resolve => {
-            resolveLeave = resolve
-        })
-    }
-
-    onBeforeRouteLeave(intercept)
-    onBeforeRouteUpdate(intercept)
-
-    watch(open, value => {
-        if (!value) settle(false)
+    return new Promise<boolean>((resolve) => {
+      resolveLeave = resolve
     })
+  }
 
-    onScopeDispose(() => settle(false))
+  onBeforeRouteLeave(intercept)
+  onBeforeRouteUpdate(intercept)
 
-    async function save() {
-        if (saving.value || !canSave.value) return
+  watch(open, (value) => {
+    if (!value) settle(false)
+  })
 
-        saving.value = true
+  onScopeDispose(() => settle(false))
 
-        try {
-            const ok = await options.save()
-            if (ok === false) return
-        } finally {
-            saving.value = false
-        }
+  async function save() {
+    if (saving.value || !canSave.value) return
 
-        settle(true)
+    saving.value = true
+
+    try {
+      const ok = await options.save()
+      if (ok === false) return
+    }
+    finally {
+      saving.value = false
     }
 
-    function discard() {
-        options.discard?.()
-        settle(true)
-    }
+    settle(true)
+  }
 
-    const cancel = () => settle(false)
+  function discard() {
+    options.discard?.()
+    settle(true)
+  }
 
-    return reactive({open, saving, dirty, canSave, save, discard, cancel})
+  const cancel = () => settle(false)
+
+  return reactive({ open, saving, dirty, canSave, save, discard, cancel })
 }
 
 export type UnsavedChanges = ReturnType<typeof useUnsavedChanges>

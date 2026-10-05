@@ -1,34 +1,32 @@
 <script setup lang="ts">
-import {storeToRefs} from "pinia";
-import {useAppStore} from "~/stores/app";
-import type {InstanceSettings} from "~/types/instance";
+import type { InstanceSettings } from '~/types/instance'
 
-const settings = defineModel<InstanceSettings>({required: true})
+const settings = defineModel<InstanceSettings>({ required: true })
 
-const {config} = storeToRefs(useAppStore())
+const { config } = storeToRefs(useAppStore())
 
 const globalJava = computed(() => config.value?.java ?? null)
 
-const gb = (mb?: number) => ((mb ?? 0) / 1024).toFixed(1).replace(".", ",")
+const gb = (mb?: number) => ((mb ?? 0) / 1024).toFixed(1).replace('.', ',')
 
 const minRam = computed({
   get: () => settings.value.overrideMemory ? settings.value.minRam : globalJava.value?.min_ram ?? 0,
-  set: (value: number) => settings.value.minRam = Number(value) || 0
+  set: (value: number) => settings.value.minRam = Number(value) || 0,
 })
 
 const maxRam = computed({
   get: () => settings.value.overrideMemory ? settings.value.maxRam : globalJava.value?.max_ram ?? 0,
-  set: (value: number) => settings.value.maxRam = Number(value) || 0
+  set: (value: number) => settings.value.maxRam = Number(value) || 0,
 })
 
 const javaMode = computed({
-  get: () => settings.value.overrideJava ? settings.value.javaMode : globalJava.value?.java_mode ?? "auto",
-  set: (value: typeof settings.value.javaMode) => settings.value.javaMode = value
+  get: () => settings.value.overrideJava ? settings.value.javaMode : globalJava.value?.java_mode ?? 'auto',
+  set: (value: typeof settings.value.javaMode) => settings.value.javaMode = value,
 })
 
 const javaPath = computed({
-  get: () => settings.value.overrideJava ? settings.value.javaPath : globalJava.value?.java_path ?? "",
-  set: (value: string) => settings.value.javaPath = value
+  get: () => settings.value.overrideJava ? settings.value.javaPath : globalJava.value?.java_path ?? '',
+  set: (value: string) => settings.value.javaPath = value,
 })
 
 watch(() => settings.value.overrideMemory, (enabled) => {
@@ -39,9 +37,9 @@ watch(() => settings.value.overrideMemory, (enabled) => {
 
 watch(() => settings.value.overrideJava, (enabled) => {
   if (!enabled) return
-  if (settings.value.javaMode === "auto" && !settings.value.javaPath.trim()) {
-    settings.value.javaMode = globalJava.value?.java_mode ?? "auto"
-    settings.value.javaPath = globalJava.value?.java_path ?? ""
+  if (settings.value.javaMode === 'auto' && !settings.value.javaPath.trim()) {
+    settings.value.javaMode = globalJava.value?.java_mode ?? 'auto'
+    settings.value.javaPath = globalJava.value?.java_path ?? ''
   }
 })
 </script>
@@ -49,33 +47,41 @@ watch(() => settings.value.overrideJava, (enabled) => {
 <template>
   <div class="space-y-6">
     <SettingsPanel
-        index="01"
-        :title="$t('instance.java.memory_title')"
-        icon="i-lucide-memory-stick"
+      index="01"
+      :title="$t('instance.java.memory_title')"
+      icon="i-lucide-memory-stick"
     >
       <div class="space-y-7">
         <div class="flex items-center justify-between gap-6">
           <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.java.override_memory') }}</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+              {{ $t('instance.java.override_memory') }}
+            </p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
               {{ $t('instance.java.override_memory_hint') }}
             </p>
           </div>
-          <USwitch v-model="settings.overrideMemory" size="lg"/>
+          <USwitch
+            v-model="settings.overrideMemory"
+            size="lg"
+          />
         </div>
 
         <div
-            class="grid gap-6 border-t border-line pt-6 transition-opacity duration-300 sm:grid-cols-2"
-            :class="settings.overrideMemory ? '' : 'opacity-45'"
+          class="grid gap-6 border-t border-line pt-6 transition-opacity duration-300 sm:grid-cols-2"
+          :class="settings.overrideMemory ? '' : 'opacity-45'"
         >
-          <SettingsField :label="$t('settings.java.min_ram')" :hint="$t('settings.java.ram_hint', { value: gb(minRam) })">
+          <SettingsField
+            :label="$t('settings.java.min_ram')"
+            :hint="$t('settings.java.ram_hint', { value: gb(minRam) })"
+          >
             <UInput
-                v-model="minRam"
-                type="number"
-                :min="1"
-                :disabled="!settings.overrideMemory"
-                class="w-full"
-                :ui="{ base: 'font-mono tabular-nums' }"
+              v-model="minRam"
+              type="number"
+              :min="1"
+              :disabled="!settings.overrideMemory"
+              class="w-full"
+              :ui="{ base: 'font-mono tabular-nums' }"
             >
               <template #trailing>
                 <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">MB</span>
@@ -83,14 +89,17 @@ watch(() => settings.value.overrideJava, (enabled) => {
             </UInput>
           </SettingsField>
 
-          <SettingsField :label="$t('settings.java.max_ram')" :hint="$t('settings.java.ram_hint', { value: gb(maxRam) })">
+          <SettingsField
+            :label="$t('settings.java.max_ram')"
+            :hint="$t('settings.java.ram_hint', { value: gb(maxRam) })"
+          >
             <UInput
-                v-model="maxRam"
-                type="number"
-                :min="minRam || 1"
-                :disabled="!settings.overrideMemory"
-                class="w-full"
-                :ui="{ base: 'font-mono tabular-nums' }"
+              v-model="maxRam"
+              type="number"
+              :min="minRam || 1"
+              :disabled="!settings.overrideMemory"
+              class="w-full"
+              :ui="{ base: 'font-mono tabular-nums' }"
             >
               <template #trailing>
                 <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">MB</span>
@@ -102,27 +111,35 @@ watch(() => settings.value.overrideJava, (enabled) => {
     </SettingsPanel>
 
     <SettingsPanel
-        index="02"
-        :title="$t('instance.java.title')"
-        :description="$t('instance.java.description')"
-        icon="i-lucide-cpu"
+      index="02"
+      :title="$t('instance.java.title')"
+      :description="$t('instance.java.description')"
+      icon="i-lucide-cpu"
     >
       <div class="space-y-7">
         <div class="flex items-center justify-between gap-6">
           <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('instance.java.override_java') }}</p>
+            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+              {{ $t('instance.java.override_java') }}
+            </p>
             <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
               {{ $t('instance.java.override_java_hint') }}
             </p>
           </div>
-          <USwitch v-model="settings.overrideJava" size="lg"/>
+          <USwitch
+            v-model="settings.overrideJava"
+            size="lg"
+          />
         </div>
 
         <div
-            class="border-t border-line pt-6 transition-opacity duration-300"
-            :class="settings.overrideJava ? '' : 'pointer-events-none opacity-45'"
+          class="border-t border-line pt-6 transition-opacity duration-300"
+          :class="settings.overrideJava ? '' : 'pointer-events-none opacity-45'"
         >
-          <SettingsJavaRuntimes v-model:mode="javaMode" v-model:path="javaPath"/>
+          <SettingsJavaRuntimes
+            v-model:mode="javaMode"
+            v-model:path="javaPath"
+          />
         </div>
       </div>
     </SettingsPanel>
