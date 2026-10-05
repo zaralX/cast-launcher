@@ -1451,6 +1451,32 @@ pub async fn import_modpack_file(
 }
 
 #[tauri::command]
+pub async fn cast_export_scan(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<cast_core::castpack::export::ExportScan> {
+    crate::export::scan(state.inner(), &instance_id).await
+}
+
+#[tauri::command]
+pub async fn cast_export(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+    request: cast_core::castpack::export::ExportRequest,
+    dialog: DialogText,
+) -> CommandResult<Option<cast_core::castpack::export::ExportResult>> {
+    crate::export::export(&app, state.inner(), &instance_id, request, dialog).await
+}
+
+#[tauri::command]
+pub async fn cancel_cast_export(state: Ctx<'_>) -> CommandResult<()> {
+    state.exports.cancel();
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn cancel_import(state: Ctx<'_>) -> CommandResult<()> {
     state.imports.cancel();
 

@@ -1,6 +1,7 @@
 mod castpack;
 mod commands;
 mod events;
+mod export;
 mod import;
 mod install;
 mod launch;
@@ -159,6 +160,9 @@ pub fn run() {
             commands::pick_modpack_file,
             commands::inspect_modpack_file,
             commands::import_modpack_file,
+            commands::cast_export_scan,
+            commands::cast_export,
+            commands::cancel_cast_export,
             commands::list_minecraft_versions,
             commands::list_fabric_versions,
             commands::list_forge_versions,

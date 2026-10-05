@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -162,17 +162,42 @@ pub async fn identify(
 ) -> CommandResult<BTreeMap<String, CatalogMatch>> {
     let hashes = hashes_of(scan, mods).await?;
 
+    Ok(identify_hashes(&hashes, cache_file).await.found)
+}
+
+/// Hashes of the mods, reusing the ones the mod index already holds.
+pub async fn mod_hashes(
+    scan: &ModsScan,
+    mods: &[ModFile],
+) -> CommandResult<BTreeMap<String, FileHashes>> {
+    hashes_of(scan, mods).await
+}
+
+#[derive(Debug, Default)]
+pub struct Identified {
+    pub found: BTreeMap<String, CatalogMatch>,
+    /// Files the catalogs could not be asked about: whether they are there is unknown.
+    pub unchecked: BTreeSet<String>,
+}
+
+/// Looks files up by hash in the cache, then on Modrinth and CurseForge. Keys are any labels.
+pub async fn identify_hashes(
+    hashes: &BTreeMap<String, FileHashes>,
+    cache_file: &Path,
+) -> Identified {
+    let mut identified = Identified::default();
+
     if hashes.is_empty() {
-        return Ok(BTreeMap::new());
+        return identified;
     }
 
     let now = now_millis();
     let mut cache = CatalogCache::load(cache_file).await;
 
-    let mut found: BTreeMap<String, CatalogMatch> = BTreeMap::new();
+    let found = &mut identified.found;
     let mut unknown: Vec<&FileHashes> = Vec::new();
 
-    for (path, file) in &hashes {
+    for (path, file) in hashes {
         match cache.lookup(&file.sha1, now) {
             Some(entry) => {
                 if let Some(matched) = &entry.found {
@@ -184,11 +209,12 @@ pub async fn identify(
     }
 
     if unknown.is_empty() {
-        return Ok(found);
+        return identified;
     }
 
     let mut matched: BTreeMap<String, CatalogMatch> = BTreeMap::new();
     let mut answered = true;
+    let mut reachable = true;
 
     let sha1s: Vec<String> = unknown.iter().map(|file| file.sha1.clone()).collect();
 
@@ -198,6 +224,7 @@ pub async fn identify(
             Err(error) => {
                 log::warn!("Modrinth failed to identify mods: {}", error);
                 answered = false;
+                reachable = false;
             }
         }
     }
@@ -228,6 +255,7 @@ pub async fn identify(
                     Err(error) => {
                         log::warn!("CurseForge failed to identify mods: {}", error);
                         answered = false;
+                        reachable = false;
                     }
                 }
             }
@@ -246,13 +274,21 @@ pub async fn identify(
         }
     }
 
-    for (path, file) in &hashes {
-        if let Some(found_now) = matched.get(&file.sha1) {
-            found.insert(path.clone(), found_now.clone());
+    let unknown: BTreeSet<&str> = unknown.iter().map(|file| file.sha1.as_str()).collect();
+
+    for (path, file) in hashes {
+        match matched.get(&file.sha1) {
+            Some(found_now) => {
+                found.insert(path.clone(), found_now.clone());
+            }
+            None if !reachable && unknown.contains(file.sha1.as_str()) => {
+                identified.unchecked.insert(path.clone());
+            }
+            None => {}
         }
     }
 
-    Ok(found)
+    identified
 }
 
 pub(super) fn outcomes(

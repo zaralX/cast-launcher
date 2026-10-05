@@ -18,6 +18,7 @@ use cast_core::paths::LauncherPaths;
 
 use cast_core::import::ImportRegistry;
 
+use crate::export::ExportRegistry;
 use crate::install::blocked::BlockedRegistry;
 use crate::install::InstallRegistry;
 use crate::launch::process::ProcessRegistry;
@@ -38,6 +39,7 @@ pub struct AppState {
     pub mods: ModLocks,
     pub mod_updates: RwLock<HashMap<String, Vec<ModUpdate>>>,
     pub mod_plans: RwLock<HashMap<String, (String, InstallPlan)>>,
+    pub exports: ExportRegistry,
 }
 
 #[derive(Default)]
@@ -93,6 +95,7 @@ impl AppState {
             mods: ModLocks::default(),
             mod_updates: RwLock::new(HashMap::new()),
             mod_plans: RwLock::new(HashMap::new()),
+            exports: ExportRegistry::default(),
         });
 
         let paths = state.paths().await;

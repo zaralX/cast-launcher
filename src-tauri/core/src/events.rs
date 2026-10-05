@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::castpack::export::ExportProgress;
 use crate::error::CommandError;
 use crate::import::{ImportProgress, ImportReport};
 use crate::install::progress::InstallSnapshot;
@@ -48,6 +49,7 @@ pub enum LauncherEvent {
         instance_name: String,
         error: CommandError,
     },
+    CastExport(ExportProgress),
 }
 
 #[cfg(test)]
@@ -193,6 +195,21 @@ mod tests {
         assert_eq!(event["type"], "importFinished");
         assert_eq!(event["report"]["cancelled"], true);
         assert!(event["report"]["imported"].is_array());
+    }
+
+    #[test]
+    fn export_progress_is_flattened_into_the_event() {
+        let event = wire(LauncherEvent::CastExport(ExportProgress {
+            instance_id: "instance".into(),
+            stage: crate::castpack::export::ExportStage::Packing,
+            done: 10,
+            total: 20,
+        }));
+
+        assert_eq!(event["type"], "castExport");
+        assert_eq!(event["instanceId"], "instance");
+        assert_eq!(event["stage"], "packing");
+        assert_eq!(event["total"], 20);
     }
 
     #[test]
