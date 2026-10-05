@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t, locale } = useI18n()
+const toast = useToast()
 const errorStore = useErrorStore()
 const { entries, unseenCount } = storeToRefs(errorStore)
 
@@ -22,20 +24,19 @@ const severityRule: Record<string, string> = {
 }
 
 function formatTime(at: number) {
-  return new Date(at).toLocaleTimeString('ru-RU')
+  return new Date(at).toLocaleTimeString(locale.value)
 }
 
 async function copy(id: string, text: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    copiedId.value = id
-    setTimeout(() => {
-      if (copiedId.value === id) copiedId.value = null
-    }, 2000)
+  if (!await copyToClipboard(text)) {
+    toast.add({ title: t('common.copy_failed'), color: 'error', icon: 'i-lucide-clipboard-x' })
+    return
   }
-  catch (e) {
-    captureError(e, { code: 'UNKNOWN', context: { action: 'clipboard' }, toast: false })
-  }
+
+  copiedId.value = id
+  setTimeout(() => {
+    if (copiedId.value === id) copiedId.value = null
+  }, 2000)
 }
 
 function copyAll() {

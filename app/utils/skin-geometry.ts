@@ -4,11 +4,24 @@ export const MODEL_HEIGHT = 32
 
 export const MODEL_WIDTH = 16
 
-export const SKIN_TEXTURE_SIZE = { w: 64, h: 64 }
+// объекты в одну строку с запятыми ломают сканер экспортов mlly: следующий экспорт выпадает из автоимпорта
+export const SKIN_TEXTURE_SIZE = {
+  w: 64,
+  h: 64,
+}
 
-export const CAPE_TEXTURE_SIZE = { w: 64, h: 32 }
+export const CAPE_TEXTURE_SIZE = {
+  w: 64,
+  h: 32,
+}
 
-export const CAPE_BOX: SkinBox = { u: 0, v: 0, w: 10, h: 16, d: 1 }
+export const CAPE_BOX: SkinBox = {
+  u: 0,
+  v: 0,
+  w: 10,
+  h: 16,
+  d: 1,
+}
 
 export function boxFaces(box: SkinBox): Record<'top' | 'bottom' | 'right' | 'front' | 'left' | 'back', FaceRect> {
   const { u, v, w, h, d } = box

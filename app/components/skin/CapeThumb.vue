@@ -1,7 +1,4 @@
 <script setup lang="ts">
-// auto-import misses these: mlly skips an object-literal export that follows another one
-import { CAPE_BOX, CAPE_TEXTURE_SIZE, boxFaces } from '~/utils/skin-geometry'
-
 const props = withDefaults(defineProps<{
   cape: string
   scale?: number

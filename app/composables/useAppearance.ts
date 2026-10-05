@@ -17,11 +17,9 @@ export function useAppearance() {
     appConfig.ui.colors.primary = accent.value
   })
 
-  if (import.meta.client) {
-    watchEffect(() => {
-      document.documentElement.classList.toggle('compact', compact.value)
-    })
-  }
+  watchEffect(() => {
+    document.documentElement.classList.toggle('compact', compact.value)
+  })
 
   return { accent, compact }
 }

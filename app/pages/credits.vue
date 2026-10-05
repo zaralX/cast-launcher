@@ -76,7 +76,7 @@ async function activate(entry: Entry) {
   const copied = await copyToClipboard(entry.copy)
 
   toast.add({
-    title: copied ? t('credits.copied') : t('credits.copy_failed'),
+    title: copied ? t('credits.copied') : t('common.copy_failed'),
     description: entry.copy,
     color: copied ? 'success' : 'error',
     icon: copied ? 'i-lucide-clipboard-check' : 'i-lucide-clipboard-x',

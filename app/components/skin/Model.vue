@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { SkinPose, SkinVariant, FaceRect, SkinBox } from '~/types/skin'
-// auto-import misses these: mlly skips an object-literal export that follows another one
-import { CAPE_BOX, CAPE_TEXTURE_SIZE, boxFaces } from '~/utils/skin-geometry'
 
 const props = withDefaults(defineProps<{
   skin: string

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import type { UnlistenFn } from '@tauri-apps/api/event'
 import type { Instance } from '~/types/instance'
 import type { CatalogMatch, InstalledMods, ModFile, ModUpdate } from '~/types/mods'
 import { CATALOG_LABELS, MOD_LOADER_LABELS } from '~/types/mods'
@@ -30,7 +28,6 @@ const working = ref(false)
 const { t } = useI18n()
 
 const confirming = ref(false)
-const dragging = ref(false)
 
 const FILTERS = computed(() => [
   { label: t('instance.mods.filter.all'), value: 'all' },
@@ -299,35 +296,19 @@ const openHomepage = (url: string) => safeRun(
   { context: { instanceId: instanceId.value, action: t('instance.mods.open_page_action') } },
 )
 
-let unlisten: UnlistenFn | null = null
+onMounted(load)
 
-onMounted(async () => {
-  await load()
+const dragging = useFileDrop(async (paths) => {
+  if (loading.value) return
 
-  unlisten = await getCurrentWebview().onDragDropEvent(async ({ payload }) => {
-    if (payload.type === 'enter' || payload.type === 'over') {
-      dragging.value = true
-      return
-    }
+  const files = paths.filter(path => isModFile(path))
 
-    dragging.value = false
+  if (!files.length) {
+    toast.add({ title: t('instance.mods.not_mods'), description: t('instance.mods.not_mods_hint'), color: 'warning' })
+    return
+  }
 
-    if (payload.type !== 'drop') return
-
-    const files = payload.paths.filter(path => isModFile(path))
-
-    if (!files.length) {
-      toast.add({ title: t('instance.mods.not_mods'), description: t('instance.mods.not_mods_hint'), color: 'warning' })
-      return
-    }
-
-    await addFiles(files)
-  })
-})
-
-onBeforeUnmount(() => {
-  unlisten?.()
-  unlisten = null
+  await addFiles(files)
 })
 
 watch(instanceId, () => {

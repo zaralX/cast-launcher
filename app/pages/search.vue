@@ -22,7 +22,7 @@ const route = useRoute()
 
 const providers = ref<PackProviderInfo[]>([])
 
-// CastPack sits next to the providers in the switcher but is searched separately.
+// source - выбор в переключателе, включая CastPack; searchSource - провайдер, чьи результаты сейчас на экране.
 const source = ref<Source>(route.query.source === CASTPACK ? CASTPACK : 'modrinth')
 const searchSource = ref<PackProvider>('modrinth')
 

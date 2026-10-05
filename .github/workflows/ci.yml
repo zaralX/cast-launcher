@@ -81,6 +81,29 @@ jobs:
         working-directory: ./src-tauri
         run: cargo check --workspace --all-targets --locked
 
+  frontend:
+    name: frontend (eslint, typecheck)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      # postinstall runs `nuxt prepare`, which generates .nuxt/eslint.config.mjs and the tsconfigs.
+      - name: install frontend dependencies
+        run: npm ci
+
+      - name: eslint
+        run: npm run lint
+
+      - name: typecheck
+        run: npm run typecheck
+
   lint:
     name: lint (non-blocking)
     runs-on: ubuntu-22.04

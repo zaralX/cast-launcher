@@ -5,7 +5,7 @@ const props = defineProps<{ instanceId: string }>()
 
 const LIVE = 'live'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const instanceStore = useInstanceStore()
 const { logs } = storeToRefs(instanceStore)
 const toast = useToast()
@@ -60,7 +60,7 @@ function fileLabel(file: InstanceLogFile) {
   const stamp = Number(file.name.replace(/\.log$/, ''))
   const date = new Date(Number.isFinite(stamp) && stamp > 0 ? stamp : file.modified)
 
-  return Number.isNaN(date.getTime()) ? file.name : date.toLocaleString('ru-RU')
+  return Number.isNaN(date.getTime()) ? file.name : date.toLocaleString(locale.value)
 }
 
 function size(bytes: number) {
@@ -101,10 +101,14 @@ async function refresh() {
   if (!isLive.value) await loadFile(source.value)
 }
 
-const copy = () => safeRun(async () => {
-  await navigator.clipboard.writeText(lines.value.map(line => line.text).join('\n'))
+async function copy() {
+  if (!await copyToClipboard(lines.value.map(line => line.text).join('\n'))) {
+    toast.add({ title: t('common.copy_failed'), color: 'error', icon: 'i-lucide-clipboard-x' })
+    return
+  }
+
   toast.add({ title: t('instance.logs.copied'), color: 'success', icon: 'i-lucide-clipboard-check' })
-})
+}
 
 const removing = ref(false)
 

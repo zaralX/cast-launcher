@@ -5,6 +5,7 @@
   "common.reset": "Сбросить",
   "common.details": "Подробнее",
   "common.copy": "Копировать",
+  "common.copy_failed": "Не получилось скопировать",
   "common.copied": "Скопировано",
   "common.unit.kb": "КБ",
   "common.unit.mb": "МБ",
@@ -798,6 +799,5 @@
   "credits.disclaimer": "Не является официальным продуктом Minecraft. Не одобрено Mojang или Microsoft и никак с ними не связано.",
   "credits.made_by": "Сделано с ♥ — zaralX",
   "credits.copied": "Скопировано",
-  "credits.copy_failed": "Не получилось скопировать",
   "credits.open_action": "Открытие ссылки"
 }

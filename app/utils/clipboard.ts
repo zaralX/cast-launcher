@@ -1,31 +1,33 @@
-export async function copyToClipboard(text: string): Promise<boolean> {
-  if (import.meta.client && document.body) {
-    const area = document.createElement('textarea')
+function copyWithSelection(text: string): boolean {
+  const area = document.createElement('textarea')
 
-    area.value = text
-    area.setAttribute('readonly', '')
-    area.style.position = 'fixed'
-    area.style.top = '0'
-    area.style.left = '0'
-    area.style.opacity = '0'
-    area.style.pointerEvents = 'none'
+  area.value = text
+  area.setAttribute('readonly', '')
+  area.style.position = 'fixed'
+  area.style.top = '0'
+  area.style.left = '0'
+  area.style.opacity = '0'
+  area.style.pointerEvents = 'none'
 
-    document.body.appendChild(area)
+  document.body.appendChild(area)
 
-    try {
-      area.focus()
-      area.select()
-      area.setSelectionRange(0, text.length)
+  try {
+    area.focus()
+    area.select()
+    area.setSelectionRange(0, text.length)
 
-      if (document.execCommand('copy')) return true
-    }
-    catch {
-      // execCommand is unavailable, fall through to the Clipboard API
-    }
-    finally {
-      area.remove()
-    }
+    return document.execCommand('copy')
   }
+  catch {
+    return false
+  }
+  finally {
+    area.remove()
+  }
+}
+
+export async function copyToClipboard(text: string): Promise<boolean> {
+  if (copyWithSelection(text)) return true
 
   try {
     await navigator.clipboard.writeText(text)

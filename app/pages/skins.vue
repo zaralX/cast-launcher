@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import type { UnlistenFn } from '@tauri-apps/api/event'
 import type { SkinEntry, SkinPose, SkinVariant } from '~/types/skin'
 import { SOURCE_KEYS, VARIANT_HINT_KEYS, VARIANT_LABELS } from '~/types/skin'
 
@@ -67,7 +65,6 @@ const setVariant = (variant: SkinVariant) =>
   safeRun(() => skinStore.setVariant(variant), { context: { action: t('skins.variant_action') } })
 
 const importing = ref(false)
-const dropping = ref(false)
 
 const hovered = ref<string | null>(null)
 
@@ -85,34 +82,16 @@ async function importFile(path?: string) {
   }
 }
 
-let unlistenDrop: UnlistenFn | null = null
+const dropping = useFileDrop((paths) => {
+  const png = paths.find(path => path.toLowerCase().endsWith('.png'))
 
-onMounted(async () => {
-  unlistenDrop = await getCurrentWebview().onDragDropEvent((event) => {
-    if (event.payload.type === 'over') {
-      dropping.value = true
-      return
-    }
+  if (!png) {
+    toast.add({ title: t('skins.need_png'), description: t('skins.need_png_hint'), color: 'error', icon: 'i-lucide-file-x' })
+    return
+  }
 
-    if (event.payload.type !== 'drop') {
-      dropping.value = false
-      return
-    }
-
-    dropping.value = false
-
-    const png = event.payload.paths.find(path => path.toLowerCase().endsWith('.png'))
-
-    if (!png) {
-      toast.add({ title: t('skins.need_png'), description: t('skins.need_png_hint'), color: 'error', icon: 'i-lucide-file-x' })
-      return
-    }
-
-    importFile(png)
-  })
+  importFile(png)
 })
-
-onBeforeUnmount(() => unlistenDrop?.())
 
 const nickname = ref('')
 const importingPlayer = ref(false)

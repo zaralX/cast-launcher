@@ -5,6 +5,7 @@
   "common.reset": "Reset",
   "common.details": "Details",
   "common.copy": "Copy",
+  "common.copy_failed": "Could not copy",
   "common.copied": "Copied",
   "common.unit.kb": "KB",
   "common.unit.mb": "MB",
@@ -798,6 +799,5 @@
   "credits.disclaimer": "Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.",
   "credits.made_by": "Made with ♥ — zaralX",
   "credits.copied": "Copied",
-  "credits.copy_failed": "Could not copy",
   "credits.open_action": "Opening a link"
 }

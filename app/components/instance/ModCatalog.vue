@@ -12,7 +12,7 @@ type Provider = 'modrinth' | 'curseforge'
 const PAGE = 20
 const DEBOUNCE = 350
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const SORTS = computed(() => [
   { label: t('mod_catalog.sort.relevance'), value: 'relevance' },
@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
                 <span class="mt-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
                   {{ RELEASE_KEYS[version.release] ? $t(RELEASE_KEYS[version.release]!) : version.release }}
                   <template v-if="version.size"> · {{ modSize(version.size) }}</template>
-                  <template v-if="version.date"> · {{ new Date(version.date).toLocaleDateString("ru-RU") }}</template>
+                  <template v-if="version.date"> · {{ new Date(version.date).toLocaleDateString(locale) }}</template>
                 </span>
               </span>
 

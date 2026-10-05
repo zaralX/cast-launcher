@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { getCurrentWebview } from '@tauri-apps/api/webview'
-import type { UnlistenFn } from '@tauri-apps/api/event'
 import type { LocalPack } from '~/types/import'
 
 const emit = defineEmits<{ imported: [instanceId: string] }>()
@@ -11,7 +9,6 @@ const instanceStore = useInstanceStore()
 const picking = ref(false)
 const reading = ref(false)
 const importing = ref(false)
-const dragging = ref(false)
 
 const pack = ref<LocalPack | null>(null)
 
@@ -71,25 +68,12 @@ function isPack(path: string): boolean {
   return EXTENSIONS.some(extension => path.toLowerCase().endsWith(extension))
 }
 
-let unlisten: UnlistenFn | undefined
+const dragging = useFileDrop((paths) => {
+  if (busy.value) return
 
-onMounted(async () => {
-  unlisten = await safeRun(() => getCurrentWebview().onDragDropEvent((event) => {
-    if (event.payload.type === 'enter' || event.payload.type === 'over') {
-      dragging.value = !busy.value
-      return
-    }
-
-    dragging.value = false
-
-    if (event.payload.type !== 'drop' || busy.value) return
-
-    const dropped = event.payload.paths.find(isPack)
-    if (dropped) read(dropped)
-  }))
+  const dropped = paths.find(isPack)
+  if (dropped) read(dropped)
 })
-
-onBeforeUnmount(() => unlisten?.())
 
 async function run() {
   if (!canImport.value || !pack.value) return
@@ -124,7 +108,7 @@ async function run() {
     <button
       type="button"
       class="group flex w-full flex-col items-center gap-3 border border-dashed px-6 py-10 transition-colors duration-300"
-      :class="dragging ? 'border-acid/60 bg-acid/[0.04] text-acid' : 'border-line text-fg-faint hover:border-acid/50 hover:text-acid'"
+      :class="dragging && !busy ? 'border-acid/60 bg-acid/[0.04] text-acid' : 'border-line text-fg-faint hover:border-acid/50 hover:text-acid'"
       :disabled="busy"
       @click="choose"
     >

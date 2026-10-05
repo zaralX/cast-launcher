@@ -37,7 +37,7 @@ export function formatPlaytime(seconds: number): string {
 export function formatLastPlayed(millis: number): string {
   if (!millis) return ''
 
-  return new Date(millis).toLocaleString('ru-RU', {
+  return new Date(millis).toLocaleString(useNuxtApp().$i18n.locale.value, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

@@ -7,7 +7,7 @@ type Args<K extends keyof Commands> = Commands[K][0]
 type Result<K extends keyof Commands> = Commands[K][1]
 
 export async function call<K extends keyof Commands>(
-  ...[command, args]: Args<K> extends undefined ? [K] : [K, Args<K>]
+  ...[command, args]: undefined extends Args<K> ? [K] : [K, Args<K>]
 ): Promise<Result<K>> {
   try {
     return await invoke<Result<K>>(command, args as Record<string, unknown> | undefined)
