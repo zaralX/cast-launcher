@@ -216,6 +216,8 @@ pub async fn resolve(manifest: &Manifest, minecraft_dir: &Path) -> CommandResult
         recommended_ram: manifest.minecraft.recommended_ram,
         seed: Vec::new(),
         delete: Vec::new(),
+        embedded: Vec::new(),
+        protected: Default::default(),
     })
 }
 

@@ -5,7 +5,7 @@ use crate::instance::LoaderType;
 use crate::net::download::DownloadTask;
 use crate::packs::{BlockedFile, ResolvedPack};
 
-use super::manifest::SeedFile;
+use super::manifest::{EmbeddedFile, FileMode, SeedFile};
 
 #[derive(Debug, Default)]
 pub struct Overlay {
@@ -13,6 +13,7 @@ pub struct Overlay {
     pub loader: Option<(LoaderType, Option<String>)>,
     pub files: Vec<(String, DownloadTask)>,
     pub seed: Vec<SeedFile>,
+    pub embedded: Vec<EmbeddedFile>,
     pub delete: BTreeSet<String>,
     pub blocked: Vec<BlockedFile>,
     pub recommended_ram: Option<u32>,
@@ -43,29 +44,68 @@ pub fn merge(base: Option<ResolvedPack>, overlay: Overlay) -> CommandResult<Reso
 
     let mut added: BTreeSet<String> = BTreeSet::new();
 
-    for (key, task) in overlay.files {
+    let (embedded, embedded_seed): (Vec<EmbeddedFile>, Vec<EmbeddedFile>) = overlay
+        .embedded
+        .into_iter()
+        .partition(|file| file.mode == FileMode::Always);
+
+    let overlay_keys = overlay
+        .files
+        .iter()
+        .map(|(key, _)| key)
+        .chain(embedded.iter().map(|file| &file.key));
+
+    for key in overlay_keys {
         if !added.insert(key.clone()) {
             return Err(
                 CommandError::manifest("error.reason.castpack.duplicate_file").param("path", key),
             );
         }
+    }
 
-        owned.insert(key, task);
+    owned.extend(overlay.files);
+
+    for file in &embedded {
+        owned.remove(&file.key);
     }
 
     for key in &overlay.delete {
         owned.remove(key);
     }
 
+    let embedded: Vec<EmbeddedFile> = embedded
+        .into_iter()
+        .filter(|file| !overlay.delete.contains(&file.key))
+        .collect();
+
     blocked.retain(|file| {
         !added.contains(&file.target_path) && !overlay.delete.contains(&file.target_path)
     });
     blocked.extend(overlay.blocked);
 
-    let seed = overlay
+    let takes = |key: &String| {
+        !owned.contains_key(key)
+            && !overlay.delete.contains(key)
+            && !embedded.iter().any(|file| &file.key == key)
+    };
+
+    let seed: Vec<SeedFile> = overlay
         .seed
         .into_iter()
-        .filter(|file| !owned.contains_key(&file.key) && !overlay.delete.contains(&file.key))
+        .filter(|file| takes(&file.key))
+        .collect();
+
+    let embedded_seed: Vec<EmbeddedFile> = embedded_seed
+        .into_iter()
+        .filter(|file| takes(&file.key) && !seed.iter().any(|seeded| seeded.key == file.key))
+        .collect();
+
+    let protected: BTreeSet<String> = added
+        .iter()
+        .filter(|key| !overlay.delete.contains(*key))
+        .cloned()
+        .chain(seed.iter().map(|file| file.key.clone()))
+        .chain(embedded_seed.iter().map(|file| file.key.clone()))
         .collect();
 
     if let Some(version) = overlay.minecraft_version {
@@ -99,6 +139,8 @@ pub fn merge(base: Option<ResolvedPack>, overlay: Overlay) -> CommandResult<Reso
         recommended_ram,
         seed,
         delete: overlay.delete.into_iter().collect(),
+        embedded: embedded.into_iter().chain(embedded_seed).collect(),
+        protected,
     })
 }
 
@@ -128,6 +170,8 @@ mod tests {
             recommended_ram: Some(4096),
             seed: Vec::new(),
             delete: Vec::new(),
+            embedded: Vec::new(),
+            protected: BTreeSet::new(),
         }
     }
 
@@ -140,6 +184,102 @@ mod tests {
             key: key.to_string(),
             task: task(key),
         }
+    }
+
+    fn embedded(key: &str, mode: FileMode) -> EmbeddedFile {
+        EmbeddedFile {
+            key: key.to_string(),
+            sha1: "a".into(),
+            size: None,
+            mode,
+        }
+    }
+
+    #[test]
+    fn what_the_manifest_sets_is_shielded_from_the_base_overrides() {
+        let merged = merge(
+            Some(base()),
+            Overlay {
+                files: vec![("config/rpg.toml".into(), task("rpg.toml"))],
+                seed: vec![seed("options.txt")],
+                embedded: vec![
+                    embedded("config/private.toml", FileMode::Always),
+                    embedded("servers.dat", FileMode::Once),
+                ],
+                ..overlay()
+            },
+        )
+        .unwrap();
+
+        for key in [
+            "config/rpg.toml",
+            "options.txt",
+            "config/private.toml",
+            "servers.dat",
+        ] {
+            assert!(merged.protected.contains(key), "{key} is not shielded");
+        }
+
+        assert!(
+            !merged.protected.contains("mods/jei.jar"),
+            "files of the base pack follow its own rules"
+        );
+    }
+
+    #[test]
+    fn an_embedded_file_replaces_the_download_of_the_base_pack() {
+        let merged = merge(
+            Some(base()),
+            Overlay {
+                embedded: vec![embedded("mods/jei.jar", FileMode::Always)],
+                ..overlay()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(merged.paths, vec!["mods/optifine.jar"]);
+        assert_eq!(merged.embedded.len(), 1);
+    }
+
+    #[test]
+    fn the_same_path_linked_and_embedded_is_an_error() {
+        let twice = merge(
+            Some(base()),
+            Overlay {
+                files: vec![("config/a.toml".into(), task("a.toml"))],
+                embedded: vec![embedded("config/a.toml", FileMode::Always)],
+                ..overlay()
+            },
+        );
+
+        assert!(twice.unwrap_err().text.mentions("duplicate_file"));
+    }
+
+    #[test]
+    fn embedded_defaults_step_aside_for_owned_and_deleted_files() {
+        let merged = merge(
+            Some(base()),
+            Overlay {
+                files: vec![("options.txt".into(), task("options.txt"))],
+                embedded: vec![
+                    embedded("options.txt", FileMode::Once),
+                    embedded("mods/optifine.jar", FileMode::Once),
+                    embedded("config/gone.toml", FileMode::Always),
+                    embedded("servers.dat", FileMode::Once),
+                ],
+                delete: BTreeSet::from(["config/gone.toml".to_string()]),
+                ..overlay()
+            },
+        )
+        .unwrap();
+
+        let keys: Vec<_> = merged
+            .embedded
+            .iter()
+            .map(|file| file.key.as_str())
+            .collect();
+        assert_eq!(keys, vec!["servers.dat"]);
+        assert!(!merged.protected.contains("config/gone.toml"));
     }
 
     #[test]

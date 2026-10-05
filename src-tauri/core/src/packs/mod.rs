@@ -2,6 +2,8 @@ pub mod local;
 pub mod manual;
 pub mod switch;
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CommandError, CommandResult};
@@ -270,6 +272,9 @@ pub struct ResolvedPack {
     pub recommended_ram: Option<u32>,
     pub seed: Vec<crate::castpack::SeedFile>,
     pub delete: Vec<String>,
+    pub embedded: Vec<crate::castpack::EmbeddedFile>,
+    /// Paths a CastPack sets itself: the overrides of its base pack must not overwrite them.
+    pub protected: BTreeSet<String>,
 }
 
 pub async fn search(query: &SearchQuery) -> CommandResult<PackPage> {

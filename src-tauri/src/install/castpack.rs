@@ -85,6 +85,7 @@ pub async fn prepare(
         loader: manifest.loader(),
         files,
         seed: manifest.seed_files(&minecraft)?,
+        embedded: Vec::new(),
         delete: manifest.delete_keys()?,
         blocked: mods.blocked,
         recommended_ram: manifest.settings.recommended_ram,

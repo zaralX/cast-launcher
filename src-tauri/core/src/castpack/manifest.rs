@@ -4,7 +4,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CommandError, CommandResult};
-use crate::fs_util::{relative_key, safe_join};
+use crate::fs_util::{case_collision, relative_key, safe_join};
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::download::DownloadTask;
 use crate::text::UiText;
@@ -12,6 +12,24 @@ use crate::text::UiText;
 use super::{https_url, SCHEMA_VERSION};
 
 pub const MAX_ENTRIES: usize = 512;
+
+pub const MAX_FILE_ENTRIES: usize = 4096;
+
+/// Where a manifest came from: the catalog serves it by link, a `.cast` file carries it inside.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    Catalog,
+    File,
+}
+
+impl Origin {
+    fn max_entries(self) -> usize {
+        match self {
+            Self::Catalog => MAX_ENTRIES,
+            Self::File => MAX_FILE_ENTRIES,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -131,10 +149,22 @@ impl ModEntry {
 #[serde(default, rename_all = "camelCase")]
 pub struct FileEntry {
     pub path: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub url: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub embedded: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha1: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+    pub mode: FileMode,
+}
+
+/// A file a `.cast` carries inside instead of a link to it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EmbeddedFile {
+    pub key: String,
+    pub sha1: String,
     pub size: Option<u64>,
     pub mode: FileMode,
 }
@@ -144,9 +174,8 @@ impl FileEntry {
         relative_key(&self.path)
     }
 
-    fn checked(&self) -> CommandResult<(String, &str, &str)> {
+    fn checked(&self, origin: Origin) -> CommandResult<(String, Option<&str>, &str)> {
         let key = self.key()?;
-        let url = https_url(&self.url)?;
 
         let sha1 = self
             .sha1
@@ -158,7 +187,25 @@ impl FileEntry {
                     .param("path", &self.path)
             })?;
 
-        Ok((key, url, sha1))
+        if !self.embedded {
+            return Ok((key, Some(https_url(&self.url)?), sha1));
+        }
+
+        if origin == Origin::Catalog {
+            return Err(
+                CommandError::manifest("error.reason.castpack.embedded_in_catalog")
+                    .param("path", &self.path),
+            );
+        }
+
+        if !self.url.trim().is_empty() {
+            return Err(
+                CommandError::manifest("error.reason.castpack.file_both_sources")
+                    .param("path", &self.path),
+            );
+        }
+
+        Ok((key, None, sha1))
     }
 }
 
@@ -194,20 +241,34 @@ pub struct SeedFile {
     pub task: DownloadTask,
 }
 
+/// An unknown enum value means a newer format, not a broken file.
+pub fn json_error(error: serde_json::Error, corrupted: &str) -> CommandError {
+    let message = error.to_string();
+
+    match unknown_variant(&message) {
+        Some(value) => CommandError::unsupported("error.reason.castpack.unknown_value")
+            .param("value", value)
+            .with_details(message),
+        None => CommandError::manifest(corrupted).with_details(message),
+    }
+}
+
+fn unknown_variant(message: &str) -> Option<&str> {
+    message.strip_prefix("unknown variant `")?.split('`').next()
+}
+
 impl Manifest {
     pub fn parse(bytes: &[u8]) -> CommandResult<Self> {
-        let manifest: Self = serde_json::from_slice(bytes).map_err(|e| {
-            CommandError::manifest("error.reason.castpack.manifest_corrupted")
-                .with_details(e.to_string())
-        })?;
+        let manifest: Self = serde_json::from_slice(bytes)
+            .map_err(|e| json_error(e, "error.reason.castpack.manifest_corrupted"))?;
 
-        manifest.validate()?;
+        manifest.validate(Origin::Catalog)?;
 
         Ok(manifest)
     }
 
-    pub fn validate(&self) -> CommandResult<()> {
-        if self.schema_version != SCHEMA_VERSION {
+    pub fn validate(&self, origin: Origin) -> CommandResult<()> {
+        if self.schema_version == 0 || self.schema_version > SCHEMA_VERSION {
             return Err(
                 CommandError::unsupported("error.reason.castpack.manifest_version")
                     .param("version", self.schema_version)
@@ -232,16 +293,18 @@ impl Manifest {
             ));
         }
 
+        let limit = origin.max_entries();
+
         for (what, count) in [
             ("error.reason.castpack.entries.mods", self.mods.len()),
             ("error.reason.castpack.entries.files", self.files.len()),
             ("error.reason.castpack.entries.delete", self.delete.len()),
         ] {
-            if count > MAX_ENTRIES {
+            if count > limit {
                 return Err(CommandError::manifest("error.reason.castpack.too_many")
                     .param_text("what", UiText::new(what))
                     .param("count", count)
-                    .param("limit", MAX_ENTRIES));
+                    .param("limit", limit));
             }
         }
 
@@ -251,12 +314,24 @@ impl Manifest {
             }
         }
 
+        let mut keys = Vec::new();
+
         for entry in &self.mods {
-            entry.reference()?;
+            if let ModRef::Direct { key, .. } = entry.reference()? {
+                keys.push(key);
+            }
         }
 
         for entry in &self.files {
-            entry.checked()?;
+            keys.push(entry.checked(origin)?.0);
+        }
+
+        if let Some((first, second)) = case_collision(keys.iter().map(String::as_str)) {
+            return Err(
+                CommandError::manifest("error.reason.castpack.case_collision")
+                    .param("first", first)
+                    .param("second", second),
+            );
         }
 
         self.delete_keys()?;
@@ -336,7 +411,9 @@ impl Manifest {
         let mut files = Vec::new();
 
         for entry in self.files.iter().filter(|entry| entry.mode == mode) {
-            let (key, url, sha1) = entry.checked()?;
+            let (key, Some(url), sha1) = entry.checked(Origin::File)? else {
+                continue;
+            };
 
             let task = DownloadTask::verified(
                 url.to_string(),
@@ -346,6 +423,25 @@ impl Manifest {
             );
 
             files.push((key, task));
+        }
+
+        Ok(files)
+    }
+
+    pub fn embedded_files(&self) -> CommandResult<Vec<EmbeddedFile>> {
+        let mut files = Vec::new();
+
+        for entry in &self.files {
+            let (key, None, sha1) = entry.checked(Origin::File)? else {
+                continue;
+            };
+
+            files.push(EmbeddedFile {
+                key,
+                sha1: sha1.to_ascii_lowercase(),
+                size: entry.size,
+                mode: entry.mode,
+            });
         }
 
         Ok(files)
@@ -617,6 +713,134 @@ mod tests {
 
         let error = parse(json!({"minecraft": "1.20.1", "mods": many})).unwrap_err();
         assert!(error.text.mentions("too_many"), "{error}");
+    }
+
+    fn from_file(value: serde_json::Value) -> CommandResult<Manifest> {
+        let mut value = value;
+        let object = value.as_object_mut().unwrap();
+
+        object
+            .entry("schemaVersion")
+            .or_insert(json!(SCHEMA_VERSION));
+        object.entry("id").or_insert(json!("zaralx-rpg"));
+        object.entry("name").or_insert(json!("zaralX RPG"));
+        object.entry("version").or_insert(json!("1.0.0"));
+        object.entry("minecraft").or_insert(json!("1.20.1"));
+
+        let manifest: Manifest = serde_json::from_value(value).unwrap();
+        manifest.validate(Origin::File)?;
+        Ok(manifest)
+    }
+
+    #[test]
+    fn a_missing_schema_version_is_not_taken_for_the_current_one() {
+        let bare = json!({"id": "a", "name": "a", "version": "1", "minecraft": "1.20.1"});
+        let error = Manifest::parse(&serde_json::to_vec(&bare).unwrap()).unwrap_err();
+
+        assert_eq!(error.code, crate::error::ErrorCode::Unsupported);
+    }
+
+    #[test]
+    fn an_unknown_value_asks_for_a_newer_launcher() {
+        let quilt = parse(json!({"minecraft": "1.20.1", "loader": {"type": "quilt"}})).unwrap_err();
+
+        assert_eq!(quilt.code, crate::error::ErrorCode::Unsupported);
+        assert!(quilt.text.mentions("unknown_value"), "{quilt}");
+        assert!(quilt.text.mentions("quilt"), "{quilt}");
+
+        let provider = parse(json!({
+            "minecraft": "1.20.1",
+            "mods": [{"provider": "github", "projectId": "a", "versionId": "b"}]
+        }))
+        .unwrap_err();
+        assert_eq!(provider.code, crate::error::ErrorCode::Unsupported);
+    }
+
+    #[test]
+    fn embedded_files_only_come_inside_a_cast_file() {
+        let embedded = json!({
+            "minecraft": "1.20.1",
+            "files": [{"path": "mods/private.jar", "embedded": true, "sha1": "AAA"}]
+        });
+
+        let error = parse(embedded.clone()).unwrap_err();
+        assert!(error.text.mentions("embedded_in_catalog"), "{error}");
+
+        let pack = from_file(embedded).unwrap();
+        let files = pack.embedded_files().unwrap();
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].key, "mods/private.jar");
+        assert_eq!(files[0].sha1, "aaa", "hashes compare in lowercase");
+        assert!(pack.owned_files(mc()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn an_embedded_file_needs_a_hash_and_no_link() {
+        assert!(from_file(json!({
+            "files": [{"path": "mods/private.jar", "embedded": true}]
+        }))
+        .is_err());
+
+        let both = from_file(json!({
+            "files": [{"path": "a.txt", "embedded": true, "url": "https://x/a.txt", "sha1": "a"}]
+        }))
+        .unwrap_err();
+        assert!(both.text.mentions("file_both_sources"), "{both}");
+    }
+
+    #[test]
+    fn linked_and_embedded_files_are_split() {
+        let pack = from_file(json!({
+            "files": [
+                {"path": "config/a.toml", "url": "https://x/a.toml", "sha1": "a"},
+                {"path": "config/b.toml", "embedded": true, "sha1": "b"},
+                {"path": "options.txt", "embedded": true, "sha1": "c", "mode": "once"}
+            ]
+        }))
+        .unwrap();
+
+        assert_eq!(pack.owned_files(mc()).unwrap().len(), 1);
+        assert!(pack.seed_files(mc()).unwrap().is_empty());
+
+        let embedded = pack.embedded_files().unwrap();
+        assert_eq!(embedded.len(), 2);
+        assert_eq!(embedded[1].mode, FileMode::Once);
+    }
+
+    #[test]
+    fn paths_differing_only_in_case_are_one_file_on_windows() {
+        let error = from_file(json!({
+            "files": [
+                {"path": "config/A.toml", "embedded": true, "sha1": "a"},
+                {"path": "config/a.toml", "embedded": true, "sha1": "b"}
+            ]
+        }))
+        .unwrap_err();
+
+        assert!(error.text.mentions("case_collision"), "{error}");
+    }
+
+    #[test]
+    fn a_cast_file_may_list_more_than_a_catalog_manifest() {
+        let many: Vec<_> = (0..MAX_ENTRIES + 1)
+            .map(|i| json!({"path": format!("config/{i}.toml"), "embedded": true, "sha1": "a"}))
+            .collect();
+
+        assert!(from_file(json!({"files": many})).is_ok());
+    }
+
+    #[test]
+    fn an_embedded_file_keeps_no_empty_link_in_json() {
+        let pack = from_file(json!({
+            "files": [{"path": "config/b.toml", "embedded": true, "sha1": "b"}]
+        }))
+        .unwrap();
+
+        let written = serde_json::to_value(&pack).unwrap();
+
+        assert_eq!(written["files"][0]["embedded"], true);
+        assert!(written["files"][0].get("url").is_none());
     }
 
     #[test]

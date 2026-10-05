@@ -9,7 +9,7 @@ use crate::error::{CommandError, CommandResult};
 
 pub use base::base_pack;
 pub use catalog::{Catalog, CatalogPack};
-pub use manifest::{FileMode, Manifest, ModRef, SeedFile};
+pub use manifest::{EmbeddedFile, FileMode, Manifest, ModRef, Origin, SeedFile};
 pub use resolve::{merge, Overlay};
 
 pub const SCHEMA_VERSION: u32 = 1;

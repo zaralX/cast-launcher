@@ -18,17 +18,58 @@ pub fn child_file(dir: &Path, name: &str) -> CommandResult<PathBuf> {
         .ok_or_else(|| CommandError::fs("error.reason.fs.invalid_name").param("name", name))
 }
 
+const RESERVED_NAMES: [&str; 22] = [
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+];
+
 pub fn relative_key(relative: &str) -> CommandResult<String> {
     let parts: Vec<&str> = relative
         .split(['/', '\\'])
         .filter(|part| !part.is_empty() && *part != ".")
         .collect();
 
-    if parts.is_empty() || parts.iter().any(|part| *part == ".." || part.contains(':')) {
+    if parts.is_empty() || parts.iter().any(|part| !portable(part)) {
         return Err(escapes(relative));
     }
 
     Ok(parts.join("/"))
+}
+
+/// Windows strips a trailing dot or space and maps device names like `NUL` to devices, so such
+/// a name would land somewhere else than its key says.
+fn portable(part: &str) -> bool {
+    if part == ".." || part.ends_with('.') || part.ends_with(' ') {
+        return false;
+    }
+
+    if part
+        .chars()
+        .any(|c| c.is_control() || matches!(c, ':' | '<' | '>' | '"' | '|' | '?' | '*'))
+    {
+        return false;
+    }
+
+    let stem = part.split('.').next().unwrap_or(part).trim_end();
+
+    !RESERVED_NAMES
+        .iter()
+        .any(|reserved| stem.eq_ignore_ascii_case(reserved))
+}
+
+/// Two keys that differ only in case are one file on Windows and macOS.
+pub fn case_collision<'a>(keys: impl IntoIterator<Item = &'a str>) -> Option<(String, String)> {
+    let mut seen: std::collections::HashMap<String, &str> = std::collections::HashMap::new();
+
+    for key in keys {
+        if let Some(previous) = seen.insert(key.to_lowercase(), key) {
+            if previous != key {
+                return Some((previous.to_string(), key.to_string()));
+            }
+        }
+    }
+
+    None
 }
 
 pub fn safe_join(base: &Path, relative: &str) -> CommandResult<PathBuf> {
@@ -279,6 +320,52 @@ mod tests {
         assert!(safe_join(base, "C:\\Windows\\system32").is_err());
         assert!(safe_join(base, "").is_err());
         assert!(safe_join(base, "./").is_err());
+    }
+
+    #[test]
+    fn names_windows_would_rewrite_are_rejected() {
+        for name in [
+            "mods/NUL",
+            "config/con.txt",
+            "Com1.json",
+            "mods/evil.jar.",
+            "mods/evil.jar ",
+            "config/a?.toml",
+            "config/a*b",
+            "config/<x>",
+            "config/a\"b",
+            "config/a|b",
+            "config/tab\there",
+        ] {
+            assert!(relative_key(name).is_err(), "{name} must be refused");
+        }
+
+        assert_eq!(
+            relative_key("config/console.txt").unwrap(),
+            "config/console.txt"
+        );
+        assert_eq!(
+            relative_key("mods/nullify.jar").unwrap(),
+            "mods/nullify.jar"
+        );
+        assert_eq!(
+            relative_key("Мой пак/options.txt").unwrap(),
+            "Мой пак/options.txt"
+        );
+        assert_eq!(
+            relative_key(".minecraft/.cache").unwrap(),
+            ".minecraft/.cache"
+        );
+    }
+
+    #[test]
+    fn keys_that_differ_only_in_case_collide() {
+        assert_eq!(
+            case_collision(["mods/A.jar", "config/x", "mods/a.jar"]),
+            Some(("mods/A.jar".to_string(), "mods/a.jar".to_string()))
+        );
+        assert_eq!(case_collision(["mods/a.jar", "mods/a.jar"]), None);
+        assert_eq!(case_collision(["mods/a.jar", "mods/b.jar"]), None);
     }
 
     #[tokio::test]

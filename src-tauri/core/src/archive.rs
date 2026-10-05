@@ -78,16 +78,19 @@ pub async fn extract_dir(
     prefix: String,
     output_dir: PathBuf,
 ) -> CommandResult<Vec<String>> {
-    extract_dir_with(archive_path, prefix, output_dir, |_| false).await
+    extract_dir_with(archive_path, prefix, output_dir, |_, _| false).await
 }
 
-/// Files that `keep` holds on to are left as they are, but still reported as extracted.
-pub async fn extract_dir_with(
+/// Files that `keep` holds on to by key or path are left as they are, but still reported as extracted.
+pub async fn extract_dir_with<F>(
     archive_path: PathBuf,
     prefix: String,
     output_dir: PathBuf,
-    keep: fn(&Path) -> bool,
-) -> CommandResult<Vec<String>> {
+    keep: F,
+) -> CommandResult<Vec<String>>
+where
+    F: Fn(&str, &Path) -> bool + Send + 'static,
+{
     tokio::task::spawn_blocking(move || {
         extract_dir_blocking(&archive_path, &prefix, &output_dir, keep)
     })
@@ -99,7 +102,7 @@ fn extract_dir_blocking(
     archive_path: &Path,
     prefix: &str,
     output_dir: &Path,
-    keep: fn(&Path) -> bool,
+    keep: impl Fn(&str, &Path) -> bool,
 ) -> CommandResult<Vec<String>> {
     let mut archive = open(archive_path)?;
     let prefix = format!("{}/", prefix.trim_end_matches('/'));
@@ -124,7 +127,7 @@ fn extract_dir_blocking(
         let key = crate::fs_util::relative_key(relative)?;
         let out_path = crate::fs_util::safe_join(output_dir, &key)?;
 
-        if keep(&out_path) {
+        if keep(&key, &out_path) {
             extracted.push(key);
             continue;
         }
@@ -255,11 +258,12 @@ mod tests {
             ],
         );
 
-        let mut extracted = extract_dir_with(pack, "overrides".into(), target.clone(), |path| {
-            path.ends_with("mods/a.jar")
-        })
-        .await
-        .unwrap();
+        let mut extracted =
+            extract_dir_with(pack, "overrides".into(), target.clone(), |key, path| {
+                key == "mods/a.jar" && path.ends_with("mods/a.jar")
+            })
+            .await
+            .unwrap();
         extracted.sort();
 
         assert_eq!(extracted, vec!["mods/a.jar", "mods/b.jar"]);

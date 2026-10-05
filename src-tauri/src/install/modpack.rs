@@ -338,11 +338,13 @@ pub async fn apply(
         reporter.set_message(UiText::new("install.message.unpacking_modpack"));
 
         for prefix in &resolved.overrides {
+            let protected = resolved.protected.clone();
+
             let unpacked = archive::extract_dir_with(
                 archive.to_path_buf(),
                 prefix.clone(),
                 minecraft.clone(),
-                pack_files::has_toggled_copy,
+                move |key, path| protected.contains(key) || pack_files::has_toggled_copy(path),
             )
             .await?;
 
@@ -351,7 +353,7 @@ pub async fn apply(
     }
 
     // A file may come both from the pack list and from overrides: track it as downloaded.
-    extracted.retain(|key| !owned.contains(key));
+    extracted.retain(|key| !owned.contains(key) && !resolved.protected.contains(key));
 
     if !resolved.delete.is_empty() {
         for key in &resolved.delete {

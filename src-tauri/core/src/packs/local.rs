@@ -213,6 +213,8 @@ impl Opened {
                     recommended_ram: None,
                     seed: Vec::new(),
                     delete: Vec::new(),
+                    embedded: Vec::new(),
+                    protected: Default::default(),
                 }
             }
         };
