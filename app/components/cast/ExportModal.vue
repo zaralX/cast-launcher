@@ -2,6 +2,7 @@
 import type { ExportResult, ExportScan, TreeEntry } from '~/types/cast'
 import { EXPORT_STAGE_KEYS } from '~/types/cast'
 import type { Instance } from '~/types/instance'
+import { PACK_PROVIDER_LABELS } from '~/types/instance'
 
 const props = defineProps<{ instance: Instance }>()
 
@@ -18,6 +19,7 @@ const scanning = ref(false)
 const scan = ref<ExportScan | null>(null)
 const selected = ref(new Set<string>())
 const result = ref<ExportResult | null>(null)
+const useBase = ref(true)
 
 const form = ref({
   name: '',
@@ -79,8 +81,19 @@ watch(open, (opened) => {
   step.value = 'files'
   scan.value = null
   result.value = null
+  useBase.value = true
   load()
 }, { immediate: true })
+
+const base = computed(() => scan.value?.base ?? null)
+const leaningOnBase = computed(() => !!base.value && useBase.value)
+
+const baseLabel = computed(() => {
+  const found = base.value
+  if (!found) return ''
+
+  return [found.name || PACK_PROVIDER_LABELS[found.provider], found.version].filter(Boolean).join(' ')
+})
 
 // A fully picked folder goes as a whole, so files that appear in it later travel too.
 const include = computed(() => {
@@ -109,6 +122,7 @@ const summary = computed(() => {
   let size = 0
   let code = 0
   let unchecked = 0
+  let fromBase = 0
   const personal: string[] = []
 
   for (const entry of scan.value?.tree ?? []) {
@@ -118,6 +132,11 @@ const summary = computed(() => {
     if (picked.length && (entry.note === 'personal' || entry.note === 'world')) personal.push(entry.name)
 
     for (const item of picked) {
+      if (leaningOnBase.value && item.inBase) {
+        fromBase++
+        continue
+      }
+
       const kind = item.source?.kind
 
       if (kind === 'modrinth' || kind === 'curseforge') {
@@ -133,7 +152,7 @@ const summary = computed(() => {
     }
   }
 
-  return { links, embedded, size, code, unchecked, personal }
+  return { links, embedded, size, code, unchecked, fromBase, personal }
 })
 
 const canContinue = computed(() => include.value.length > 0)
@@ -160,6 +179,7 @@ async function run() {
         changelog: form.value.changelog.trim(),
         recommendedRam: Number.isFinite(ram) && ram > 0 ? Math.round(ram) : undefined,
         include: include.value,
+        useBase: leaningOnBase.value,
       },
       dialog: { title: t('dialog.cast_export.title'), filter: t('dialog.cast_export.filter') },
     })
@@ -350,6 +370,25 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           />
         </SettingsField>
 
+        <div
+          v-if="base"
+          class="flex items-start justify-between gap-6 border border-line px-4 py-3"
+        >
+          <div class="min-w-0">
+            <p class="text-[12px] text-fg">
+              {{ $t('cast_export.base.title', { name: baseLabel }) }}
+            </p>
+            <p class="mt-1 text-[12px] leading-relaxed text-fg-muted">
+              {{ useBase ? $t('cast_export.base.on_hint') : $t('cast_export.base.off_hint') }}
+            </p>
+          </div>
+
+          <USwitch
+            v-model="useBase"
+            class="mt-0.5 shrink-0"
+          />
+        </div>
+
         <dl class="grid grid-cols-3 border border-line">
           <div class="px-4 py-3">
             <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
@@ -378,6 +417,19 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
         </dl>
 
         <div class="space-y-2.5 text-[12px] leading-relaxed text-fg-muted">
+          <p
+            v-if="leaningOnBase"
+            class="flex items-start gap-2.5"
+          >
+            <UIcon
+              name="i-lucide-layers"
+              class="mt-0.5 size-3.5 shrink-0 text-acid"
+            />
+            {{ base?.compared
+              ? $t('cast_export.base.from_base', { count: summary.fromBase })
+              : $t('cast_export.base.not_compared') }}
+          </p>
+
           <p
             v-if="summary.code"
             class="flex items-start gap-2.5"
@@ -467,6 +519,9 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
         <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
           {{ $t('cast_export.done_counts', { links: result.mods, embedded: result.embedded }) }}
+          <template v-if="result.removed">
+            · {{ $t('cast_export.done_removed', { count: result.removed }) }}
+          </template>
         </p>
 
         <div

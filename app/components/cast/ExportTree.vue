@@ -6,6 +6,8 @@ defineProps<{ tree: TreeEntry[] }>()
 
 const selected = defineModel<Set<string>>('selected', { required: true })
 
+const { t } = useI18n()
+
 const expanded = ref(new Set<string>())
 
 const choosable = (entry: TreeEntry) => entry.note !== 'forbidden'
@@ -51,18 +53,23 @@ const SOURCE_TONE: Record<SourceKind, string> = {
 
 function sources(entry: TreeEntry) {
   const counts: Partial<Record<SourceKind, number>> = {}
+  let inBase = 0
 
   for (const child of entry.children ?? []) {
-    if (!child.source || !selected.value.has(child.key)) continue
+    if (!selected.value.has(child.key)) continue
+    if (child.inBase) inBase++
+    if (!child.source) continue
     counts[child.source.kind] = (counts[child.source.kind] ?? 0) + 1
   }
 
-  return (Object.keys(SOURCE_KEYS) as SourceKind[])
+  const found = (Object.keys(SOURCE_KEYS) as SourceKind[])
     .filter(kind => counts[kind])
-    .map(kind => ({ kind, count: counts[kind]! }))
-}
+    .map(kind => ({ label: t(SOURCE_KEYS[kind]), tone: SOURCE_TONE[kind], count: counts[kind]! }))
 
-const { t } = useI18n()
+  if (inBase) found.push({ label: t('cast_export.in_base'), tone: 'text-fg-faint', count: inBase })
+
+  return found
+}
 
 const sizeOf = (entry: TreeEntry) => entry.dir
   ? `${formatBytes(entry.size)} · ${t('cast_export.files', { count: entry.files })}`
@@ -119,13 +126,20 @@ const sizeOf = (entry: TreeEntry) => entry.dir
           >
             <template
               v-for="(source, i) in sources(entry)"
-              :key="source.kind"
+              :key="source.label"
             >
               <span v-if="i"> · </span>
-              <span :class="SOURCE_TONE[source.kind]">{{ $t(SOURCE_KEYS[source.kind]) }} {{ source.count }}</span>
+              <span :class="source.tone">{{ source.label }} {{ source.count }}</span>
             </template>
           </p>
         </div>
+
+        <span
+          v-if="entry.inBase"
+          class="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+        >
+          {{ $t('cast_export.in_base') }}
+        </span>
 
         <span
           v-if="entry.note"
@@ -159,6 +173,13 @@ const sizeOf = (entry: TreeEntry) => entry.dir
             :title="child.key"
           >
             {{ child.name }}
+          </span>
+
+          <span
+            v-if="child.inBase"
+            class="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+          >
+            {{ $t('cast_export.in_base') }}
           </span>
 
           <span

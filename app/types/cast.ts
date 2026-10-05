@@ -75,7 +75,17 @@ export interface TreeEntry {
   mode: FileMode
   note?: ExportNote
   source?: FileSource
+  // The base modpack brings the same file.
+  inBase?: boolean
   children?: TreeEntry[]
+}
+
+export interface ExportBase {
+  provider: PackProvider
+  name: string
+  version: string
+  // Whether the tree already marks what the base brings.
+  compared: boolean
 }
 
 export interface ExportDefaults {
@@ -91,6 +101,7 @@ export interface ExportScan {
   tree: TreeEntry[]
   defaults: ExportDefaults
   unchecked: number
+  base?: ExportBase
 }
 
 export interface ExportRequest {
@@ -101,6 +112,7 @@ export interface ExportRequest {
   changelog: string
   recommendedRam?: number
   include: string[]
+  useBase: boolean
 }
 
 export interface ExportResult {
@@ -109,6 +121,7 @@ export interface ExportResult {
   mods: number
   embedded: number
   embeddedCode: number
+  removed: number
   skipped: string[]
 }
 

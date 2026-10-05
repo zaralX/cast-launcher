@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CommandError, CommandResult};
-use crate::instance::{LoaderType, PackProvider};
+use crate::instance::{LoaderType, PackProvider, PackSource};
 use crate::net::download::DownloadTask;
 use crate::net::meta_cache::MetaCache;
 use crate::text::UiText;
@@ -275,6 +275,34 @@ pub struct ResolvedPack {
     pub embedded: Vec<crate::castpack::EmbeddedFile>,
     /// Paths a CastPack sets itself: the overrides of its base pack must not overwrite them.
     pub protected: BTreeSet<String>,
+}
+
+/// Where a downloaded modpack archive is kept between installs.
+pub fn cached_archive(
+    paths: &crate::paths::LauncherPaths,
+    pack: &PackSource,
+) -> CommandResult<std::path::PathBuf> {
+    let key: String = pack
+        .version_id
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .take(32)
+        .collect();
+
+    if key.is_empty() {
+        return Err(
+            CommandError::manifest("error.reason.modpack.invalid_version")
+                .param("version", &pack.version_id),
+        );
+    }
+
+    let name = format!(
+        "{}-{key}.{}",
+        pack.provider.key(),
+        pack.provider.archive_extension()
+    );
+
+    crate::fs_util::child_file(&paths.cache().join("modpacks"), &name)
 }
 
 pub async fn search(query: &SearchQuery) -> CommandResult<PackPage> {

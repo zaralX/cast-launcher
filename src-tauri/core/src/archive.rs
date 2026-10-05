@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -149,6 +150,71 @@ fn extract_dir_blocking(
     Ok(extracted)
 }
 
+/// Sha1 of every file under the prefixes, keyed by its path below the prefix. A later prefix
+/// wins on the same path, as it does when the prefixes are unpacked in order.
+pub async fn entry_hashes(
+    archive_path: PathBuf,
+    prefixes: Vec<String>,
+) -> CommandResult<BTreeMap<String, String>> {
+    tokio::task::spawn_blocking(move || entry_hashes_blocking(&archive_path, &prefixes))
+        .await
+        .map_err(|e| CommandError::task_panicked("hash_archive_entries", e))?
+}
+
+fn entry_hashes_blocking(
+    archive_path: &Path,
+    prefixes: &[String],
+) -> CommandResult<BTreeMap<String, String>> {
+    use sha1::{Digest, Sha1};
+
+    let mut archive = open(archive_path)?;
+    let mut hashes = BTreeMap::new();
+
+    for prefix in prefixes {
+        let prefix = format!("{}/", prefix.trim_end_matches('/'));
+
+        for index in 0..archive.len() {
+            let mut entry = archive.by_index(index).map_err(|e| {
+                CommandError::archive("error.reason.archive.read_entry")
+                    .param("path", archive_path.display())
+                    .with_details(e.to_string())
+            })?;
+
+            let name = entry.name().to_string();
+
+            let Some(relative) = name.strip_prefix(&prefix) else {
+                continue;
+            };
+
+            if relative.is_empty() || name.ends_with('/') {
+                continue;
+            }
+
+            let Ok(key) = crate::fs_util::relative_key(relative) else {
+                continue;
+            };
+
+            let mut hasher = Sha1::new();
+
+            io::copy(&mut entry, &mut hasher).map_err(|e| {
+                CommandError::archive("error.reason.archive.read_file")
+                    .param("entry", &name)
+                    .with_details(e.to_string())
+            })?;
+
+            let sha1: String = hasher
+                .finalize()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
+
+            hashes.insert(key, sha1);
+        }
+    }
+
+    Ok(hashes)
+}
+
 fn is_native(name: &str) -> bool {
     let lowercase = name.to_ascii_lowercase();
     [".dll", ".so", ".dylib", ".jnilib"]
@@ -274,6 +340,46 @@ mod tests {
         assert_eq!(
             std::fs::read(target.join("mods").join("b.jar")).unwrap(),
             b"pack"
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn override_hashes_follow_the_unpacking_order() {
+        let dir = std::env::temp_dir().join(format!("cast-zip-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let pack = dir.join("pack.mrpack");
+        write_zip(
+            &pack,
+            &[
+                ("overrides/options.txt", b"common"),
+                ("overrides/config/a.toml", b"a"),
+                ("client-overrides/options.txt", b"client"),
+                ("modrinth.index.json", b"{}"),
+            ],
+        );
+
+        let hashes = entry_hashes(pack, vec!["overrides".into(), "client-overrides".into()])
+            .await
+            .unwrap();
+
+        let sha1 = |bytes: &[u8]| -> String {
+            use sha1::{Digest, Sha1};
+
+            Sha1::digest(bytes)
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect()
+        };
+
+        assert_eq!(hashes.len(), 2);
+        assert_eq!(hashes["config/a.toml"], sha1(b"a"));
+        assert_eq!(
+            hashes["options.txt"],
+            sha1(b"client"),
+            "client overrides are unpacked last"
         );
 
         std::fs::remove_dir_all(&dir).ok();

@@ -5,7 +5,6 @@ use std::sync::Arc;
 use cast_core::archive;
 use cast_core::castpack::{EmbeddedFile, FileMode};
 use cast_core::error::{CommandError, CommandResult};
-use cast_core::fs_util::child_file;
 use cast_core::install::pack_files::{self, PackFiles};
 use cast_core::instance::{Instance, LocalPackSource, PackProvider, PackSource};
 use cast_core::net::download::{DownloadOptions, DownloadTask};
@@ -50,7 +49,7 @@ pub async fn prepare(
         UiText::new("install.message.downloading_modpack").param("version", &pack.version_number),
     );
 
-    let archive_path = archive_path(paths, pack)?;
+    let archive_path = cast_core::packs::cached_archive(paths, pack)?;
 
     match pack.file_url.trim().is_empty() {
         true => fetch_archive_by_hand(state, instance, pack, &archive_path, reporter).await?,
@@ -485,28 +484,4 @@ async fn seed(
         .await?;
 
     Ok(seeded)
-}
-
-fn archive_path(paths: &LauncherPaths, pack: &PackSource) -> CommandResult<PathBuf> {
-    let key: String = pack
-        .version_id
-        .chars()
-        .filter(char::is_ascii_alphanumeric)
-        .take(32)
-        .collect();
-
-    if key.is_empty() {
-        return Err(
-            CommandError::manifest("error.reason.modpack.invalid_version")
-                .param("version", &pack.version_id),
-        );
-    }
-
-    let name = format!(
-        "{}-{key}.{}",
-        pack.provider.key(),
-        pack.provider.archive_extension()
-    );
-
-    child_file(&paths.cache().join("modpacks"), &name)
 }

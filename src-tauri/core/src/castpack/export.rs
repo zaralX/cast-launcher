@@ -13,7 +13,9 @@ use crate::mods::hash::{self, FileHashes};
 use crate::mods::{self, ModsScan, DISABLED_SUFFIX};
 
 use super::file::{forbidden, BaseInfo, CastFile, FORMAT_VERSION};
-use super::manifest::{FileMode, LoaderSpec, Manifest, ModEntry, PackSettings, MAX_FILE_ENTRIES};
+use super::manifest::{
+    BaseSpec, FileMode, LoaderSpec, Manifest, ModEntry, PackSettings, MAX_FILE_ENTRIES,
+};
 use super::mods::ResolvedMods;
 use super::SCHEMA_VERSION;
 
@@ -169,6 +171,9 @@ pub struct TreeEntry {
     pub note: Option<Note>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<FileSource>,
+    /// The base modpack brings the same file.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub in_base: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<TreeEntry>,
 }
@@ -246,6 +251,7 @@ fn leaf(key: &str, name: &str, path: &Path, is_dir: bool, choice: Choice) -> Tre
         mode: choice.mode,
         note: choice.note,
         source: None,
+        in_base: false,
         children: Vec::new(),
     }
 }
@@ -425,6 +431,8 @@ pub fn is_catalog_candidate(key: &str) -> bool {
 pub struct Lookup {
     /// Files the importer gets from the catalogs exactly as they are here.
     pub found: BTreeMap<String, CatalogMatch>,
+    /// Where the importer puts each found file, which may differ from its name here.
+    pub targets: BTreeMap<String, String>,
     pub unchecked: BTreeSet<String>,
 }
 
@@ -458,16 +466,17 @@ pub async fn lookup(
     minecraft_dir: &Path,
     cache_file: &Path,
 ) -> CommandResult<Lookup> {
-    let wanted: Vec<&(String, PathBuf)> = files
+    let wanted: Vec<(String, PathBuf)> = files
         .iter()
         .filter(|(key, _)| is_catalog_candidate(key))
+        .cloned()
         .collect();
 
     if wanted.is_empty() {
         return Ok(Lookup::default());
     }
 
-    let hashes = hashes(&wanted, scan).await?;
+    let hashes = hash_files(&wanted, scan).await?;
     let identified = catalog::identify_hashes(&hashes, cache_file).await;
 
     let entries: Vec<ModEntry> = identified
@@ -481,28 +490,42 @@ pub async fn lookup(
         .map(ModEntry::reference)
         .collect::<CommandResult<Vec<_>>>()?;
 
-    let found = match super::mods::resolve(&refs, minecraft_dir).await {
+    let (found, targets) = match super::mods::resolve(&refs, minecraft_dir).await {
         Ok(resolved) => verified(&identified.found, &hashes, &resolved),
         Err(error) => {
             log::warn!("Could not check the identified files against the catalogs, trusting the hashes: {error}");
-            identified.found
+
+            let targets = identified
+                .found
+                .keys()
+                .map(|key| (key.clone(), key.clone()))
+                .collect();
+
+            (identified.found, targets)
         }
     };
 
     Ok(Lookup {
         found,
+        targets,
         unchecked: identified.unchecked,
     })
 }
 
-async fn hashes(
-    files: &[&(String, PathBuf)],
+/// Hashes of the files, reusing what the mod index knows about the mods folder.
+pub async fn hash_files(
+    files: &[(String, PathBuf)],
     scan: &ModsScan,
 ) -> CommandResult<BTreeMap<String, FileHashes>> {
     let mods_prefix = format!("{}/", mods::FOLDER);
 
-    let mods_list = mods::list(scan, false).await?;
-    let mut hashes = catalog::mod_hashes(scan, &mods_list).await?;
+    let mut hashes = match files.iter().any(|(key, _)| key.starts_with(&mods_prefix)) {
+        true => {
+            let mods_list = mods::list(scan, false).await?;
+            catalog::mod_hashes(scan, &mods_list).await?
+        }
+        false => BTreeMap::new(),
+    };
 
     hashes.retain(|key, _| files.iter().any(|(wanted, _)| wanted == key));
 
@@ -565,35 +588,147 @@ fn same_file(local: &str, sha1: &str, resolved: &str, resolved_sha1: Option<&str
     }
 }
 
+/// The found files the catalogs give back unchanged, with the key each one lands under.
 pub fn verified(
     found: &BTreeMap<String, CatalogMatch>,
     hashes: &BTreeMap<String, FileHashes>,
     resolved: &ResolvedMods,
-) -> BTreeMap<String, CatalogMatch> {
-    found
-        .iter()
-        .filter(|(key, _)| {
-            let Some(sha1) = hashes.get(*key).map(|hashes| hashes.sha1.as_str()) else {
-                return false;
-            };
+) -> (BTreeMap<String, CatalogMatch>, BTreeMap<String, String>) {
+    let mut kept = BTreeMap::new();
+    let mut targets = BTreeMap::new();
 
-            let downloaded = resolved
-                .files
-                .iter()
-                .any(|(other, task)| same_file(key, sha1, other, task.sha1.as_deref()));
+    for (key, matched) in found {
+        let Some(sha1) = hashes.get(key).map(|hashes| hashes.sha1.as_str()) else {
+            continue;
+        };
 
-            let manual = resolved
-                .blocked
-                .iter()
-                .any(|file| same_file(key, sha1, &file.target_path, file.sha1.as_deref()));
+        let target = resolved
+            .files
+            .iter()
+            .find(|(other, task)| same_file(key, sha1, other, task.sha1.as_deref()))
+            .map(|(other, _)| other.clone())
+            .or_else(|| {
+                resolved
+                    .blocked
+                    .iter()
+                    .find(|file| same_file(key, sha1, &file.target_path, file.sha1.as_deref()))
+                    .map(|file| file.target_path.clone())
+            });
 
-            if !downloaded && !manual {
-                log::info!("Export embeds '{key}': the catalog gives a different file for it");
+        match target {
+            Some(target) => {
+                kept.insert(key.clone(), matched.clone());
+                targets.insert(key.clone(), target);
             }
+            None => log::info!("Export embeds '{key}': the catalog gives a different file for it"),
+        }
+    }
 
-            downloaded || manual
+    (kept, targets)
+}
+
+/// What a base modpack already brings: its downloads, manual downloads and overrides,
+/// each with the hash it has there when the pack tells it.
+pub type BaseFiles = BTreeMap<String, Option<String>>;
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Diff {
+    /// Files here that the base brings as they are: the pack leaves them out.
+    pub skip: BTreeSet<String>,
+    /// Files of the base the pack takes away.
+    pub delete: BTreeSet<String>,
+    /// Files of the base the pack brings its own copy of.
+    pub replaced: BTreeSet<String>,
+}
+
+/// Compares the game folder with the base pack. Only folders the export covers count: an
+/// untouched folder stays as the base has it.
+pub fn diff(
+    base: &BaseFiles,
+    local: &BTreeMap<String, String>,
+    covered: impl Fn(&str) -> bool,
+) -> Diff {
+    let mut diff = Diff::default();
+
+    for (key, base_sha1) in base {
+        if !covered(key) {
+            continue;
+        }
+
+        match local.get(key) {
+            Some(sha1)
+                if base_sha1
+                    .as_deref()
+                    .is_none_or(|base_sha1| base_sha1.eq_ignore_ascii_case(sha1)) =>
+            {
+                diff.skip.insert(key.clone());
+            }
+            Some(_) => {
+                diff.replaced.insert(key.clone());
+            }
+            // Missing, or switched on or off by the player: the other copy travels on its own.
+            None => {
+                diff.delete.insert(key.clone());
+            }
+        }
+    }
+
+    diff
+}
+
+/// Whether the export speaks for the top folder of `key`: a folder the player left out
+/// entirely is not taken away from the base.
+pub fn covered_by(include: &[String]) -> impl Fn(&str) -> bool + '_ {
+    move |key: &str| {
+        let top = key.split('/').next().unwrap_or(key);
+
+        include
+            .iter()
+            .any(|chosen| chosen.split('/').next().unwrap_or(chosen) == top)
+    }
+}
+
+/// A file the pack replaces turns into a link that lands under another name: the copy of
+/// the base must go, or both would stay.
+pub fn stale_replacements(diff: &Diff, lookup: &Lookup) -> Vec<String> {
+    diff.replaced
+        .iter()
+        .filter(|key| {
+            lookup
+                .targets
+                .get(*key)
+                .is_some_and(|target| target != *key)
         })
-        .map(|(key, found)| (key.clone(), found.clone()))
+        .cloned()
+        .collect()
+}
+
+/// Marks the files of the tree the base pack already brings.
+pub fn mark_base(tree: &mut [TreeEntry], skip: &BTreeSet<String>) {
+    for entry in tree.iter_mut() {
+        entry.in_base = skip.contains(&entry.key);
+
+        for child in entry.children.iter_mut() {
+            child.in_base = skip.contains(&child.key);
+        }
+    }
+}
+
+/// Files of the tree that the base pack may bring: the ones to hash for a comparison.
+pub fn base_candidates(
+    tree: &[TreeEntry],
+    base: &BaseFiles,
+    minecraft_dir: &Path,
+) -> Vec<(String, PathBuf)> {
+    tree.iter()
+        .flat_map(|entry| std::iter::once(entry).chain(entry.children.iter()))
+        .filter(|entry| !entry.dir && base.contains_key(&entry.key))
+        .filter_map(|entry| {
+            Some((
+                entry.key.clone(),
+                safe_join(minecraft_dir, &entry.key).ok()?,
+            ))
+        })
         .collect()
 }
 
@@ -607,6 +742,8 @@ pub struct ExportRequest {
     pub changelog: String,
     pub recommended_ram: Option<u32>,
     pub include: Vec<String>,
+    /// Ship only the difference with the modpack the instance is built on.
+    pub use_base: bool,
 }
 
 impl ExportRequest {
@@ -650,6 +787,7 @@ impl ExportRequest {
             changelog: self.changelog.trim().to_string(),
             recommended_ram: self.recommended_ram.filter(|ram| *ram > 0),
             include,
+            use_base: self.use_base,
         })
     }
 }
@@ -718,6 +856,19 @@ pub struct ExportScan {
     pub defaults: ExportDefaults,
     /// Files the catalogs could not be asked about: they travel inside the file.
     pub unchecked: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base: Option<ExportBase>,
+}
+
+/// The modpack the instance is built on, which an export may lean on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportBase {
+    pub provider: PackProvider,
+    pub name: String,
+    pub version: String,
+    /// Whether the tree already marks what the base brings: it does once its archive is downloaded.
+    pub compared: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -745,6 +896,8 @@ pub struct ExportResult {
     pub mods: usize,
     pub embedded: usize,
     pub embedded_code: usize,
+    /// Files of the base modpack the pack takes away.
+    pub removed: usize,
     pub skipped: Vec<String>,
 }
 
@@ -779,7 +932,8 @@ pub struct Build<'a> {
     pub id: String,
     pub mods: Vec<ModEntry>,
     pub exported_by: &'a str,
-    pub base_info: Option<BaseInfo>,
+    pub base: Option<(BaseSpec, BaseInfo)>,
+    pub delete: Vec<String>,
 }
 
 /// The `cast.json` of an export, without the embedded files: the writer adds those with their hashes.
@@ -802,13 +956,22 @@ pub fn build(build: Build<'_>) -> CastFile {
             .then_with(|| a.version_id.cmp(&b.version_id))
     });
 
+    let mut delete = build.delete;
+    delete.sort();
+    delete.dedup();
+
+    let (base, base_info) = match build.base {
+        Some((spec, info)) => (Some(spec), Some(info)),
+        None => (None, None),
+    };
+
     CastFile {
         format: FORMAT_VERSION,
         exported_by: build.exported_by.to_string(),
         exported_at: now_millis(),
         author: request.author.clone(),
         description: request.description.clone(),
-        base_info: build.base_info,
+        base_info,
         manifest: Manifest {
             schema_version: SCHEMA_VERSION,
             id: build.id,
@@ -817,10 +980,10 @@ pub fn build(build: Build<'_>) -> CastFile {
             changelog: request.changelog.clone(),
             minecraft: instance.minecraft_version.clone(),
             loader,
-            base: None,
+            base,
             mods,
             files: Vec::new(),
-            delete: Vec::new(),
+            delete,
             settings: PackSettings {
                 recommended_ram: request.recommended_ram,
             },
@@ -1073,8 +1236,9 @@ mod tests {
             blocked: Vec::new(),
         };
 
-        let kept = verified(&found, &hashes("mods/sodium.jar", "abc"), &resolved);
+        let (kept, targets) = verified(&found, &hashes("mods/sodium.jar", "abc"), &resolved);
         assert_eq!(kept.len(), 1, "a renamed file is still the same file");
+        assert_eq!(targets["mods/sodium.jar"], "mods/sodium-renamed.jar");
     }
 
     #[test]
@@ -1088,7 +1252,11 @@ mod tests {
             blocked: Vec::new(),
         };
 
-        assert!(verified(&found, &hashes("resourcepacks/pack.zip", "abc"), &resolved).is_empty());
+        assert!(
+            verified(&found, &hashes("resourcepacks/pack.zip", "abc"), &resolved)
+                .0
+                .is_empty()
+        );
     }
 
     #[test]
@@ -1102,7 +1270,11 @@ mod tests {
             blocked: Vec::new(),
         };
 
-        assert!(verified(&found, &hashes("mods/sodium.jar", "abc"), &resolved).is_empty());
+        assert!(
+            verified(&found, &hashes("mods/sodium.jar", "abc"), &resolved)
+                .0
+                .is_empty()
+        );
     }
 
     #[test]
@@ -1122,7 +1294,7 @@ mod tests {
             }],
         };
 
-        let kept = verified(
+        let (kept, _) = verified(
             &found,
             &hashes("mods/entityculling.jar.disabled", "abc"),
             &resolved,
@@ -1145,6 +1317,7 @@ mod tests {
                 matched(PackProvider::Modrinth),
             )]),
             unchecked: BTreeSet::from(["mods/mystery.jar".to_string()]),
+            ..Default::default()
         };
 
         let file = |key: &str| ExportFile {
@@ -1280,7 +1453,8 @@ mod tests {
             id: "c1f0".into(),
             mods: vec![entry("mods/sodium.jar", &matched(PackProvider::Modrinth))],
             exported_by: "1.6.0",
-            base_info: None,
+            base: None,
+            delete: Vec::new(),
         });
 
         file.validate().unwrap();
@@ -1297,8 +1471,159 @@ mod tests {
             id: "c1f0".into(),
             mods: Vec::new(),
             exported_by: "1.6.0",
-            base_info: None,
+            base: None,
+            delete: Vec::new(),
         });
         assert!(file.manifest.loader.is_none());
+    }
+
+    #[test]
+    fn a_pack_on_a_base_lists_the_base_and_what_it_takes_away() {
+        let instance = instance(serde_json::json!({}));
+        let request = ExportRequest {
+            name: "Мой пак".into(),
+            version: "1.0".into(),
+            include: vec!["mods".into()],
+            ..Default::default()
+        };
+
+        let file = build(Build {
+            instance: &instance,
+            request: &request,
+            id: "c1f0".into(),
+            mods: Vec::new(),
+            exported_by: "1.6.0",
+            base: Some((
+                BaseSpec {
+                    provider: PackProvider::Modrinth,
+                    project_id: "1KVo5zza".into(),
+                    version_id: "abc".into(),
+                },
+                BaseInfo {
+                    name: "Fabulously Optimized".into(),
+                    version: "6.2.0".into(),
+                },
+            )),
+            delete: vec![
+                "mods/b.jar".into(),
+                "mods/a.jar".into(),
+                "mods/a.jar".into(),
+            ],
+        });
+
+        file.validate().unwrap();
+        assert_eq!(file.manifest.delete, vec!["mods/a.jar", "mods/b.jar"]);
+        assert_eq!(file.manifest.base.unwrap().project_id, "1KVo5zza");
+        assert_eq!(file.base_info.unwrap().name, "Fabulously Optimized");
+    }
+
+    fn sha(value: &str) -> String {
+        value.to_string()
+    }
+
+    #[test]
+    fn only_the_difference_with_the_base_travels() {
+        let base: BaseFiles = BTreeMap::from([
+            ("mods/same.jar".to_string(), Some(sha("AAA"))),
+            ("mods/gone.jar".to_string(), Some(sha("bbb"))),
+            ("mods/edited.jar".to_string(), Some(sha("ccc"))),
+            ("mods/switched-off.jar".to_string(), Some(sha("ddd"))),
+            ("mods/no-hash.jar".to_string(), None),
+            ("config/base.toml".to_string(), Some(sha("eee"))),
+        ]);
+
+        let local = BTreeMap::from([
+            ("mods/same.jar".to_string(), sha("aaa")),
+            ("mods/edited.jar".to_string(), sha("xxx")),
+            ("mods/switched-off.jar.disabled".to_string(), sha("ddd")),
+            ("mods/no-hash.jar".to_string(), sha("anything")),
+        ]);
+
+        let include = vec!["mods".to_string()];
+        let diff = diff(&base, &local, covered_by(&include));
+
+        assert_eq!(
+            diff.skip,
+            BTreeSet::from(["mods/same.jar".to_string(), "mods/no-hash.jar".to_string()])
+        );
+        assert_eq!(
+            diff.delete,
+            BTreeSet::from([
+                "mods/gone.jar".to_string(),
+                "mods/switched-off.jar".to_string()
+            ])
+        );
+        assert_eq!(
+            diff.replaced,
+            BTreeSet::from(["mods/edited.jar".to_string()])
+        );
+    }
+
+    #[test]
+    fn a_folder_left_out_of_the_export_stays_as_the_base_has_it() {
+        let base: BaseFiles = BTreeMap::from([("config/base.toml".to_string(), Some(sha("eee")))]);
+        let include = vec!["mods/sodium.jar".to_string(), "options.txt".to_string()];
+
+        assert_eq!(
+            diff(&base, &BTreeMap::new(), covered_by(&include)),
+            Diff::default()
+        );
+
+        let include = vec!["config/other.toml".to_string()];
+        let diff = diff(&base, &BTreeMap::new(), covered_by(&include));
+        assert!(
+            diff.delete.contains("config/base.toml"),
+            "an unticked file of a covered folder is taken away"
+        );
+    }
+
+    #[test]
+    fn a_replaced_file_that_lands_under_another_name_takes_the_old_one_away() {
+        let diff = Diff {
+            replaced: BTreeSet::from(["mods/a.jar".to_string(), "mods/b.jar".to_string()]),
+            ..Default::default()
+        };
+        let lookup = Lookup {
+            targets: BTreeMap::from([
+                ("mods/a.jar".to_string(), "mods/a-1.1.jar".to_string()),
+                ("mods/b.jar".to_string(), "mods/b.jar".to_string()),
+            ]),
+            ..Default::default()
+        };
+
+        assert_eq!(stale_replacements(&diff, &lookup), vec!["mods/a.jar"]);
+    }
+
+    #[test]
+    fn files_the_base_brings_are_marked_in_the_tree() {
+        let leaf = |key: &str| TreeEntry {
+            key: key.into(),
+            name: key.into(),
+            dir: false,
+            size: 1,
+            files: 1,
+            selected: true,
+            mode: FileMode::Always,
+            note: None,
+            source: None,
+            in_base: false,
+            children: Vec::new(),
+        };
+
+        let mut tree = vec![TreeEntry {
+            dir: true,
+            children: vec![leaf("mods/same.jar"), leaf("mods/own.jar")],
+            ..leaf("mods")
+        }];
+
+        mark_base(&mut tree, &BTreeSet::from(["mods/same.jar".to_string()]));
+
+        assert!(tree[0].children[0].in_base);
+        assert!(!tree[0].children[1].in_base);
+
+        let base: BaseFiles = BTreeMap::from([("mods/own.jar".to_string(), None)]);
+        let found = base_candidates(&tree, &base, Path::new("/mc"));
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].0, "mods/own.jar");
     }
 }
