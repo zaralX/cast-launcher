@@ -5,6 +5,7 @@ use tokio::io::AsyncReadExt;
 
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::safe_join;
+use crate::install::pack_files::has_toggled_copy;
 use crate::packs::BlockedFile;
 
 const MAX_CANDIDATE: u64 = 512 * 1024 * 1024;
@@ -122,6 +123,10 @@ pub async fn place(minecraft_dir: &Path, file: &BlockedFile) -> CommandResult<St
 
     let destination = safe_join(minecraft_dir, &file.target_path)?;
 
+    if has_toggled_copy(&destination) {
+        return crate::fs_util::relative_key(&file.target_path);
+    }
+
     if let Some(parent) = destination.parent() {
         crate::fs_util::ensure_dir(parent).await?;
     }
@@ -163,6 +168,26 @@ mod tests {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect()
+    }
+
+    #[tokio::test]
+    async fn a_mod_the_player_switched_off_is_not_put_back() {
+        let downloads = temp_dir();
+        let minecraft = temp_dir();
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("a.jar.disabled"), b"off").unwrap();
+        write(&downloads, "a.jar", b"a");
+
+        let file = BlockedFile {
+            local_path: Some(downloads.join("a.jar").display().to_string()),
+            ..blocked("a.jar", None)
+        };
+
+        assert_eq!(place(&minecraft, &file).await.unwrap(), "mods/a.jar");
+        assert!(!minecraft.join("mods").join("a.jar").exists());
+
+        std::fs::remove_dir_all(&downloads).ok();
+        std::fs::remove_dir_all(&minecraft).ok();
     }
 
     #[test]

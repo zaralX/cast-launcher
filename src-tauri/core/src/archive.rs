@@ -78,15 +78,28 @@ pub async fn extract_dir(
     prefix: String,
     output_dir: PathBuf,
 ) -> CommandResult<Vec<String>> {
-    tokio::task::spawn_blocking(move || extract_dir_blocking(&archive_path, &prefix, &output_dir))
-        .await
-        .map_err(|e| CommandError::task_panicked("extract_archive_dir", e))?
+    extract_dir_with(archive_path, prefix, output_dir, |_| false).await
+}
+
+/// Files that `keep` holds on to are left as they are, but still reported as extracted.
+pub async fn extract_dir_with(
+    archive_path: PathBuf,
+    prefix: String,
+    output_dir: PathBuf,
+    keep: fn(&Path) -> bool,
+) -> CommandResult<Vec<String>> {
+    tokio::task::spawn_blocking(move || {
+        extract_dir_blocking(&archive_path, &prefix, &output_dir, keep)
+    })
+    .await
+    .map_err(|e| CommandError::task_panicked("extract_archive_dir", e))?
 }
 
 fn extract_dir_blocking(
     archive_path: &Path,
     prefix: &str,
     output_dir: &Path,
+    keep: fn(&Path) -> bool,
 ) -> CommandResult<Vec<String>> {
     let mut archive = open(archive_path)?;
     let prefix = format!("{}/", prefix.trim_end_matches('/'));
@@ -110,6 +123,11 @@ fn extract_dir_blocking(
 
         let key = crate::fs_util::relative_key(relative)?;
         let out_path = crate::fs_util::safe_join(output_dir, &key)?;
+
+        if keep(&out_path) {
+            extracted.push(key);
+            continue;
+        }
 
         if let Some(parent) = out_path.parent() {
             std::fs::create_dir_all(parent)
@@ -217,6 +235,42 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(index, br#"{"name":"Pack"}"#);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn a_kept_file_is_not_overwritten_but_still_reported() {
+        let dir = std::env::temp_dir().join(format!("cast-zip-{}", uuid::Uuid::new_v4()));
+        let target = dir.join("minecraft");
+        std::fs::create_dir_all(target.join("mods")).unwrap();
+        std::fs::write(target.join("mods").join("a.jar"), b"mine").unwrap();
+
+        let pack = dir.join("pack.zip");
+        write_zip(
+            &pack,
+            &[
+                ("overrides/mods/a.jar", b"pack"),
+                ("overrides/mods/b.jar", b"pack"),
+            ],
+        );
+
+        let mut extracted = extract_dir_with(pack, "overrides".into(), target.clone(), |path| {
+            path.ends_with("mods/a.jar")
+        })
+        .await
+        .unwrap();
+        extracted.sort();
+
+        assert_eq!(extracted, vec!["mods/a.jar", "mods/b.jar"]);
+        assert_eq!(
+            std::fs::read(target.join("mods").join("a.jar")).unwrap(),
+            b"mine"
+        );
+        assert_eq!(
+            std::fs::read(target.join("mods").join("b.jar")).unwrap(),
+            b"pack"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

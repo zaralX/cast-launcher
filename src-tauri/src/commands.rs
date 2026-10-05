@@ -14,7 +14,7 @@ use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
 use cast_core::import::{ImportProgress, ImportReport, LauncherKind, ScannedInstance};
-use cast_core::install::pack_files::PackFiles;
+use cast_core::install::pack_files::{self, PackFiles};
 use cast_core::instance::{Instance, InstanceUpdate, PackProvider};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
@@ -359,7 +359,19 @@ pub async fn delete_mods(
 
     let scan = mods_scan(&state, &instance_id).await?;
 
-    mods::manage::remove(&scan, &paths).await?;
+    let removed = mods::manage::remove(&scan, &paths).await;
+
+    let dirs = state.paths().await.instance(&instance_id);
+
+    match pack_files::forget_deleted(&dirs.pack_files(), &dirs.minecraft(), &paths).await {
+        Ok(0) => {}
+        Ok(count) => log::info!("Instance '{instance_id}': {count} deleted pack files forgotten"),
+        Err(error) => {
+            log::warn!("Failed to forget deleted pack files of instance '{instance_id}': {error}")
+        }
+    }
+
+    removed?;
 
     mods::list(&scan, false).await
 }

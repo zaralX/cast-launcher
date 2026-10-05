@@ -1,10 +1,11 @@
 use std::collections::BTreeSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, remove_file_if_exists, safe_join, write_json_atomic};
+use crate::mods::toggled_name;
 use crate::packs::BlockedFile;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,13 +61,52 @@ impl PackFiles {
                 continue;
             };
 
-            if !path.is_file() && !switched_off(&path).is_file() {
+            if !path.is_file() && !has_toggled_copy(&path) {
                 missing.push(relative.clone());
             }
         }
 
         missing
     }
+
+    pub fn forget(&mut self, keys: &[String]) -> bool {
+        let mut forgotten = false;
+
+        for key in keys {
+            for key in [key.clone(), toggled_name(key)] {
+                forgotten |= self.paths.remove(&key);
+                forgotten |= self.extracted.remove(&key);
+            }
+        }
+
+        forgotten
+    }
+}
+
+/// Without this a launch takes a mod the player deleted for damage and reinstalls the pack.
+pub async fn forget_deleted(
+    record: &Path,
+    minecraft_dir: &Path,
+    keys: &[String],
+) -> CommandResult<usize> {
+    let deleted: Vec<String> = keys
+        .iter()
+        .filter(|key| {
+            safe_join(minecraft_dir, key)
+                .is_ok_and(|path| !path.exists() && !toggled(&path).exists())
+        })
+        .cloned()
+        .collect();
+
+    let mut files = PackFiles::load(record).await;
+
+    if !files.forget(&deleted) {
+        return Ok(0);
+    }
+
+    files.save(record).await?;
+
+    Ok(deleted.len())
 }
 
 pub async fn save_blocked(path: &Path, blocked: &[BlockedFile]) -> CommandResult<()> {
@@ -90,9 +130,9 @@ pub async fn remove(minecraft_dir: &Path, paths: &[String]) -> usize {
             continue;
         };
 
-        // The player may have switched the mod off: remove the disabled copy too,
+        // The player may have switched the mod off or on: remove the other copy too,
         // otherwise it outlives the pack version it came from.
-        for path in [path.clone(), switched_off(&path)] {
+        for path in [path.clone(), toggled(&path)] {
             if tokio::fs::remove_file(&path).await.is_ok() {
                 removed += 1;
                 prune_empty_dirs(minecraft_dir, &path).await;
@@ -103,13 +143,17 @@ pub async fn remove(minecraft_dir: &Path, paths: &[String]) -> usize {
     removed
 }
 
-pub fn switched_off(path: &Path) -> std::path::PathBuf {
+pub fn toggled(path: &Path) -> PathBuf {
     let name = path
         .file_name()
         .map(|name| name.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    path.with_file_name(format!("{name}{}", crate::mods::DISABLED_SUFFIX))
+    path.with_file_name(toggled_name(&name))
+}
+
+pub fn has_toggled_copy(path: &Path) -> bool {
+    toggled(path).is_file()
 }
 
 async fn prune_empty_dirs(root: &Path, file: &Path) {
@@ -332,6 +376,97 @@ mod tests {
         let record = PackFiles::new("v1", set(&["mods/jei.jar"]));
 
         assert!(record.missing(&minecraft).await.is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn an_optional_mod_the_player_switched_on_is_not_a_reason_to_reinstall() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("iris.jar"), b"on").unwrap();
+
+        let record = PackFiles::new("v1", set(&["mods/iris.jar.disabled"]));
+
+        assert!(record.missing(&minecraft).await.is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_mod_the_player_deleted_is_not_a_reason_to_reinstall() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+        let file = root.join("pack-files.json");
+
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("kept.jar"), b"kept").unwrap();
+
+        PackFiles::new(
+            "v1",
+            set(&["mods/kept.jar", "mods/gone.jar", "mods/off.jar"]),
+        )
+        .with_extracted(set(&["mods/bundled.jar"]))
+        .save(&file)
+        .await
+        .unwrap();
+
+        let deleted = [
+            "mods/kept.jar",
+            "mods/gone.jar",
+            "mods/off.jar.disabled",
+            "mods/bundled.jar",
+        ]
+        .map(String::from);
+
+        assert_eq!(
+            forget_deleted(&file, &minecraft, &deleted).await.unwrap(),
+            3
+        );
+
+        let record = PackFiles::load(&file).await;
+
+        assert_eq!(
+            record.paths,
+            set(&["mods/kept.jar"]),
+            "a file that is still there stays in the record"
+        );
+        assert!(record.extracted.is_empty());
+        assert!(record.missing(&minecraft).await.is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn deleting_mods_from_an_instance_without_a_pack_writes_no_record() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let file = root.join("pack-files.json");
+
+        std::fs::create_dir_all(&root).unwrap();
+
+        let deleted = ["mods/a.jar".to_string()];
+
+        assert_eq!(forget_deleted(&file, &root, &deleted).await.unwrap(), 0);
+        assert!(!file.exists());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn a_stale_optional_mod_is_removed_even_if_it_was_switched_on() {
+        let root = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
+        let minecraft = root.join("minecraft");
+
+        std::fs::create_dir_all(minecraft.join("mods")).unwrap();
+        std::fs::write(minecraft.join("mods").join("iris.jar"), b"on").unwrap();
+
+        assert_eq!(
+            remove(&minecraft, &["mods/iris.jar.disabled".to_string()]).await,
+            1
+        );
+        assert!(!minecraft.join("mods").join("iris.jar").exists());
 
         std::fs::remove_dir_all(&root).ok();
     }

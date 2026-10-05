@@ -284,7 +284,7 @@ fn wanted(tasks: &[DownloadTask]) -> Vec<DownloadTask> {
     let mut wanted = Vec::with_capacity(tasks.len());
 
     for task in tasks {
-        if pack_files::switched_off(&task.destination).is_file() {
+        if pack_files::has_toggled_copy(&task.destination) {
             continue;
         }
 
@@ -338,9 +338,13 @@ pub async fn apply(
         reporter.set_message(UiText::new("install.message.unpacking_modpack"));
 
         for prefix in &resolved.overrides {
-            let unpacked =
-                archive::extract_dir(archive.to_path_buf(), prefix.clone(), minecraft.clone())
-                    .await?;
+            let unpacked = archive::extract_dir_with(
+                archive.to_path_buf(),
+                prefix.clone(),
+                minecraft.clone(),
+                pack_files::has_toggled_copy,
+            )
+            .await?;
 
             extracted.extend(unpacked);
         }

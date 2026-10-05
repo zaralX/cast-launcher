@@ -23,6 +23,13 @@ pub const FOLDER: &str = "mods";
 
 pub const DISABLED_SUFFIX: &str = ".disabled";
 
+pub fn toggled_name(name: &str) -> String {
+    match name.strip_suffix(DISABLED_SUFFIX) {
+        Some(enabled) => enabled.to_string(),
+        None => format!("{name}{DISABLED_SUFFIX}"),
+    }
+}
+
 const EXTENSIONS: &[&str] = &["jar", "zip", "litemod"];
 
 const CONCURRENCY: usize = 8;
@@ -113,10 +120,7 @@ pub struct ModsScan {
 
 impl ModsScan {
     fn is_managed(&self, path: &str) -> bool {
-        self.managed.contains(path)
-            || self
-                .managed
-                .contains(path.trim_end_matches(DISABLED_SUFFIX))
+        self.managed.contains(path) || self.managed.contains(&toggled_name(path))
     }
 }
 
@@ -628,6 +632,24 @@ mod tests {
 
         assert!(mods[0].managed);
         assert!(!mods[0].enabled);
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[tokio::test]
+    async fn an_optional_mod_from_a_pack_stays_a_mod_from_a_pack_once_switched_on() {
+        let root = temp_dir();
+        let scan = ModsScan {
+            managed: BTreeSet::from(["mods/iris.jar.disabled".to_string()]),
+            ..scan_in(&root)
+        };
+
+        fabric_jar(&scan.dir.join("iris.jar"), "iris", "Iris", false);
+
+        let mods = list(&scan, false).await.unwrap();
+
+        assert!(mods[0].managed);
+        assert!(mods[0].enabled);
 
         std::fs::remove_dir_all(&root).ok();
     }
