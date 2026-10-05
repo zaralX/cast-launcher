@@ -1,5 +1,6 @@
 pub mod base;
 pub mod catalog;
+pub mod file;
 pub mod manifest;
 pub mod mods;
 pub mod resolve;
