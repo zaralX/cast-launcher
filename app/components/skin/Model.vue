@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SkinPose, SkinVariant, FaceRect, SkinBox } from '~/types/skin'
+import { MODEL_HEIGHT } from '~/utils/skin-geometry'
 
 const props = withDefaults(defineProps<{
   skin: string

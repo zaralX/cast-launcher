@@ -178,7 +178,9 @@ empty.
 
 **Auto-import trap.** mlly's export scanner drops the export that follows a one-line object
 literal with commas (`export const A = { w: 1, h: 2 }`). Write such objects multi-line in
-auto-imported dirs; `typecheck` reports the miss as `Cannot find name`.
+auto-imported dirs; `typecheck` reports the miss as `Cannot find name`. Auto-import also
+ignores a name used only inside `${…}` of a template string; `typecheck` does not see that one
+and the page throws `is not defined` at runtime, so import such a name explicitly.
 
 ## Everywhere
 
