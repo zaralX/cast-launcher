@@ -96,7 +96,10 @@ async fn tokens(
     let mut tokens = HashMap::from([
         ("SIDE".to_string(), "client".to_string()),
         ("MINECRAFT_JAR".to_string(), display(env.minecraft_jar)),
-        ("MINECRAFT_VERSION".to_string(), env.minecraft_version.to_string()),
+        (
+            "MINECRAFT_VERSION".to_string(),
+            env.minecraft_version.to_string(),
+        ),
         ("ROOT".to_string(), display(env.root)),
         ("INSTALLER".to_string(), display(env.installer)),
         ("LIBRARY_DIR".to_string(), display(env.libraries)),
@@ -138,7 +141,11 @@ async fn unpack(installer: &Path, entry: &str, scratch: &Path) -> CommandResult<
         return Ok(target);
     }
 
-    let bytes = crate::archive::read_entry(installer.to_path_buf(), entry.trim_start_matches('/').to_string()).await?;
+    let bytes = crate::archive::read_entry(
+        installer.to_path_buf(),
+        entry.trim_start_matches('/').to_string(),
+    )
+    .await?;
 
     if let Some(parent) = target.parent() {
         ensure_dir(parent).await?;
@@ -208,10 +215,12 @@ fn classpath(processor: &Processor, libraries: &Path) -> CommandResult<Vec<PathB
 }
 
 async fn main_class(jar: &Path) -> CommandResult<String> {
-    let bytes = crate::archive::read_entry(jar.to_path_buf(), "META-INF/MANIFEST.MF".to_string()).await?;
+    let bytes =
+        crate::archive::read_entry(jar.to_path_buf(), "META-INF/MANIFEST.MF".to_string()).await?;
 
     manifest_main_class(&String::from_utf8_lossy(&bytes)).ok_or_else(|| {
-        CommandError::forge("В инструменте Forge не указан главный класс").with_details(display(jar))
+        CommandError::forge("В инструменте Forge не указан главный класс")
+            .with_details(display(jar))
     })
 }
 
@@ -297,8 +306,10 @@ fn replace_tokens(tokens: &HashMap<String, String>, value: &str) -> CommandResul
             out.push_str(&key);
         } else {
             let replacement = tokens.get(&key).ok_or_else(|| {
-                CommandError::forge(format!("Установщик Forge ссылается на неизвестное значение {key}"))
-                    .with_details(value.to_string())
+                CommandError::forge(format!(
+                    "Установщик Forge ссылается на неизвестное значение {key}"
+                ))
+                .with_details(value.to_string())
             })?;
 
             out.push_str(replacement);
@@ -311,7 +322,8 @@ fn replace_tokens(tokens: &HashMap<String, String>, value: &str) -> CommandResul
 }
 
 fn malformed(value: &str) -> CommandError {
-    CommandError::forge("Установщик Forge содержит некорректный шаблон").with_details(value.to_string())
+    CommandError::forge("Установщик Forge содержит некорректный шаблон")
+        .with_details(value.to_string())
 }
 
 async fn verify(outputs: &[(PathBuf, Option<String>)]) -> Result<(), String> {
@@ -371,7 +383,11 @@ where
     C: Fn() -> bool,
 {
     let separator = if cfg!(windows) { ";" } else { ":" };
-    let classpath = classpath.iter().map(|path| display(path)).collect::<Vec<_>>().join(separator);
+    let classpath = classpath
+        .iter()
+        .map(|path| display(path))
+        .collect::<Vec<_>>()
+        .join(separator);
 
     let mut child = new_command(java)
         .arg("-cp")
@@ -403,8 +419,10 @@ where
             Err(error) => {
                 let _ = child.start_kill();
                 logs.abort();
-                return Err(CommandError::forge(format!("Шаг сборки Forge «{name}» прерван"))
-                    .with_details(error.to_string()));
+                return Err(
+                    CommandError::forge(format!("Шаг сборки Forge «{name}» прерван"))
+                        .with_details(error.to_string()),
+                );
             }
         }
 
@@ -442,10 +460,10 @@ where
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .join("\n");
 
-    Err(
-        CommandError::forge(format!("Шаг сборки Forge «{name}» завершился с кодом {code}"))
-            .with_details(details),
-    )
+    Err(CommandError::forge(format!(
+        "Шаг сборки Forge «{name}» завершился с кодом {code}"
+    ))
+    .with_details(details))
 }
 
 async fn drain<R>(reader: Option<R>, tail: Arc<Mutex<Vec<String>>>)
@@ -504,10 +522,19 @@ mod tests {
     fn tokens_quotes_and_escapes_follow_the_installer_rules() {
         let values = tokens(&[("ROOT", "C:\\games"), ("SIDE", "client")]);
 
-        assert_eq!(replace_tokens(&values, "{ROOT}/run.sh").unwrap(), "C:\\games/run.sh");
+        assert_eq!(
+            replace_tokens(&values, "{ROOT}/run.sh").unwrap(),
+            "C:\\games/run.sh"
+        );
         assert_eq!(replace_tokens(&values, "--side").unwrap(), "--side");
-        assert_eq!(replace_tokens(&values, "'20210115.111550'").unwrap(), "20210115.111550");
-        assert_eq!(replace_tokens(&values, "--side={SIDE}").unwrap(), "--side=client");
+        assert_eq!(
+            replace_tokens(&values, "'20210115.111550'").unwrap(),
+            "20210115.111550"
+        );
+        assert_eq!(
+            replace_tokens(&values, "--side={SIDE}").unwrap(),
+            "--side=client"
+        );
         assert_eq!(replace_tokens(&values, "\\{SIDE\\}").unwrap(), "{SIDE}");
     }
 
@@ -583,9 +610,9 @@ mod tests {
             path == Path::new("/libs/forge-client.jar")
                 && sha1.as_deref() == Some("95c071d141e47e75c738d54e760115a68fd483c8")
         }));
-        assert!(resolved.iter().any(|(path, sha1)| {
-            path.ends_with("g/a/1/a-1.jar") && sha1.is_none()
-        }));
+        assert!(resolved
+            .iter()
+            .any(|(path, sha1)| { path.ends_with("g/a/1/a-1.jar") && sha1.is_none() }));
     }
 
     #[test]
@@ -606,7 +633,10 @@ mod tests {
 
     #[test]
     fn processor_names_are_short() {
-        assert_eq!(short_name("net.minecraftforge:binarypatcher:1.3.1"), "binarypatcher");
+        assert_eq!(
+            short_name("net.minecraftforge:binarypatcher:1.3.1"),
+            "binarypatcher"
+        );
         assert_eq!(short_name("сломано"), "сломано");
     }
 
@@ -621,7 +651,9 @@ mod tests {
         let sha1 = file_sha1(&file).await.unwrap();
 
         assert!(verify(&[(file.clone(), Some(sha1))]).await.is_ok());
-        assert!(verify(&[(file.clone(), Some("deadbeef".into()))]).await.is_err());
+        assert!(verify(&[(file.clone(), Some("deadbeef".into()))])
+            .await
+            .is_err());
         assert!(verify(&[(file.clone(), None)]).await.is_ok());
         assert!(verify(&[(dir.join("gone.jar"), None)]).await.is_err());
 

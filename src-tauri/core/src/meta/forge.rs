@@ -134,7 +134,9 @@ pub async fn installed(
 
     Ok(Installed {
         package: read_json(&file).await?,
-        loader: read_json_opt(&cache.installed_json()).await.unwrap_or_default(),
+        loader: read_json_opt(&cache.installed_json())
+            .await
+            .unwrap_or_default(),
     })
 }
 
@@ -326,7 +328,8 @@ mod tests {
 
         assert_eq!(
             profile.main_jar.path,
-            paths.library("net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-client.jar")
+            paths
+                .library("net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-client.jar")
         );
         assert_ne!(
             profile.main_jar.path,
@@ -362,7 +365,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(profile.main_jar.path, paths.instance("abc").client_jar());
-        assert!(profile.main_jar.on_classpath, "launchwrapper патчит клиент из classpath");
+        assert!(
+            profile.main_jar.on_classpath,
+            "launchwrapper патчит клиент из classpath"
+        );
     }
 
     #[test]
@@ -427,9 +433,15 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(profile.version_id, "1.20.1", "ассеты и версия остаются ванильными");
+        assert_eq!(
+            profile.version_id, "1.20.1",
+            "ассеты и версия остаются ванильными"
+        );
         assert_eq!(profile.version_type, "Forge");
-        assert_eq!(profile.main_class, "cpw.mods.bootstraplauncher.BootstrapLauncher");
+        assert_eq!(
+            profile.main_class,
+            "cpw.mods.bootstraplauncher.BootstrapLauncher"
+        );
     }
 
     #[test]
@@ -595,7 +607,12 @@ mod tests {
 
         assert_eq!(
             paths,
-            vec!["forge-client.jar", "asm-9.7.jar", "logging.jar", "lwjgl-natives.jar"]
+            vec![
+                "forge-client.jar",
+                "asm-9.7.jar",
+                "logging.jar",
+                "lwjgl-natives.jar"
+            ]
         );
     }
 
@@ -613,10 +630,7 @@ mod tests {
             native: None,
         };
 
-        let merged = merge_libraries(
-            vec![unnamed.clone(), broken.clone()],
-            vec![unnamed, broken],
-        );
+        let merged = merge_libraries(vec![unnamed.clone(), broken.clone()], vec![unnamed, broken]);
 
         assert_eq!(merged.len(), 4);
     }

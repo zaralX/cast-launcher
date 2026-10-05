@@ -174,7 +174,10 @@ pub fn run() {
             }
 
             #[cfg(target_os = "macos")]
-            tauri::RunEvent::Reopen { has_visible_windows, .. } => {
+            tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } => {
                 if !has_visible_windows {
                     window::focus_or_create(app);
                 }

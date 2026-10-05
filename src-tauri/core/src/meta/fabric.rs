@@ -89,8 +89,10 @@ pub async fn loader(
         return candidates.into_iter().next().ok_or_else(not_found);
     }
 
-    meta.fetch_json(&format!("{FABRIC_META}/{minecraft_version}/{loader_version}"))
-        .await
+    meta.fetch_json(&format!(
+        "{FABRIC_META}/{minecraft_version}/{loader_version}"
+    ))
+    .await
 }
 
 pub fn libraries(loader: &FabricLoader) -> CommandResult<Vec<ResolvedLibrary>> {
@@ -218,7 +220,8 @@ mod tests {
 
     #[test]
     fn main_class_accepts_both_shapes() {
-        let split: FabricMainClass = serde_json::from_value(json!({ "client": "A", "server": "B" })).unwrap();
+        let split: FabricMainClass =
+            serde_json::from_value(json!({ "client": "A", "server": "B" })).unwrap();
         let single: FabricMainClass = serde_json::from_value(json!("A")).unwrap();
 
         assert_eq!(split.client(), "A");

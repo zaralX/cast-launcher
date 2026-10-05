@@ -8,12 +8,20 @@ use crate::launch::game::{GameStatus, RunningGame};
 pub const LAUNCHER_EVENT: &str = "launcher://event";
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "type")]
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "type"
+)]
 pub enum LauncherEvent {
     Install(InstallSnapshot),
     Import(ImportProgress),
-    ImportFinished { report: ImportReport },
-    Instances { instances: Vec<Instance> },
+    ImportFinished {
+        report: ImportReport,
+    },
+    Instances {
+        instances: Vec<Instance>,
+    },
     GameStarted {
         game: RunningGame,
     },
@@ -63,8 +71,16 @@ mod tests {
 
     #[test]
     fn variant_names_are_camel_case() {
-        assert_eq!(wire(LauncherEvent::GameStarted { game: game() })["type"], "gameStarted");
-        assert_eq!(wire(LauncherEvent::Instances { instances: Vec::new() })["type"], "instances");
+        assert_eq!(
+            wire(LauncherEvent::GameStarted { game: game() })["type"],
+            "gameStarted"
+        );
+        assert_eq!(
+            wire(LauncherEvent::Instances {
+                instances: Vec::new()
+            })["type"],
+            "instances"
+        );
     }
 
     #[test]
@@ -81,7 +97,10 @@ mod tests {
         assert_eq!(event["instanceId"], "instance");
         assert_eq!(event["code"], 1);
         assert_eq!(event["logTail"], "падение");
-        assert!(event.get("run_id").is_none(), "snake_case на фронт уходить не должен");
+        assert!(
+            event.get("run_id").is_none(),
+            "snake_case на фронт уходить не должен"
+        );
     }
 
     #[test]
@@ -140,7 +159,10 @@ mod tests {
         assert_eq!(event["instanceId"], "instance");
         assert_eq!(event["startedAt"], 1);
         assert_eq!(event["stage"], "download");
-        assert!(event.get("blocked").is_none(), "пустой список не занимает место в событии");
+        assert!(
+            event.get("blocked").is_none(),
+            "пустой список не занимает место в событии"
+        );
     }
 
     #[test]

@@ -151,7 +151,10 @@ mod tests {
 
     #[test]
     fn broken_json_is_reported_as_a_manifest_problem() {
-        assert_eq!(Catalog::parse(b"{ not json").unwrap_err().code, "MANIFEST_INVALID");
+        assert_eq!(
+            Catalog::parse(b"{ not json").unwrap_err().code,
+            "MANIFEST_INVALID"
+        );
     }
 
     #[test]

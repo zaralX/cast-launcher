@@ -9,9 +9,9 @@ use cast_core::account::AccountStore;
 use cast_core::config::{self, AppConfig};
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::instance::InstanceRegistry;
+use cast_core::java::JavaRegistry;
 use cast_core::mods::install::InstallPlan;
 use cast_core::mods::updates::ModUpdate;
-use cast_core::java::JavaRegistry;
 use cast_core::net::download::DownloadRegistry;
 use cast_core::net::meta_cache::MetaCache;
 use cast_core::paths::LauncherPaths;
@@ -61,10 +61,10 @@ impl ModLocks {
 
 impl AppState {
     pub async fn initialize(app: &AppHandle) -> CommandResult<Arc<Self>> {
-        let config_root = app
-            .path()
-            .app_config_dir()
-            .map_err(|e| CommandError::fs("Не удалось определить каталог конфигурации").with_details(e.to_string()))?;
+        let config_root = app.path().app_config_dir().map_err(|e| {
+            CommandError::fs("Не удалось определить каталог конфигурации")
+                .with_details(e.to_string())
+        })?;
 
         cast_core::fs_util::ensure_dir(&config_root).await?;
 
@@ -117,7 +117,8 @@ impl AppState {
     }
 
     pub async fn update_config(&self, config: AppConfig) -> CommandResult<bool> {
-        let updated_paths = LauncherPaths::new(self.config_root.clone(), Some(&config.launcher.dir));
+        let updated_paths =
+            LauncherPaths::new(self.config_root.clone(), Some(&config.launcher.dir));
         let relocated = updated_paths.root() != self.paths.read().await.root();
 
         if relocated {

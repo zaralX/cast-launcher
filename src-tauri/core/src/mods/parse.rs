@@ -54,9 +54,13 @@ pub fn jar(path: &Path, prefer: Option<ModLoader>) -> CommandResult<Parsed> {
     let mut found: HashMap<&'static str, Vec<u8>> = HashMap::new();
 
     for index in 0..archive.len() {
-        let Ok(mut entry) = archive.by_index(index) else { continue };
+        let Ok(mut entry) = archive.by_index(index) else {
+            continue;
+        };
 
-        let Some(known) = known_entry(entry.name()) else { continue };
+        let Some(known) = known_entry(entry.name()) else {
+            continue;
+        };
 
         if entry.size() > MAX_META || found.contains_key(known) {
             continue;
@@ -69,7 +73,9 @@ pub fn jar(path: &Path, prefer: Option<ModLoader>) -> CommandResult<Parsed> {
         }
     }
 
-    let jar_version = found.get(MANIFEST).and_then(|bytes| manifest_version(bytes));
+    let jar_version = found
+        .get(MANIFEST)
+        .and_then(|bytes| manifest_version(bytes));
     let mut meta = pick(&found, prefer, jar_version.as_deref());
 
     if meta.details.loaders.is_empty() {
@@ -87,10 +93,17 @@ pub fn jar(path: &Path, prefer: Option<ModLoader>) -> CommandResult<Parsed> {
 pub fn folder(path: &Path, prefer: Option<ModLoader>) -> CommandResult<Parsed> {
     let mut found: HashMap<&'static str, Vec<u8>> = HashMap::new();
 
-    for (name, _) in SOURCES.iter().chain(std::iter::once(&(MANIFEST, ModLoader::Forge))) {
-        let file = name.split('/').fold(path.to_path_buf(), |acc, part| acc.join(part));
+    for (name, _) in SOURCES
+        .iter()
+        .chain(std::iter::once(&(MANIFEST, ModLoader::Forge)))
+    {
+        let file = name
+            .split('/')
+            .fold(path.to_path_buf(), |acc, part| acc.join(part));
 
-        let Ok(metadata) = std::fs::metadata(&file) else { continue };
+        let Ok(metadata) = std::fs::metadata(&file) else {
+            continue;
+        };
 
         if !metadata.is_file() || metadata.len() > MAX_META {
             continue;
@@ -101,7 +114,9 @@ pub fn folder(path: &Path, prefer: Option<ModLoader>) -> CommandResult<Parsed> {
         }
     }
 
-    let jar_version = found.get(MANIFEST).and_then(|bytes| manifest_version(bytes));
+    let jar_version = found
+        .get(MANIFEST)
+        .and_then(|bytes| manifest_version(bytes));
     let mut meta = pick(&found, prefer, jar_version.as_deref());
 
     if meta.details.loaders.is_empty() {
@@ -110,7 +125,10 @@ pub fn folder(path: &Path, prefer: Option<ModLoader>) -> CommandResult<Parsed> {
 
     let icon = crate::fs_util::relative_key(&meta.icon)
         .ok()
-        .map(|key| key.split('/').fold(path.to_path_buf(), |acc, part| acc.join(part)))
+        .map(|key| {
+            key.split('/')
+                .fold(path.to_path_buf(), |acc, part| acc.join(part))
+        })
         .filter(|icon| icon.is_file())
         .and_then(|icon| std::fs::read(&icon).ok())
         .filter(|bytes| bytes.len() as u64 <= MAX_ICON)
@@ -146,9 +164,13 @@ pub(super) fn pick(
     }
 
     for file in order {
-        let Some(bytes) = found.get(file) else { continue };
+        let Some(bytes) = found.get(file) else {
+            continue;
+        };
 
-        let Some(mut meta) = read(file, bytes) else { continue };
+        let Some(mut meta) = read(file, bytes) else {
+            continue;
+        };
 
         if meta.details.version == JAR_VERSION {
             meta.details.version = jar_version.unwrap_or_default().to_string();
@@ -354,7 +376,10 @@ pub fn from_file_name(file_name: &str) -> (String, String) {
 }
 
 fn read_icon(archive: &mut zip::ZipArchive<std::fs::File>, entry: &str) -> Option<RawIcon> {
-    let entry = entry.trim().trim_start_matches("./").trim_start_matches('/');
+    let entry = entry
+        .trim()
+        .trim_start_matches("./")
+        .trim_start_matches('/');
 
     if entry.is_empty() {
         return None;
@@ -407,7 +432,11 @@ fn manifest_version(bytes: &[u8]) -> Option<String> {
 }
 
 fn text(value: Option<&Value>) -> String {
-    value.and_then(Value::as_str).unwrap_or_default().trim().to_string()
+    value
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string()
 }
 
 fn list(value: Option<&Value>) -> Vec<String> {
@@ -572,10 +601,7 @@ mod tests {
 
         let manifest = b"Manifest-Version: 1.0\r\nImplementation-Version: 0.5.1f\r\n";
 
-        let found = HashMap::from([
-            (FORGE_TOML, toml.to_vec()),
-            (MANIFEST, manifest.to_vec()),
-        ]);
+        let found = HashMap::from([(FORGE_TOML, toml.to_vec()), (MANIFEST, manifest.to_vec())]);
 
         let meta = pick(&found, None, manifest_version(manifest).as_deref());
 
@@ -612,13 +638,17 @@ mod tests {
         assert!(fabric(b"{ not json").is_none());
         assert!(quilt(&bytes(json!({"no_loader": true}))).is_none());
         assert!(mods_toml(b"[[mods]", ModLoader::Forge).is_none());
-        assert!(mods_toml(b"modId = \"x\"", ModLoader::Forge).is_none(), "нет [[mods]] - нет мода");
+        assert!(
+            mods_toml(b"modId = \"x\"", ModLoader::Forge).is_none(),
+            "нет [[mods]] - нет мода"
+        );
         assert_eq!(pick(&HashMap::new(), None, None), Meta::default());
     }
 
     #[test]
     fn a_multiloader_jar_shows_the_metadata_of_its_own_loader() {
-        let fabric_json = bytes(json!({"id": "arch", "name": "Architectury Fabric", "version": "9.1.0"}));
+        let fabric_json =
+            bytes(json!({"id": "arch", "name": "Architectury Fabric", "version": "9.1.0"}));
         let forge_toml = br#"
             [[mods]]
             modId = "arch"
@@ -631,8 +661,14 @@ mod tests {
             (FORGE_TOML, forge_toml.to_vec()),
         ]);
 
-        assert_eq!(pick(&found, Some(ModLoader::Fabric), None).details.name, "Architectury Fabric");
-        assert_eq!(pick(&found, Some(ModLoader::Forge), None).details.name, "Architectury Forge");
+        assert_eq!(
+            pick(&found, Some(ModLoader::Fabric), None).details.name,
+            "Architectury Fabric"
+        );
+        assert_eq!(
+            pick(&found, Some(ModLoader::Forge), None).details.name,
+            "Architectury Forge"
+        );
     }
 
     #[test]
@@ -645,7 +681,10 @@ mod tests {
             from_file_name("sodium-fabric-mc1.20.1-0.5.3.jar.disabled"),
             ("sodium-fabric-mc1.20.1".to_string(), "0.5.3".to_string())
         );
-        assert_eq!(from_file_name("optifine.jar"), ("optifine".to_string(), String::new()));
+        assert_eq!(
+            from_file_name("optifine.jar"),
+            ("optifine".to_string(), String::new())
+        );
     }
 
     #[test]

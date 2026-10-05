@@ -88,7 +88,10 @@ fn jvm_arguments(
     features: &Features,
 ) -> Vec<String> {
     if arguments.jvm.is_empty() {
-        return ResolvedArguments::LEGACY_JVM.iter().map(|arg| arg.to_string()).collect();
+        return ResolvedArguments::LEGACY_JVM
+            .iter()
+            .map(|arg| arg.to_string())
+            .collect();
     }
 
     filter(&arguments.jvm, ctx, features)
@@ -126,7 +129,9 @@ pub fn filter(arguments: &[Argument], ctx: &RuntimeContext, features: &Features)
 }
 
 pub fn substitute(args: &[String], placeholders: &Placeholders) -> Vec<String> {
-    args.iter().map(|arg| substitute_one(arg, placeholders)).collect()
+    args.iter()
+        .map(|arg| substitute_one(arg, placeholders))
+        .collect()
 }
 
 fn substitute_one(arg: &str, placeholders: &Placeholders) -> String {
@@ -170,26 +175,66 @@ fn placeholders(inputs: &LaunchInputs<'_>, classpath: &[PathBuf]) -> Placeholder
 
     let mut values = HashMap::from([
         ("auth_player_name".to_string(), inputs.account.name.clone()),
-        ("auth_uuid".to_string(), inputs.account.uuid.clone().unwrap_or_default()),
+        (
+            "auth_uuid".to_string(),
+            inputs.account.uuid.clone().unwrap_or_default(),
+        ),
         (
             "auth_access_token".to_string(),
-            inputs.account.access_token.clone().unwrap_or_else(|| "null".into()),
+            inputs
+                .account
+                .access_token
+                .clone()
+                .unwrap_or_else(|| "null".into()),
         ),
-        ("auth_xuid".to_string(), inputs.account.xbl_hash.clone().unwrap_or_default()),
-        ("user_type".to_string(), inputs.account.user_type().to_string()),
+        (
+            "auth_xuid".to_string(),
+            inputs.account.xbl_hash.clone().unwrap_or_default(),
+        ),
+        (
+            "user_type".to_string(),
+            inputs.account.user_type().to_string(),
+        ),
         ("clientid".to_string(), uuid::Uuid::new_v4().to_string()),
-        ("version_name".to_string(), inputs.profile.version_id.clone()),
-        ("version_type".to_string(), inputs.profile.version_type.clone()),
-        ("assets_index_name".to_string(), inputs.profile.assets_id.clone()),
-        ("game_directory".to_string(), inputs.instance.minecraft().display().to_string()),
-        ("assets_root".to_string(), inputs.paths.assets().display().to_string()),
-        ("game_assets".to_string(), inputs.paths.assets().display().to_string()),
-        ("natives_directory".to_string(), inputs.natives_dir.display().to_string()),
-        ("library_directory".to_string(), inputs.paths.libraries().display().to_string()),
+        (
+            "version_name".to_string(),
+            inputs.profile.version_id.clone(),
+        ),
+        (
+            "version_type".to_string(),
+            inputs.profile.version_type.clone(),
+        ),
+        (
+            "assets_index_name".to_string(),
+            inputs.profile.assets_id.clone(),
+        ),
+        (
+            "game_directory".to_string(),
+            inputs.instance.minecraft().display().to_string(),
+        ),
+        (
+            "assets_root".to_string(),
+            inputs.paths.assets().display().to_string(),
+        ),
+        (
+            "game_assets".to_string(),
+            inputs.paths.assets().display().to_string(),
+        ),
+        (
+            "natives_directory".to_string(),
+            inputs.natives_dir.display().to_string(),
+        ),
+        (
+            "library_directory".to_string(),
+            inputs.paths.libraries().display().to_string(),
+        ),
         ("classpath".to_string(), classpath),
         ("classpath_separator".to_string(), separator.to_string()),
         ("launcher_name".to_string(), "cast-launcher".to_string()),
-        ("launcher_version".to_string(), env!("CARGO_PKG_VERSION").to_string()),
+        (
+            "launcher_version".to_string(),
+            env!("CARGO_PKG_VERSION").to_string(),
+        ),
     ]);
 
     values.insert("auth_session".into(), values["auth_access_token"].clone());
@@ -225,7 +270,12 @@ mod tests {
         let values = placeholders(&[("auth_player_name", "Steve"), ("classpath", "a;b")]);
 
         let args = substitute(
-            &["--username".into(), "${auth_player_name}".into(), "-cp".into(), "${classpath}".into()],
+            &[
+                "--username".into(),
+                "${auth_player_name}".into(),
+                "-cp".into(),
+                "${classpath}".into(),
+            ],
             &values,
         );
 
@@ -237,7 +287,10 @@ mod tests {
         let values = placeholders(&[("a", "1")]);
 
         assert_eq!(substitute(&["${a}/${b}".into()], &values), vec!["1/${b}"]);
-        assert_eq!(substitute(&["${unclosed".into()], &values), vec!["${unclosed"]);
+        assert_eq!(
+            substitute(&["${unclosed".into()], &values),
+            vec!["${unclosed"]
+        );
     }
 
     #[test]
@@ -317,6 +370,14 @@ mod tests {
         assert_eq!(jvm, ResolvedArguments::LEGACY_JVM.to_vec());
 
         let game = game_arguments(&arguments, &ctx(), &Features::new());
-        assert_eq!(game, vec!["--username", "${auth_player_name}", "--version", "${version_name}"]);
+        assert_eq!(
+            game,
+            vec![
+                "--username",
+                "${auth_player_name}",
+                "--version",
+                "${version_name}"
+            ]
+        );
     }
 }

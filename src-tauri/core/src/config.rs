@@ -181,7 +181,12 @@ fn migrate(mut raw: Value) -> Value {
     }
 
     if version <= 3 {
-        set_in(&mut raw, "launcher", "accent", Value::String(DEFAULT_ACCENT.into()));
+        set_in(
+            &mut raw,
+            "launcher",
+            "accent",
+            Value::String(DEFAULT_ACCENT.into()),
+        );
         set_in(&mut raw, "launcher", "compact", Value::Bool(false));
     }
 
@@ -292,13 +297,22 @@ mod tests {
     fn an_empty_catalog_url_falls_back_to_the_built_in_one() {
         let mut config = AppConfig::defaults(Path::new("/cfg"));
 
-        assert_eq!(config.launcher.catalog_url(), crate::castpack::catalog::DEFAULT_URL);
+        assert_eq!(
+            config.launcher.catalog_url(),
+            crate::castpack::catalog::DEFAULT_URL
+        );
 
         config.launcher.castpack_url = "   ".into();
-        assert_eq!(config.launcher.catalog_url(), crate::castpack::catalog::DEFAULT_URL);
+        assert_eq!(
+            config.launcher.catalog_url(),
+            crate::castpack::catalog::DEFAULT_URL
+        );
 
         config.launcher.castpack_url = " https://свой.каталог/packs.json ".into();
-        assert_eq!(config.launcher.catalog_url(), "https://свой.каталог/packs.json");
+        assert_eq!(
+            config.launcher.catalog_url(),
+            "https://свой.каталог/packs.json"
+        );
     }
 
     #[test]
@@ -309,7 +323,10 @@ mod tests {
         }));
 
         assert!(config.launcher.castpack_url.is_empty());
-        assert_eq!(config.launcher.catalog_url(), crate::castpack::catalog::DEFAULT_URL);
+        assert_eq!(
+            config.launcher.catalog_url(),
+            crate::castpack::catalog::DEFAULT_URL
+        );
     }
 
     #[test]

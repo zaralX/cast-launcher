@@ -8,9 +8,9 @@ use url::Url;
 
 use crate::error::{CommandError, CommandResult};
 use crate::instance::{LoaderType, PackProvider};
+use crate::mods::catalog::{CatalogMatch, CatalogProject, CatalogVersion, Dependency};
 use crate::net::http;
 use crate::net::meta_cache::MetaCache;
-use crate::mods::catalog::{CatalogMatch, CatalogProject, CatalogVersion, Dependency};
 use crate::packs::{Category, FileHashes, PackFile, PackFilters, PackHit, PackPage, PackVersion};
 
 pub const API: &str = "https://api.modrinth.com/v2";
@@ -50,7 +50,8 @@ impl From<&crate::packs::SearchQuery> for SearchQuery {
 
 impl SearchQuery {
     pub fn url(&self) -> String {
-        let mut url = Url::parse(&format!("{API}/search")).expect("постоянный адрес поиска Modrinth");
+        let mut url =
+            Url::parse(&format!("{API}/search")).expect("постоянный адрес поиска Modrinth");
 
         {
             let mut pairs = url.query_pairs_mut();
@@ -113,7 +114,10 @@ impl SearchQuery {
 }
 
 fn clean(values: &[String]) -> impl Iterator<Item = &str> {
-    values.iter().map(|value| value.trim()).filter(|value| !value.is_empty())
+    values
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -312,13 +316,15 @@ impl From<Version> for PackVersion {
 }
 
 pub fn loader_from_tags(loaders: &[String]) -> Option<LoaderType> {
-    loaders.iter().find_map(|loader| match loader.trim().to_ascii_lowercase().as_str() {
-        "fabric" => Some(LoaderType::Fabric),
-        "forge" => Some(LoaderType::Forge),
-        "neoforge" => Some(LoaderType::NeoForge),
-        "minecraft" | "vanilla" => Some(LoaderType::Vanilla),
-        _ => None,
-    })
+    loaders
+        .iter()
+        .find_map(|loader| match loader.trim().to_ascii_lowercase().as_str() {
+            "fabric" => Some(LoaderType::Fabric),
+            "forge" => Some(LoaderType::Forge),
+            "neoforge" => Some(LoaderType::NeoForge),
+            "minecraft" | "vanilla" => Some(LoaderType::Vanilla),
+            _ => None,
+        })
 }
 
 pub async fn search(query: &crate::packs::SearchQuery) -> CommandResult<PackPage> {
@@ -427,7 +433,10 @@ async fn apply_folders(files: &mut BTreeMap<String, CatalogFile>) {
     }
 
     let ids: Vec<&str> = {
-        let mut ids: Vec<&str> = files.values().map(|file| file.project_id.as_str()).collect();
+        let mut ids: Vec<&str> = files
+            .values()
+            .map(|file| file.project_id.as_str())
+            .collect();
         ids.sort_unstable();
         ids.dedup();
         ids
@@ -461,7 +470,8 @@ fn ids_url(path: &str, ids: &[&str]) -> String {
     let quoted: Vec<String> = ids.iter().map(|id| format!("\"{id}\"")).collect();
 
     let mut url = Url::parse(&format!("{API}/{path}")).expect("постоянный адрес Modrinth");
-    url.query_pairs_mut().append_pair("ids", &format!("[{}]", quoted.join(",")));
+    url.query_pairs_mut()
+        .append_pair("ids", &format!("[{}]", quoted.join(",")));
 
     url.into()
 }
@@ -472,7 +482,10 @@ pub async fn files_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, 
     Ok(found
         .into_iter()
         .filter_map(|(hash, version)| {
-            version.primary_file().cloned().map(|file| (hash, PackFile::from(file)))
+            version
+                .primary_file()
+                .cloned()
+                .map(|file| (hash, PackFile::from(file)))
         })
         .collect())
 }
@@ -547,19 +560,26 @@ pub async fn identify(hashes: &[String]) -> CommandResult<BTreeMap<String, Catal
     }
 
     let ids: Vec<&str> = {
-        let mut ids: Vec<&str> = found.values().map(|version| version.project_id.as_str()).collect();
+        let mut ids: Vec<&str> = found
+            .values()
+            .map(|version| version.project_id.as_str())
+            .collect();
         ids.sort_unstable();
         ids.dedup();
         ids
     };
 
-    let projects: BTreeMap<String, Project> = match get_json::<Vec<Project>>(&ids_url("projects", &ids)).await {
-        Ok(projects) => projects.into_iter().map(|project| (project.id.clone(), project)).collect(),
-        Err(error) => {
-            eprintln!("Modrinth не отдал проекты модов: {error}");
-            BTreeMap::new()
-        }
-    };
+    let projects: BTreeMap<String, Project> =
+        match get_json::<Vec<Project>>(&ids_url("projects", &ids)).await {
+            Ok(projects) => projects
+                .into_iter()
+                .map(|project| (project.id.clone(), project))
+                .collect(),
+            Err(error) => {
+                eprintln!("Modrinth не отдал проекты модов: {error}");
+                BTreeMap::new()
+            }
+        };
 
     Ok(found
         .into_iter()
@@ -571,7 +591,9 @@ pub async fn identify(hashes: &[String]) -> CommandResult<BTreeMap<String, Catal
                 project_id: version.project_id.clone(),
                 version_id: version.id.clone(),
                 version_number: version.version_number.clone(),
-                title: project.map(|p| p.title.clone()).unwrap_or_else(|| version.name.clone()),
+                title: project
+                    .map(|p| p.title.clone())
+                    .unwrap_or_else(|| version.name.clone()),
                 slug: project.map(|p| p.slug.clone()).unwrap_or_default(),
                 icon_url: project.and_then(|p| p.icon_url.clone()).unwrap_or_default(),
                 page_url: project.map(page_url).unwrap_or_default(),
@@ -738,9 +760,15 @@ fn json_array(values: &[&str]) -> String {
 }
 
 async fn post_json<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> CommandResult<T> {
-    let response = http::client().post(url).json(body).send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
-    })?;
+    let response = http::client()
+        .post(url)
+        .json(body)
+        .send()
+        .await
+        .map_err(|e| {
+            CommandError::network("Не удалось связаться с Modrinth")
+                .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
+        })?;
 
     let status = response.status();
     if !status.is_success() {
@@ -748,7 +776,8 @@ async fn post_json<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> Co
     }
 
     response.json::<T>().await.map_err(|e| {
-        CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
+        CommandError::manifest("Modrinth ответил в неожиданном формате")
+            .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
 
@@ -800,7 +829,12 @@ pub async fn filters(meta: &MetaCache) -> CommandResult<PackFilters> {
 
     let loaders = raw_loaders
         .into_iter()
-        .filter(|loader| loader.supported_project_types.iter().any(|kind| kind == "modpack"))
+        .filter(|loader| {
+            loader
+                .supported_project_types
+                .iter()
+                .any(|kind| kind == "modpack")
+        })
         .map(|loader| loader.name)
         .filter(|name| loader_from_tags(std::slice::from_ref(name)).is_some())
         .collect();
@@ -831,14 +865,15 @@ fn segment(value: &str) -> CommandResult<&str> {
             .chars()
             .all(|symbol| symbol.is_ascii_alphanumeric() || matches!(symbol, '-' | '_' | '.'));
 
-    valid
-        .then_some(value)
-        .ok_or_else(|| CommandError::manifest(format!("Недопустимый идентификатор Modrinth: {value}")))
+    valid.then_some(value).ok_or_else(|| {
+        CommandError::manifest(format!("Недопустимый идентификатор Modrinth: {value}"))
+    })
 }
 
 async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
     let response = http::client().get(url).send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с Modrinth").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
+        CommandError::network("Не удалось связаться с Modrinth")
+            .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     let status = response.status();
@@ -847,7 +882,8 @@ async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
     }
 
     response.json::<T>().await.map_err(|e| {
-        CommandError::manifest("Modrinth ответил в неожиданном формате").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
+        CommandError::manifest("Modrinth ответил в неожиданном формате")
+            .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
 
@@ -855,7 +891,11 @@ async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
 mod tests {
     use super::*;
 
-    fn mod_query(text: &str, loader: LoaderType, game_version: &str) -> crate::mods::install::ModSearch {
+    fn mod_query(
+        text: &str,
+        loader: LoaderType,
+        game_version: &str,
+    ) -> crate::mods::install::ModSearch {
         crate::mods::install::ModSearch {
             provider: PackProvider::Modrinth,
             query: text.to_string(),
@@ -885,7 +925,9 @@ mod tests {
         assert!(facets.contains(&vec!["project_type:mod".to_string()]));
         assert!(facets.contains(&vec!["categories:fabric".to_string()]));
         assert!(facets.contains(&vec!["versions:1.20.1".to_string()]));
-        assert!(!facets.iter().any(|group| group.iter().any(|facet| facet.contains("modpack"))));
+        assert!(!facets
+            .iter()
+            .any(|group| group.iter().any(|facet| facet.contains("modpack"))));
     }
 
     #[test]
@@ -909,7 +951,10 @@ mod tests {
         assert!(!of("optional", Some("sodium")).unwrap().required);
         assert!(of("incompatible", Some("optifine")).is_none());
         assert!(of("embedded", Some("shim")).is_none());
-        assert!(of("required", None).is_none(), "зависимость без проекта бесполезна");
+        assert!(
+            of("required", None).is_none(),
+            "зависимость без проекта бесполезна"
+        );
     }
 
     fn parse_facets(query: &SearchQuery) -> Vec<Vec<String>> {
@@ -933,10 +978,16 @@ mod tests {
 
         let facets = parse_facets(&query);
 
-        assert!(facets.contains(&vec!["categories:fabric".to_string(), "categories:forge".to_string()]));
+        assert!(facets.contains(&vec![
+            "categories:fabric".to_string(),
+            "categories:forge".to_string()
+        ]));
         assert!(facets.contains(&vec!["categories:adventure".to_string()]));
         assert!(facets.contains(&vec!["categories:magic".to_string()]));
-        assert!(facets.contains(&vec!["versions:1.20.1".to_string(), "versions:1.21".to_string()]));
+        assert!(facets.contains(&vec![
+            "versions:1.20.1".to_string(),
+            "versions:1.21".to_string()
+        ]));
     }
 
     #[test]
@@ -949,7 +1000,11 @@ mod tests {
 
         let facets = parse_facets(&query);
 
-        assert_eq!(facets.len(), 2, "остаться должны только тип проекта и fabric");
+        assert_eq!(
+            facets.len(),
+            2,
+            "остаться должны только тип проекта и fabric"
+        );
         assert!(facets.contains(&vec!["categories:fabric".to_string()]));
     }
 
@@ -1136,6 +1191,9 @@ mod tests {
         assert!(segment("../../admin").is_err());
         assert!(segment("pack id").is_err());
         assert!(segment("").is_err());
-        assert_eq!(segment(" fabulously-optimized ").unwrap(), "fabulously-optimized");
+        assert_eq!(
+            segment(" fabulously-optimized ").unwrap(),
+            "fabulously-optimized"
+        );
     }
 }

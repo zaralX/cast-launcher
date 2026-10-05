@@ -79,8 +79,16 @@ impl ModsIndex {
             .and_then(|entry| entry.hashes.as_ref())
     }
 
-    pub fn remember_hashes(&mut self, path: &str, size: u64, modified: u64, hashes: &FileHashes) -> bool {
-        let Some(entry) = self.entries.get_mut(path) else { return false };
+    pub fn remember_hashes(
+        &mut self,
+        path: &str,
+        size: u64,
+        modified: u64,
+        hashes: &FileHashes,
+    ) -> bool {
+        let Some(entry) = self.entries.get_mut(path) else {
+            return false;
+        };
 
         if entry.size != size || entry.modified != modified {
             return false;
@@ -105,7 +113,8 @@ impl ModsIndex {
     pub fn retain(&mut self, alive: &[String]) -> bool {
         let before = self.entries.len();
 
-        self.entries.retain(|path, _| alive.iter().any(|kept| kept == path));
+        self.entries
+            .retain(|path, _| alive.iter().any(|kept| kept == path));
 
         self.entries.len() != before
     }
@@ -128,8 +137,14 @@ mod tests {
         index.remember("mods/jei.jar", 100, 42, &details("JEI"));
 
         assert_eq!(index.reusable("mods/jei.jar", 100, 42).unwrap().name, "JEI");
-        assert!(index.reusable("mods/jei.jar", 101, 42).is_none(), "размер изменился");
-        assert!(index.reusable("mods/jei.jar", 100, 43).is_none(), "файл перезаписан");
+        assert!(
+            index.reusable("mods/jei.jar", 101, 42).is_none(),
+            "размер изменился"
+        );
+        assert!(
+            index.reusable("mods/jei.jar", 100, 43).is_none(),
+            "файл перезаписан"
+        );
         assert!(index.reusable("mods/other.jar", 100, 42).is_none());
     }
 
@@ -140,7 +155,10 @@ mod tests {
         index.remember("mods/gone.jar", 1, 1, &details("Gone"));
 
         assert!(index.retain(&["mods/jei.jar".to_string()]));
-        assert!(!index.retain(&["mods/jei.jar".to_string()]), "второй раз выбрасывать нечего");
+        assert!(
+            !index.retain(&["mods/jei.jar".to_string()]),
+            "второй раз выбрасывать нечего"
+        );
 
         assert_eq!(index.entries.len(), 1);
         assert!(index.entries.contains_key("mods/jei.jar"));
@@ -160,10 +178,17 @@ mod tests {
         assert_eq!(index.hashes("mods/jei.jar", 100, 42), Some(&hashes));
 
         index.remember("mods/jei.jar", 100, 42, &details("JEI 2"));
-        assert_eq!(index.hashes("mods/jei.jar", 100, 42), Some(&hashes), "разбор не сбрасывает хэш");
+        assert_eq!(
+            index.hashes("mods/jei.jar", 100, 42),
+            Some(&hashes),
+            "разбор не сбрасывает хэш"
+        );
 
         index.remember("mods/jei.jar", 101, 42, &details("JEI 3"));
-        assert!(index.hashes("mods/jei.jar", 101, 42).is_none(), "файл изменился - хэш заново");
+        assert!(
+            index.hashes("mods/jei.jar", 101, 42).is_none(),
+            "файл изменился - хэш заново"
+        );
     }
 
     #[test]
@@ -181,7 +206,13 @@ mod tests {
         index.remember("mods/jei.jar", 100, 42, &details("JEI"));
 
         assert!(index.rename("mods/jei.jar", "mods/jei.jar.disabled"));
-        assert_eq!(index.reusable("mods/jei.jar.disabled", 100, 42).unwrap().name, "JEI");
+        assert_eq!(
+            index
+                .reusable("mods/jei.jar.disabled", 100, 42)
+                .unwrap()
+                .name,
+            "JEI"
+        );
         assert!(index.reusable("mods/jei.jar", 100, 42).is_none());
 
         assert!(!index.rename("mods/ghost.jar", "mods/ghost.jar.disabled"));

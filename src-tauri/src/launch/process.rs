@@ -206,15 +206,20 @@ impl ProcessRegistry {
             settled: AtomicBool::new(false),
         });
 
-        self.processes.write().await.insert(run_id.clone(), Arc::clone(&process));
+        self.processes
+            .write()
+            .await
+            .insert(run_id.clone(), Arc::clone(&process));
         self.alive.fetch_add(1, Ordering::SeqCst);
 
         LauncherEvent::GameStarted { game: info.clone() }.emit(&app);
 
         settle_on_timeout(app.clone(), Arc::clone(&process));
 
-        let pumps = [stdout.map(|out| pump(app.clone(), Arc::clone(&process), out, false)),
-                     stderr.map(|err| pump(app.clone(), Arc::clone(&process), err, true))];
+        let pumps = [
+            stdout.map(|out| pump(app.clone(), Arc::clone(&process), out, false)),
+            stderr.map(|err| pump(app.clone(), Arc::clone(&process), err, true)),
+        ];
 
         watch(app, run_id, process, child, kill_signal, pumps);
 
@@ -287,8 +292,16 @@ fn watch(
         }
 
         if let Some(state) = app.try_state::<Arc<crate::state::AppState>>() {
-            track_exit(&app, &state, &instance_id, started_at, code, log_tail.as_deref(), stopped)
-                .await;
+            track_exit(
+                &app,
+                &state,
+                &instance_id,
+                started_at,
+                code,
+                log_tail.as_deref(),
+                stopped,
+            )
+            .await;
             record_playtime(&app, &state, &instance_id, started_at).await;
             state.processes.forget(&run_id).await;
         }
@@ -333,7 +346,11 @@ async fn record_playtime(
     let seconds = Playtime::session_seconds(started_at, now_millis());
     let paths = state.paths().await;
 
-    if let Err(error) = state.instances.record_session(&paths, instance_id, seconds).await {
+    if let Err(error) = state
+        .instances
+        .record_session(&paths, instance_id, seconds)
+        .await
+    {
         eprintln!("Не удалось записать наигранное время: {}", error.message);
         return;
     }

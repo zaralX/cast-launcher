@@ -8,9 +8,9 @@ use url::Url;
 
 use crate::error::{CommandError, CommandResult};
 use crate::instance::{LoaderType, PackProvider};
+use crate::mods::catalog::{CatalogMatch, CatalogProject, CatalogVersion, Dependency};
 use crate::net::http;
 use crate::net::meta_cache::MetaCache;
-use crate::mods::catalog::{CatalogMatch, CatalogProject, CatalogVersion, Dependency};
 use crate::packs::{
     Category, FileHashes, PackFile, PackFilters, PackHit, PackPage, PackVersion, SearchQuery,
 };
@@ -78,7 +78,8 @@ fn loader_id(name: &str) -> Option<u32> {
 }
 
 pub fn search_url(query: &SearchQuery) -> String {
-    let mut url = Url::parse(&format!("{API}/mods/search")).expect("постоянный адрес поиска CurseForge");
+    let mut url =
+        Url::parse(&format!("{API}/mods/search")).expect("постоянный адрес поиска CurseForge");
 
     let limit = query.limit.clamp(1, MAX_LIMIT);
     let offset = query.offset.min(MAX_OFFSET.saturating_sub(limit));
@@ -200,7 +201,12 @@ pub async fn identify(fingerprints: &[u32]) -> CommandResult<BTreeMap<u32, Catal
     let found: Envelope<Matches> =
         post_json(&format!("{API}/fingerprints"), &Body { fingerprints }).await?;
 
-    let files: Vec<RawFile> = found.data.exact_matches.into_iter().map(|entry| entry.file).collect();
+    let files: Vec<RawFile> = found
+        .data
+        .exact_matches
+        .into_iter()
+        .map(|entry| entry.file)
+        .collect();
 
     if files.is_empty() {
         return Ok(BTreeMap::new());
@@ -231,10 +237,15 @@ pub async fn identify(fingerprints: &[u32]) -> CommandResult<BTreeMap<u32, Catal
                 project_id: file.mod_id.to_string(),
                 version_id: file.id.to_string(),
                 version_number: file.display_name.clone(),
-                title: project.map(|p| p.name.clone()).unwrap_or_else(|| file.file_name.clone()),
+                title: project
+                    .map(|p| p.name.clone())
+                    .unwrap_or_else(|| file.file_name.clone()),
                 slug: project.map(|p| p.slug.clone()).unwrap_or_default(),
                 icon_url: project.and_then(logo_url).unwrap_or_default(),
-                page_url: project.and_then(|p| p.website_url()).unwrap_or_default().to_string(),
+                page_url: project
+                    .and_then(|p| p.website_url())
+                    .unwrap_or_default()
+                    .to_string(),
                 authors: project
                     .map(|p| p.authors.iter().map(|author| author.name.clone()).collect())
                     .unwrap_or_default(),
@@ -263,7 +274,11 @@ pub async fn projects_info(ids: &[String]) -> CommandResult<BTreeMap<String, Cat
                 slug: project.slug.clone(),
                 icon_url: logo_url(&project).unwrap_or_default(),
                 page_url: project.website_url().unwrap_or_default().to_string(),
-                authors: project.authors.iter().map(|author| author.name.clone()).collect(),
+                authors: project
+                    .authors
+                    .iter()
+                    .map(|author| author.name.clone())
+                    .collect(),
             };
 
             (id.to_string(), info)
@@ -290,7 +305,8 @@ pub(crate) fn mod_search_url(query: &crate::mods::install::ModSearch) -> String 
     let limit = query.limit.clamp(1, MAX_LIMIT);
     let offset = query.offset.min(MAX_OFFSET.saturating_sub(limit));
 
-    let mut url = Url::parse(&format!("{API}/mods/search")).expect("постоянный адрес поиска CurseForge");
+    let mut url =
+        Url::parse(&format!("{API}/mods/search")).expect("постоянный адрес поиска CurseForge");
 
     {
         let mut pairs = url.query_pairs_mut();
@@ -332,7 +348,10 @@ pub async fn mod_versions(
     Ok(files.into_iter().map(catalog_version).collect())
 }
 
-pub async fn mod_version(project_id: &str, version_id: &str) -> CommandResult<Option<CatalogVersion>> {
+pub async fn mod_version(
+    project_id: &str,
+    version_id: &str,
+) -> CommandResult<Option<CatalogVersion>> {
     let project = numeric(project_id)?;
     let file = numeric(version_id)?;
 
@@ -349,7 +368,9 @@ async fn compatible_files(
     let id = numeric(project_id)?;
 
     let mut url = Url::parse(&format!("{API}/mods/{id}/files")).map_err(|_| {
-        CommandError::manifest(format!("Недопустимый идентификатор CurseForge: {project_id}"))
+        CommandError::manifest(format!(
+            "Недопустимый идентификатор CurseForge: {project_id}"
+        ))
     })?;
 
     {
@@ -410,9 +431,14 @@ async fn mods_by_id(ids: &[u64]) -> CommandResult<BTreeMap<u64, RawMod>> {
         mod_ids: &'a [u64],
     }
 
-    let found: Envelope<Vec<RawMod>> = post_json(&format!("{API}/mods"), &Body { mod_ids: ids }).await?;
+    let found: Envelope<Vec<RawMod>> =
+        post_json(&format!("{API}/mods"), &Body { mod_ids: ids }).await?;
 
-    Ok(found.data.into_iter().map(|project| (project.id, project)).collect())
+    Ok(found
+        .data
+        .into_iter()
+        .map(|project| (project.id, project))
+        .collect())
 }
 
 fn logo_url(project: &RawMod) -> Option<String> {
@@ -433,8 +459,11 @@ pub async fn latest_mod(
 ) -> CommandResult<Option<CatalogVersion>> {
     let id = numeric(project_id)?;
 
-    let mut url = Url::parse(&format!("{API}/mods/{id}/files"))
-        .map_err(|_| CommandError::manifest(format!("Недопустимый идентификатор CurseForge: {project_id}")))?;
+    let mut url = Url::parse(&format!("{API}/mods/{id}/files")).map_err(|_| {
+        CommandError::manifest(format!(
+            "Недопустимый идентификатор CurseForge: {project_id}"
+        ))
+    })?;
 
     {
         let mut pairs = url.query_pairs_mut();
@@ -518,9 +547,9 @@ fn numeric(value: &str) -> CommandResult<&str> {
         && value.len() <= 12
         && value.chars().all(|symbol| symbol.is_ascii_digit());
 
-    valid
-        .then_some(value)
-        .ok_or_else(|| CommandError::manifest(format!("Недопустимый идентификатор CurseForge: {value}")))
+    valid.then_some(value).ok_or_else(|| {
+        CommandError::manifest(format!("Недопустимый идентификатор CurseForge: {value}"))
+    })
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -611,7 +640,9 @@ impl RawMod {
     }
 
     pub(crate) fn website_url(&self) -> Option<&str> {
-        self.links.as_ref().and_then(|links| links.website_url.as_deref())
+        self.links
+            .as_ref()
+            .and_then(|links| links.website_url.as_deref())
     }
 
     pub(crate) fn target_folder(&self) -> &'static str {
@@ -773,12 +804,14 @@ fn split_game_versions(values: &[String]) -> (Vec<String>, Vec<String>) {
 }
 
 pub(crate) fn loader_from_tags(loaders: &[String]) -> Option<LoaderType> {
-    loaders.iter().find_map(|loader| match loader.trim().to_ascii_lowercase().as_str() {
-        "fabric" => Some(LoaderType::Fabric),
-        "forge" => Some(LoaderType::Forge),
-        "neoforge" => Some(LoaderType::NeoForge),
-        _ => None,
-    })
+    loaders
+        .iter()
+        .find_map(|loader| match loader.trim().to_ascii_lowercase().as_str() {
+            "fabric" => Some(LoaderType::Fabric),
+            "forge" => Some(LoaderType::Forge),
+            "neoforge" => Some(LoaderType::NeoForge),
+            _ => None,
+        })
 }
 
 fn release_type(value: u32) -> &'static str {
@@ -835,7 +868,8 @@ pub(crate) async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T>
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с CurseForge").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
+        CommandError::network("Не удалось связаться с CurseForge")
+            .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     read_json(response, url).await
@@ -852,13 +886,17 @@ pub(crate) async fn post_json<B: Serialize, T: DeserializeOwned>(
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с CurseForge").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
+        CommandError::network("Не удалось связаться с CurseForge")
+            .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
     read_json(response, url).await
 }
 
-async fn read_json<T: DeserializeOwned>(response: reqwest::Response, url: &str) -> CommandResult<T> {
+async fn read_json<T: DeserializeOwned>(
+    response: reqwest::Response,
+    url: &str,
+) -> CommandResult<T> {
     let status = response.status();
 
     if !status.is_success() {
@@ -879,7 +917,8 @@ async fn read_json<T: DeserializeOwned>(response: reqwest::Response, url: &str) 
     }
 
     let body = response.bytes().await.map_err(|e| {
-        CommandError::network(format!("Обрыв ответа CurseForge: {url}")).with_details(crate::error::error_chain(&e))
+        CommandError::network(format!("Обрыв ответа CurseForge: {url}"))
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     serde_json::from_slice(&body).map_err(|e| {
@@ -964,7 +1003,12 @@ mod tests {
 
     #[test]
     fn only_required_and_optional_relations_reach_the_plan() {
-        let of = |relation_type: u32, mod_id: u64| dependency(&RawRelation { mod_id, relation_type });
+        let of = |relation_type: u32, mod_id: u64| {
+            dependency(&RawRelation {
+                mod_id,
+                relation_type,
+            })
+        };
 
         assert!(of(3, 238222).unwrap().required);
         assert!(!of(2, 238222).unwrap().required);
@@ -1030,8 +1074,14 @@ mod tests {
             ..query()
         });
 
-        assert!(!url.contains("modLoaderTypes"), "неизвестный загрузчик отбрасываем");
-        assert!(!url.contains("categoryIds"), "нечисловую категорию отбрасываем");
+        assert!(
+            !url.contains("modLoaderTypes"),
+            "неизвестный загрузчик отбрасываем"
+        );
+        assert!(
+            !url.contains("categoryIds"),
+            "нечисловую категорию отбрасываем"
+        );
     }
 
     #[test]
@@ -1042,7 +1092,11 @@ mod tests {
         });
 
         assert!(url.contains("gameVersion=1.20.1"));
-        assert_eq!(url.matches("gameVersion=").count(), 1, "API принимает только одну");
+        assert_eq!(
+            url.matches("gameVersion=").count(),
+            1,
+            "API принимает только одну"
+        );
     }
 
     #[test]
@@ -1098,7 +1152,11 @@ mod tests {
         assert!(!version.blocked);
 
         let archive = version.file.unwrap();
-        assert_eq!(archive.hashes.sha1.as_deref(), Some("aa09"), "md5 нам не подходит");
+        assert_eq!(
+            archive.hashes.sha1.as_deref(),
+            Some("aa09"),
+            "md5 нам не подходит"
+        );
         assert_eq!(archive.size, Some(200194596));
     }
 
@@ -1195,8 +1253,15 @@ mod tests {
         assert_eq!(hit.project_id, "925200");
         assert_eq!(hit.downloads, 20_482_494);
         assert_eq!(hit.author.as_deref(), Some("ATMTeam"));
-        assert_eq!(hit.icon_url.as_deref(), Some("https://media.forgecdn.net/thumb.png"));
-        assert_eq!(hit.versions, vec!["1.21.1"], "дубли и загрузчики в список версий не идут");
+        assert_eq!(
+            hit.icon_url.as_deref(),
+            Some("https://media.forgecdn.net/thumb.png")
+        );
+        assert_eq!(
+            hit.versions,
+            vec!["1.21.1"],
+            "дубли и загрузчики в список версий не идут"
+        );
         assert_eq!(hit.follows, 0);
         assert!(hit.distribution_allowed);
     }
@@ -1230,7 +1295,11 @@ mod tests {
         assert_eq!(folder(serde_json::json!(6552)), "shaderpacks");
         assert_eq!(folder(serde_json::json!(6945)), "datapacks");
         assert_eq!(folder(serde_json::json!(6)), "mods");
-        assert_eq!(folder(serde_json::json!(4546)), "mods", "оформление кладём к модам");
+        assert_eq!(
+            folder(serde_json::json!(4546)),
+            "mods",
+            "оформление кладём к модам"
+        );
         assert_eq!(folder(serde_json::Value::Null), "mods");
     }
 
@@ -1267,14 +1336,23 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(!page.hits.is_empty(), "по такому запросу что-то обязано найтись");
+        assert!(
+            !page.hits.is_empty(),
+            "по такому запросу что-то обязано найтись"
+        );
         assert!(page.total_hits > 0);
 
         let hit = &page.hits[0];
         assert_eq!(hit.provider, PackProvider::CurseForge);
         assert!(!hit.title.is_empty());
-        assert!(hit.downloads > 0, "счётчик загрузок приходит дробным числом");
-        assert!(hit.icon_url.as_deref().is_some_and(|url| url.contains("forgecdn.net")));
+        assert!(
+            hit.downloads > 0,
+            "счётчик загрузок приходит дробным числом"
+        );
+        assert!(hit
+            .icon_url
+            .as_deref()
+            .is_some_and(|url| url.contains("forgecdn.net")));
     }
 
     #[tokio::test]
@@ -1289,7 +1367,9 @@ mod tests {
         assert!(newest.minecraft_version.is_some());
         assert!(newest.date_published.is_some());
 
-        assert!(versions.windows(2).all(|pair| pair[0].date_published >= pair[1].date_published));
+        assert!(versions
+            .windows(2)
+            .all(|pair| pair[0].date_published >= pair[1].date_published));
     }
 
     #[tokio::test]
@@ -1303,7 +1383,10 @@ mod tests {
         let archive = version.file.unwrap();
         assert!(archive.url.is_empty());
         assert!(!archive.filename.is_empty());
-        assert!(archive.hashes.sha1.is_some(), "без хеша нечем проверить скачанное");
+        assert!(
+            archive.hashes.sha1.is_some(),
+            "без хеша нечем проверить скачанное"
+        );
 
         let page = download_page("886999", "4635891").await.unwrap();
         assert!(page.starts_with("https://www.curseforge.com/"), "{page}");

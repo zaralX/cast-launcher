@@ -24,15 +24,21 @@ pub async fn item_icon(meta: &MetaCache, item: &str) -> CommandResult<Vec<u8>> {
     meta.fetch_bytes(&item_icon_url(item)?).await
 }
 
-pub async fn item_names(meta: &MetaCache, language: &str) -> CommandResult<BTreeMap<String, String>> {
-    let translations: BTreeMap<String, String> =
-        meta.fetch_json(&format!("{BASE}/lang/{}", language_id(language))).await?;
+pub async fn item_names(
+    meta: &MetaCache,
+    language: &str,
+) -> CommandResult<BTreeMap<String, String>> {
+    let translations: BTreeMap<String, String> = meta
+        .fetch_json(&format!("{BASE}/lang/{}", language_id(language)))
+        .await?;
 
     let mut names = BTreeMap::new();
 
     for prefix in ["block.minecraft.", "item.minecraft."] {
         for (key, value) in &translations {
-            let Some(id) = key.strip_prefix(prefix) else { continue };
+            let Some(id) = key.strip_prefix(prefix) else {
+                continue;
+            };
 
             if is_item_id(id) {
                 names.insert(id.to_string(), value.clone());
@@ -45,7 +51,9 @@ pub async fn item_names(meta: &MetaCache, language: &str) -> CommandResult<BTree
 
 pub fn item_icon_url(item: &str) -> CommandResult<String> {
     if !is_item_id(item) {
-        return Err(CommandError::fs(format!("Некорректный идентификатор предмета: {item}")));
+        return Err(CommandError::fs(format!(
+            "Некорректный идентификатор предмета: {item}"
+        )));
     }
 
     Ok(format!("{BASE}/item/{item}/icon"))
@@ -112,7 +120,10 @@ mod tests {
         assert!(icon.starts_with(b"RIFF"), "ожидали webp");
 
         let names = item_names(&meta, "ru").await.unwrap();
-        assert_eq!(names.get("diamond_sword").map(String::as_str), Some("Алмазный меч"));
+        assert_eq!(
+            names.get("diamond_sword").map(String::as_str),
+            Some("Алмазный меч")
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

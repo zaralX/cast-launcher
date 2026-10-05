@@ -128,9 +128,17 @@ impl Opened {
 
                 pack.version = index.version_id.clone();
                 pack.description = index.summary.clone().unwrap_or_default();
-                pack.files = index.files.iter().filter(|file| file.needed_on_client()).count();
+                pack.files = index
+                    .files
+                    .iter()
+                    .filter(|file| file.needed_on_client())
+                    .count();
 
-                fill(&mut pack, index.minecraft_version().map(str::to_string), index.loader());
+                fill(
+                    &mut pack,
+                    index.minecraft_version().map(str::to_string),
+                    index.loader(),
+                );
             }
             Contents::CurseForge(manifest) => {
                 if !manifest.name.trim().is_empty() {
@@ -255,12 +263,14 @@ fn open_blocking(path: &Path) -> CommandResult<Opened> {
     };
 
     let contents = match kind {
-        LocalPackKind::Modrinth => {
-            Contents::Modrinth(Box::new(PackIndex::parse(&read(&mut archive, &format!("{root}{INDEX_ENTRY}"))?)?))
-        }
-        LocalPackKind::CurseForge => {
-            Contents::CurseForge(Box::new(Manifest::parse(&read(&mut archive, &format!("{root}{MANIFEST_ENTRY}"))?)?))
-        }
+        LocalPackKind::Modrinth => Contents::Modrinth(Box::new(PackIndex::parse(&read(
+            &mut archive,
+            &format!("{root}{INDEX_ENTRY}"),
+        )?)?)),
+        LocalPackKind::CurseForge => Contents::CurseForge(Box::new(Manifest::parse(&read(
+            &mut archive,
+            &format!("{root}{MANIFEST_ENTRY}"),
+        )?)?)),
         LocalPackKind::MultiMc => {
             let config = text(&mut archive, &format!("{root}{CONFIG_FILE}"))?;
             let pack = text(&mut archive, &format!("{root}{PACK_FILE}")).unwrap_or_default();
@@ -319,18 +329,21 @@ fn game_dir(names: &BTreeSet<String>, root: &str) -> Option<String> {
 }
 
 fn read(archive: &mut ZipArchive<File>, entry: &str) -> CommandResult<Vec<u8>> {
-    let mut file = archive
-        .by_name(entry)
-        .map_err(|e| CommandError::archive(format!("В архиве нет файла {entry}")).with_details(e.to_string()))?;
+    let mut file = archive.by_name(entry).map_err(|e| {
+        CommandError::archive(format!("В архиве нет файла {entry}")).with_details(e.to_string())
+    })?;
 
     if file.size() > MAX_MANIFEST {
-        return Err(CommandError::archive(format!("Слишком большой {entry} внутри архива")));
+        return Err(CommandError::archive(format!(
+            "Слишком большой {entry} внутри архива"
+        )));
     }
 
     let mut bytes = Vec::with_capacity(file.size() as usize);
 
-    file.read_to_end(&mut bytes)
-        .map_err(|e| CommandError::archive(format!("Не удалось прочитать {entry}")).with_details(e.to_string()))?;
+    file.read_to_end(&mut bytes).map_err(|e| {
+        CommandError::archive(format!("Не удалось прочитать {entry}")).with_details(e.to_string())
+    })?;
 
     Ok(bytes)
 }
@@ -420,10 +433,13 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("fo.mrpack");
 
-        write_zip(&path, &[
-            (INDEX_ENTRY, MRPACK_INDEX),
-            ("overrides/config/a.toml", "a"),
-        ]);
+        write_zip(
+            &path,
+            &[
+                (INDEX_ENTRY, MRPACK_INDEX),
+                ("overrides/config/a.toml", "a"),
+            ],
+        );
 
         let pack = inspect(&path).await.unwrap();
 
@@ -443,7 +459,13 @@ mod tests {
 
         assert_eq!(resolved.tasks.len(), 1);
         assert_eq!(resolved.loader, LoaderType::Fabric);
-        assert_eq!(resolved.overrides, crate::modrinth::pack::OVERRIDES.iter().map(|p| p.to_string()).collect::<Vec<_>>());
+        assert_eq!(
+            resolved.overrides,
+            crate::modrinth::pack::OVERRIDES
+                .iter()
+                .map(|p| p.to_string())
+                .collect::<Vec<_>>()
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -453,7 +475,13 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("atm9.zip");
 
-        write_zip(&path, &[(MANIFEST_ENTRY, CF_MANIFEST), ("overrides/options.txt", "fov:80")]);
+        write_zip(
+            &path,
+            &[
+                (MANIFEST_ENTRY, CF_MANIFEST),
+                ("overrides/options.txt", "fov:80"),
+            ],
+        );
 
         let pack = inspect(&path).await.unwrap();
 
@@ -478,12 +506,18 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("TerraFirmaGreg.zip");
 
-        write_zip(&path, &[
-            ("TerraFirmaGreg/instance.cfg", "[General]\nname=TerraFirmaGreg\nnotes=Моё"),
-            ("TerraFirmaGreg/mmc-pack.json", MMC_PACK),
-            ("TerraFirmaGreg/.minecraft/options.txt", "fov:80"),
-            ("TerraFirmaGreg/.minecraft/mods/jei.jar", "jar"),
-        ]);
+        write_zip(
+            &path,
+            &[
+                (
+                    "TerraFirmaGreg/instance.cfg",
+                    "[General]\nname=TerraFirmaGreg\nnotes=Моё",
+                ),
+                ("TerraFirmaGreg/mmc-pack.json", MMC_PACK),
+                ("TerraFirmaGreg/.minecraft/options.txt", "fov:80"),
+                ("TerraFirmaGreg/.minecraft/mods/jei.jar", "jar"),
+            ],
+        );
 
         let pack = inspect(&path).await.unwrap();
 
@@ -497,7 +531,10 @@ mod tests {
 
         let resolved = resolve(&path, Path::new("/mc")).await.unwrap();
 
-        assert!(resolved.tasks.is_empty(), "в экспорте MultiMC все файлы уже лежат внутри");
+        assert!(
+            resolved.tasks.is_empty(),
+            "в экспорте MultiMC все файлы уже лежат внутри"
+        );
         assert_eq!(resolved.overrides, vec!["TerraFirmaGreg/.minecraft"]);
 
         std::fs::remove_dir_all(&dir).ok();
@@ -508,17 +545,23 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("nested.zip");
 
-        write_zip(&path, &[
-            ("Мой пак/modrinth.index.json", MRPACK_INDEX),
-            ("Мой пак/overrides/options.txt", "fov:80"),
-        ]);
+        write_zip(
+            &path,
+            &[
+                ("Мой пак/modrinth.index.json", MRPACK_INDEX),
+                ("Мой пак/overrides/options.txt", "fov:80"),
+            ],
+        );
 
         let pack = inspect(&path).await.unwrap();
         assert_eq!(pack.kind, LocalPackKind::Modrinth);
 
         let resolved = resolve(&path, Path::new("/mc")).await.unwrap();
 
-        assert_eq!(resolved.overrides, vec!["Мой пак/overrides", "Мой пак/client-overrides"]);
+        assert_eq!(
+            resolved.overrides,
+            vec!["Мой пак/overrides", "Мой пак/client-overrides"]
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -529,13 +572,16 @@ mod tests {
         let minecraft = dir.join("minecraft");
 
         let prism = dir.join("prism.zip");
-        write_zip(&prism, &[
-            ("Сборка/instance.cfg", "[General]\nname=Сборка"),
-            ("Сборка/mmc-pack.json", MMC_PACK),
-            ("Сборка/.minecraft/mods/jei.jar", "jar"),
-            ("Сборка/.minecraft/config/jei/a.toml", "a"),
-            ("Сборка/лишнее.txt", "не из игры"),
-        ]);
+        write_zip(
+            &prism,
+            &[
+                ("Сборка/instance.cfg", "[General]\nname=Сборка"),
+                ("Сборка/mmc-pack.json", MMC_PACK),
+                ("Сборка/.minecraft/mods/jei.jar", "jar"),
+                ("Сборка/.minecraft/config/jei/a.toml", "a"),
+                ("Сборка/лишнее.txt", "не из игры"),
+            ],
+        );
 
         let resolved = resolve(&prism, &minecraft).await.unwrap();
         let mut extracted = Vec::new();
@@ -552,7 +598,10 @@ mod tests {
 
         assert_eq!(extracted, vec!["config/jei/a.toml", "mods/jei.jar"]);
         assert!(minecraft.join("mods").join("jei.jar").is_file());
-        assert!(!minecraft.join("лишнее.txt").exists(), "берём только папку игры");
+        assert!(
+            !minecraft.join("лишнее.txt").exists(),
+            "берём только папку игры"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -562,11 +611,14 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("quilt.mrpack");
 
-        write_zip(&path, &[(
-            INDEX_ENTRY,
-            r#"{"formatVersion": 1, "game": "minecraft", "name": "Quilt",
+        write_zip(
+            &path,
+            &[(
+                INDEX_ENTRY,
+                r#"{"formatVersion": 1, "game": "minecraft", "name": "Quilt",
                  "dependencies": {"minecraft": "1.20.1", "quilt-loader": "0.23.1"}}"#,
-        )]);
+            )],
+        );
 
         let pack = inspect(&path).await.unwrap();
 
@@ -582,7 +634,10 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("empty.zip");
 
-        write_zip(&path, &[("instance.cfg", "[General]\nname=x"), (PACK_FILE, MMC_PACK)]);
+        write_zip(
+            &path,
+            &[("instance.cfg", "[General]\nname=x"), (PACK_FILE, MMC_PACK)],
+        );
 
         let pack = inspect(&path).await.unwrap();
 
@@ -616,10 +671,13 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("Мой Модпак.mrpack");
 
-        write_zip(&path, &[(
-            INDEX_ENTRY,
-            r#"{"formatVersion": 1, "game": "minecraft", "dependencies": {"minecraft": "1.20.1"}}"#,
-        )]);
+        write_zip(
+            &path,
+            &[(
+                INDEX_ENTRY,
+                r#"{"formatVersion": 1, "game": "minecraft", "dependencies": {"minecraft": "1.20.1"}}"#,
+            )],
+        );
 
         let pack = inspect(&path).await.unwrap();
 

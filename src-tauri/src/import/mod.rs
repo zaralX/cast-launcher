@@ -72,7 +72,10 @@ async fn count_instances(kind: LauncherKind, path: &Path) -> usize {
                 .filter(|entry| entry.path().join(prism::CONFIG_FILE).is_file())
                 .count()
         }
-        LauncherKind::Modrinth => modrinth::open(path).await.map(|root| root.instances()).unwrap_or(0),
+        LauncherKind::Modrinth => modrinth::open(path)
+            .await
+            .map(|root| root.instances())
+            .unwrap_or(0),
     }
 }
 
@@ -177,7 +180,17 @@ async fn import_all(
             base: report.stats,
         };
 
-        match import_one(&state, &paths, &source, &instance, &request.options, &cancelled, &step).await {
+        match import_one(
+            &state,
+            &paths,
+            &source,
+            &instance,
+            &request.options,
+            &cancelled,
+            &step,
+        )
+        .await
+        {
             Ok((imported, stats)) => {
                 report.stats = report.stats.plus(stats);
                 report.imported.push(imported);
@@ -323,9 +336,13 @@ async fn link_pack(
         return false;
     }
 
-    let Some(pack) = &scanned.pack else { return false };
+    let Some(pack) = &scanned.pack else {
+        return false;
+    };
 
-    let Some(provider) = PackProvider::from_key(&pack.provider) else { return false };
+    let Some(provider) = PackProvider::from_key(&pack.provider) else {
+        return false;
+    };
 
     if pack.version_id.is_empty() {
         return false;
@@ -335,7 +352,9 @@ async fn link_pack(
         return false;
     };
 
-    let Some(file) = version.file else { return false };
+    let Some(file) = version.file else {
+        return false;
+    };
 
     instance.pack = Some(PackSource {
         provider,

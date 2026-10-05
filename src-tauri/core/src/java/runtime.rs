@@ -190,7 +190,9 @@ async fn finalize(
 
             for executable in &executables {
                 let path = join_relative(&root, executable);
-                let Ok(meta) = std::fs::metadata(&path) else { continue };
+                let Ok(meta) = std::fs::metadata(&path) else {
+                    continue;
+                };
 
                 let mut perms = meta.permissions();
                 perms.set_mode(perms.mode() | 0o111);
@@ -214,7 +216,10 @@ async fn finalize(
 
 fn join_relative(base: &Path, relative: &str) -> PathBuf {
     let mut path = base.to_path_buf();
-    for part in relative.split('/').filter(|part| !part.is_empty() && *part != ".") {
+    for part in relative
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+    {
         path.push(part);
     }
     path
@@ -234,13 +239,28 @@ mod tests {
 
     #[test]
     fn platform_keys_follow_jvm_architecture() {
-        assert_eq!(platform_key(&ctx(MojangOs::Windows, "x86_64")), Some("windows-x64"));
-        assert_eq!(platform_key(&ctx(MojangOs::Windows, "x86")), Some("windows-x86"));
-        assert_eq!(platform_key(&ctx(MojangOs::Windows, "arm64")), Some("windows-arm64"));
-        assert_eq!(platform_key(&ctx(MojangOs::Osx, "arm64")), Some("mac-os-arm64"));
+        assert_eq!(
+            platform_key(&ctx(MojangOs::Windows, "x86_64")),
+            Some("windows-x64")
+        );
+        assert_eq!(
+            platform_key(&ctx(MojangOs::Windows, "x86")),
+            Some("windows-x86")
+        );
+        assert_eq!(
+            platform_key(&ctx(MojangOs::Windows, "arm64")),
+            Some("windows-arm64")
+        );
+        assert_eq!(
+            platform_key(&ctx(MojangOs::Osx, "arm64")),
+            Some("mac-os-arm64")
+        );
         assert_eq!(platform_key(&ctx(MojangOs::Osx, "x86_64")), Some("mac-os"));
         assert_eq!(platform_key(&ctx(MojangOs::Linux, "x86_64")), Some("linux"));
-        assert_eq!(platform_key(&ctx(MojangOs::Linux, "x86")), Some("linux-i386"));
+        assert_eq!(
+            platform_key(&ctx(MojangOs::Linux, "x86")),
+            Some("linux-i386")
+        );
     }
 
     #[test]

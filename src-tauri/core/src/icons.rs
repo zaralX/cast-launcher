@@ -64,7 +64,9 @@ pub async fn list(dir: &Path) -> CommandResult<Vec<IconFile>> {
             continue;
         }
 
-        let Ok(metadata) = entry.metadata().await else { continue };
+        let Ok(metadata) = entry.metadata().await else {
+            continue;
+        };
 
         if !metadata.is_file() {
             continue;
@@ -82,7 +84,11 @@ pub async fn list(dir: &Path) -> CommandResult<Vec<IconFile>> {
         });
     }
 
-    icons.sort_by(|a, b| b.modified.cmp(&a.modified).then_with(|| a.name.cmp(&b.name)));
+    icons.sort_by(|a, b| {
+        b.modified
+            .cmp(&a.modified)
+            .then_with(|| a.name.cmp(&b.name))
+    });
 
     Ok(icons)
 }
@@ -110,7 +116,10 @@ pub async fn import(dir: &Path, source: &Path) -> CommandResult<IconFile> {
         .map_err(|e| CommandError::io("Не удалось прочитать картинку", source, e))?;
 
     if !metadata.is_file() {
-        return Err(CommandError::fs(format!("Это не файл: {}", source.display())));
+        return Err(CommandError::fs(format!(
+            "Это не файл: {}",
+            source.display()
+        )));
     }
 
     if metadata.len() > MAX_SIZE {
@@ -124,7 +133,9 @@ pub async fn import(dir: &Path, source: &Path) -> CommandResult<IconFile> {
         .await
         .map_err(|e| CommandError::io("Не удалось прочитать картинку", source, e))?;
 
-    let name = source.file_name().map(|name| name.to_string_lossy().to_string());
+    let name = source
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string());
 
     save(dir, &name.unwrap_or_else(|| "icon.png".into()), &bytes).await
 }
@@ -174,7 +185,8 @@ pub async fn save_once(dir: &Path, name: &str, bytes: &[u8]) -> CommandResult<Ic
 }
 
 pub async fn data_url(path: &Path) -> CommandResult<String> {
-    let mime = mime(path).ok_or_else(|| CommandError::fs(format!("Это не картинка: {}", path.display())))?;
+    let mime = mime(path)
+        .ok_or_else(|| CommandError::fs(format!("Это не картинка: {}", path.display())))?;
 
     let bytes = tokio::fs::read(path)
         .await
@@ -221,7 +233,11 @@ fn sanitize_name(name: &str) -> String {
         .collect();
 
     let stem: String = stem.trim_matches(['-', '.']).chars().take(64).collect();
-    let stem = if stem.is_empty() { "icon".to_string() } else { stem };
+    let stem = if stem.is_empty() {
+        "icon".to_string()
+    } else {
+        stem
+    };
 
     format!("{stem}.{extension}")
 }
@@ -229,7 +245,10 @@ fn sanitize_name(name: &str) -> String {
 fn unique_name(dir: &Path, name: &str) -> String {
     let path = Path::new(name);
 
-    let stem = path.file_stem().map(|stem| stem.to_string_lossy().to_string()).unwrap_or_default();
+    let stem = path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())
+        .unwrap_or_default();
     let extension = path
         .extension()
         .map(|extension| extension.to_string_lossy().to_string())
@@ -324,8 +343,12 @@ mod tests {
     async fn saving_the_same_catalog_icon_twice_reuses_the_file() {
         let dir = temp_dir();
 
-        let one = save_once(&dir, "mc-grass_block.webp", b"pixels").await.unwrap();
-        let two = save_once(&dir, "mc-grass_block.webp", b"pixels").await.unwrap();
+        let one = save_once(&dir, "mc-grass_block.webp", b"pixels")
+            .await
+            .unwrap();
+        let two = save_once(&dir, "mc-grass_block.webp", b"pixels")
+            .await
+            .unwrap();
 
         assert_eq!(one.name, two.name);
         assert_eq!(list(&dir).await.unwrap().len(), 1);

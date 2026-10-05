@@ -161,7 +161,9 @@ fn parse_loader(id: &str, minecraft: &str) -> CommandResult<(LoaderType, Option<
     }
 
     if id.starts_with("quilt-") {
-        return Err(CommandError::manifest("Модпаки на Quilt пока не поддерживаются"));
+        return Err(CommandError::manifest(
+            "Модпаки на Quilt пока не поддерживаются",
+        ));
     }
 
     Err(CommandError::manifest(format!(
@@ -305,11 +307,15 @@ async fn recover_blocked(files: &mut [ResolvedFile]) {
         return;
     }
 
-    let found = crate::modrinth::files_by_sha1(&hashes).await.unwrap_or_default();
+    let found = crate::modrinth::files_by_sha1(&hashes)
+        .await
+        .unwrap_or_default();
 
     for file in files.iter_mut().filter(|file| file.url.is_none()) {
         let Some(sha1) = &file.sha1 else { continue };
-        let Some(replacement) = found.get(sha1) else { continue };
+        let Some(replacement) = found.get(sha1) else {
+            continue;
+        };
 
         file.url = Some(replacement.url.clone());
         file.size = replacement.size.or(file.size);
@@ -332,7 +338,8 @@ async fn files_by_ids(file_ids: &[u64]) -> CommandResult<Vec<RawFile>> {
     let mut collected = Vec::with_capacity(file_ids.len());
 
     for chunk in file_ids.chunks(BATCH) {
-        let response: Response = post_json(&format!("{API}/mods/files"), &Body { file_ids: chunk }).await?;
+        let response: Response =
+            post_json(&format!("{API}/mods/files"), &Body { file_ids: chunk }).await?;
 
         collected.extend(response.data);
     }
@@ -340,7 +347,9 @@ async fn files_by_ids(file_ids: &[u64]) -> CommandResult<Vec<RawFile>> {
     Ok(collected)
 }
 
-async fn mods_by_ids(mod_ids: &[u64]) -> CommandResult<BTreeMap<u64, (&'static str, Option<String>)>> {
+async fn mods_by_ids(
+    mod_ids: &[u64],
+) -> CommandResult<BTreeMap<u64, (&'static str, Option<String>)>> {
     #[derive(Serialize)]
     struct Body<'a> {
         #[serde(rename = "modIds")]
@@ -356,12 +365,16 @@ async fn mods_by_ids(mod_ids: &[u64]) -> CommandResult<BTreeMap<u64, (&'static s
     let mut collected = BTreeMap::new();
 
     for chunk in mod_ids.chunks(BATCH) {
-        let response: Response = post_json(&format!("{API}/mods"), &Body { mod_ids: chunk }).await?;
+        let response: Response =
+            post_json(&format!("{API}/mods"), &Body { mod_ids: chunk }).await?;
 
         for project in response.data {
             collected.insert(
                 project.id(),
-                (project.target_folder(), project.website_url().map(str::to_string)),
+                (
+                    project.target_folder(),
+                    project.website_url().map(str::to_string),
+                ),
             );
         }
     }
@@ -395,8 +408,12 @@ mod tests {
         let mut json = json;
         let object = json.as_object_mut().unwrap();
 
-        object.entry("manifestType").or_insert(serde_json::json!(MANIFEST_TYPE));
-        object.entry("manifestVersion").or_insert(serde_json::json!(1));
+        object
+            .entry("manifestType")
+            .or_insert(serde_json::json!(MANIFEST_TYPE));
+        object
+            .entry("manifestVersion")
+            .or_insert(serde_json::json!(1));
 
         Manifest::parse(&serde_json::to_vec(&json).unwrap()).unwrap()
     }
@@ -436,22 +453,39 @@ mod tests {
         assert_eq!(manifest.name, "Fabulously Optimized");
         assert_eq!(manifest.version, "13.3.0");
         assert_eq!(manifest.minecraft_version().unwrap(), "26.1.2");
-        assert_eq!(manifest.loader().unwrap(), (LoaderType::Fabric, Some("0.19.3".into())));
+        assert_eq!(
+            manifest.loader().unwrap(),
+            (LoaderType::Fabric, Some("0.19.3".into()))
+        );
         assert_eq!(manifest.files.len(), 2);
         assert_eq!(manifest.overrides, "overrides");
     }
 
     #[test]
     fn a_manifest_of_another_type_or_format_is_rejected() {
-        assert!(parse(serde_json::json!({"manifestType": "minecraftInstance", "manifestVersion": 1})).is_err());
-        assert!(parse(serde_json::json!({"manifestType": MANIFEST_TYPE, "manifestVersion": 2})).is_err());
-        assert!(parse(serde_json::json!({"manifestVersion": 1})).is_err(), "тип обязателен");
-        assert!(parse(serde_json::json!({"manifestType": MANIFEST_TYPE, "manifestVersion": 1})).is_ok());
+        assert!(parse(
+            serde_json::json!({"manifestType": "minecraftInstance", "manifestVersion": 1})
+        )
+        .is_err());
+        assert!(
+            parse(serde_json::json!({"manifestType": MANIFEST_TYPE, "manifestVersion": 2}))
+                .is_err()
+        );
+        assert!(
+            parse(serde_json::json!({"manifestVersion": 1})).is_err(),
+            "тип обязателен"
+        );
+        assert!(
+            parse(serde_json::json!({"manifestType": MANIFEST_TYPE, "manifestVersion": 1})).is_ok()
+        );
     }
 
     #[test]
     fn broken_json_is_reported_as_a_manifest_problem() {
-        assert_eq!(Manifest::parse(b"{ not json").unwrap_err().code, "MANIFEST_INVALID");
+        assert_eq!(
+            Manifest::parse(b"{ not json").unwrap_err().code,
+            "MANIFEST_INVALID"
+        );
     }
 
     #[test]
@@ -496,7 +530,10 @@ mod tests {
             }
         }));
 
-        assert_eq!(pack.loader().unwrap(), (LoaderType::Forge, Some("1.20.1-47.2.0".into())));
+        assert_eq!(
+            pack.loader().unwrap(),
+            (LoaderType::Forge, Some("1.20.1-47.2.0".into()))
+        );
     }
 
     #[test]
@@ -505,7 +542,10 @@ mod tests {
             "minecraft": {"version": "1.20.1", "modLoaders": [{"id": "fabric-0.15.7"}]}
         }));
 
-        assert_eq!(pack.loader().unwrap(), (LoaderType::Fabric, Some("0.15.7".into())));
+        assert_eq!(
+            pack.loader().unwrap(),
+            (LoaderType::Fabric, Some("0.15.7".into()))
+        );
     }
 
     #[test]
@@ -521,7 +561,10 @@ mod tests {
         assert!(quilt.message.contains("Quilt"));
 
         let unknown = with_loader("babric-1.0", "1.20.1").unwrap_err();
-        assert!(unknown.message.contains("babric-1.0"), "в тексте должен быть сам id");
+        assert!(
+            unknown.message.contains("babric-1.0"),
+            "в тексте должен быть сам id"
+        );
     }
 
     #[test]
@@ -579,13 +622,19 @@ mod tests {
     #[test]
     fn optional_files_are_installed_switched_off() {
         assert_eq!(resolved("jei.jar", true).path(), "mods/jei.jar");
-        assert_eq!(resolved("extra.jar", false).path(), "mods/extra.jar.disabled");
+        assert_eq!(
+            resolved("extra.jar", false).path(),
+            "mods/extra.jar.disabled"
+        );
     }
 
     #[test]
     fn file_names_from_the_api_cannot_walk_out_of_the_instance() {
         assert_eq!(sanitize("../../evil.jar"), "_.._evil.jar");
-        assert_eq!(sanitize("C:\\windows\\system32.dll"), "C__windows_system32.dll");
+        assert_eq!(
+            sanitize("C:\\windows\\system32.dll"),
+            "C__windows_system32.dll"
+        );
         assert_eq!(sanitize("нормальный-мод_1.2.jar"), "нормальный-мод_1.2.jar");
         assert_eq!(sanitize("  ..  "), "file");
         assert_eq!(sanitize(""), "file");
@@ -605,7 +654,10 @@ mod tests {
             "https://www.curseforge.com/minecraft/mc-mods/entityculling/download/8287120"
         );
 
-        assert!(resolved("x.jar", true).download_page().is_empty(), "без страницы проекта ссылки нет");
+        assert!(
+            resolved("x.jar", true).download_page().is_empty(),
+            "без страницы проекта ссылки нет"
+        );
     }
 
     #[test]

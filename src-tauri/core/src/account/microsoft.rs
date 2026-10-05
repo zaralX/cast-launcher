@@ -1,6 +1,6 @@
+use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use reqwest::Response;
 
 use crate::error::{CommandError, CommandResult};
 use crate::net::http;
@@ -80,12 +80,7 @@ pub struct XuiClaim {
 
 impl XboxTokens {
     pub fn user_hash(&self) -> Option<&str> {
-        self.display_claims
-            .as_ref()?
-            .xui
-            .first()?
-            .uhs
-            .as_deref()
+        self.display_claims.as_ref()?.xui.first()?.uhs.as_deref()
     }
 }
 
@@ -152,12 +147,14 @@ async fn request_token(params: &[(&str, &str)]) -> CommandResult<MicrosoftTokens
             .unwrap_or(error);
 
         return Err(
-            CommandError::auth(format!("Microsoft отклонил запрос: {error}")).with_details(description)
+            CommandError::auth(format!("Microsoft отклонил запрос: {error}"))
+                .with_details(description),
         );
     }
 
     serde_json::from_value(json).map_err(|e| {
-        CommandError::auth("Microsoft вернул ответ без токенов").with_details(crate::error::error_chain(&e))
+        CommandError::auth("Microsoft вернул ответ без токенов")
+            .with_details(crate::error::error_chain(&e))
     })
 }
 
@@ -207,7 +204,8 @@ pub async fn profile(minecraft_access_token: &str) -> CommandResult<MinecraftPro
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось получить профиль Minecraft").with_details(crate::error::error_chain(&e))
+            CommandError::network("Не удалось получить профиль Minecraft")
+                .with_details(crate::error::error_chain(&e))
         })?;
 
     parse(response, MINECRAFT_PROFILE_URL).await
@@ -225,7 +223,8 @@ async fn post_json<T: serde::de::DeserializeOwned>(
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network(format!("Запрос не выполнен: {url}")).with_details(crate::error::error_chain(&e))
+        CommandError::network(format!("Запрос не выполнен: {url}"))
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     parse(response, url).await
@@ -248,7 +247,8 @@ async fn parse<T: serde::de::DeserializeOwned>(response: Response, url: &str) ->
     }
 
     response.json().await.map_err(|e| {
-        CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(crate::error::error_chain(&e))
+        CommandError::manifest(format!("Некорректный ответ: {url}"))
+            .with_details(crate::error::error_chain(&e))
     })
 }
 

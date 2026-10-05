@@ -169,7 +169,9 @@ fn instances(connection: &Connection) -> CommandResult<Vec<InstanceRow>> {
                 project_id: text(row.get(6)?),
                 version_id: text(row.get(7)?),
                 java_path: text(row.get(8)?),
-                memory_max: row.get::<_, Option<i64>>(9)?.and_then(|max| u32::try_from(max).ok()),
+                memory_max: row
+                    .get::<_, Option<i64>>(9)?
+                    .and_then(|max| u32::try_from(max).ok()),
                 last_played: row.get::<_, Option<i64>>(10)?,
                 time_played: row.get::<_, Option<i64>>(11)?.unwrap_or(0).max(0) as u64,
             })
@@ -382,7 +384,10 @@ mod tests {
         read(&dir).unwrap();
 
         assert_eq!(std::fs::metadata(dir.join(DB_FILE)).unwrap().len(), before);
-        assert!(!dir.join(format!("{DB_FILE}-wal")).exists(), "журнал не появился");
+        assert!(
+            !dir.join(format!("{DB_FILE}-wal")).exists(),
+            "журнал не появился"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -392,12 +397,17 @@ mod tests {
         let dir = database(Schema::Instances);
 
         let connection = Connection::open(dir.join(DB_FILE)).unwrap();
-        connection.pragma_update(None, "journal_mode", "WAL").unwrap();
+        connection
+            .pragma_update(None, "journal_mode", "WAL")
+            .unwrap();
         connection
             .execute("UPDATE instances SET name = 'Переименовали'", [])
             .unwrap();
 
-        assert!(dir.join(format!("{DB_FILE}-wal")).is_file(), "хвост правда в журнале");
+        assert!(
+            dir.join(format!("{DB_FILE}-wal")).is_file(),
+            "хвост правда в журнале"
+        );
 
         let name = only(&dir).name;
         drop(connection);
@@ -413,7 +423,9 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         let connection = Connection::open(dir.join(DB_FILE)).unwrap();
-        connection.execute("CREATE TABLE bookmarks (x INTEGER)", []).unwrap();
+        connection
+            .execute("CREATE TABLE bookmarks (x INTEGER)", [])
+            .unwrap();
         drop(connection);
 
         let error = read(&dir).unwrap_err();

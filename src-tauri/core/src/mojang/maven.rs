@@ -31,7 +31,10 @@ impl Gradle {
             group: group.to_string(),
             artifact: artifact.to_string(),
             version: version.to_string(),
-            classifier: parts.next().filter(|part| !part.is_empty()).map(str::to_string),
+            classifier: parts
+                .next()
+                .filter(|part| !part.is_empty())
+                .map(str::to_string),
             extension,
         })
     }
@@ -64,7 +67,10 @@ mod tests {
     fn plain_coordinate() {
         let gradle = Gradle::parse("net.fabricmc:fabric-loader:0.15.7").unwrap();
 
-        assert_eq!(gradle.path(), "net/fabricmc/fabric-loader/0.15.7/fabric-loader-0.15.7.jar");
+        assert_eq!(
+            gradle.path(),
+            "net/fabricmc/fabric-loader/0.15.7/fabric-loader-0.15.7.jar"
+        );
         assert_eq!(
             gradle.url("https://maven.fabricmc.net/"),
             "https://maven.fabricmc.net/net/fabricmc/fabric-loader/0.15.7/fabric-loader-0.15.7.jar"

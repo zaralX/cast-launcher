@@ -31,7 +31,10 @@ pub fn minecraft_version(version: &str) -> Option<String> {
     let core = version.split('-').next()?;
     let parts: Vec<&str> = core.split('.').collect();
 
-    if !parts.iter().all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit())) {
+    if !parts
+        .iter()
+        .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+    {
         return None;
     }
 
@@ -84,7 +87,10 @@ mod tests {
         assert_eq!(minecraft_version("20.2.12-beta").as_deref(), Some("1.20.2"));
         assert_eq!(minecraft_version("20.4.190").as_deref(), Some("1.20.4"));
         assert_eq!(minecraft_version("26.1.2.86").as_deref(), Some("26.1.2"));
-        assert_eq!(minecraft_version("1.20.1-47.1.106").as_deref(), Some("1.20.1"));
+        assert_eq!(
+            minecraft_version("1.20.1-47.1.106").as_deref(),
+            Some("1.20.1")
+        );
     }
 
     #[test]
@@ -104,7 +110,10 @@ mod tests {
     #[test]
     fn only_the_1_20_1_branch_gets_the_game_version_in_its_maven_name() {
         assert_eq!(maven_version("1.20.1", "47.1.106"), "1.20.1-47.1.106");
-        assert_eq!(maven_version("1.20.1", "1.20.1-47.1.106"), "1.20.1-47.1.106");
+        assert_eq!(
+            maven_version("1.20.1", "1.20.1-47.1.106"),
+            "1.20.1-47.1.106"
+        );
         assert_eq!(maven_version("1.21.1", "21.1.243"), "21.1.243");
         assert_eq!(maven_version("26.1.2", "26.1.2.86"), "26.1.2.86");
     }
@@ -131,10 +140,22 @@ mod tests {
         assert_eq!(
             releases,
             vec![
-                Release { version: "21.1.243".into(), minecraft_version: "1.21.1".into() },
-                Release { version: "20.2.12-beta".into(), minecraft_version: "1.20.2".into() },
-                Release { version: "1.20.1-47.1.106".into(), minecraft_version: "1.20.1".into() },
-                Release { version: "1.20.1-47.1.105".into(), minecraft_version: "1.20.1".into() },
+                Release {
+                    version: "21.1.243".into(),
+                    minecraft_version: "1.21.1".into()
+                },
+                Release {
+                    version: "20.2.12-beta".into(),
+                    minecraft_version: "1.20.2".into()
+                },
+                Release {
+                    version: "1.20.1-47.1.106".into(),
+                    minecraft_version: "1.20.1".into()
+                },
+                Release {
+                    version: "1.20.1-47.1.105".into(),
+                    minecraft_version: "1.20.1".into()
+                },
             ],
             "сборка под снапшот отброшена, внутри ветки - свежие сверху"
         );

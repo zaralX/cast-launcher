@@ -38,7 +38,8 @@ impl Event {
         let value = clamp(value.as_ref(), MAX_VALUE_LEN);
 
         if !value.is_empty() {
-            self.props.insert(clamp(key, MAX_KEY_LEN), Value::String(value));
+            self.props
+                .insert(clamp(key, MAX_KEY_LEN), Value::String(value));
         }
 
         self
@@ -53,7 +54,8 @@ impl Event {
 
     pub fn num(mut self, key: &str, value: impl Into<f64>) -> Self {
         if let Some(number) = Number::from_f64(round(value.into())) {
-            self.props.insert(clamp(key, MAX_KEY_LEN), Value::Number(number));
+            self.props
+                .insert(clamp(key, MAX_KEY_LEN), Value::Number(number));
         }
 
         self
@@ -101,7 +103,10 @@ const CRASH_SIGNATURES: &[(&str, &str)] = &[
     ("org.spongepowered.asm.mixin", "mixin"),
     ("duplicatemodsfound", "duplicate_mods"),
     ("modresolutionexception", "missing_deps"),
-    ("missing or unsupported mandatory dependencies", "missing_deps"),
+    (
+        "missing or unsupported mandatory dependencies",
+        "missing_deps",
+    ),
     ("incompatible mods found", "missing_deps"),
     ("nosuchmethoderror", "linkage"),
     ("noclassdeffounderror", "linkage"),
@@ -200,7 +205,10 @@ mod tests {
 
     #[test]
     fn empty_values_are_dropped() {
-        let event = Event::new("test").text("a", "  ").text("b", "").maybe("c", None::<&str>);
+        let event = Event::new("test")
+            .text("a", "  ")
+            .text("b", "")
+            .maybe("c", None::<&str>);
 
         assert!(event.props().is_empty());
     }
@@ -257,13 +265,22 @@ mod tests {
         assert_eq!(source_key(&instance(json!({}))), "plain");
 
         let pack = json!({"provider": "modrinth", "projectId": "p", "versionId": "v", "fileUrl": "https://x"});
-        assert_eq!(source_key(&instance(json!({"pack": pack.clone()}))), "modrinth");
+        assert_eq!(
+            source_key(&instance(json!({"pack": pack.clone()}))),
+            "modrinth"
+        );
 
         let local = json!({"kind": "multimc", "name": "TFG", "version": ""});
-        assert_eq!(source_key(&instance(json!({"localPack": local}))), "file:multimc");
+        assert_eq!(
+            source_key(&instance(json!({"localPack": local}))),
+            "file:multimc"
+        );
 
         let castpack = json!({"catalogId": "rpg", "manifestUrl": "https://x/m.json"});
-        assert_eq!(source_key(&instance(json!({"castpack": castpack.clone()}))), "castpack");
+        assert_eq!(
+            source_key(&instance(json!({"castpack": castpack.clone()}))),
+            "castpack"
+        );
         assert_eq!(
             source_key(&instance(json!({"castpack": castpack, "pack": pack}))),
             "castpack:modrinth"
@@ -297,15 +314,22 @@ mod tests {
 
     #[test]
     fn running_out_of_memory_wins_over_the_stack_trace_below_it() {
-        let tail = "java.lang.OutOfMemoryError: Java heap space\n\tat org.spongepowered.asm.mixin.Foo";
+        let tail =
+            "java.lang.OutOfMemoryError: Java heap space\n\tat org.spongepowered.asm.mixin.Foo";
 
         assert_eq!(classify_crash(tail), "out_of_memory");
     }
 
     #[test]
     fn only_the_host_survives_a_url() {
-        assert_eq!(host_of("https://cdn.modrinth.com/data/x/y.jar?v=2"), "cdn.modrinth.com");
-        assert_eq!(host_of("  https://s3.zaralx.ru/launcher/latest.json "), "s3.zaralx.ru");
+        assert_eq!(
+            host_of("https://cdn.modrinth.com/data/x/y.jar?v=2"),
+            "cdn.modrinth.com"
+        );
+        assert_eq!(
+            host_of("  https://s3.zaralx.ru/launcher/latest.json "),
+            "s3.zaralx.ru"
+        );
         assert_eq!(host_of("не ссылка"), "");
     }
 

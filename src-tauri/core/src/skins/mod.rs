@@ -248,7 +248,8 @@ async fn build_look(dir: &Path, account: &Account, stale: bool) -> CommandResult
             continue;
         };
 
-        let Ok(entry) = library::add(dir, &name, &bytes, SkinSource::Profile, Some(skin.variant)).await
+        let Ok(entry) =
+            library::add(dir, &name, &bytes, SkinSource::Profile, Some(skin.variant)).await
         else {
             continue;
         };
@@ -296,7 +297,9 @@ async fn refresh_profile(accounts: &AccountStore, account: &Account) -> CommandR
 
     let profile = crate::account::microsoft::profile(&token).await?;
 
-    accounts.set_textures(&uuid, profile.skins, profile.capes).await
+    accounts
+        .set_textures(&uuid, profile.skins, profile.capes)
+        .await
 }
 
 fn token_of(account: &Account) -> CommandResult<String> {

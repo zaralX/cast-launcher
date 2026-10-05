@@ -17,17 +17,19 @@ pub async fn catalog(app: &AppHandle, state: &Arc<AppState>) -> CommandResult<Ca
     let config = state.config().await;
     let paths = state.paths().await;
 
-    let catalog =
-        castpack::source::catalog(config.launcher.catalog_url(), &castpack::source::catalog_cache(&paths))
-            .await
-            .inspect_err(|error| {
-                telemetry::track(
-                    app,
-                    Event::new("castpack_catalog_failed")
-                        .error(error)
-                        .text("host", telemetry::host_of(config.launcher.catalog_url())),
-                )
-            })?;
+    let catalog = castpack::source::catalog(
+        config.launcher.catalog_url(),
+        &castpack::source::catalog_cache(&paths),
+    )
+    .await
+    .inspect_err(|error| {
+        telemetry::track(
+            app,
+            Event::new("castpack_catalog_failed")
+                .error(error)
+                .text("host", telemetry::host_of(config.launcher.catalog_url())),
+        )
+    })?;
 
     heal_icons(app, state, &catalog).await;
 
@@ -56,7 +58,9 @@ async fn heal_icons(app: &AppHandle, state: &Arc<AppState>, catalog: &Catalog) {
             continue;
         }
 
-        let Some(name) = save_icon(state, pack).await else { continue };
+        let Some(name) = save_icon(state, pack).await else {
+            continue;
+        };
 
         let paths = state.paths().await;
 
@@ -78,7 +82,11 @@ async fn heal_icons(app: &AppHandle, state: &Arc<AppState>, catalog: &Catalog) {
     }
 }
 
-pub async fn manifest_url(state: &Arc<AppState>, instance_id: &str, source: &CastPackSource) -> String {
+pub async fn manifest_url(
+    state: &Arc<AppState>,
+    instance_id: &str,
+    source: &CastPackSource,
+) -> String {
     let known = catalog_manifest_url(state, &source.catalog_id).await;
     let url = source.manifest_url_from(known.as_deref());
 
@@ -117,13 +125,15 @@ async fn catalog_manifest_url(state: &Arc<AppState>, catalog_id: &str) -> Option
     let config = state.config().await;
     let paths = state.paths().await;
 
-    let catalog =
-        castpack::source::catalog(config.launcher.catalog_url(), &castpack::source::catalog_cache(&paths))
-            .await
-            .inspect_err(|error| {
-                eprintln!("Каталог CastPack не прочитан, беру сохранённый адрес манифеста: {error}")
-            })
-            .ok()?;
+    let catalog = castpack::source::catalog(
+        config.launcher.catalog_url(),
+        &castpack::source::catalog_cache(&paths),
+    )
+    .await
+    .inspect_err(|error| {
+        eprintln!("Каталог CastPack не прочитан, беру сохранённый адрес манифеста: {error}")
+    })
+    .ok()?;
 
     Some(catalog.find(catalog_id)?.manifest.clone())
 }
@@ -173,7 +183,10 @@ async fn upsert(
         Some((pack, loader, version)) => (Some(pack), loader, version),
         None => (
             None,
-            manifest.loader().map(|(loader, _)| loader).unwrap_or(LoaderType::Vanilla),
+            manifest
+                .loader()
+                .map(|(loader, _)| loader)
+                .unwrap_or(LoaderType::Vanilla),
             manifest.minecraft_version().unwrap_or_default().to_string(),
         ),
     };
@@ -286,7 +299,9 @@ pub async fn base_pack(
         version.minecraft_version.clone(),
         version.file.clone(),
     ) else {
-        return Err(CommandError::manifest("У базового модпака сборки нет файла для скачивания"));
+        return Err(CommandError::manifest(
+            "У базового модпака сборки нет файла для скачивания",
+        ));
     };
 
     let pack = PackSource {
@@ -309,7 +324,10 @@ async fn save_icon(state: &Arc<AppState>, entry: &CatalogPack) -> Option<String>
     let bytes = match castpack::source::icon(url).await {
         Ok(bytes) => bytes,
         Err(error) => {
-            eprintln!("Иконка сборки «{}» не скачалась: {}", entry.id, error.message);
+            eprintln!(
+                "Иконка сборки «{}» не скачалась: {}",
+                entry.id, error.message
+            );
             return None;
         }
     };
@@ -320,7 +338,10 @@ async fn save_icon(state: &Arc<AppState>, entry: &CatalogPack) -> Option<String>
     match icons::save_once(&paths.icons(), &name, &bytes).await {
         Ok(icon) => Some(icon.name),
         Err(error) => {
-            eprintln!("Иконка сборки «{}» не сохранилась: {}", entry.id, error.message);
+            eprintln!(
+                "Иконка сборки «{}» не сохранилась: {}",
+                entry.id, error.message
+            );
             None
         }
     }
@@ -334,7 +355,8 @@ fn icon_name(pack_id: &str, url: &str) -> String {
         .and_then(|name| name.rsplit_once('.'))
         .map(|(_, extension)| extension.to_ascii_lowercase())
         .filter(|extension| {
-            (1..=5).contains(&extension.len()) && extension.chars().all(|c| c.is_ascii_alphanumeric())
+            (1..=5).contains(&extension.len())
+                && extension.chars().all(|c| c.is_ascii_alphanumeric())
         })
         .unwrap_or_else(|| "png".to_string());
 
@@ -364,7 +386,9 @@ pub async fn set_autoupdate(
 
     telemetry::track(
         app,
-        Event::new("castpack_autoupdate").instance(&updated).flag("enabled", enabled),
+        Event::new("castpack_autoupdate")
+            .instance(&updated)
+            .flag("enabled", enabled),
     );
 
     LauncherEvent::Instances {
@@ -374,7 +398,6 @@ pub async fn set_autoupdate(
 
     Ok(updated)
 }
-
 
 #[cfg(test)]
 mod tests {

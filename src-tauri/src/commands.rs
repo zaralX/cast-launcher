@@ -13,8 +13,8 @@ use cast_core::assets::{self, ItemCategories};
 use cast_core::config::AppConfig;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
-use cast_core::install::pack_files::PackFiles;
 use cast_core::import::{ImportProgress, ImportReport, LauncherKind, ScannedInstance};
+use cast_core::install::pack_files::PackFiles;
 use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
@@ -31,9 +31,9 @@ use cast_core::skins::{self, AccountLook, SkinEntry, SkinLibrary, SkinVariant};
 use crate::events::{EmitExt, LauncherEvent};
 use crate::import;
 use crate::install::{self, InstallSnapshot};
+use crate::state::AppState;
 use crate::telemetry::{self, Event};
 use cast_core::launch::game::RunningGame;
-use crate::state::AppState;
 
 type Ctx<'a> = State<'a, Arc<AppState>>;
 
@@ -106,22 +106,30 @@ pub async fn open_path(app: AppHandle, path: String) -> CommandResult<()> {
 
 #[tauri::command]
 pub async fn open_url(app: AppHandle, url: String) -> CommandResult<()> {
-    let parsed = url::Url::parse(url.trim())
-        .map_err(|e| CommandError::fs(format!("Некорректная ссылка: {url}")).with_details(e.to_string()))?;
+    let parsed = url::Url::parse(url.trim()).map_err(|e| {
+        CommandError::fs(format!("Некорректная ссылка: {url}")).with_details(e.to_string())
+    })?;
 
     if !matches!(parsed.scheme(), "http" | "https") {
-        return Err(CommandError::fs(format!("Ссылку такого вида лаунчер не открывает: {url}")));
+        return Err(CommandError::fs(format!(
+            "Ссылку такого вида лаунчер не открывает: {url}"
+        )));
     }
 
-    app.opener().open_url(parsed.as_str(), None::<&str>).map_err(|e| {
-        CommandError::fs(format!("Не удалось открыть {url}")).with_details(e.to_string())
-    })
+    app.opener()
+        .open_url(parsed.as_str(), None::<&str>)
+        .map_err(|e| {
+            CommandError::fs(format!("Не удалось открыть {url}")).with_details(e.to_string())
+        })
 }
 
 fn open(app: &AppHandle, path: &Path) -> CommandResult<()> {
-    app.opener().open_path(path.to_string_lossy(), None::<&str>).map_err(|e| {
-        CommandError::fs(format!("Не удалось открыть {}", path.display())).with_details(e.to_string())
-    })
+    app.opener()
+        .open_path(path.to_string_lossy(), None::<&str>)
+        .map_err(|e| {
+            CommandError::fs(format!("Не удалось открыть {}", path.display()))
+                .with_details(e.to_string())
+        })
 }
 
 #[tauri::command]
@@ -162,7 +170,11 @@ pub async fn create_instance(
 }
 
 #[tauri::command]
-pub async fn delete_instance(app: AppHandle, state: Ctx<'_>, instance_id: String) -> CommandResult<()> {
+pub async fn delete_instance(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<()> {
     if state.processes.is_running(&instance_id).await {
         return Err(CommandError::launch("Сначала закройте запущенную игру"));
     }
@@ -180,7 +192,10 @@ pub async fn delete_instance(app: AppHandle, state: Ctx<'_>, instance_id: String
             Event::new("instance_deleted")
                 .instance(removed)
                 .flag("installed", removed.installed)
-                .num("playtime_min", telemetry::minutes(removed.playtime.total_seconds)),
+                .num(
+                    "playtime_min",
+                    telemetry::minutes(removed.playtime.total_seconds),
+                ),
         );
     }
 
@@ -300,7 +315,10 @@ pub async fn open_instance_dir(
 }
 
 #[tauri::command]
-pub async fn list_instance_logs(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<LogFile>> {
+pub async fn list_instance_logs(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<Vec<LogFile>> {
     let paths = state.paths().await;
     logs::list(&paths.instance_logs(&instance_id)).await
 }
@@ -332,14 +350,20 @@ pub async fn delete_instance_log(
 }
 
 #[tauri::command]
-pub async fn list_instance_mods(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<ModFile>> {
+pub async fn list_instance_mods(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<Vec<ModFile>> {
     let scan = mods_scan(&state, &instance_id).await?;
 
     mods::list(&scan, false).await
 }
 
 #[tauri::command]
-pub async fn refresh_instance_mods(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<ModFile>> {
+pub async fn refresh_instance_mods(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<Vec<ModFile>> {
     let scan = mods_scan(&state, &instance_id).await?;
 
     mods::icon::prune(&scan.icons).await;
@@ -428,7 +452,10 @@ pub async fn identify_instance_mods(
 }
 
 #[tauri::command]
-pub async fn check_mod_updates(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<ModUpdate>> {
+pub async fn check_mod_updates(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<Vec<ModUpdate>> {
     let instance = state.instances.get(&instance_id).await?;
     let scan = mods_scan(&state, &instance_id).await?;
     let paths = state.paths().await;
@@ -436,7 +463,13 @@ pub async fn check_mod_updates(state: Ctx<'_>, instance_id: String) -> CommandRe
     let mods = mods::list(&scan, false).await?;
     let matches = mods::catalog::identify(&scan, &mods, &paths.mod_catalog()).await?;
 
-    let found = mods::updates::check(&mods, &matches, instance.loader, &instance.minecraft_version).await;
+    let found = mods::updates::check(
+        &mods,
+        &matches,
+        instance.loader,
+        &instance.minecraft_version,
+    )
+    .await;
 
     state
         .mod_updates
@@ -486,7 +519,8 @@ pub async fn update_mods(
     let scan = mods_scan(&state, &instance_id).await?;
     let launcher = state.paths().await;
 
-    let report = mods::updates::apply(&scan, &state.downloads, &wanted, &launcher.mod_catalog()).await?;
+    let report =
+        mods::updates::apply(&scan, &state.downloads, &wanted, &launcher.mod_catalog()).await?;
 
     if let Some(found) = state.mod_updates.write().await.get_mut(&instance_id) {
         found.retain(|update| !paths.contains(&update.path));
@@ -499,7 +533,11 @@ pub async fn update_mods(
 }
 
 #[tauri::command]
-pub async fn search_mods(state: Ctx<'_>, instance_id: String, query: ModSearch) -> CommandResult<PackPage> {
+pub async fn search_mods(
+    state: Ctx<'_>,
+    instance_id: String,
+    query: ModSearch,
+) -> CommandResult<PackPage> {
     mods::install::search(&with_instance(&state, &instance_id, query).await?).await
 }
 
@@ -512,7 +550,13 @@ pub async fn mod_versions(
 ) -> CommandResult<Vec<CatalogVersion>> {
     let instance = state.instances.get(&instance_id).await?;
 
-    mods::install::versions(provider, &project_id, instance.loader, &instance.minecraft_version).await
+    mods::install::versions(
+        provider,
+        &project_id,
+        instance.loader,
+        &instance.minecraft_version,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -593,7 +637,11 @@ pub async fn install_mod(
     })
 }
 
-async fn with_instance(state: &Ctx<'_>, instance_id: &str, query: ModSearch) -> CommandResult<ModSearch> {
+async fn with_instance(
+    state: &Ctx<'_>,
+    instance_id: &str,
+    query: ModSearch,
+) -> CommandResult<ModSearch> {
     let instance = state.instances.get(instance_id).await?;
 
     Ok(ModSearch {
@@ -610,7 +658,10 @@ async fn installed_projects(state: &Ctx<'_>, instance_id: &str) -> CommandResult
     let mods = mods::list(&scan, false).await?;
     let matches = mods::catalog::identify(&scan, &mods, &paths.mod_catalog()).await?;
 
-    Ok(matches.values().map(|matched| matched.project_id.clone()).collect())
+    Ok(matches
+        .values()
+        .map(|matched| matched.project_id.clone())
+        .collect())
 }
 
 #[tauri::command]
@@ -682,7 +733,9 @@ pub async fn import_icon(
         None => pick_image(&app).await,
     };
 
-    let Some(source) = source else { return Ok(None) };
+    let Some(source) = source else {
+        return Ok(None);
+    };
 
     let paths = state.paths().await;
 
@@ -700,7 +753,11 @@ async fn pick_image(app: &AppHandle) -> Option<PathBuf> {
             let _ = sender.send(picked);
         });
 
-    receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok())
+    receiver
+        .await
+        .ok()
+        .flatten()
+        .and_then(|picked| picked.into_path().ok())
 }
 
 #[tauri::command]
@@ -723,7 +780,9 @@ pub async fn list_item_icons(state: Ctx<'_>) -> CommandResult<ItemCatalog> {
     let categories = assets::item_categories(&state.meta).await?;
     let language = state.config().await.launcher.language;
 
-    let names = assets::item_names(&state.meta, &language).await.unwrap_or_default();
+    let names = assets::item_names(&state.meta, &language)
+        .await
+        .unwrap_or_default();
 
     Ok(ItemCatalog { categories, names })
 }
@@ -731,7 +790,10 @@ pub async fn list_item_icons(state: Ctx<'_>) -> CommandResult<ItemCatalog> {
 const CATALOG_CONCURRENCY: usize = 8;
 
 #[tauri::command]
-pub async fn item_icons(state: Ctx<'_>, items: Vec<String>) -> CommandResult<BTreeMap<String, String>> {
+pub async fn item_icons(
+    state: Ctx<'_>,
+    items: Vec<String>,
+) -> CommandResult<BTreeMap<String, String>> {
     let state = state.inner().clone();
     let mut queue = items.into_iter().filter(|item| assets::is_item_id(item));
 
@@ -758,7 +820,11 @@ pub async fn item_icons(state: Ctx<'_>, items: Vec<String>) -> CommandResult<BTr
     Ok(fetched)
 }
 
-fn fetch_item_icon(tasks: &mut JoinSet<(String, Option<String>)>, state: &Arc<AppState>, item: String) {
+fn fetch_item_icon(
+    tasks: &mut JoinSet<(String, Option<String>)>,
+    state: &Arc<AppState>,
+    item: String,
+) {
     let state = Arc::clone(state);
 
     tasks.spawn(async move {
@@ -791,14 +857,19 @@ pub async fn install_instance(
 #[tauri::command]
 pub async fn cancel_install(state: Ctx<'_>, instance_id: String) -> CommandResult<()> {
     state.installs.cancel(&instance_id).await;
-    state.downloads.cancel_prefix(&install::job_prefix(&instance_id));
+    state
+        .downloads
+        .cancel_prefix(&install::job_prefix(&instance_id));
     state.blocked.resume(&instance_id).await;
 
     Ok(())
 }
 
 #[tauri::command]
-pub async fn awaited_files(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<packs::BlockedFile>> {
+pub async fn awaited_files(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<Vec<packs::BlockedFile>> {
     Ok(state.blocked.files(&instance_id).await)
 }
 
@@ -823,7 +894,10 @@ pub async fn scan_for_files(
 }
 
 #[tauri::command]
-pub async fn rescan_files(state: Ctx<'_>, instance_id: String) -> CommandResult<Vec<packs::BlockedFile>> {
+pub async fn rescan_files(
+    state: Ctx<'_>,
+    instance_id: String,
+) -> CommandResult<Vec<packs::BlockedFile>> {
     state.blocked.rescan(&instance_id).await;
 
     Ok(state.blocked.files(&instance_id).await)
@@ -855,7 +929,11 @@ pub async fn pick_folder(
         let _ = sender.send(picked);
     });
 
-    let picked = receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok());
+    let picked = receiver
+        .await
+        .ok()
+        .flatten()
+        .and_then(|picked| picked.into_path().ok());
 
     Ok(picked.map(|path| path.display().to_string()))
 }
@@ -922,10 +1000,17 @@ pub async fn select_account(state: Ctx<'_>, index: usize) -> CommandResult<Accou
 }
 
 #[tauri::command]
-pub async fn remove_account(app: AppHandle, state: Ctx<'_>, uuid: String) -> CommandResult<AccountConfig> {
+pub async fn remove_account(
+    app: AppHandle,
+    state: Ctx<'_>,
+    uuid: String,
+) -> CommandResult<AccountConfig> {
     let removed = state.accounts.remove(&uuid).await?;
 
-    telemetry::track(&app, Event::new("account_removed").num("left", removed.accounts.len() as f64));
+    telemetry::track(
+        &app,
+        Event::new("account_removed").num("left", removed.accounts.len() as f64),
+    );
 
     Ok(removed)
 }
@@ -963,12 +1048,14 @@ pub async fn login_microsoft(app: AppHandle, state: Ctx<'_>) -> CommandResult<Ac
 }
 
 #[tauri::command]
-pub async fn refresh_account(app: AppHandle, state: Ctx<'_>, uuid: String) -> CommandResult<Account> {
-    state
-        .accounts
-        .refresh(&uuid)
-        .await
-        .inspect_err(|error| telemetry::track(&app, Event::new("account_refresh_failed").error(error)))
+pub async fn refresh_account(
+    app: AppHandle,
+    state: Ctx<'_>,
+    uuid: String,
+) -> CommandResult<Account> {
+    state.accounts.refresh(&uuid).await.inspect_err(|error| {
+        telemetry::track(&app, Event::new("account_refresh_failed").error(error))
+    })
 }
 
 #[tauri::command]
@@ -994,7 +1081,9 @@ pub async fn import_skin(
         None => pick_skin_file(&app).await,
     };
 
-    let Some(source) = source else { return Ok(None) };
+    let Some(source) = source else {
+        return Ok(None);
+    };
 
     let bytes = tokio::fs::read(&source)
         .await
@@ -1029,7 +1118,11 @@ async fn pick_skin_file(app: &AppHandle) -> Option<PathBuf> {
             let _ = sender.send(picked);
         });
 
-    receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok())
+    receiver
+        .await
+        .ok()
+        .flatten()
+        .and_then(|picked| picked.into_path().ok())
 }
 
 #[tauri::command]
@@ -1130,7 +1223,8 @@ pub async fn apply_cape(
     telemetry::track(
         &app,
         match &look {
-            Ok(_) => Event::new("cape_applied").text("cape", if cape_id.is_some() { "on" } else { "off" }),
+            Ok(_) => Event::new("cape_applied")
+                .text("cape", if cape_id.is_some() { "on" } else { "off" }),
             Err(error) => Event::new("cape_apply_failed").error(error),
         },
     );
@@ -1180,12 +1274,14 @@ pub async fn pack_providers() -> CommandResult<Vec<packs::ProviderInfo>> {
 }
 
 #[tauri::command]
-pub async fn search_packs(app: AppHandle, query: packs::SearchQuery) -> CommandResult<packs::PackPage> {
+pub async fn search_packs(
+    app: AppHandle,
+    query: packs::SearchQuery,
+) -> CommandResult<packs::PackPage> {
     let page = packs::search(&query).await?;
 
     if query.offset == 0 {
-        let filters =
-            query.categories.len() + query.loaders.len() + query.game_versions.len();
+        let filters = query.categories.len() + query.loaders.len() + query.game_versions.len();
 
         telemetry::track(
             &app,
@@ -1230,7 +1326,9 @@ pub async fn set_instance_pack_version(
     }
 
     if state.installs.snapshot(&instance_id).await.is_some() {
-        return Err(CommandError::launch("Дождитесь окончания текущей установки"));
+        return Err(CommandError::launch(
+            "Дождитесь окончания текущей установки",
+        ));
     }
 
     let instance = state.instances.get(&instance_id).await?;
@@ -1241,15 +1339,16 @@ pub async fn set_instance_pack_version(
         ));
     }
 
-    let current = instance
-        .pack
-        .clone()
-        .ok_or_else(|| CommandError::manifest("Эта сборка создана вручную, у неё нет версий пака"))?;
+    let current = instance.pack.clone().ok_or_else(|| {
+        CommandError::manifest("Эта сборка создана вручную, у неё нет версий пака")
+    })?;
 
     let version = packs::version(current.provider, &current.project_id, &version_id).await?;
 
     if !version.project_id.is_empty() && version.project_id != current.project_id {
-        return Err(CommandError::manifest("Эта версия принадлежит другому модпаку"));
+        return Err(CommandError::manifest(
+            "Эта версия принадлежит другому модпаку",
+        ));
     }
 
     if let Some(reason) = version.unsupported_reason() {
@@ -1310,7 +1409,10 @@ pub async fn list_pack_blocked(
 ) -> CommandResult<Vec<packs::BlockedFile>> {
     let paths = state.paths().await;
 
-    Ok(cast_core::install::pack_files::load_blocked(&paths.instance(&instance_id).pack_blocked()).await)
+    Ok(
+        cast_core::install::pack_files::load_blocked(&paths.instance(&instance_id).pack_blocked())
+            .await,
+    )
 }
 
 #[tauri::command]
@@ -1343,7 +1445,11 @@ pub async fn pick_launcher_dir(app: AppHandle) -> CommandResult<Option<String>> 
             let _ = sender.send(picked);
         });
 
-    let picked = receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok());
+    let picked = receiver
+        .await
+        .ok()
+        .flatten()
+        .and_then(|picked| picked.into_path().ok());
 
     Ok(picked.map(|path| path.display().to_string()))
 }
@@ -1377,7 +1483,11 @@ pub async fn pick_modpack_file(app: AppHandle) -> CommandResult<Option<String>> 
             let _ = sender.send(picked);
         });
 
-    let picked = receiver.await.ok().flatten().and_then(|picked| picked.into_path().ok());
+    let picked = receiver
+        .await
+        .ok()
+        .flatten()
+        .and_then(|picked| picked.into_path().ok());
 
     Ok(picked.map(|path| path.display().to_string()))
 }
@@ -1425,9 +1535,14 @@ pub async fn list_fabric_versions(state: Ctx<'_>) -> CommandResult<Vec<String>> 
 
 #[tauri::command]
 pub async fn list_forge_versions(state: Ctx<'_>) -> CommandResult<Vec<String>> {
-    let xml = state.meta.fetch_bytes(cast_core::meta::forge::FORGE_METADATA).await?;
+    let xml = state
+        .meta
+        .fetch_bytes(cast_core::meta::forge::FORGE_METADATA)
+        .await?;
 
-    Ok(cast_core::meta::forge::parse_maven_versions(&String::from_utf8_lossy(&xml)))
+    Ok(cast_core::meta::forge::parse_maven_versions(
+        &String::from_utf8_lossy(&xml),
+    ))
 }
 
 #[tauri::command]

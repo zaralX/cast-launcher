@@ -17,12 +17,17 @@ impl Ini {
                 continue;
             }
 
-            if let Some(name) = line.strip_prefix('[').and_then(|line| line.strip_suffix(']')) {
+            if let Some(name) = line
+                .strip_prefix('[')
+                .and_then(|line| line.strip_suffix(']'))
+            {
                 current = name.trim().to_string();
                 continue;
             }
 
-            let Some((key, value)) = line.split_once('=') else { continue };
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
 
             sections
                 .entry(current.clone())
@@ -62,13 +67,18 @@ impl Section<'_> {
 
     pub fn flag(&self, key: &str) -> bool {
         matches!(
-            self.get(key).map(str::trim).map(str::to_lowercase).as_deref(),
+            self.get(key)
+                .map(str::trim)
+                .map(str::to_lowercase)
+                .as_deref(),
             Some("true" | "1" | "yes")
         )
     }
 
     pub fn number<T: std::str::FromStr>(&self, key: &str) -> Option<T> {
-        self.get(key).map(str::trim).and_then(|value| value.parse().ok())
+        self.get(key)
+            .map(str::trim)
+            .and_then(|value| value.parse().ok())
     }
 }
 
@@ -152,8 +162,15 @@ mods_Page\Columns=@ByteArray(\0\0\0\xff\0\0)
     fn numbers_are_read_in_the_size_the_caller_asks_for() {
         let ini = Ini::parse("lastLaunchTime=1761212747241\ntotalTimePlayed=-5");
 
-        assert_eq!(ini.general().number::<u64>("lastLaunchTime"), Some(1_761_212_747_241));
-        assert_eq!(ini.general().number::<u64>("totalTimePlayed"), None, "минус - это мусор");
+        assert_eq!(
+            ini.general().number::<u64>("lastLaunchTime"),
+            Some(1_761_212_747_241)
+        );
+        assert_eq!(
+            ini.general().number::<u64>("totalTimePlayed"),
+            None,
+            "минус - это мусор"
+        );
     }
 
     #[test]

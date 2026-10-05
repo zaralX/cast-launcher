@@ -31,7 +31,9 @@ pub async fn list(dir: &Path) -> CommandResult<Vec<LogFile>> {
         .await
         .map_err(|e| CommandError::io("Не удалось прочитать каталог логов", dir, e))?
     {
-        let Ok(metadata) = entry.metadata().await else { continue };
+        let Ok(metadata) = entry.metadata().await else {
+            continue;
+        };
 
         if !metadata.is_file() {
             continue;
@@ -49,7 +51,11 @@ pub async fn list(dir: &Path) -> CommandResult<Vec<LogFile>> {
         });
     }
 
-    files.sort_by(|a, b| b.modified.cmp(&a.modified).then_with(|| a.name.cmp(&b.name)));
+    files.sort_by(|a, b| {
+        b.modified
+            .cmp(&a.modified)
+            .then_with(|| a.name.cmp(&b.name))
+    });
 
     Ok(files)
 }
@@ -59,9 +65,13 @@ pub fn resolve(dir: &Path, name: &str) -> CommandResult<PathBuf> {
 }
 
 pub async fn read_tail(path: &Path, max_bytes: usize) -> CommandResult<String> {
-    let bytes = tokio::fs::read(path)
-        .await
-        .map_err(|e| CommandError::io(format!("Не удалось прочитать лог: {}", path.display()), path, e))?;
+    let bytes = tokio::fs::read(path).await.map_err(|e| {
+        CommandError::io(
+            format!("Не удалось прочитать лог: {}", path.display()),
+            path,
+            e,
+        )
+    })?;
 
     let start = bytes.len().saturating_sub(max_bytes);
     let text = String::from_utf8_lossy(&bytes[start..]).into_owned();
@@ -77,9 +87,13 @@ pub async fn read_tail(path: &Path, max_bytes: usize) -> CommandResult<String> {
 }
 
 pub async fn remove(path: &Path) -> CommandResult<()> {
-    tokio::fs::remove_file(path)
-        .await
-        .map_err(|e| CommandError::io(format!("Не удалось удалить лог: {}", path.display()), path, e))
+    tokio::fs::remove_file(path).await.map_err(|e| {
+        CommandError::io(
+            format!("Не удалось удалить лог: {}", path.display()),
+            path,
+            e,
+        )
+    })
 }
 
 #[cfg(test)]
@@ -94,7 +108,9 @@ mod tests {
 
     #[tokio::test]
     async fn missing_directory_has_no_logs() {
-        let logs = list(&std::env::temp_dir().join("cast-logs-нет-такого")).await.unwrap();
+        let logs = list(&std::env::temp_dir().join("cast-logs-нет-такого"))
+            .await
+            .unwrap();
         assert!(logs.is_empty());
     }
 

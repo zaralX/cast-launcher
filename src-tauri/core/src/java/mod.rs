@@ -34,7 +34,11 @@ impl JavaRegistry {
         *self.runtimes.write().await = None;
     }
 
-    pub async fn list(&self, runtimes_dir: PathBuf, force: bool) -> CommandResult<Vec<JavaRuntime>> {
+    pub async fn list(
+        &self,
+        runtimes_dir: PathBuf,
+        force: bool,
+    ) -> CommandResult<Vec<JavaRuntime>> {
         if !force {
             if let Some(cached) = self.cached().await {
                 return Ok(cached);
@@ -136,7 +140,11 @@ pub async fn resolve(
 }
 
 fn download_context(installed: &[JavaRuntime]) -> RuntimeContext {
-    match installed.iter().find(|runtime| runtime.is_64bit).or_else(|| installed.first()) {
+    match installed
+        .iter()
+        .find(|runtime| runtime.is_64bit)
+        .or_else(|| installed.first())
+    {
         Some(runtime) => runtime.runtime_context(),
         None => RuntimeContext::new(std::env::consts::ARCH, ""),
     }

@@ -240,7 +240,9 @@ fn parse(jar: PathBuf) -> CommandResult<Installer> {
 
 fn parse_legacy(jar: PathBuf, raw: RawProfile) -> CommandResult<Installer> {
     let install = raw.install.expect("install проверен вызывающим кодом");
-    let version_json = raw.version_info.expect("versionInfo проверен вызывающим кодом");
+    let version_json = raw
+        .version_info
+        .expect("versionInfo проверен вызывающим кодом");
 
     let coordinate = install.path.as_deref().ok_or_else(|| {
         CommandError::forge("Установщик Forge не указывает координату universal-архива")
@@ -296,10 +298,11 @@ fn parse_modern(
         .trim_start_matches('/')
         .to_string();
 
-    let version_json: Value = serde_json::from_slice(&read_entry(archive, &entry)?).map_err(|e| {
-        CommandError::manifest(format!("Установщик Forge содержит нечитаемый {entry}"))
-            .with_details(e.to_string())
-    })?;
+    let version_json: Value =
+        serde_json::from_slice(&read_entry(archive, &entry)?).map_err(|e| {
+            CommandError::manifest(format!("Установщик Forge содержит нечитаемый {entry}"))
+                .with_details(e.to_string())
+        })?;
 
     let package = package_of(&version_json)?;
 
@@ -313,7 +316,9 @@ fn parse_modern(
     let mut produced = HashSet::new();
 
     for library in raw.libraries.iter().chain(package.libraries.iter()) {
-        let Some(artifact) = resolve_artifact(library) else { continue };
+        let Some(artifact) = resolve_artifact(library) else {
+            continue;
+        };
 
         if produced.contains(&artifact.path) {
             continue;
@@ -412,7 +417,11 @@ fn unpack_blocking(jar: &Path, libraries: &Path, pending: &[Bundled]) -> Command
 
         if let Err(error) = std::fs::rename(&temp, &target) {
             let _ = std::fs::remove_file(&temp);
-            return Err(CommandError::io("Не удалось сохранить файл Forge", &target, error));
+            return Err(CommandError::io(
+                "Не удалось сохранить файл Forge",
+                &target,
+                error,
+            ));
         }
 
         unpacked += 1;
@@ -578,10 +587,19 @@ mod tests {
         let dir = scratch();
         let jar = dir.join("installer.jar");
 
-        write_installer(&jar, &[
-            ("install_profile.json", legacy_profile().to_string().as_bytes()),
-            ("forge-1.7.10-10.13.4.1614-1.7.10-universal.jar", b"universal"),
-        ]);
+        write_installer(
+            &jar,
+            &[
+                (
+                    "install_profile.json",
+                    legacy_profile().to_string().as_bytes(),
+                ),
+                (
+                    "forge-1.7.10-10.13.4.1614-1.7.10-universal.jar",
+                    b"universal",
+                ),
+            ],
+        );
 
         let installer = Installer::open(jar).await.unwrap();
 
@@ -628,19 +646,34 @@ mod tests {
 
         assert_eq!(installer.minecraft_version(), "1.21.11");
         assert_eq!(installer.version_id(), "1.21.11-forge-61.1.14");
-        assert_eq!(installer.processors().len(), 1, "серверные процессоры отброшены");
-        assert_eq!(installer.processors()[0].jar, "net.minecraftforge:binarypatcher:1.3.1");
-        assert_eq!(installer.data().get("BINPATCH").unwrap(), "/data/client.lzma");
+        assert_eq!(
+            installer.processors().len(),
+            1,
+            "серверные процессоры отброшены"
+        );
+        assert_eq!(
+            installer.processors()[0].jar,
+            "net.minecraftforge:binarypatcher:1.3.1"
+        );
+        assert_eq!(
+            installer.data().get("BINPATCH").unwrap(),
+            "/data/client.lzma"
+        );
 
         let paths = LauncherPaths::new(dir.clone(), None);
-        let universal = paths
-            .library("net/minecraftforge/forge/1.21.11-61.1.14/forge-1.21.11-61.1.14-universal.jar");
+        let universal = paths.library(
+            "net/minecraftforge/forge/1.21.11-61.1.14/forge-1.21.11-61.1.14-universal.jar",
+        );
 
         assert_eq!(installer.unpack(&paths).await.unwrap(), 1);
         assert_eq!(installer.unpack(&paths).await.unwrap(), 0);
 
         std::fs::write(&universal, b"cut").unwrap();
-        assert_eq!(installer.unpack(&paths).await.unwrap(), 1, "битый размер перекачивается");
+        assert_eq!(
+            installer.unpack(&paths).await.unwrap(),
+            1,
+            "битый размер перекачивается"
+        );
         assert_eq!(std::fs::read(&universal).unwrap(), b"universal");
 
         let urls: Vec<String> = installer
@@ -655,10 +688,13 @@ mod tests {
         ]);
 
         let missing = installer.missing(&paths, &ctx());
-        assert_eq!(missing, vec![
-            "net/minecraftforge/forge/1.21.11-61.1.14/forge-1.21.11-61.1.14-client.jar",
-            "org/ow2/asm/asm/9.7/asm-9.7.jar",
-        ]);
+        assert_eq!(
+            missing,
+            vec![
+                "net/minecraftforge/forge/1.21.11-61.1.14/forge-1.21.11-61.1.14-client.jar",
+                "org/ow2/asm/asm/9.7/asm-9.7.jar",
+            ]
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -668,10 +704,16 @@ mod tests {
         let dir = scratch();
         let jar = dir.join("installer.jar");
 
-        write_installer(&jar, &[
-            ("install_profile.json", modern_profile().to_string().as_bytes()),
-            ("version.json", modern_version().to_string().as_bytes()),
-        ]);
+        write_installer(
+            &jar,
+            &[
+                (
+                    "install_profile.json",
+                    modern_profile().to_string().as_bytes(),
+                ),
+                ("version.json", modern_version().to_string().as_bytes()),
+            ],
+        );
 
         let installer = Installer::open(jar).await.unwrap();
         let paths = LauncherPaths::new(dir.clone(), None);
@@ -679,10 +721,14 @@ mod tests {
 
         installer.save(&cache).await.unwrap();
 
-        let saved: Value = crate::fs_util::read_json(&cache.client_json()).await.unwrap();
+        let saved: Value = crate::fs_util::read_json(&cache.client_json())
+            .await
+            .unwrap();
         assert_eq!(saved, modern_version());
 
-        let installed: InstalledLoader = crate::fs_util::read_json(&cache.installed_json()).await.unwrap();
+        let installed: InstalledLoader = crate::fs_util::read_json(&cache.installed_json())
+            .await
+            .unwrap();
         assert_eq!(installed.minecraft_version, "1.21.11");
         assert_eq!(
             installed.patched_client.as_deref(),
@@ -739,16 +785,23 @@ mod tests {
             "libraries": []
         });
 
-        write_installer(&jar, &[
-            ("install_profile.json", profile.to_string().as_bytes()),
-            ("version.json", version.to_string().as_bytes()),
-        ]);
+        write_installer(
+            &jar,
+            &[
+                ("install_profile.json", profile.to_string().as_bytes()),
+                ("version.json", version.to_string().as_bytes()),
+            ],
+        );
 
         let installer = Installer::open(jar).await.unwrap();
 
         assert_eq!(installer.minecraft_version(), "26.1.2");
         assert_eq!(installer.version_id(), "neoforge-26.1.2.86");
-        assert_eq!(installer.processors().len(), 1, "серверные процессоры отброшены");
+        assert_eq!(
+            installer.processors().len(),
+            1,
+            "серверные процессоры отброшены"
+        );
         assert_eq!(
             installer.patched_client(),
             Some("net.neoforged:minecraft-client-patched:26.1.2.86")
@@ -767,7 +820,9 @@ mod tests {
 
         installer.save(&cache).await.unwrap();
 
-        let installed: InstalledLoader = crate::fs_util::read_json(&cache.installed_json()).await.unwrap();
+        let installed: InstalledLoader = crate::fs_util::read_json(&cache.installed_json())
+            .await
+            .unwrap();
         assert_eq!(
             installed.patched_client.as_deref(),
             Some("net.neoforged:minecraft-client-patched:26.1.2.86")
@@ -781,12 +836,25 @@ mod tests {
         let dir = scratch();
         let jar = dir.join("installer.jar");
 
-        write_installer(&jar, &[
-            ("install_profile.json", legacy_profile().to_string().as_bytes()),
-            ("forge-1.7.10-10.13.4.1614-1.7.10-universal.jar", b"universal"),
-        ]);
+        write_installer(
+            &jar,
+            &[
+                (
+                    "install_profile.json",
+                    legacy_profile().to_string().as_bytes(),
+                ),
+                (
+                    "forge-1.7.10-10.13.4.1614-1.7.10-universal.jar",
+                    b"universal",
+                ),
+            ],
+        );
 
-        assert!(Installer::open(jar).await.unwrap().patched_client().is_none());
+        assert!(Installer::open(jar)
+            .await
+            .unwrap()
+            .patched_client()
+            .is_none());
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -797,7 +865,10 @@ mod tests {
 
         let empty = dir.join("empty.jar");
         std::fs::write(&empty, b"not a zip").unwrap();
-        assert_eq!(Installer::open(empty).await.unwrap_err().code, "ARCHIVE_INVALID");
+        assert_eq!(
+            Installer::open(empty).await.unwrap_err().code,
+            "ARCHIVE_INVALID"
+        );
 
         let without_profile = dir.join("bare.jar");
         write_installer(&without_profile, &[("readme.txt", b"hi")]);
@@ -808,7 +879,10 @@ mod tests {
 
         let broken = dir.join("broken.jar");
         write_installer(&broken, &[("install_profile.json", b"{ not json")]);
-        assert_eq!(Installer::open(broken).await.unwrap_err().code, "MANIFEST_INVALID");
+        assert_eq!(
+            Installer::open(broken).await.unwrap_err().code,
+            "MANIFEST_INVALID"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -833,10 +907,13 @@ mod tests {
             }
         });
 
-        write_installer(&jar, &[
-            ("install_profile.json", profile.to_string().as_bytes()),
-            ("forge-universal.jar", b"universal"),
-        ]);
+        write_installer(
+            &jar,
+            &[
+                ("install_profile.json", profile.to_string().as_bytes()),
+                ("forge-universal.jar", b"universal"),
+            ],
+        );
 
         let installer = Installer::open(jar).await.unwrap();
         let paths = LauncherPaths::new(dir.clone(), None);

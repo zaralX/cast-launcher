@@ -19,7 +19,13 @@ fn normalize(name: &str) -> String {
     let replaced: String = name
         .to_lowercase()
         .chars()
-        .map(|symbol| if SEPARATORS.contains(&symbol) { ' ' } else { symbol })
+        .map(|symbol| {
+            if SEPARATORS.contains(&symbol) {
+                ' '
+            } else {
+                symbol
+            }
+        })
         .collect();
 
     replaced.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -39,7 +45,9 @@ pub async fn scan(dir: &Path, files: &mut [BlockedFile]) -> usize {
     while let Ok(Some(entry)) = entries.next_entry().await {
         let path = entry.path();
 
-        let Ok(metadata) = entry.metadata().await else { continue };
+        let Ok(metadata) = entry.metadata().await else {
+            continue;
+        };
 
         if !metadata.is_file() || metadata.len() > MAX_CANDIDATE {
             continue;
@@ -98,7 +106,13 @@ async fn sha1(path: &Path) -> Option<String> {
         hasher.update(&buffer[..read]);
     }
 
-    Some(hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect())
+    Some(
+        hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+    )
 }
 
 pub async fn place(minecraft_dir: &Path, file: &BlockedFile) -> CommandResult<String> {
@@ -145,13 +159,23 @@ mod tests {
 
         let mut hasher = Sha1::new();
         hasher.update(content);
-        hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
+        hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect()
     }
 
     #[test]
     fn separators_and_case_do_not_matter_when_comparing_names() {
-        assert!(lax_equal("sodium-extra-0.6.0.jar", "sodium_extra+0.6.0.jar"));
-        assert!(lax_equal("EntityCulling-Fabric-1.10.5.jar", "entityculling-fabric-1.10.5.jar"));
+        assert!(lax_equal(
+            "sodium-extra-0.6.0.jar",
+            "sodium_extra+0.6.0.jar"
+        ));
+        assert!(lax_equal(
+            "EntityCulling-Fabric-1.10.5.jar",
+            "entityculling-fabric-1.10.5.jar"
+        ));
         assert!(!lax_equal("sodium-0.5.jar", "sodium-0.6.jar"));
         assert!(!lax_equal("jei.jar", "rei.jar"));
     }
@@ -165,7 +189,11 @@ mod tests {
 
         assert_eq!(scan(&dir, &mut files).await, 1);
         assert!(files[0].found());
-        assert!(files[0].local_path.as_ref().unwrap().ends_with("entityculling-1.10.5.jar"));
+        assert!(files[0]
+            .local_path
+            .as_ref()
+            .unwrap()
+            .ends_with("entityculling-1.10.5.jar"));
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -253,7 +281,10 @@ mod tests {
         let key = place(&minecraft, &files[0]).await.unwrap();
 
         assert_eq!(key, "mods/jei.jar");
-        assert_eq!(std::fs::read(minecraft.join("mods").join("jei.jar")).unwrap(), b"\xd0\xbc\xd0\xbe\xd0\xb4");
+        assert_eq!(
+            std::fs::read(minecraft.join("mods").join("jei.jar")).unwrap(),
+            b"\xd0\xbc\xd0\xbe\xd0\xb4"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

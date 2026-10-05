@@ -314,7 +314,8 @@ pub fn icon_file_name(provider: PackProvider, project_id: &str, url: &str) -> St
         .and_then(|name| name.rsplit_once('.'))
         .map(|(_, extension)| extension.to_ascii_lowercase())
         .filter(|extension| {
-            (1..=5).contains(&extension.len()) && extension.chars().all(|c| c.is_ascii_alphanumeric())
+            (1..=5).contains(&extension.len())
+                && extension.chars().all(|c| c.is_ascii_alphanumeric())
         })
         .unwrap_or_else(|| "png".to_string());
 
@@ -322,13 +323,17 @@ pub fn icon_file_name(provider: PackProvider, project_id: &str, url: &str) -> St
 }
 
 pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u8>> {
-    let parsed = url::Url::parse(url)
-        .map_err(|e| CommandError::network("Некорректная ссылка на иконку").with_details(crate::error::error_chain(&e)))?;
+    let parsed = url::Url::parse(url).map_err(|e| {
+        CommandError::network("Некорректная ссылка на иконку")
+            .with_details(crate::error::error_chain(&e))
+    })?;
 
     let allowed = parsed.scheme() == "https"
-        && parsed
-            .host_str()
-            .is_some_and(|host| hosts.iter().any(|allowed| host == *allowed || host.ends_with(&format!(".{allowed}"))));
+        && parsed.host_str().is_some_and(|host| {
+            hosts
+                .iter()
+                .any(|allowed| host == *allowed || host.ends_with(&format!(".{allowed}")))
+        });
 
     if !allowed {
         return Err(CommandError::network(format!(
@@ -337,26 +342,38 @@ pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u
         )));
     }
 
-    let response = crate::net::http::client().get(parsed.as_str()).send().await.map_err(|e| {
-        CommandError::network("Не удалось скачать иконку").with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
-    })?;
+    let response = crate::net::http::client()
+        .get(parsed.as_str())
+        .send()
+        .await
+        .map_err(|e| {
+            CommandError::network("Не удалось скачать иконку")
+                .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
+        })?;
 
     let status = response.status();
     if !status.is_success() {
         return Err(crate::net::http::http_status_error(status, url));
     }
 
-    if response.content_length().is_some_and(|size| size > crate::icons::MAX_SIZE) {
-        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
+    if response
+        .content_length()
+        .is_some_and(|size| size > crate::icons::MAX_SIZE)
+    {
+        return Err(CommandError::download(format!(
+            "Иконка слишком большая: {url}"
+        )));
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| CommandError::download(format!("Обрыв загрузки иконки: {url}")).with_details(crate::error::error_chain(&e)))?;
+    let bytes = response.bytes().await.map_err(|e| {
+        CommandError::download(format!("Обрыв загрузки иконки: {url}"))
+            .with_details(crate::error::error_chain(&e))
+    })?;
 
     if bytes.len() as u64 > crate::icons::MAX_SIZE {
-        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
+        return Err(CommandError::download(format!(
+            "Иконка слишком большая: {url}"
+        )));
     }
 
     Ok(bytes.to_vec())
@@ -371,7 +388,10 @@ mod tests {
         let cf = sorts_for(PackProvider::CurseForge);
 
         assert!(!cf.contains(&"follows"), "у CurseForge нет подписок");
-        assert!(!cf.contains(&"newest"), "у CurseForge нет сортировки по дате создания");
+        assert!(
+            !cf.contains(&"newest"),
+            "у CurseForge нет сортировки по дате создания"
+        );
         assert!(cf.contains(&"downloads"));
 
         assert_eq!(sorts_for(PackProvider::Modrinth).len(), SORTS.len());
@@ -379,13 +399,15 @@ mod tests {
 
     #[test]
     fn an_unsupported_sort_falls_back_to_relevance() {
-        let query = |provider, sort: &str| SearchQuery {
-            provider,
-            sort: Some(sort.into()),
-            ..Default::default()
-        }
-        .sort_key()
-        .to_string();
+        let query = |provider, sort: &str| {
+            SearchQuery {
+                provider,
+                sort: Some(sort.into()),
+                ..Default::default()
+            }
+            .sort_key()
+            .to_string()
+        };
 
         assert_eq!(query(PackProvider::Modrinth, "follows"), "follows");
         assert_eq!(
@@ -400,21 +422,36 @@ mod tests {
     fn blank_filter_values_are_dropped() {
         let values = vec!["  ".to_string(), "fabric".to_string(), String::new()];
 
-        assert_eq!(SearchQuery::clean(&values).collect::<Vec<_>>(), vec!["fabric"]);
+        assert_eq!(
+            SearchQuery::clean(&values).collect::<Vec<_>>(),
+            vec!["fabric"]
+        );
     }
 
     #[test]
     fn icon_names_carry_the_provider_and_keep_the_extension() {
         assert_eq!(
-            icon_file_name(PackProvider::Modrinth, "1KVo5zza", "https://cdn.modrinth.com/data/1KVo5zza/icon.WEBP"),
+            icon_file_name(
+                PackProvider::Modrinth,
+                "1KVo5zza",
+                "https://cdn.modrinth.com/data/1KVo5zza/icon.WEBP"
+            ),
             "modrinth-1KVo5zza.webp"
         );
         assert_eq!(
-            icon_file_name(PackProvider::CurseForge, "925200", "https://media.forgecdn.net/avatars/1182/438/x.png?v=2"),
+            icon_file_name(
+                PackProvider::CurseForge,
+                "925200",
+                "https://media.forgecdn.net/avatars/1182/438/x.png?v=2"
+            ),
             "curseforge-925200.png"
         );
         assert_eq!(
-            icon_file_name(PackProvider::CurseForge, "925200", "https://media.forgecdn.net/avatars/x"),
+            icon_file_name(
+                PackProvider::CurseForge,
+                "925200",
+                "https://media.forgecdn.net/avatars/x"
+            ),
             "curseforge-925200.png",
             "без расширения - считаем png"
         );
@@ -422,9 +459,19 @@ mod tests {
 
     #[tokio::test]
     async fn icons_are_only_taken_from_the_allowed_cdn() {
-        assert!(fetch_icon("http://media.forgecdn.net/a.png", &["media.forgecdn.net"]).await.is_err());
-        assert!(fetch_icon("https://example.com/a.png", &["media.forgecdn.net"]).await.is_err());
-        assert!(fetch_icon("не ссылка", &["media.forgecdn.net"]).await.is_err());
+        assert!(
+            fetch_icon("http://media.forgecdn.net/a.png", &["media.forgecdn.net"])
+                .await
+                .is_err()
+        );
+        assert!(
+            fetch_icon("https://example.com/a.png", &["media.forgecdn.net"])
+                .await
+                .is_err()
+        );
+        assert!(fetch_icon("не ссылка", &["media.forgecdn.net"])
+            .await
+            .is_err());
     }
 
     fn version(loader: Option<LoaderType>, file: bool, blocked: bool) -> PackVersion {
@@ -454,15 +501,24 @@ mod tests {
 
     #[test]
     fn every_kind_of_unsupported_version_explains_itself() {
-        assert!(version(Some(LoaderType::Fabric), true, false).unsupported_reason().is_none());
+        assert!(version(Some(LoaderType::Fabric), true, false)
+            .unsupported_reason()
+            .is_none());
 
         let quilt = version(None, true, false).unsupported_reason().unwrap();
-        assert!(quilt.contains("quilt"), "в тексте должен быть загрузчик: {quilt}");
+        assert!(
+            quilt.contains("quilt"),
+            "в тексте должен быть загрузчик: {quilt}"
+        );
 
-        let blocked = version(Some(LoaderType::Fabric), false, true).unsupported_reason().unwrap();
+        let blocked = version(Some(LoaderType::Fabric), false, true)
+            .unsupported_reason()
+            .unwrap();
         assert!(blocked.contains("запретил"), "{blocked}");
 
-        let empty = version(Some(LoaderType::Fabric), false, false).unsupported_reason().unwrap();
+        let empty = version(Some(LoaderType::Fabric), false, false)
+            .unsupported_reason()
+            .unwrap();
         assert!(empty.contains("архива"), "{empty}");
     }
 
@@ -477,7 +533,10 @@ mod tests {
         assert!(modrinth.capabilities.multiple_game_versions);
         assert!(!modrinth.capabilities.blockable_files);
 
-        let curseforge = all.iter().find(|p| p.id == PackProvider::CurseForge).unwrap();
+        let curseforge = all
+            .iter()
+            .find(|p| p.id == PackProvider::CurseForge)
+            .unwrap();
         assert!(!curseforge.capabilities.multiple_game_versions);
         assert!(curseforge.capabilities.blockable_files);
     }

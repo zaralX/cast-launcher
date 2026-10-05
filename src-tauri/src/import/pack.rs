@@ -100,7 +100,11 @@ pub async fn import(
     Ok(created)
 }
 
-async fn store_archive(paths: &LauncherPaths, instance_id: &str, source: &Path) -> CommandResult<()> {
+async fn store_archive(
+    paths: &LauncherPaths,
+    instance_id: &str,
+    source: &Path,
+) -> CommandResult<()> {
     let target: PathBuf = paths.instance(instance_id).pack_archive();
 
     if let Some(parent) = target.parent() {

@@ -242,7 +242,8 @@ mod tests {
 
     #[test]
     fn os_version_is_a_regex() {
-        let win10 = json!([{ "action": "allow", "os": { "name": "windows", "version": "^10\\." } }]);
+        let win10 =
+            json!([{ "action": "allow", "os": { "name": "windows", "version": "^10\\." } }]);
 
         assert!(allows(win10.clone(), &win_x64()));
         assert!(!allows(win10, &win_x86()));

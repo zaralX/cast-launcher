@@ -197,7 +197,13 @@ mod tests {
     #[test]
     fn the_last_phase_is_always_the_one_that_lays_out_the_files() {
         for provider in PackProvider::ALL {
-            assert_eq!(for_install(LoaderType::Forge, Source::Pack(provider)).last().unwrap().key, "modpack");
+            assert_eq!(
+                for_install(LoaderType::Forge, Source::Pack(provider))
+                    .last()
+                    .unwrap()
+                    .key,
+                "modpack"
+            );
             assert_eq!(
                 for_install(LoaderType::Forge, Source::CastPack(Some(provider)))
                     .last()
@@ -207,7 +213,13 @@ mod tests {
             );
         }
 
-        assert_eq!(for_install(LoaderType::Forge, Source::CastPack(None)).last().unwrap().key, "castpack");
+        assert_eq!(
+            for_install(LoaderType::Forge, Source::CastPack(None))
+                .last()
+                .unwrap()
+                .key,
+            "castpack"
+        );
     }
 
     #[test]
@@ -225,12 +237,18 @@ mod tests {
         let keys: Vec<_> = curseforge.iter().map(|phase| phase.key).collect();
         let at = |key: &str| keys.iter().position(|item| *item == key).unwrap();
 
-        assert!(at("modpack-resolve") < at("modpack"), "сначала список, потом загрузка");
+        assert!(
+            at("modpack-resolve") < at("modpack"),
+            "сначала список, потом загрузка"
+        );
     }
 
     #[test]
     fn a_castpack_reads_its_manifest_before_anything_else_it_owns() {
-        let phases = for_install(LoaderType::Forge, Source::CastPack(Some(PackProvider::CurseForge)));
+        let phases = for_install(
+            LoaderType::Forge,
+            Source::CastPack(Some(PackProvider::CurseForge)),
+        );
         let keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
         let at = |key: &str| keys.iter().position(|item| *item == key).unwrap();
 
@@ -255,7 +273,10 @@ mod tests {
         let base = for_loader(LoaderType::Fabric);
 
         assert_eq!(plain.len(), base.len());
-        assert!(plain.iter().zip(&base).all(|(a, b)| a.key == b.key && a.weight == b.weight));
+        assert!(plain
+            .iter()
+            .zip(&base)
+            .all(|(a, b)| a.key == b.key && a.weight == b.weight));
     }
 
     #[test]
@@ -298,7 +319,10 @@ mod tests {
         }))
         .unwrap();
 
-        assert_eq!(Source::of(&local), Source::LocalPack(LocalPackKind::MultiMc));
+        assert_eq!(
+            Source::of(&local),
+            Source::LocalPack(LocalPackKind::MultiMc)
+        );
     }
 
     #[test]
@@ -325,19 +349,28 @@ mod tests {
             "pack": {"provider": "curseforge", "projectId": "p", "versionId": "v", "fileUrl": "https://x"}
         }))
         .unwrap();
-        assert_eq!(Source::of(&castpack), Source::CastPack(Some(PackProvider::CurseForge)));
+        assert_eq!(
+            Source::of(&castpack),
+            Source::CastPack(Some(PackProvider::CurseForge))
+        );
     }
 
     #[test]
     fn every_loader_downloads_the_vanilla_client() {
         for loader in LoaderType::ALL {
-            assert!(for_loader(loader).iter().any(|phase| phase.key == "client"), "{loader:?}");
+            assert!(
+                for_loader(loader).iter().any(|phase| phase.key == "client"),
+                "{loader:?}"
+            );
         }
     }
 
     #[test]
     fn an_installer_driven_loader_builds_the_client_after_downloading_its_libraries() {
-        for (loader, prefix) in [(LoaderType::Forge, "forge"), (LoaderType::NeoForge, "neoforge")] {
+        for (loader, prefix) in [
+            (LoaderType::Forge, "forge"),
+            (LoaderType::NeoForge, "neoforge"),
+        ] {
             let phases = for_loader(loader);
             let keys: Vec<_> = phases.iter().map(|phase| phase.key).collect();
             let at = |suffix: &str| {
@@ -353,10 +386,18 @@ mod tests {
 
     #[test]
     fn loaders_installed_the_same_way_still_report_their_own_phases() {
-        let forge: Vec<_> = for_loader(LoaderType::Forge).iter().map(|phase| phase.key).collect();
-        let neoforge: Vec<_> = for_loader(LoaderType::NeoForge).iter().map(|phase| phase.key).collect();
+        let forge: Vec<_> = for_loader(LoaderType::Forge)
+            .iter()
+            .map(|phase| phase.key)
+            .collect();
+        let neoforge: Vec<_> = for_loader(LoaderType::NeoForge)
+            .iter()
+            .map(|phase| phase.key)
+            .collect();
 
-        assert!(forge.iter().all(|key| !neoforge.contains(key) || !key.contains('-')));
+        assert!(forge
+            .iter()
+            .all(|key| !neoforge.contains(key) || !key.contains('-')));
     }
 
     #[test]

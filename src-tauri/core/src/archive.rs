@@ -20,8 +20,11 @@ fn extract_natives_blocking(jar_path: &Path, output_dir: &Path) -> CommandResult
 
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(|e| {
-            CommandError::archive(format!("Не удалось прочитать запись архива: {}", jar_path.display()))
-                .with_details(e.to_string())
+            CommandError::archive(format!(
+                "Не удалось прочитать запись архива: {}",
+                jar_path.display()
+            ))
+            .with_details(e.to_string())
         })?;
 
         let name = entry.name().to_string();
@@ -30,7 +33,9 @@ fn extract_natives_blocking(jar_path: &Path, output_dir: &Path) -> CommandResult
             continue;
         }
 
-        let Some(file_name) = Path::new(&name).file_name() else { continue };
+        let Some(file_name) = Path::new(&name).file_name() else {
+            continue;
+        };
         let out_path = output_dir.join(file_name);
 
         let mut out = File::create(&out_path)
@@ -53,8 +58,11 @@ fn read_entry_blocking(archive_path: &Path, entry: &str) -> CommandResult<Vec<u8
     let mut archive = open(archive_path)?;
 
     let mut file = archive.by_name(entry).map_err(|e| {
-        CommandError::archive(format!("В архиве нет файла {entry}: {}", archive_path.display()))
-            .with_details(e.to_string())
+        CommandError::archive(format!(
+            "В архиве нет файла {entry}: {}",
+            archive_path.display()
+        ))
+        .with_details(e.to_string())
     })?;
 
     let mut bytes = Vec::with_capacity(file.size() as usize);
@@ -87,13 +95,18 @@ fn extract_dir_blocking(
 
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(|e| {
-            CommandError::archive(format!("Не удалось прочитать запись архива: {}", archive_path.display()))
-                .with_details(e.to_string())
+            CommandError::archive(format!(
+                "Не удалось прочитать запись архива: {}",
+                archive_path.display()
+            ))
+            .with_details(e.to_string())
         })?;
 
         let name = entry.name().to_string();
 
-        let Some(relative) = name.strip_prefix(&prefix) else { continue };
+        let Some(relative) = name.strip_prefix(&prefix) else {
+            continue;
+        };
         if relative.is_empty() || name.ends_with('/') {
             continue;
         }
@@ -178,23 +191,33 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         let pack = dir.join("pack.mrpack");
-        write_zip(&pack, &[
-            ("modrinth.index.json", br#"{"name":"Pack"}"#),
-            ("overrides/config/a.toml", b"a"),
-            ("overrides/options.txt", b"b"),
-            ("client-overrides/servers.dat", b"c"),
-        ]);
+        write_zip(
+            &pack,
+            &[
+                ("modrinth.index.json", br#"{"name":"Pack"}"#),
+                ("overrides/config/a.toml", b"a"),
+                ("overrides/options.txt", b"b"),
+                ("client-overrides/servers.dat", b"c"),
+            ],
+        );
 
         let target = dir.join("minecraft");
-        let mut extracted = extract_dir(pack.clone(), "overrides".into(), target.clone()).await.unwrap();
+        let mut extracted = extract_dir(pack.clone(), "overrides".into(), target.clone())
+            .await
+            .unwrap();
         extracted.sort();
 
         assert_eq!(extracted, vec!["config/a.toml", "options.txt"]);
-        assert_eq!(std::fs::read(target.join("config").join("a.toml")).unwrap(), b"a");
+        assert_eq!(
+            std::fs::read(target.join("config").join("a.toml")).unwrap(),
+            b"a"
+        );
         assert_eq!(std::fs::read(target.join("options.txt")).unwrap(), b"b");
         assert!(!target.join("servers.dat").exists());
 
-        let index = read_entry(pack, "modrinth.index.json".into()).await.unwrap();
+        let index = read_entry(pack, "modrinth.index.json".into())
+            .await
+            .unwrap();
         assert_eq!(index, br#"{"name":"Pack"}"#);
 
         std::fs::remove_dir_all(&dir).ok();
@@ -208,7 +231,9 @@ mod tests {
         let pack = dir.join("pack.mrpack");
         write_zip(&pack, &[("modrinth.index.json", b"{}")]);
 
-        let extracted = extract_dir(pack.clone(), "client-overrides".into(), dir.join("mc")).await.unwrap();
+        let extracted = extract_dir(pack.clone(), "client-overrides".into(), dir.join("mc"))
+            .await
+            .unwrap();
         assert!(extracted.is_empty());
 
         assert!(read_entry(pack, "нет.json".into()).await.is_err());

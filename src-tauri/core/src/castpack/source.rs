@@ -57,7 +57,8 @@ pub async fn installed_manifest(path: &Path) -> Option<Manifest> {
 
 pub async fn save_manifest(path: &Path, manifest: &Manifest) -> CommandResult<()> {
     let bytes = serde_json::to_vec_pretty(manifest).map_err(|e| {
-        CommandError::unknown("Не удалось сохранить манифест сборки").with_details(crate::error::error_chain(&e))
+        CommandError::unknown("Не удалось сохранить манифест сборки")
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     write_atomic(path, &bytes).await
@@ -77,7 +78,8 @@ pub async fn probe(url: &str) -> CommandResult<ProbedFile> {
     let url = https_url(url)?;
 
     let response = http::client().get(url).send().await.map_err(|e| {
-        CommandError::network(format!("Не удалось скачать {url}")).with_details(crate::error::error_chain(&e))
+        CommandError::network(format!("Не удалось скачать {url}"))
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     let status = response.status();
@@ -86,12 +88,16 @@ pub async fn probe(url: &str) -> CommandResult<ProbedFile> {
     }
 
     let bytes = response.bytes().await.map_err(|e| {
-        CommandError::download(format!("Обрыв загрузки: {url}")).with_details(crate::error::error_chain(&e))
+        CommandError::download(format!("Обрыв загрузки: {url}"))
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     Ok(ProbedFile {
         file_name: file_name_of(url),
-        sha1: Sha1::digest(&bytes).iter().map(|byte| format!("{byte:02x}")).collect(),
+        sha1: Sha1::digest(&bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
         size: bytes.len() as u64,
     })
 }
@@ -124,7 +130,9 @@ pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
     }
 
     if response.content_length().is_some_and(|size| size > limit) {
-        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
+        return Err(CommandError::download(format!(
+            "Иконка слишком большая: {url}"
+        )));
     }
 
     let bytes = response
@@ -137,7 +145,9 @@ pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
         .to_vec();
 
     if bytes.len() as u64 > limit {
-        return Err(CommandError::download(format!("Иконка слишком большая: {url}")));
+        return Err(CommandError::download(format!(
+            "Иконка слишком большая: {url}"
+        )));
     }
 
     Ok(bytes)
@@ -161,20 +171,28 @@ async fn fetch(url: &str) -> CommandResult<Vec<u8>> {
         return Err(http::http_status_error(status, url));
     }
 
-    if response.content_length().is_some_and(|size| size > MAX_SIZE) {
-        return Err(CommandError::download(format!("Файл CastPack слишком большой: {url}")));
+    if response
+        .content_length()
+        .is_some_and(|size| size > MAX_SIZE)
+    {
+        return Err(CommandError::download(format!(
+            "Файл CastPack слишком большой: {url}"
+        )));
     }
 
     let bytes = response
         .bytes()
         .await
         .map_err(|e| {
-            CommandError::network(format!("Обрыв загрузки CastPack: {url}")).with_details(crate::error::error_chain(&e))
+            CommandError::network(format!("Обрыв загрузки CastPack: {url}"))
+                .with_details(crate::error::error_chain(&e))
         })?
         .to_vec();
 
     if bytes.len() as u64 > MAX_SIZE {
-        return Err(CommandError::download(format!("Файл CastPack слишком большой: {url}")));
+        return Err(CommandError::download(format!(
+            "Файл CastPack слишком большой: {url}"
+        )));
     }
 
     Ok(bytes)
@@ -236,7 +254,11 @@ mod tests {
     async fn without_a_cache_a_dead_network_is_an_error() {
         let dir = temp_dir();
 
-        let loaded = catalog("https://такого.адреса.нет.invalid/catalog.json", &dir.join("нет.json")).await;
+        let loaded = catalog(
+            "https://такого.адреса.нет.invalid/catalog.json",
+            &dir.join("нет.json"),
+        )
+        .await;
 
         assert!(loaded.is_err());
 
@@ -248,7 +270,11 @@ mod tests {
         let dir = temp_dir();
 
         assert!(manifest("http://cdn.zaralx.ru/m.json").await.is_err());
-        assert!(catalog("http://cdn.zaralx.ru/c.json", &dir.join("нет.json")).await.is_err());
+        assert!(
+            catalog("http://cdn.zaralx.ru/c.json", &dir.join("нет.json"))
+                .await
+                .is_err()
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -292,20 +318,30 @@ mod tests {
 
     #[test]
     fn the_file_name_comes_from_the_link_without_its_query() {
-        assert_eq!(file_name_of("https://cdn.zaralx.ru/mods/jei-1.0.jar"), "jei-1.0.jar");
-        assert_eq!(file_name_of("https://cdn.zaralx.ru/mods/jei.jar?v=2"), "jei.jar");
+        assert_eq!(
+            file_name_of("https://cdn.zaralx.ru/mods/jei-1.0.jar"),
+            "jei-1.0.jar"
+        );
+        assert_eq!(
+            file_name_of("https://cdn.zaralx.ru/mods/jei.jar?v=2"),
+            "jei.jar"
+        );
         assert_eq!(file_name_of("https://cdn.zaralx.ru/"), "");
     }
 
     #[tokio::test]
     async fn an_icon_may_live_on_any_https_host_but_only_on_https() {
-        assert!(icon("http://terrafirmagreg.team/storage/img/logo.gif").await.is_err());
+        assert!(icon("http://terrafirmagreg.team/storage/img/logo.gif")
+            .await
+            .is_err());
         assert!(icon("не ссылка").await.is_err());
 
         let foreign = icon("https://такого.адреса.нет.invalid/logo.png").await;
 
         assert!(
-            foreign.as_ref().is_err_and(|error| error.code != "MANIFEST_INVALID"),
+            foreign
+                .as_ref()
+                .is_err_and(|error| error.code != "MANIFEST_INVALID"),
             "чужой хост должен дойти до сети, а не отвалиться на проверке ссылки: {foreign:?}"
         );
     }

@@ -96,7 +96,9 @@ impl LauncherPaths {
     }
 
     pub fn asset_object(&self, hash: &str) -> PathBuf {
-        self.asset_objects().join(&hash[..2.min(hash.len())]).join(hash)
+        self.asset_objects()
+            .join(&hash[..2.min(hash.len())])
+            .join(hash)
     }
 
     pub fn cache(&self) -> PathBuf {
@@ -222,7 +224,10 @@ impl LoaderPaths {
 
 fn join_relative(base: &Path, relative: &str) -> PathBuf {
     let mut path = base.to_path_buf();
-    for part in relative.split('/').filter(|part| !part.is_empty() && *part != ".") {
+    for part in relative
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+    {
         path.push(part);
     }
     path
@@ -272,7 +277,10 @@ mod tests {
         assert_eq!(custom.libraries(), data.join("libraries"));
         assert_eq!(custom.assets(), data.join("assets"));
         assert_eq!(custom.instances_root(), data.join("instances"));
-        assert_eq!(custom.instance("abc").minecraft(), data.join("instances/abc/minecraft"));
+        assert_eq!(
+            custom.instance("abc").minecraft(),
+            data.join("instances/abc/minecraft")
+        );
         assert_eq!(custom.icons(), data.join("icons"));
         assert_eq!(custom.accounts_file(), data.join("accounts.json"));
     }
@@ -281,7 +289,10 @@ mod tests {
     fn only_the_config_stays_behind_in_the_config_root() {
         let custom = LauncherPaths::new(PathBuf::from("/cfg"), Some("/data"));
 
-        assert_eq!(custom.config_file(), PathBuf::from("/cfg").join("config.json"));
+        assert_eq!(
+            custom.config_file(),
+            PathBuf::from("/cfg").join("config.json")
+        );
     }
 
     #[test]
@@ -295,7 +306,10 @@ mod tests {
         let library = paths().library("org/lwjgl/lwjgl/3.3.1/lwjgl-3.3.1.jar");
 
         assert!(library.ends_with("lwjgl-3.3.1.jar"));
-        assert_eq!(library.components().count(), paths().libraries().components().count() + 5);
+        assert_eq!(
+            library.components().count(),
+            paths().libraries().components().count() + 5
+        );
     }
 
     #[test]
@@ -314,8 +328,12 @@ mod tests {
         let forge = paths().loader_cache("forge", "1.20.1-47.4.13");
         let neoforge = paths().loader_cache("neoforge", "21.1.243");
 
-        assert!(forge.installer_jar().ends_with(Path::new("forge/1.20.1-47.4.13/installer.jar")));
-        assert!(neoforge.client_json().ends_with(Path::new("neoforge/21.1.243/client.json")));
+        assert!(forge
+            .installer_jar()
+            .ends_with(Path::new("forge/1.20.1-47.4.13/installer.jar")));
+        assert!(neoforge
+            .client_json()
+            .ends_with(Path::new("neoforge/21.1.243/client.json")));
         assert_ne!(forge.root(), neoforge.root());
     }
 }

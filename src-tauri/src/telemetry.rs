@@ -50,7 +50,10 @@ fn app_key() -> &'static str {
 }
 
 fn trimmed(message: &str) -> String {
-    message.chars().take(cast_core::telemetry::MAX_VALUE_LEN).collect()
+    message
+        .chars()
+        .take(cast_core::telemetry::MAX_VALUE_LEN)
+        .collect()
 }
 
 pub fn set_enabled(enabled: bool) {
@@ -105,7 +108,10 @@ pub async fn app_started(app: &AppHandle, state: &Arc<AppState>) {
         .num("cpu_cores", cpu_cores())
         .num("ram_mb", total_ram_mb())
         .num("instances", instances.len() as f64)
-        .num("installed", instances.iter().filter(|item| item.installed).count() as f64)
+        .num(
+            "installed",
+            instances.iter().filter(|item| item.installed).count() as f64,
+        )
         .num("accounts", accounts.accounts.len() as f64)
         .num("microsoft_accounts", microsoft as f64)
         .num("playtime_h", total_playtime_hours(&instances))
@@ -118,7 +124,10 @@ pub async fn app_started(app: &AppHandle, state: &Arc<AppState>) {
         .flag("compact", config.launcher.compact)
         .flag("auto_update", config.launcher.auto_update)
         .flag("custom_dir", custom_dir(state, &config).await)
-        .flag("custom_catalog", !config.launcher.castpack_url.trim().is_empty());
+        .flag(
+            "custom_catalog",
+            !config.launcher.castpack_url.trim().is_empty(),
+        );
 
     track(app, event);
 }
@@ -141,7 +150,11 @@ pub fn settings_changed(app: &AppHandle, before: &AppConfig, after: &AppConfig) 
         }
     };
 
-    text("language", &before.launcher.language, &after.launcher.language);
+    text(
+        "language",
+        &before.launcher.language,
+        &after.launcher.language,
+    );
     text("theme", &before.launcher.theme, &after.launcher.theme);
     text("accent", &before.launcher.accent, &after.launcher.accent);
     text(
@@ -157,8 +170,16 @@ pub fn settings_changed(app: &AppHandle, before: &AppConfig, after: &AppConfig) 
     };
 
     flag("compact", before.launcher.compact, after.launcher.compact);
-    flag("auto_update", before.launcher.auto_update, after.launcher.auto_update);
-    flag("telemetry", before.launcher.telemetry, after.launcher.telemetry);
+    flag(
+        "auto_update",
+        before.launcher.auto_update,
+        after.launcher.auto_update,
+    );
+    flag(
+        "telemetry",
+        before.launcher.telemetry,
+        after.launcher.telemetry,
+    );
     flag(
         "custom_catalog",
         !before.launcher.castpack_url.trim().is_empty(),
@@ -178,7 +199,9 @@ pub fn settings_changed(app: &AppHandle, before: &AppConfig, after: &AppConfig) 
     number("max_ram", before.java.max_ram, after.java.max_ram);
 
     for (key, value) in changes {
-        let event = Event::new("settings_changed").text("key", key).text("value", value);
+        let event = Event::new("settings_changed")
+            .text("key", key)
+            .text("value", value);
 
         match key == "telemetry" {
             true => track_always(app, event),
@@ -210,7 +233,8 @@ fn cpu_cores() -> f64 {
 
 fn total_ram_mb() -> f64 {
     let system = sysinfo::System::new_with_specifics(
-        sysinfo::RefreshKind::nothing().with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
+        sysinfo::RefreshKind::nothing()
+            .with_memory(sysinfo::MemoryRefreshKind::nothing().with_ram()),
     );
 
     megabytes(system.total_memory())

@@ -163,8 +163,13 @@ pub async fn plan(request: PlanRequest<'_>) -> CommandResult<InstallPlan> {
     installed.extend(already_installed(&target, request.installed));
 
     while let Some((dependency, depth)) = queue.pop() {
-        let Some(version) =
-            resolve(&dependency, request.provider, request.loader, request.game_version).await
+        let Some(version) = resolve(
+            &dependency,
+            request.provider,
+            request.loader,
+            request.game_version,
+        )
+        .await
         else {
             continue;
         };
@@ -184,7 +189,11 @@ pub async fn plan(request: PlanRequest<'_>) -> CommandResult<InstallPlan> {
         }
     }
 
-    let projects = projects_info(request.provider, &ids_of(request.project_id, &required, &optional)).await;
+    let projects = projects_info(
+        request.provider,
+        &ids_of(request.project_id, &required, &optional),
+    )
+    .await;
 
     Ok(InstallPlan {
         id: uuid::Uuid::new_v4().simple().to_string(),
@@ -279,10 +288,7 @@ async fn latest(
     }
 }
 
-async fn projects_info(
-    provider: PackProvider,
-    ids: &[String],
-) -> BTreeMap<String, CatalogProject> {
+async fn projects_info(provider: PackProvider, ids: &[String]) -> BTreeMap<String, CatalogProject> {
     let found = match provider {
         PackProvider::Modrinth => crate::modrinth::projects_info(ids).await,
         PackProvider::CurseForge => crate::curseforge::projects_info(ids).await,
@@ -334,8 +340,12 @@ fn planned(
         url: version.url,
         sha1: version.sha1,
         size: version.size,
-        icon_url: project.map(|project| project.icon_url.clone()).unwrap_or_default(),
-        page_url: project.map(|project| project.page_url.clone()).unwrap_or_default(),
+        icon_url: project
+            .map(|project| project.icon_url.clone())
+            .unwrap_or_default(),
+        page_url: project
+            .map(|project| project.page_url.clone())
+            .unwrap_or_default(),
         blocked: version.blocked,
     }
 }
@@ -401,7 +411,10 @@ pub async fn apply(
             .await;
 
         if let Err(error) = downloaded {
-            eprintln!("Не удалось поставить «{}»: {}", planned.title, error.message);
+            eprintln!(
+                "Не удалось поставить «{}»: {}",
+                planned.title, error.message
+            );
             report.failed.push(planned.title.clone());
             continue;
         }
@@ -472,20 +485,31 @@ mod tests {
         InstallPlan {
             id: "plan".into(),
             target: planned_mod("target", false),
-            required: required.into_iter().map(|id| planned_mod(id, false)).collect(),
-            optional: optional.into_iter().map(|id| planned_mod(id, false)).collect(),
+            required: required
+                .into_iter()
+                .map(|id| planned_mod(id, false))
+                .collect(),
+            optional: optional
+                .into_iter()
+                .map(|id| planned_mod(id, false))
+                .collect(),
             installed: Vec::new(),
         }
     }
 
     #[test]
     fn dependencies_of_a_version_become_the_next_steps() {
-        let version = version("v1", vec![dependency("fabric-api", true), dependency("sodium", false)]);
+        let version = version(
+            "v1",
+            vec![dependency("fabric-api", true), dependency("sodium", false)],
+        );
 
         let steps = next_steps(&version, 0, &BTreeSet::new(), &BTreeSet::new());
 
         assert_eq!(steps.len(), 2);
-        assert!(steps.iter().any(|step| step.project_id == "fabric-api" && step.required));
+        assert!(steps
+            .iter()
+            .any(|step| step.project_id == "fabric-api" && step.required));
     }
 
     #[test]
@@ -509,7 +533,9 @@ mod tests {
     fn the_walk_stops_at_a_sane_depth() {
         let version = version("v1", vec![dependency("deep", true)]);
 
-        assert!(!next_steps(&version, MAX_DEPTH - 1, &BTreeSet::new(), &BTreeSet::new()).is_empty());
+        assert!(
+            !next_steps(&version, MAX_DEPTH - 1, &BTreeSet::new(), &BTreeSet::new()).is_empty()
+        );
         assert!(next_steps(&version, MAX_DEPTH, &BTreeSet::new(), &BTreeSet::new()).is_empty());
     }
 
@@ -544,7 +570,10 @@ mod tests {
             ..ModSearch::default()
         };
 
-        assert_eq!(query.sort_key(&["relevance", "downloads", "follows"]), "follows");
+        assert_eq!(
+            query.sort_key(&["relevance", "downloads", "follows"]),
+            "follows"
+        );
         assert_eq!(query.sort_key(&["relevance", "downloads"]), "relevance");
 
         query.sort = None;
@@ -587,9 +616,15 @@ mod tests {
         let mut plan = plan_of(Vec::new(), Vec::new());
         plan.target = planned_mod("blocked-mod", true);
 
-        let report = apply(&scan, &DownloadRegistry::new(), &plan, &[], &root.join("catalog.json"))
-            .await
-            .unwrap();
+        let report = apply(
+            &scan,
+            &DownloadRegistry::new(),
+            &plan,
+            &[],
+            &root.join("catalog.json"),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(report.blocked, vec!["blocked-mod"]);
         assert!(report.installed.is_empty());

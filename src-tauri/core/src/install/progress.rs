@@ -146,7 +146,10 @@ impl ProgressReporter {
     pub fn phase_key(&self) -> &'static str {
         let index = self.lock().phase;
 
-        self.phases.get(index).map(|phase| phase.key).unwrap_or_default()
+        self.phases
+            .get(index)
+            .map(|phase| phase.key)
+            .unwrap_or_default()
     }
 
     pub fn elapsed_seconds(&self) -> f64 {
@@ -163,7 +166,8 @@ impl ProgressReporter {
     }
 
     pub fn set_blocked(&self, blocked: Vec<BlockedFile>) {
-        self.peak_blocked.fetch_max(blocked.len() as u64, Ordering::SeqCst);
+        self.peak_blocked
+            .fetch_max(blocked.len() as u64, Ordering::SeqCst);
         self.lock().blocked = blocked;
         self.publish();
     }
@@ -193,10 +197,14 @@ impl ProgressReporter {
     }
 
     pub fn apply_download(&self, snapshot: &JobSnapshot) {
-        let seen = self.phase_bytes.swap(snapshot.downloaded_bytes, Ordering::SeqCst);
+        let seen = self
+            .phase_bytes
+            .swap(snapshot.downloaded_bytes, Ordering::SeqCst);
 
-        self.downloaded_bytes
-            .fetch_add(snapshot.downloaded_bytes.saturating_sub(seen), Ordering::SeqCst);
+        self.downloaded_bytes.fetch_add(
+            snapshot.downloaded_bytes.saturating_sub(seen),
+            Ordering::SeqCst,
+        );
 
         {
             let mut state = self.lock();
@@ -241,7 +249,9 @@ impl ProgressReporter {
             instance_id: self.instance_id.clone(),
             instance_name: self.instance_name.clone(),
             stage: state.stage,
-            phase: phase.map(|phase| phase.label.to_string()).unwrap_or_default(),
+            phase: phase
+                .map(|phase| phase.label.to_string())
+                .unwrap_or_default(),
             message: state.message.clone(),
             progress: state.progress.clamp(0.0, 1.0),
             files: state.files.clone(),
@@ -268,13 +278,19 @@ impl ProgressReporter {
             .map(|phase| phase.weight)
             .sum();
 
-        let current = self.phases.get(phase_index).map(|phase| phase.weight).unwrap_or(0);
+        let current = self
+            .phases
+            .get(phase_index)
+            .map(|phase| phase.weight)
+            .unwrap_or(0);
 
         (before as f64 + fraction.clamp(0.0, 1.0) * current as f64) / total as f64
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
-        self.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 

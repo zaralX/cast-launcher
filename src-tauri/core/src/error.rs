@@ -137,7 +137,11 @@ impl CommandError {
             "INSTALL_ABORTED",
         ];
 
-        let code = KNOWN.iter().copied().find(|known| *known == code).unwrap_or("UNKNOWN");
+        let code = KNOWN
+            .iter()
+            .copied()
+            .find(|known| *known == code)
+            .unwrap_or("UNKNOWN");
         Self::new(code, message)
     }
 
@@ -191,7 +195,9 @@ mod tests {
 
     impl std::error::Error for Layer {
         fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-            self.cause.as_deref().map(|cause| cause as &dyn std::error::Error)
+            self.cause
+                .as_deref()
+                .map(|cause| cause as &dyn std::error::Error)
         }
     }
 
@@ -206,7 +212,10 @@ mod tests {
     fn the_real_cause_is_at_the_bottom_of_the_chain() {
         let error = layer(
             "error sending request for url (https://example.com)",
-            Some(layer("client error (Connect)", Some(layer("tcp connect error", None)))),
+            Some(layer(
+                "client error (Connect)",
+                Some(layer("tcp connect error", None)),
+            )),
         );
 
         assert_eq!(

@@ -158,7 +158,11 @@ fn yes() -> bool {
 }
 
 impl CastPackSource {
-    pub fn new(catalog_id: impl Into<String>, manifest_url: impl Into<String>, autoupdate: bool) -> Self {
+    pub fn new(
+        catalog_id: impl Into<String>,
+        manifest_url: impl Into<String>,
+        autoupdate: bool,
+    ) -> Self {
         Self {
             catalog_id: catalog_id.into(),
             manifest_url: manifest_url.into(),
@@ -290,13 +294,16 @@ impl Instance {
     }
 
     pub fn require_loader_version(&self) -> CommandResult<&str> {
-        self.loader_version.as_deref().filter(|v| !v.is_empty()).ok_or_else(|| {
-            CommandError::manifest(format!(
-                "У сборки «{}» не указана версия {}",
-                self.name,
-                self.loader.label()
-            ))
-        })
+        self.loader_version
+            .as_deref()
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                CommandError::manifest(format!(
+                    "У сборки «{}» не указана версия {}",
+                    self.name,
+                    self.loader.label()
+                ))
+            })
     }
 }
 
@@ -341,12 +348,19 @@ impl InstanceRegistry {
             .await
             .map_err(|e| CommandError::io("Не удалось прочитать каталог сборок", &root, e))?
         {
-            if !entry.file_type().await.map(|kind| kind.is_dir()).unwrap_or(false) {
+            if !entry
+                .file_type()
+                .await
+                .map(|kind| kind.is_dir())
+                .unwrap_or(false)
+            {
                 continue;
             }
 
             let dir = entry.path();
-            let Some(instance) = load_from_dir(&dir).await else { continue };
+            let Some(instance) = load_from_dir(&dir).await else {
+                continue;
+            };
 
             loaded.insert(instance.id.clone(), instance);
         }
@@ -356,7 +370,11 @@ impl InstanceRegistry {
         Ok(self.all().await)
     }
 
-    pub async fn create(&self, paths: &LauncherPaths, mut instance: Instance) -> CommandResult<Instance> {
+    pub async fn create(
+        &self,
+        paths: &LauncherPaths,
+        mut instance: Instance,
+    ) -> CommandResult<Instance> {
         let mut dir = paths.instances_root().join(&instance.id);
 
         if dir.exists() {
@@ -378,7 +396,12 @@ impl InstanceRegistry {
         Ok(instance)
     }
 
-    pub async fn update<F>(&self, paths: &LauncherPaths, id: &str, apply: F) -> CommandResult<Instance>
+    pub async fn update<F>(
+        &self,
+        paths: &LauncherPaths,
+        id: &str,
+        apply: F,
+    ) -> CommandResult<Instance>
     where
         F: FnOnce(&mut Instance),
     {
@@ -399,7 +422,8 @@ impl InstanceRegistry {
     }
 
     pub async fn mark_installed(&self, paths: &LauncherPaths, id: &str) -> CommandResult<Instance> {
-        self.update(paths, id, |instance| instance.installed = true).await
+        self.update(paths, id, |instance| instance.installed = true)
+            .await
     }
 
     pub async fn record_launch(
@@ -504,7 +528,10 @@ mod tests {
 
         let written = serde_json::to_value(&instance).unwrap();
         assert_eq!(written["pack"]["provider"], "modrinth");
-        assert_eq!(written["pack"]["fileUrl"], "https://cdn.modrinth.com/pack.mrpack");
+        assert_eq!(
+            written["pack"]["fileUrl"],
+            "https://cdn.modrinth.com/pack.mrpack"
+        );
 
         let parsed: Instance = serde_json::from_value(written).unwrap();
         assert_eq!(parsed.pack, instance.pack);
@@ -540,9 +567,15 @@ mod tests {
 
     #[test]
     fn a_pack_kind_says_whether_its_files_still_have_to_be_looked_up() {
-        assert!(LocalPackKind::CurseForge.resolves_files(), "в архиве только ссылки на моды");
+        assert!(
+            LocalPackKind::CurseForge.resolves_files(),
+            "в архиве только ссылки на моды"
+        );
         assert!(!LocalPackKind::Modrinth.resolves_files());
-        assert!(!LocalPackKind::MultiMc.resolves_files(), "моды уже лежат внутри");
+        assert!(
+            !LocalPackKind::MultiMc.resolves_files(),
+            "моды уже лежат внутри"
+        );
 
         for kind in LocalPackKind::ALL {
             assert_eq!(
@@ -604,7 +637,10 @@ mod tests {
         assert!(source.is_outdated("1.5.0"));
         assert!(!source.is_outdated("1.4.2"));
         assert!(!source.is_outdated("  1.4.2  "));
-        assert!(!source.is_outdated("  "), "пустая версия ничего не говорит об обновлении");
+        assert!(
+            !source.is_outdated("  "),
+            "пустая версия ничего не говорит об обновлении"
+        );
 
         assert!(
             source.is_outdated("1.0.0"),
@@ -614,7 +650,11 @@ mod tests {
 
     #[test]
     fn the_catalog_decides_where_the_manifest_lives() {
-        let source = CastPackSource::new("rpg", "https://s3.zaralx.ru/launcher/packs/rpg/manifest.json", true);
+        let source = CastPackSource::new(
+            "rpg",
+            "https://s3.zaralx.ru/launcher/packs/rpg/manifest.json",
+            true,
+        );
 
         assert_eq!(
             source.manifest_url_from(Some("https://castpacks.zaralx.ru/packs/rpg/manifest.json")),
@@ -727,7 +767,10 @@ mod tests {
         let effective = settings.apply(&base_config());
 
         assert_eq!(effective.java.java_mode, JavaMode::Manual);
-        assert_eq!(effective.manual_java_path(), Some("C:\\jdk21\\bin\\javaw.exe"));
+        assert_eq!(
+            effective.manual_java_path(),
+            Some("C:\\jdk21\\bin\\javaw.exe")
+        );
     }
 
     #[test]
@@ -787,7 +830,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(instance.playtime, Playtime::default());
-        assert_eq!(serde_json::to_value(&instance).unwrap()["playtime"]["totalSeconds"], 0);
+        assert_eq!(
+            serde_json::to_value(&instance).unwrap()["playtime"]["totalSeconds"],
+            0
+        );
     }
 
     #[test]
@@ -803,8 +849,14 @@ mod tests {
         playtime.finished(600);
 
         assert_eq!(playtime.total_seconds, 4200);
-        assert_eq!(playtime.last_seconds, 600, "последняя сессия перезаписывается");
-        assert_eq!(playtime.last_played_at, 1_700_000_000_000, "запуск отмечен один раз");
+        assert_eq!(
+            playtime.last_seconds, 600,
+            "последняя сессия перезаписывается"
+        );
+        assert_eq!(
+            playtime.last_played_at, 1_700_000_000_000,
+            "запуск отмечен один раз"
+        );
     }
 
     #[test]

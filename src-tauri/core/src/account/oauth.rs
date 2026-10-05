@@ -33,7 +33,9 @@ impl Pkce {
     }
 }
 
-pub async fn login(open_browser: impl FnOnce(&str) -> CommandResult<()>) -> CommandResult<super::Account> {
+pub async fn login(
+    open_browser: impl FnOnce(&str) -> CommandResult<()>,
+) -> CommandResult<super::Account> {
     let pkce = Pkce::generate();
     let state = random_token(24);
 
@@ -81,9 +83,11 @@ fn wait_for_code(server: Server, expected_state: &str) -> CommandResult<String> 
 
         let _ = request.respond(match &outcome {
             Ok(_) => Response::from_string(SUCCESS_PAGE).with_header(html_header()),
-            Err(error) => Response::from_string(format!("<h1>Ошибка входа</h1><p>{}</p>", error.message))
-                .with_header(html_header())
-                .with_status_code(400),
+            Err(error) => {
+                Response::from_string(format!("<h1>Ошибка входа</h1><p>{}</p>", error.message))
+                    .with_header(html_header())
+                    .with_status_code(400)
+            }
         });
 
         return outcome;
@@ -97,7 +101,9 @@ fn interpret(query: &HashMap<String, String>, expected_state: &str) -> CommandRe
     }
 
     if query.get("state").map(String::as_str) != Some(expected_state) {
-        return Err(CommandError::auth("Ответ Microsoft не соответствует запросу входа"));
+        return Err(CommandError::auth(
+            "Ответ Microsoft не соответствует запросу входа",
+        ));
     }
 
     query
@@ -176,7 +182,11 @@ mod tests {
         let pkce = Pkce::generate();
 
         assert_eq!(pkce.verifier.len(), 64);
-        assert_eq!(pkce.challenge.len(), 43, "SHA-256 без паддинга даёт 43 символа");
+        assert_eq!(
+            pkce.challenge.len(),
+            43,
+            "SHA-256 без паддинга даёт 43 символа"
+        );
         assert!(!pkce.challenge.contains(['+', '/', '=']));
     }
 
@@ -214,7 +224,8 @@ mod tests {
 
     #[test]
     fn error_response_is_surfaced() {
-        let query = parse_query("/?error=access_denied&error_description=User+cancelled&state=expected");
+        let query =
+            parse_query("/?error=access_denied&error_description=User+cancelled&state=expected");
         let error = interpret(&query, "expected").unwrap_err();
 
         assert_eq!(error.message, "User cancelled");

@@ -26,7 +26,9 @@ pub fn store(dir: &Path, key: &str, bytes: &[u8]) -> CommandResult<()> {
 }
 
 pub fn exists(dir: &Path, key: &str) -> bool {
-    child_file(dir, key).map(|path| path.is_file()).unwrap_or(false)
+    child_file(dir, key)
+        .map(|path| path.is_file())
+        .unwrap_or(false)
 }
 
 pub async fn data_url(dir: &Path, key: &str) -> CommandResult<String> {
@@ -34,10 +36,14 @@ pub async fn data_url(dir: &Path, key: &str) -> CommandResult<String> {
 }
 
 pub async fn prune(dir: &Path) {
-    let Ok(mut entries) = tokio::fs::read_dir(dir).await else { return };
+    let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
+        return;
+    };
 
     while let Ok(Some(entry)) = entries.next_entry().await {
-        let Ok(metadata) = entry.metadata().await else { continue };
+        let Ok(metadata) = entry.metadata().await else {
+            continue;
+        };
 
         let stale = metadata
             .modified()
@@ -60,7 +66,11 @@ mod tests {
     fn the_key_follows_the_file_it_came_from() {
         let first = key("mods/jei.jar", 100, 42, "png");
 
-        assert_eq!(first, key("mods/jei.jar", 100, 42, "png"), "тот же файл - тот же ключ");
+        assert_eq!(
+            first,
+            key("mods/jei.jar", 100, 42, "png"),
+            "тот же файл - тот же ключ"
+        );
         assert_ne!(first, key("mods/jei.jar", 100, 43, "png"), "мод обновился");
         assert_ne!(first, key("mods/other.jar", 100, 42, "png"));
         assert!(first.ends_with(".png"));

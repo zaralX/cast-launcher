@@ -42,11 +42,20 @@ impl InstallRegistry {
     }
 
     pub async fn snapshots(&self) -> Vec<InstallSnapshot> {
-        self.jobs.read().await.values().map(|job| job.snapshot()).collect()
+        self.jobs
+            .read()
+            .await
+            .values()
+            .map(|job| job.snapshot())
+            .collect()
     }
 
     pub async fn snapshot(&self, instance_id: &str) -> Option<InstallSnapshot> {
-        self.jobs.read().await.get(instance_id).map(|job| job.snapshot())
+        self.jobs
+            .read()
+            .await
+            .get(instance_id)
+            .map(|job| job.snapshot())
     }
 
     pub async fn cancel(&self, instance_id: &str) {
@@ -123,8 +132,13 @@ pub async fn start_with(
         complete(&app, &state, &instance, &reporter, outcome).await;
 
         if installed && launch_after {
-            if let Err(error) = crate::launch::launch(app.clone(), Arc::clone(&state), &instance.id).await {
-                eprintln!("Сборка «{}» установлена, но не запустилась: {error}", instance.name);
+            if let Err(error) =
+                crate::launch::launch(app.clone(), Arc::clone(&state), &instance.id).await
+            {
+                eprintln!(
+                    "Сборка «{}» установлена, но не запустилась: {error}",
+                    instance.name
+                );
                 LauncherEvent::LaunchFailed {
                     instance_id: instance.id.clone(),
                     instance_name: instance.name.clone(),
@@ -153,7 +167,10 @@ async fn complete(
     let finished = Event::new("install_finished")
         .instance(instance)
         .num("duration_s", reporter.elapsed_seconds())
-        .num("downloaded_mb", telemetry::megabytes(reporter.downloaded_bytes()))
+        .num(
+            "downloaded_mb",
+            telemetry::megabytes(reporter.downloaded_bytes()),
+        )
         .num("blocked", reporter.peak_blocked() as f64);
 
     match &outcome {
@@ -174,7 +191,10 @@ async fn complete(
                 .error(error)
                 .text("phase", reporter.phase_key())
                 .num("duration_s", reporter.elapsed_seconds())
-                .num("downloaded_mb", telemetry::megabytes(reporter.downloaded_bytes()))
+                .num(
+                    "downloaded_mb",
+                    telemetry::megabytes(reporter.downloaded_bytes()),
+                )
                 .num("blocked", reporter.peak_blocked() as f64),
         ),
     }
@@ -260,7 +280,8 @@ async fn run(
             let modpack = modpack::prepare(state, &paths, instance, &source, reporter).await?;
             check_cancelled(reporter)?;
 
-            let synced = modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
+            let synced =
+                modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
 
             (synced, Some(Prepared::Pack(modpack)))
         }
@@ -273,7 +294,8 @@ async fn run(
             let modpack = modpack::prepare_local(&paths, instance, &source, reporter).await?;
             check_cancelled(reporter)?;
 
-            let synced = modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
+            let synced =
+                modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
 
             (synced, Some(Prepared::Pack(modpack)))
         }
@@ -314,7 +336,9 @@ async fn run(
     check_cancelled(reporter)?;
 
     match Family::of(instance.loader) {
-        Some(family) => install_loader(state, &paths, instance, family, &java, &ctx, reporter).await?,
+        Some(family) => {
+            install_loader(state, &paths, instance, family, &java, &ctx, reporter).await?
+        }
         None if instance.loader == LoaderType::Fabric => {
             install_fabric(state, &paths, instance, &resolver, reporter).await?;
         }
@@ -365,7 +389,12 @@ fn pack_version_id(instance: &Instance) -> &str {
         .pack
         .as_ref()
         .map(|pack| pack.version_id.as_str())
-        .or_else(|| instance.local_pack.as_ref().map(|pack| pack.version.as_str()))
+        .or_else(|| {
+            instance
+                .local_pack
+                .as_ref()
+                .map(|pack| pack.version.as_str())
+        })
         .unwrap_or_default()
 }
 
@@ -507,7 +536,9 @@ async fn download_assets(
     reporter.begin_phase("assets", "Ресурсы игры");
 
     let Some(asset_index) = &base.asset_index else {
-        return Err(CommandError::manifest("В манифесте версии нет индекса ассетов"));
+        return Err(CommandError::manifest(
+            "В манифесте версии нет индекса ассетов",
+        ));
     };
 
     let index_path = paths.asset_index(&asset_index.id);
@@ -583,7 +614,8 @@ async fn install_loader(
 
     reporter.begin_phase(&phase("installer"), &format!("Установщик {label}"));
 
-    let installer = open_installer(state, instance, family, &version, &installer_jar, reporter).await?;
+    let installer =
+        open_installer(state, instance, family, &version, &installer_jar, reporter).await?;
     check_cancelled(reporter)?;
 
     reporter.begin_phase(&phase("libraries"), &format!("Библиотеки {label}"));
@@ -601,10 +633,10 @@ async fn install_loader(
     let missing = installer.missing(paths, ctx);
 
     if !missing.is_empty() {
-        return Err(CommandError::forge(format!(
-            "После установки {label} не хватает файлов"
-        ))
-        .with_details(missing.join("\n")));
+        return Err(
+            CommandError::forge(format!("После установки {label} не хватает файлов"))
+                .with_details(missing.join("\n")),
+        );
     }
 
     installer.save(&cache).await?;
@@ -625,7 +657,8 @@ async fn open_installer(
 
     for attempt in 1..=2 {
         if !installer_jar.is_file() {
-            let task = DownloadTask::new(family.installer_url(version), installer_jar.to_path_buf());
+            let task =
+                DownloadTask::new(family.installer_url(version), installer_jar.to_path_buf());
 
             download(state, instance, &phase, vec![task], reporter).await?;
         }
@@ -723,9 +756,7 @@ fn install_publisher(app: AppHandle) -> cast_core::install::progress::Publisher 
     Arc::new(move |snapshot| LauncherEvent::Install(snapshot).emit(&app))
 }
 
-fn download_reporter(
-    reporter: &Arc<ProgressReporter>,
-) -> cast_core::net::download::ProgressSink {
+fn download_reporter(reporter: &Arc<ProgressReporter>) -> cast_core::net::download::ProgressSink {
     let reporter = Arc::clone(reporter);
     Box::new(move |snapshot| reporter.apply_download(snapshot))
 }
@@ -736,5 +767,3 @@ fn check_cancelled(reporter: &Arc<ProgressReporter>) -> CommandResult<()> {
     }
     Ok(())
 }
-
-

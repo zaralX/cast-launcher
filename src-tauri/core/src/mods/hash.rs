@@ -75,7 +75,11 @@ pub fn murmur2(bytes: &[u8]) -> u32 {
 }
 
 pub fn normalized(bytes: &[u8]) -> Vec<u8> {
-    bytes.iter().copied().filter(|byte| !SKIPPED.contains(byte)).collect()
+    bytes
+        .iter()
+        .copied()
+        .filter(|byte| !SKIPPED.contains(byte))
+        .collect()
 }
 
 async fn streamed_sha1(path: &Path) -> Option<String> {
@@ -118,7 +122,10 @@ mod tests {
             murmur2(&normalized(b"hello world")),
             murmur2(&normalized(b"hello\tworld\r\n"))
         );
-        assert_ne!(murmur2(&normalized(b"hello")), murmur2(&normalized(b"hellp")));
+        assert_ne!(
+            murmur2(&normalized(b"hello")),
+            murmur2(&normalized(b"hellp"))
+        );
     }
 
     #[tokio::test]
@@ -144,10 +151,15 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("mod.jar");
 
-        let bytes: Vec<u8> = (0..(CHUNK * 2 + 17)).map(|index| (index % 251) as u8).collect();
+        let bytes: Vec<u8> = (0..(CHUNK * 2 + 17))
+            .map(|index| (index % 251) as u8)
+            .collect();
         std::fs::write(&file, &bytes).unwrap();
 
-        assert_eq!(streamed_sha1(&file).await.unwrap(), hex(&Sha1::digest(&bytes)));
+        assert_eq!(
+            streamed_sha1(&file).await.unwrap(),
+            hex(&Sha1::digest(&bytes))
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

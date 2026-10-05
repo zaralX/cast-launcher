@@ -137,7 +137,10 @@ impl BlockedRegistry {
         merged
     }
 
-    async fn pending(&self, instance_id: &str) -> Option<(Vec<BlockedFile>, Arc<ProgressReporter>)> {
+    async fn pending(
+        &self,
+        instance_id: &str,
+    ) -> Option<(Vec<BlockedFile>, Arc<ProgressReporter>)> {
         let waiting = self.waiting.lock().await;
         let entry = waiting.get(instance_id)?;
 

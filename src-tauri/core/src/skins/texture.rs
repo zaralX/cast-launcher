@@ -97,15 +97,30 @@ pub fn decode(bytes: &[u8]) -> CommandResult<Texture> {
 
     let rgba = match info.color_type {
         png::ColorType::Rgba => buffer,
-        png::ColorType::Rgb => expand(&buffer, pixels, |chunk, out| {
-            out.extend_from_slice(&[chunk[0], chunk[1], chunk[2], 255]);
-        }, 3),
-        png::ColorType::GrayscaleAlpha => expand(&buffer, pixels, |chunk, out| {
-            out.extend_from_slice(&[chunk[0], chunk[0], chunk[0], chunk[1]]);
-        }, 2),
-        png::ColorType::Grayscale => expand(&buffer, pixels, |chunk, out| {
-            out.extend_from_slice(&[chunk[0], chunk[0], chunk[0], 255]);
-        }, 1),
+        png::ColorType::Rgb => expand(
+            &buffer,
+            pixels,
+            |chunk, out| {
+                out.extend_from_slice(&[chunk[0], chunk[1], chunk[2], 255]);
+            },
+            3,
+        ),
+        png::ColorType::GrayscaleAlpha => expand(
+            &buffer,
+            pixels,
+            |chunk, out| {
+                out.extend_from_slice(&[chunk[0], chunk[0], chunk[0], chunk[1]]);
+            },
+            2,
+        ),
+        png::ColorType::Grayscale => expand(
+            &buffer,
+            pixels,
+            |chunk, out| {
+                out.extend_from_slice(&[chunk[0], chunk[0], chunk[0], 255]);
+            },
+            1,
+        ),
         png::ColorType::Indexed => {
             return Err(CommandError::fs("png с палитрой не поддерживается"))
         }
@@ -176,10 +191,30 @@ pub fn normalize(bytes: &[u8]) -> CommandResult<(Vec<u8>, SkinVariant)> {
 }
 
 const SLIM_GAPS: [Rect; 4] = [
-    Rect { x: 50, y: 16, w: 2, h: 4 },  // правая рука, верх и низ
-    Rect { x: 54, y: 20, w: 2, h: 12 }, // правая рука, боковины
-    Rect { x: 42, y: 48, w: 2, h: 4 },  // левая рука, верх и низ
-    Rect { x: 46, y: 52, w: 2, h: 12 }, // левая рука, боковины
+    Rect {
+        x: 50,
+        y: 16,
+        w: 2,
+        h: 4,
+    }, // правая рука, верх и низ
+    Rect {
+        x: 54,
+        y: 20,
+        w: 2,
+        h: 12,
+    }, // правая рука, боковины
+    Rect {
+        x: 42,
+        y: 48,
+        w: 2,
+        h: 4,
+    }, // левая рука, верх и низ
+    Rect {
+        x: 46,
+        y: 52,
+        w: 2,
+        h: 12,
+    }, // левая рука, боковины
 ];
 
 pub fn detect_variant(texture: &Texture) -> SkinVariant {
@@ -214,12 +249,42 @@ pub fn expand_legacy(legacy: &Texture) -> Texture {
 }
 
 fn limb_faces(u: u32, v: u32) -> [(Rect, Rect); 6] {
-    let top = Rect { x: u + 4, y: v, w: 4, h: 4 };
-    let bottom = Rect { x: u + 8, y: v, w: 4, h: 4 };
-    let right = Rect { x: u, y: v + 4, w: 4, h: 12 };
-    let front = Rect { x: u + 4, y: v + 4, w: 4, h: 12 };
-    let left = Rect { x: u + 8, y: v + 4, w: 4, h: 12 };
-    let back = Rect { x: u + 12, y: v + 4, w: 4, h: 12 };
+    let top = Rect {
+        x: u + 4,
+        y: v,
+        w: 4,
+        h: 4,
+    };
+    let bottom = Rect {
+        x: u + 8,
+        y: v,
+        w: 4,
+        h: 4,
+    };
+    let right = Rect {
+        x: u,
+        y: v + 4,
+        w: 4,
+        h: 12,
+    };
+    let front = Rect {
+        x: u + 4,
+        y: v + 4,
+        w: 4,
+        h: 12,
+    };
+    let left = Rect {
+        x: u + 8,
+        y: v + 4,
+        w: 4,
+        h: 12,
+    };
+    let back = Rect {
+        x: u + 12,
+        y: v + 4,
+        w: 4,
+        h: 12,
+    };
 
     [
         (top, top),

@@ -210,7 +210,10 @@ mod tests {
     }
 
     async fn remembered(scan: &ModsScan, path: &str) -> bool {
-        ModsIndex::load(&scan.index_file).await.entries.contains_key(path)
+        ModsIndex::load(&scan.index_file)
+            .await
+            .entries
+            .contains_key(path)
     }
 
     async fn remember(scan: &ModsScan, path: &str) {
@@ -230,7 +233,9 @@ mod tests {
         assert!(scan.dir.join("jei.jar.disabled").is_file());
         assert!(!scan.dir.join("jei.jar").exists());
 
-        set_enabled(&scan, "mods/jei.jar.disabled", true).await.unwrap();
+        set_enabled(&scan, "mods/jei.jar.disabled", true)
+            .await
+            .unwrap();
 
         assert!(scan.dir.join("jei.jar").is_file());
         assert!(!scan.dir.join("jei.jar.disabled").exists());
@@ -248,7 +253,10 @@ mod tests {
         set_enabled(&scan, "mods/jei.jar", false).await.unwrap();
 
         assert!(!remembered(&scan, "mods/jei.jar").await);
-        assert!(remembered(&scan, "mods/jei.jar.disabled").await, "jar не перечитывается");
+        assert!(
+            remembered(&scan, "mods/jei.jar.disabled").await,
+            "jar не перечитывается"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -262,7 +270,11 @@ mod tests {
 
         let error = set_enabled(&scan, "mods/jei.jar", false).await.unwrap_err();
 
-        assert!(error.message.contains("jei.jar.disabled"), "{}", error.message);
+        assert!(
+            error.message.contains("jei.jar.disabled"),
+            "{}",
+            error.message
+        );
         assert!(scan.dir.join("jei.jar").is_file(), "файл на месте");
 
         std::fs::remove_dir_all(&root).ok();
@@ -286,7 +298,13 @@ mod tests {
         let root = temp_dir();
         let scan = scan_in(&root);
 
-        for path in ["../instance.json", "mods/../../secret", "config/a.toml", "jei.jar", "mods/nested/a.jar"] {
+        for path in [
+            "../instance.json",
+            "mods/../../secret",
+            "config/a.toml",
+            "jei.jar",
+            "mods/nested/a.jar",
+        ] {
             assert!(set_enabled(&scan, path, false).await.is_err(), "{path}");
             assert!(remove(&scan, &[path.to_string()]).await.is_err(), "{path}");
         }
@@ -331,7 +349,12 @@ mod tests {
         let root = temp_dir();
         let scan = scan_in(&root);
 
-        assert_eq!(remove(&scan, &["mods/ghost.jar".to_string()]).await.unwrap(), 0);
+        assert_eq!(
+            remove(&scan, &["mods/ghost.jar".to_string()])
+                .await
+                .unwrap(),
+            0
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -363,7 +386,10 @@ mod tests {
         assert_eq!(report.added, vec!["sodium.jar"]);
         assert_eq!(report.replaced, vec!["old.jar"]);
         assert_eq!(report.skipped, vec!["notes.txt", "ghost.jar"]);
-        assert_eq!(std::fs::read(scan.dir.join("old.jar")).unwrap(), b"replacement");
+        assert_eq!(
+            std::fs::read(scan.dir.join("old.jar")).unwrap(),
+            b"replacement"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -380,9 +406,12 @@ mod tests {
         // Каталог вместо файла: скопировать его нельзя, но сосед должен доехать.
         std::fs::create_dir_all(source.join("broken.jar")).unwrap();
 
-        let report = install(&scan, &[source.join("broken.jar"), source.join("sodium.jar")])
-            .await
-            .unwrap();
+        let report = install(
+            &scan,
+            &[source.join("broken.jar"), source.join("sodium.jar")],
+        )
+        .await
+        .unwrap();
 
         assert_eq!(report.added, vec!["sodium.jar"]);
         assert!(scan.dir.join("sodium.jar").is_file());
@@ -401,7 +430,10 @@ mod tests {
         let report = install(&scan, &[missing]).await.unwrap();
 
         assert_eq!(report.skipped, vec!["jei.jar"]);
-        assert!(scan.dir.join("jei.jar.disabled").is_file(), "выключенная копия на месте");
+        assert!(
+            scan.dir.join("jei.jar.disabled").is_file(),
+            "выключенная копия на месте"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -418,7 +450,10 @@ mod tests {
         let report = install(&scan, &[source]).await.unwrap();
 
         assert_eq!(report.replaced, vec!["jei.jar"]);
-        assert!(!scan.dir.join("jei.jar.disabled").exists(), "выключенной копии не осталось");
+        assert!(
+            !scan.dir.join("jei.jar.disabled").exists(),
+            "выключенной копии не осталось"
+        );
         assert!(scan.dir.join("jei.jar").is_file());
 
         std::fs::remove_dir_all(&root).ok();

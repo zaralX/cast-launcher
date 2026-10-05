@@ -4,7 +4,8 @@ use serde::Serialize;
 
 use crate::mojang::rules::{check_rules, Features, RuntimeContext};
 use crate::mojang::version::{
-    Argument, AssetIndexRef, JavaVersionSpec, Library, LibraryArtifact, MojangArtifact, VersionPackage,
+    Argument, AssetIndexRef, JavaVersionSpec, Library, LibraryArtifact, MojangArtifact,
+    VersionPackage,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -20,7 +21,12 @@ impl ResolvedArtifact {
     fn from_library_artifact(artifact: &LibraryArtifact) -> Self {
         Self {
             path: artifact.path.clone(),
-            url: artifact.url.as_deref().map(str::trim).filter(|url| !url.is_empty()).map(str::to_string),
+            url: artifact
+                .url
+                .as_deref()
+                .map(str::trim)
+                .filter(|url| !url.is_empty())
+                .map(str::to_string),
             sha1: artifact.sha1.clone(),
             size: artifact.size,
         }
@@ -236,7 +242,6 @@ impl ResolvedArguments {
         "-cp",
         "${classpath}",
     ];
-
 }
 
 #[cfg(test)]
@@ -278,7 +283,10 @@ mod tests {
 
         let on_mac = resolve_libraries(&libs, &ctx(MojangOs::Osx, "aarch64"));
         assert_eq!(on_mac.len(), 2);
-        assert_eq!(on_mac[1].name.as_deref(), Some("org.lwjgl:lwjgl:3.3.1:natives-macos-arm64"));
+        assert_eq!(
+            on_mac[1].name.as_deref(),
+            Some("org.lwjgl:lwjgl:3.3.1:natives-macos-arm64")
+        );
 
         let on_linux = resolve_libraries(&libs, &ctx(MojangOs::Linux, "x86_64"));
         assert_eq!(on_linux.len(), 1);
@@ -298,7 +306,10 @@ mod tests {
 
         let x64 = resolve_libraries(&libs, &ctx(MojangOs::Windows, "amd64"));
         assert_eq!(x64[0].native.as_ref().unwrap().path, "w64.jar");
-        assert!(x64[0].artifact.is_none(), "native-only библиотека не идёт в classpath");
+        assert!(
+            x64[0].artifact.is_none(),
+            "native-only библиотека не идёт в classpath"
+        );
 
         let x86 = resolve_libraries(&libs, &ctx(MojangOs::Windows, "x86"));
         assert_eq!(x86[0].native.as_ref().unwrap().path, "w32.jar");
@@ -359,12 +370,30 @@ mod tests {
 
     #[test]
     fn java_requirement_falls_back_to_minecraft_version() {
-        assert_eq!(JavaRequirement::from_minecraft_version("1.12.2").major, Some(8));
-        assert_eq!(JavaRequirement::from_minecraft_version("1.17.1").major, Some(16));
-        assert_eq!(JavaRequirement::from_minecraft_version("1.18").major, Some(17));
-        assert_eq!(JavaRequirement::from_minecraft_version("1.20.4").major, Some(17));
-        assert_eq!(JavaRequirement::from_minecraft_version("1.20.6").major, Some(21));
-        assert_eq!(JavaRequirement::from_minecraft_version("1.21.1").major, Some(21));
+        assert_eq!(
+            JavaRequirement::from_minecraft_version("1.12.2").major,
+            Some(8)
+        );
+        assert_eq!(
+            JavaRequirement::from_minecraft_version("1.17.1").major,
+            Some(16)
+        );
+        assert_eq!(
+            JavaRequirement::from_minecraft_version("1.18").major,
+            Some(17)
+        );
+        assert_eq!(
+            JavaRequirement::from_minecraft_version("1.20.4").major,
+            Some(17)
+        );
+        assert_eq!(
+            JavaRequirement::from_minecraft_version("1.20.6").major,
+            Some(21)
+        );
+        assert_eq!(
+            JavaRequirement::from_minecraft_version("1.21.1").major,
+            Some(21)
+        );
 
         let future = JavaRequirement::from_minecraft_version("25.0");
         assert_eq!(future.major, Some(21));

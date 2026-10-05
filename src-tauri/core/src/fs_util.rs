@@ -5,9 +5,13 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::error::{CommandError, CommandResult};
 
 pub async fn ensure_dir(dir: &Path) -> CommandResult<()> {
-    tokio::fs::create_dir_all(dir)
-        .await
-        .map_err(|e| CommandError::io(format!("Не удалось создать каталог: {}", dir.display()), dir, e))
+    tokio::fs::create_dir_all(dir).await.map_err(|e| {
+        CommandError::io(
+            format!("Не удалось создать каталог: {}", dir.display()),
+            dir,
+            e,
+        )
+    })
 }
 
 pub fn child_file(dir: &Path, name: &str) -> CommandResult<PathBuf> {
@@ -46,9 +50,13 @@ fn escapes(relative: &str) -> CommandError {
 }
 
 pub async fn read_text(path: &Path) -> CommandResult<String> {
-    tokio::fs::read_to_string(path)
-        .await
-        .map_err(|e| CommandError::io(format!("Не удалось прочитать файл: {}", path.display()), path, e))
+    tokio::fs::read_to_string(path).await.map_err(|e| {
+        CommandError::io(
+            format!("Не удалось прочитать файл: {}", path.display()),
+            path,
+            e,
+        )
+    })
 }
 
 pub async fn read_json_opt<T: DeserializeOwned>(path: &Path) -> Option<T> {
@@ -76,8 +84,9 @@ pub async fn read_json<T: DeserializeOwned>(path: &Path) -> CommandResult<T> {
 }
 
 pub async fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> CommandResult<()> {
-    let bytes = serde_json::to_vec_pretty(value)
-        .map_err(|e| CommandError::unknown("Не удалось сериализовать данные").with_details(e.to_string()))?;
+    let bytes = serde_json::to_vec_pretty(value).map_err(|e| {
+        CommandError::unknown("Не удалось сериализовать данные").with_details(e.to_string())
+    })?;
 
     write_atomic(path, &bytes).await
 }
@@ -89,9 +98,13 @@ pub async fn write_atomic(path: &Path, bytes: &[u8]) -> CommandResult<()> {
 
     let temp = temp_sibling(path);
 
-    tokio::fs::write(&temp, bytes)
-        .await
-        .map_err(|e| CommandError::io(format!("Не удалось записать файл: {}", path.display()), &temp, e))?;
+    tokio::fs::write(&temp, bytes).await.map_err(|e| {
+        CommandError::io(
+            format!("Не удалось записать файл: {}", path.display()),
+            &temp,
+            e,
+        )
+    })?;
 
     if let Err(error) = tokio::fs::rename(&temp, path).await {
         let _ = tokio::fs::remove_file(&temp).await;
@@ -178,8 +191,12 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("cast-fs-{}", uuid::Uuid::new_v4()));
         let file = dir.join("nested").join("config.json");
 
-        write_json_atomic(&file, &serde_json::json!({ "a": 1 })).await.unwrap();
-        write_json_atomic(&file, &serde_json::json!({ "a": 2 })).await.unwrap();
+        write_json_atomic(&file, &serde_json::json!({ "a": 1 }))
+            .await
+            .unwrap();
+        write_json_atomic(&file, &serde_json::json!({ "a": 2 }))
+            .await
+            .unwrap();
 
         let value: serde_json::Value = read_json(&file).await.unwrap();
         assert_eq!(value["a"], 2);
@@ -209,8 +226,14 @@ mod tests {
 
         merge_dir(&from, &to).await.unwrap();
 
-        assert_eq!(std::fs::read(to.join("nested").join("shared.jar")).unwrap(), b"old");
-        assert_eq!(std::fs::read(to.join("nested").join("fresh.jar")).unwrap(), b"fresh");
+        assert_eq!(
+            std::fs::read(to.join("nested").join("shared.jar")).unwrap(),
+            b"old"
+        );
+        assert_eq!(
+            std::fs::read(to.join("nested").join("fresh.jar")).unwrap(),
+            b"fresh"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -218,7 +241,9 @@ mod tests {
     #[tokio::test]
     async fn merging_a_missing_directory_is_not_an_error() {
         let root = std::env::temp_dir().join(format!("cast-merge-{}", uuid::Uuid::new_v4()));
-        merge_dir(&root.join("nope"), &root.join("to")).await.unwrap();
+        merge_dir(&root.join("nope"), &root.join("to"))
+            .await
+            .unwrap();
     }
 
     #[test]
@@ -236,16 +261,28 @@ mod tests {
     fn safe_join_keeps_nested_paths_inside_the_base() {
         let base = Path::new("/instances/abc/minecraft");
 
-        assert_eq!(safe_join(base, "mods/jei.jar").unwrap(), base.join("mods").join("jei.jar"));
-        assert_eq!(safe_join(base, "./config//a.toml").unwrap(), base.join("config").join("a.toml"));
-        assert_eq!(safe_join(base, "mods\\jei.jar").unwrap(), base.join("mods").join("jei.jar"));
+        assert_eq!(
+            safe_join(base, "mods/jei.jar").unwrap(),
+            base.join("mods").join("jei.jar")
+        );
+        assert_eq!(
+            safe_join(base, "./config//a.toml").unwrap(),
+            base.join("config").join("a.toml")
+        );
+        assert_eq!(
+            safe_join(base, "mods\\jei.jar").unwrap(),
+            base.join("mods").join("jei.jar")
+        );
     }
 
     #[test]
     fn relative_keys_are_canonical_and_comparable() {
         assert_eq!(relative_key("mods\\jei.jar").unwrap(), "mods/jei.jar");
         assert_eq!(relative_key("./config//a.toml").unwrap(), "config/a.toml");
-        assert_eq!(relative_key("mods/jei.jar").unwrap(), relative_key("mods\\jei.jar").unwrap());
+        assert_eq!(
+            relative_key("mods/jei.jar").unwrap(),
+            relative_key("mods\\jei.jar").unwrap()
+        );
     }
 
     #[test]

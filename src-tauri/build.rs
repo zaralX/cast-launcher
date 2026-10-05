@@ -10,11 +10,15 @@ mod windows {
     use std::path::{Path, PathBuf};
 
     pub fn place_webview2_loader_next_to_tests() {
-        let Ok(out_dir) = std::env::var("OUT_DIR") else { return };
+        let Ok(out_dir) = std::env::var("OUT_DIR") else {
+            return;
+        };
         let out_dir = PathBuf::from(out_dir);
 
         // OUT_DIR = target/<profile>/build/<crate>-<hash>/out
-        let Some(profile_dir) = out_dir.ancestors().nth(3) else { return };
+        let Some(profile_dir) = out_dir.ancestors().nth(3) else {
+            return;
+        };
 
         let Some(source) = find_loader(&profile_dir.join("build")) else {
             println!("cargo:warning=WebView2Loader.dll не найден, cargo test может не запуститься");
@@ -52,7 +56,13 @@ mod windows {
                     .to_string_lossy()
                     .starts_with("webview2-com-sys-")
             })
-            .map(|entry| entry.path().join("out").join(arch).join("WebView2Loader.dll"))
+            .map(|entry| {
+                entry
+                    .path()
+                    .join("out")
+                    .join(arch)
+                    .join("WebView2Loader.dll")
+            })
             .find(|path| path.is_file())
     }
 }

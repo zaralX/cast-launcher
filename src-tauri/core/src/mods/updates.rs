@@ -125,7 +125,10 @@ async fn latest(
     match found {
         Ok(version) => version,
         Err(error) => {
-            eprintln!("Не удалось проверить обновление «{}»: {}", matched.title, error.message);
+            eprintln!(
+                "Не удалось проверить обновление «{}»: {}",
+                matched.title, error.message
+            );
             None
         }
     }
@@ -299,7 +302,10 @@ mod tests {
 
     #[test]
     fn a_mod_from_a_pack_is_never_offered_an_update() {
-        let mods = vec![mod_file("mods/sodium.jar", true), mod_file("mods/jei.jar", false)];
+        let mods = vec![
+            mod_file("mods/sodium.jar", true),
+            mod_file("mods/jei.jar", false),
+        ];
 
         let matches = BTreeMap::from([
             ("mods/sodium.jar".to_string(), matched("old")),
@@ -309,7 +315,10 @@ mod tests {
         let candidates = candidates(&mods, &matches);
 
         assert_eq!(candidates.len(), 1);
-        assert_eq!(candidates[0].0.path, "mods/jei.jar", "обновляем только своё");
+        assert_eq!(
+            candidates[0].0.path, "mods/jei.jar",
+            "обновляем только своё"
+        );
     }
 
     #[test]
@@ -355,7 +364,10 @@ mod tests {
 
     #[test]
     fn a_switched_off_mod_stays_switched_off_after_the_update() {
-        assert_eq!(target_name("sodium-0.6.0.jar", "mods/sodium-0.5.3.jar"), "sodium-0.6.0.jar");
+        assert_eq!(
+            target_name("sodium-0.6.0.jar", "mods/sodium-0.5.3.jar"),
+            "sodium-0.6.0.jar"
+        );
         assert_eq!(
             target_name("sodium-0.6.0.jar", "mods/sodium-0.5.3.jar.disabled"),
             "sodium-0.6.0.jar.disabled"
@@ -397,6 +409,8 @@ mod tests {
         let mods = vec![mod_file("mods/sodium.jar", true)];
         let matches = BTreeMap::from([("mods/sodium.jar".to_string(), matched("old"))]);
 
-        assert!(check(&mods, &matches, LoaderType::Fabric, "1.20.1").await.is_empty());
+        assert!(check(&mods, &matches, LoaderType::Fabric, "1.20.1")
+            .await
+            .is_empty());
     }
 }

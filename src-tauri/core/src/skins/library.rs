@@ -63,7 +63,10 @@ impl SkinLibrary {
     }
 
     fn users_of(&self, texture: &str) -> usize {
-        self.skins.iter().filter(|entry| entry.texture == texture).count()
+        self.skins
+            .iter()
+            .filter(|entry| entry.texture == texture)
+            .count()
     }
 }
 
@@ -73,7 +76,9 @@ pub fn index_file(dir: &Path) -> PathBuf {
 
 pub fn texture_file(dir: &Path, texture: &str) -> CommandResult<PathBuf> {
     if texture.is_empty() || !texture.chars().all(|symbol| symbol.is_ascii_hexdigit()) {
-        return Err(CommandError::fs(format!("Некорректный идентификатор текстуры: {texture}")));
+        return Err(CommandError::fs(format!(
+            "Некорректный идентификатор текстуры: {texture}"
+        )));
     }
 
     Ok(dir.join(format!("{texture}.png")))
@@ -158,11 +163,7 @@ pub async fn add(
         .ok_or_else(|| CommandError::fs("Набор не найден в библиотеке"))
 }
 
-pub async fn duplicate(
-    dir: &Path,
-    id: &str,
-    cape_id: Option<String>,
-) -> CommandResult<SkinEntry> {
+pub async fn duplicate(dir: &Path, id: &str, cape_id: Option<String>) -> CommandResult<SkinEntry> {
     let mut library = load(dir).await;
 
     let source = library
@@ -331,12 +332,24 @@ mod tests {
     async fn the_same_texture_never_lands_twice_on_its_own() {
         let dir = temp_dir();
 
-        let one = add(&dir, "Первый", &skin_png([1, 1, 1, 255]), SkinSource::Local, None)
-            .await
-            .unwrap();
-        let two = add(&dir, "Второй", &skin_png([1, 1, 1, 255]), SkinSource::Local, None)
-            .await
-            .unwrap();
+        let one = add(
+            &dir,
+            "Первый",
+            &skin_png([1, 1, 1, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
+        .unwrap();
+        let two = add(
+            &dir,
+            "Второй",
+            &skin_png([1, 1, 1, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(one.id, two.id);
         assert_eq!(two.name, "Первый");
@@ -349,11 +362,19 @@ mod tests {
     async fn duplicating_keeps_the_texture_and_takes_the_given_cape() {
         let dir = temp_dir();
 
-        let origin = add(&dir, "Ночной", &skin_png([2, 2, 2, 255]), SkinSource::Local, None)
+        let origin = add(
+            &dir,
+            "Ночной",
+            &skin_png([2, 2, 2, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
+        .unwrap();
+
+        let copy = duplicate(&dir, &origin.id, Some("cape-1".into()))
             .await
             .unwrap();
-
-        let copy = duplicate(&dir, &origin.id, Some("cape-1".into())).await.unwrap();
 
         assert_ne!(copy.id, origin.id);
         assert_eq!(copy.texture, origin.texture);
@@ -371,9 +392,15 @@ mod tests {
     async fn deleting_a_copy_keeps_the_texture_for_the_original() {
         let dir = temp_dir();
 
-        let origin = add(&dir, "a", &skin_png([3, 3, 3, 255]), SkinSource::Local, None)
-            .await
-            .unwrap();
+        let origin = add(
+            &dir,
+            "a",
+            &skin_png([3, 3, 3, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
+        .unwrap();
         let copy = duplicate(&dir, &origin.id, None).await.unwrap();
 
         let library = remove(&dir, &copy.id).await.unwrap();
@@ -393,15 +420,31 @@ mod tests {
     async fn a_cape_belongs_to_the_entry_not_to_the_texture() {
         let dir = temp_dir();
 
-        let origin = add(&dir, "a", &skin_png([4, 4, 4, 255]), SkinSource::Local, None)
+        let origin = add(
+            &dir,
+            "a",
+            &skin_png([4, 4, 4, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
+        .unwrap();
+        let copy = duplicate(&dir, &origin.id, Some("cape-1".into()))
             .await
             .unwrap();
-        let copy = duplicate(&dir, &origin.id, Some("cape-1".into())).await.unwrap();
 
-        let library = set_cape(&dir, &origin.id, Some("cape-2".into())).await.unwrap();
+        let library = set_cape(&dir, &origin.id, Some("cape-2".into()))
+            .await
+            .unwrap();
 
-        assert_eq!(library.find(&origin.id).unwrap().cape_id.as_deref(), Some("cape-2"));
-        assert_eq!(library.find(&copy.id).unwrap().cape_id.as_deref(), Some("cape-1"));
+        assert_eq!(
+            library.find(&origin.id).unwrap().cape_id.as_deref(),
+            Some("cape-2")
+        );
+        assert_eq!(
+            library.find(&copy.id).unwrap().cape_id.as_deref(),
+            Some("cape-1")
+        );
 
         let library = set_cape(&dir, &copy.id, None).await.unwrap();
         assert_eq!(library.find(&copy.id).unwrap().cape_id, None);
@@ -440,7 +483,15 @@ mod tests {
     async fn renaming_trims_and_never_leaves_an_empty_name() {
         let dir = temp_dir();
 
-        let entry = add(&dir, "  ", &skin_png([5, 5, 5, 255]), SkinSource::Local, None).await.unwrap();
+        let entry = add(
+            &dir,
+            "  ",
+            &skin_png([5, 5, 5, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(entry.name, "Без названия");
 
         let library = rename(&dir, &entry.id, "  Ночной  ").await.unwrap();
@@ -453,10 +504,24 @@ mod tests {
     async fn profile_source_wins_over_local() {
         let dir = temp_dir();
 
-        add(&dir, "a", &skin_png([6, 6, 6, 255]), SkinSource::Local, None).await.unwrap();
-        let entry = add(&dir, "a", &skin_png([6, 6, 6, 255]), SkinSource::Profile, None)
-            .await
-            .unwrap();
+        add(
+            &dir,
+            "a",
+            &skin_png([6, 6, 6, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
+        .unwrap();
+        let entry = add(
+            &dir,
+            "a",
+            &skin_png([6, 6, 6, 255]),
+            SkinSource::Profile,
+            None,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(entry.source, SkinSource::Profile);
 

@@ -57,7 +57,9 @@ pub fn merge(base: Option<ResolvedPack>, overlay: Overlay) -> CommandResult<Reso
         owned.remove(key);
     }
 
-    blocked.retain(|file| !added.contains(&file.target_path) && !overlay.delete.contains(&file.target_path));
+    blocked.retain(|file| {
+        !added.contains(&file.target_path) && !overlay.delete.contains(&file.target_path)
+    });
     blocked.extend(overlay.blocked);
 
     let seed = overlay
@@ -78,9 +80,9 @@ pub fn merge(base: Option<ResolvedPack>, overlay: Overlay) -> CommandResult<Reso
         recommended_ram = overlay.recommended_ram;
     }
 
-    let minecraft_version = minecraft_version.filter(|version| !version.is_empty()).ok_or_else(|| {
-        CommandError::manifest("У сборки не удалось определить версию Minecraft")
-    })?;
+    let minecraft_version = minecraft_version
+        .filter(|version| !version.is_empty())
+        .ok_or_else(|| CommandError::manifest("У сборки не удалось определить версию Minecraft"))?;
 
     let (loader, loader_version) = loader.unwrap_or((LoaderType::Vanilla, None));
 
@@ -106,7 +108,12 @@ mod tests {
     use std::path::PathBuf;
 
     fn task(url: &str) -> DownloadTask {
-        DownloadTask::verified(url.to_string(), PathBuf::from("/mc").join(url), None, Some("a".into()))
+        DownloadTask::verified(
+            url.to_string(),
+            PathBuf::from("/mc").join(url),
+            None,
+            Some("a".into()),
+        )
     }
 
     fn base() -> ResolvedPack {
@@ -194,7 +201,11 @@ mod tests {
 
         assert_eq!(merged.paths.len(), 2, "путь тот же, файл другой");
 
-        let at = merged.paths.iter().position(|path| path == "mods/jei.jar").unwrap();
+        let at = merged
+            .paths
+            .iter()
+            .position(|path| path == "mods/jei.jar")
+            .unwrap();
         assert_eq!(merged.tasks[at].url, "jei-new.jar");
     }
 
@@ -312,7 +323,10 @@ mod tests {
 
     #[test]
     fn recommended_ram_comes_from_the_manifest_first() {
-        assert_eq!(merge(Some(base()), overlay()).unwrap().recommended_ram, Some(4096));
+        assert_eq!(
+            merge(Some(base()), overlay()).unwrap().recommended_ram,
+            Some(4096)
+        );
 
         let overridden = merge(
             Some(base()),

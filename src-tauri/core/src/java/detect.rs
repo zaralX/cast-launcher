@@ -64,7 +64,10 @@ pub async fn probe(path: String) -> CommandResult<Option<JavaRuntime>> {
         let mut found: Found = HashMap::new();
         if raw.is_dir() {
             add_home(&mut found, raw, "manual");
-        } else if raw.parent().is_some_and(|parent| parent.as_os_str().is_empty()) {
+        } else if raw
+            .parent()
+            .is_some_and(|parent| parent.as_os_str().is_empty())
+        {
             if let Some(path_var) = std::env::var_os("PATH") {
                 for dir in std::env::split_paths(&path_var) {
                     add_exe(&mut found, dir.join(raw), "manual");
@@ -256,7 +259,10 @@ fn scan_windows_registry(found: &mut Found) {
         let root = RegKey::predef(hive);
 
         for key in KEYS {
-            for path in [key.to_string(), key.replacen("SOFTWARE\\", "SOFTWARE\\WOW6432Node\\", 1)] {
+            for path in [
+                key.to_string(),
+                key.replacen("SOFTWARE\\", "SOFTWARE\\WOW6432Node\\", 1),
+            ] {
                 if let Ok(opened) = root.open_subkey(&path) {
                     read_registry_homes(found, &opened, VALUE_NAMES, 2);
                 }
@@ -336,7 +342,10 @@ fn scan_macos_dirs(found: &mut Found) {
         }
     }
 
-    if let Ok(output) = new_command(Path::new("/usr/libexec/java_home")).arg("-V").output() {
+    if let Ok(output) = new_command(Path::new("/usr/libexec/java_home"))
+        .arg("-V")
+        .output()
+    {
         let text = String::from_utf8_lossy(&output.stderr).into_owned();
         for line in text.lines() {
             if let Some(pos) = line.find('/') {
@@ -431,7 +440,14 @@ fn probe_all(candidates: Vec<Candidate>) -> Vec<JavaRuntime> {
     thread::scope(|scope| {
         let handles: Vec<_> = groups
             .into_iter()
-            .map(|group| scope.spawn(move || group.into_iter().filter_map(probe_candidate).collect::<Vec<_>>()))
+            .map(|group| {
+                scope.spawn(move || {
+                    group
+                        .into_iter()
+                        .filter_map(probe_candidate)
+                        .collect::<Vec<_>>()
+                })
+            })
             .collect();
 
         handles
@@ -558,7 +574,10 @@ mod tests {
         let text = "    java.version = 21.0.5\n        C:\\some\\path.jar\n    os.arch = amd64\n";
         let props = parse_properties(text);
 
-        assert_eq!(props.get("java.version").map(String::as_str), Some("21.0.5"));
+        assert_eq!(
+            props.get("java.version").map(String::as_str),
+            Some("21.0.5")
+        );
         assert_eq!(props.get("os.arch").map(String::as_str), Some("amd64"));
         assert_eq!(props.len(), 2);
     }

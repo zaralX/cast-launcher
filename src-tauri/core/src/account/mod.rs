@@ -116,7 +116,9 @@ impl AccountStore {
 
     pub async fn remove(&self, uuid: &str) -> CommandResult<AccountConfig> {
         self.mutate(|config| {
-            config.accounts.retain(|account| account.uuid.as_deref() != Some(uuid));
+            config
+                .accounts
+                .retain(|account| account.uuid.as_deref() != Some(uuid));
 
             if let Some(selected) = config.selected {
                 if selected >= config.accounts.len() {
@@ -211,7 +213,7 @@ impl AccountStore {
 
         Ok(account)
     }
-    
+
     pub async fn set_textures(
         &self,
         uuid: &str,
@@ -289,7 +291,9 @@ pub async fn complete_login(tokens: microsoft::MicrosoftTokens) -> CommandResult
 
     let user_hash = xbox
         .user_hash()
-        .ok_or_else(|| CommandError::auth("Xbox Live вернул ответ без идентификатора пользователя"))?
+        .ok_or_else(|| {
+            CommandError::auth("Xbox Live вернул ответ без идентификатора пользователя")
+        })?
         .to_string();
 
     let xsts = microsoft::xsts(&xbox.token).await?;
@@ -373,10 +377,7 @@ fn md5(input: &[u8]) -> [u8; 16] {
                 _ => (c ^ (b | !d), (7 * i) % 16),
             };
 
-            f = f
-                .wrapping_add(a)
-                .wrapping_add(k[i])
-                .wrapping_add(words[g]);
+            f = f.wrapping_add(a).wrapping_add(k[i]).wrapping_add(words[g]);
 
             a = d;
             d = c;
@@ -430,8 +431,14 @@ mod tests {
 
         config.backfill_offline_uuids();
 
-        assert_eq!(config.accounts[0].uuid.as_deref(), Some(offline_uuid("aboba").as_str()));
-        assert_eq!(config.accounts[1].uuid.as_deref(), Some("оставить как есть"));
+        assert_eq!(
+            config.accounts[0].uuid.as_deref(),
+            Some(offline_uuid("aboba").as_str())
+        );
+        assert_eq!(
+            config.accounts[1].uuid.as_deref(),
+            Some("оставить как есть")
+        );
         assert_eq!(config.accounts[2].uuid, None);
     }
 
@@ -479,7 +486,12 @@ mod tests {
 
     #[test]
     fn md5_matches_reference_vectors() {
-        let hex = |input: &[u8]| md5(input).iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let hex = |input: &[u8]| {
+            md5(input)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        };
 
         assert_eq!(hex(b""), "d41d8cd98f00b204e9800998ecf8427e");
         assert_eq!(hex(b"abc"), "900150983cd24fb0d6963f7d28e17f72");
@@ -492,7 +504,10 @@ mod tests {
 
     #[test]
     fn offline_uuid_matches_vanilla_algorithm() {
-        assert_eq!(offline_uuid("Notch"), "b50ad385-829d-3141-a216-7e7d7539ba7f");
+        assert_eq!(
+            offline_uuid("Notch"),
+            "b50ad385-829d-3141-a216-7e7d7539ba7f"
+        );
         assert_eq!(offline_uuid("jeb_"), "a762f560-4fce-3236-812a-b80efff0b62b");
         assert_eq!(offline_uuid("Steve"), offline_uuid("Steve"));
         assert_ne!(offline_uuid("Steve"), offline_uuid("Alex"));

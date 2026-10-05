@@ -26,7 +26,11 @@ pub const PACK_FILE: &str = "mmc-pack.json";
 const MINECRAFT_UID: &str = "net.minecraft";
 
 const LOADERS: &[(&str, &str, Option<LoaderType>)] = &[
-    ("net.fabricmc.fabric-loader", "Fabric", Some(LoaderType::Fabric)),
+    (
+        "net.fabricmc.fabric-loader",
+        "Fabric",
+        Some(LoaderType::Fabric),
+    ),
     ("net.minecraftforge", "Forge", Some(LoaderType::Forge)),
     ("net.neoforged", "NeoForge", Some(LoaderType::NeoForge)),
     ("org.quiltmc.quilt-loader", "Quilt", None),
@@ -134,15 +138,23 @@ pub fn client_jar(root: &Path, minecraft_version: &str) -> PathBuf {
 
 pub fn loader_installer_target(paths: &LauncherPaths, instance: &Instance) -> Option<PathBuf> {
     let family = Family::of(instance.loader)?;
-    let version = instance.loader_version.as_deref().filter(|version| !version.is_empty())?;
+    let version = instance
+        .loader_version
+        .as_deref()
+        .filter(|version| !version.is_empty())?;
 
     Some(paths.loader_cache(family.key(), version).installer_jar())
 }
 
 pub fn loader_installer(root: &Path, family: Family, version: &str) -> Option<PathBuf> {
-    let path = Gradle::parse(&family.coordinate(version, "installer")).ok()?.path();
+    let path = Gradle::parse(&family.coordinate(version, "installer"))
+        .ok()?
+        .path();
 
-    Some(path.split('/').fold(root.join(LIBRARIES), |dir, part| dir.join(part)))
+    Some(
+        path.split('/')
+            .fold(root.join(LIBRARIES), |dir, part| dir.join(part)),
+    )
 }
 
 pub async fn copy_shared(
@@ -236,7 +248,9 @@ pub async fn scan(root: &Path) -> CommandResult<Vec<ScannedInstance>> {
 
         let folder = entry.file_name().to_string_lossy().to_string();
         let config = tokio::fs::read_to_string(&config).await.unwrap_or_default();
-        let pack = tokio::fs::read_to_string(dir.join(PACK_FILE)).await.unwrap_or_default();
+        let pack = tokio::fs::read_to_string(dir.join(PACK_FILE))
+            .await
+            .unwrap_or_default();
 
         let mut scanned = parse(&folder, &config, &pack);
 
@@ -329,16 +343,31 @@ fn settings(ini: &Ini) -> InstanceSettings {
     let override_memory = general.flag("OverrideMemory");
     let java_path = general.string("JavaPath");
 
-    let override_java =
-        general.flag("OverrideJavaLocation") && !general.flag("AutomaticJava") && !java_path.is_empty();
+    let override_java = general.flag("OverrideJavaLocation")
+        && !general.flag("AutomaticJava")
+        && !java_path.is_empty();
 
     InstanceSettings {
         override_memory,
-        min_ram: override_memory.then(|| general.number("MinMemAlloc")).flatten().unwrap_or(0),
-        max_ram: override_memory.then(|| general.number("MaxMemAlloc")).flatten().unwrap_or(0),
+        min_ram: override_memory
+            .then(|| general.number("MinMemAlloc"))
+            .flatten()
+            .unwrap_or(0),
+        max_ram: override_memory
+            .then(|| general.number("MaxMemAlloc"))
+            .flatten()
+            .unwrap_or(0),
         override_java,
-        java_mode: if override_java { JavaMode::Manual } else { JavaMode::default() },
-        java_path: if override_java { java_path } else { String::new() },
+        java_mode: if override_java {
+            JavaMode::Manual
+        } else {
+            JavaMode::default()
+        },
+        java_path: if override_java {
+            java_path
+        } else {
+            String::new()
+        },
     }
 }
 
@@ -386,10 +415,12 @@ pub fn find_icon(root: &Path, icon_key: &str) -> Option<String> {
 
     let dir = root.join(ICONS);
 
-    crate::icons::extensions().into_iter().find_map(|extension| {
-        let name = format!("{icon_key}.{extension}");
-        dir.join(&name).is_file().then_some(name)
-    })
+    crate::icons::extensions()
+        .into_iter()
+        .find_map(|extension| {
+            let name = format!("{icon_key}.{extension}");
+            dir.join(&name).is_file().then_some(name)
+        })
 }
 
 #[derive(Debug, Deserialize)]
@@ -471,7 +502,12 @@ pub async fn forge_versions(libraries: &Path) -> Vec<String> {
     let mut versions = Vec::new();
 
     while let Ok(Some(entry)) = entries.next_entry().await {
-        if entry.file_type().await.map(|kind| kind.is_dir()).unwrap_or(false) {
+        if entry
+            .file_type()
+            .await
+            .map(|kind| kind.is_dir())
+            .unwrap_or(false)
+        {
             versions.push(entry.file_name().to_string_lossy().to_string());
         }
     }
@@ -581,7 +617,10 @@ totalTimePlayed=705341
 
     #[test]
     fn an_already_prefixed_forge_version_is_left_alone() {
-        assert_eq!(forge_maven_version("1.20.1", "1.20.1-47.4.13"), "1.20.1-47.4.13");
+        assert_eq!(
+            forge_maven_version("1.20.1", "1.20.1-47.4.13"),
+            "1.20.1-47.4.13"
+        );
         assert_eq!(forge_maven_version("1.20.1", "47.4.13"), "1.20.1-47.4.13");
     }
 
@@ -596,7 +635,10 @@ totalTimePlayed=705341
             pick_forge_version(&available, "1.7.10-10.13.4.1614"),
             "1.7.10-10.13.4.1614-1.7.10"
         );
-        assert_eq!(pick_forge_version(&available, "1.20.1-47.4.13"), "1.20.1-47.4.13");
+        assert_eq!(
+            pick_forge_version(&available, "1.20.1-47.4.13"),
+            "1.20.1-47.4.13"
+        );
         assert_eq!(pick_forge_version(&[], "1.20.1-47.4.13"), "1.20.1-47.4.13");
     }
 
@@ -613,7 +655,11 @@ totalTimePlayed=705341
 
     #[test]
     fn a_neoforge_instance_comes_over_with_its_maven_version() {
-        let scanned = parse("Create Azure", "[General]\nname=Create Azure", NEOFORGE_PACK);
+        let scanned = parse(
+            "Create Azure",
+            "[General]\nname=Create Azure",
+            NEOFORGE_PACK,
+        );
 
         assert!(scanned.is_importable());
         assert_eq!(scanned.loader, Some(LoaderType::NeoForge));
@@ -639,8 +685,12 @@ totalTimePlayed=705341
     #[test]
     fn a_missing_or_broken_pack_file_blocks_the_instance() {
         assert!(parse("x", "[General]\nname=x", "").blocked.is_some());
-        assert!(parse("x", "[General]\nname=x", "{ сломано").blocked.is_some());
-        assert!(parse("x", "[General]\nname=x", r#"{"components":[]}"#).blocked.is_some());
+        assert!(parse("x", "[General]\nname=x", "{ сломано")
+            .blocked
+            .is_some());
+        assert!(parse("x", "[General]\nname=x", r#"{"components":[]}"#)
+            .blocked
+            .is_some());
     }
 
     #[test]
@@ -727,15 +777,23 @@ totalTimePlayed=705341
         assert_eq!(instance.icon, "fo.webp");
         assert_eq!(instance.loader, LoaderType::Fabric);
         assert_eq!(instance.minecraft_version, "1.21.11");
-        assert!(!instance.installed, "перенесённое всегда доустанавливается заново");
+        assert!(
+            !instance.installed,
+            "перенесённое всегда доустанавливается заново"
+        );
         assert!(instance.pack.is_none(), "пак проставляется отдельно");
-        assert_eq!(instance.playtime.total_seconds, 705_341, "наигранное едет со сборкой");
+        assert_eq!(
+            instance.playtime.total_seconds, 705_341,
+            "наигранное едет со сборкой"
+        );
     }
 
     #[test]
     fn a_blocked_instance_refuses_to_convert() {
         let scanned = parse("Beyond", "[General]\nname=Beyond", QUILT_PACK);
-        let error = scanned.to_instance("abc".into(), String::new()).unwrap_err();
+        let error = scanned
+            .to_instance("abc".into(), String::new())
+            .unwrap_err();
 
         assert!(error.message.contains("Beyond"));
         assert!(error.message.contains("Quilt"));
@@ -776,7 +834,10 @@ totalTimePlayed=705341
 
         assert_eq!(game_dir(&dotted), dotted.join(".minecraft"));
         assert_eq!(game_dir(&plain), plain.join("minecraft"));
-        assert_eq!(game_dir(&root.join("пусто")), root.join("пусто").join("minecraft"));
+        assert_eq!(
+            game_dir(&root.join("пусто")),
+            root.join("пусто").join("minecraft")
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -787,7 +848,10 @@ totalTimePlayed=705341
         std::fs::create_dir_all(root.join(ICONS)).unwrap();
         std::fs::write(root.join(ICONS).join("modrinth_sop.png"), b"pixels").unwrap();
 
-        assert_eq!(find_icon(&root, "modrinth_sop").as_deref(), Some("modrinth_sop.png"));
+        assert_eq!(
+            find_icon(&root, "modrinth_sop").as_deref(),
+            Some("modrinth_sop.png")
+        );
         assert!(find_icon(&root, "default").is_none());
         assert!(find_icon(&root, "").is_none());
         assert!(find_icon(&root, "нет-такой").is_none());
@@ -799,8 +863,9 @@ totalTimePlayed=705341
     fn shared_file_paths_follow_the_prism_layout() {
         let root = Path::new("/prism");
 
-        assert!(client_jar(root, "1.20.1")
-            .ends_with(Path::new("com/mojang/minecraft/1.20.1/minecraft-1.20.1-client.jar")));
+        assert!(client_jar(root, "1.20.1").ends_with(Path::new(
+            "com/mojang/minecraft/1.20.1/minecraft-1.20.1-client.jar"
+        )));
     }
 
     #[test]
@@ -813,7 +878,8 @@ totalTimePlayed=705341
         };
 
         let forge = instance(FORGE_PACK);
-        let target = loader_installer_target(&paths, &forge).expect("forge-сборке нужен установщик");
+        let target =
+            loader_installer_target(&paths, &forge).expect("forge-сборке нужен установщик");
         assert!(target.ends_with(Path::new("forge/1.20.1-47.4.13/installer.jar")));
 
         let neoforge = instance(NEOFORGE_PACK);
@@ -832,15 +898,21 @@ totalTimePlayed=705341
     fn the_installer_is_picked_up_from_the_prism_library_tree() {
         let root = Path::new("/prism");
 
-        assert!(loader_installer(root, Family::Forge, "1.20.1-47.4.13").unwrap().ends_with(
-            Path::new("net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-installer.jar")
-        ));
-        assert!(loader_installer(root, Family::NeoForge, "21.1.243").unwrap().ends_with(
-            Path::new("net/neoforged/neoforge/21.1.243/neoforge-21.1.243-installer.jar")
-        ));
-        assert!(loader_installer(root, Family::NeoForge, "1.20.1-47.1.106").unwrap().ends_with(
-            Path::new("net/neoforged/forge/1.20.1-47.1.106/forge-1.20.1-47.1.106-installer.jar")
-        ));
+        assert!(loader_installer(root, Family::Forge, "1.20.1-47.4.13")
+            .unwrap()
+            .ends_with(Path::new(
+                "net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-installer.jar"
+            )));
+        assert!(loader_installer(root, Family::NeoForge, "21.1.243")
+            .unwrap()
+            .ends_with(Path::new(
+                "net/neoforged/neoforge/21.1.243/neoforge-21.1.243-installer.jar"
+            )));
+        assert!(loader_installer(root, Family::NeoForge, "1.20.1-47.1.106")
+            .unwrap()
+            .ends_with(Path::new(
+                "net/neoforged/forge/1.20.1-47.1.106/forge-1.20.1-47.1.106-installer.jar"
+            )));
     }
 
     #[tokio::test]
@@ -850,8 +922,16 @@ totalTimePlayed=705341
 
         for (folder, config, pack) in [
             ("Fabulously Optimized", FABRIC_CONFIG, FABRIC_PACK),
-            ("TerraFirmaGreg", "[General]\nname=TerraFirmaGreg", FORGE_PACK),
-            ("Create Azure", "[General]\nname=Create Azure", NEOFORGE_PACK),
+            (
+                "TerraFirmaGreg",
+                "[General]\nname=TerraFirmaGreg",
+                FORGE_PACK,
+            ),
+            (
+                "Create Azure",
+                "[General]\nname=Create Azure",
+                NEOFORGE_PACK,
+            ),
         ] {
             let dir = instances.join(folder);
             std::fs::create_dir_all(&dir).unwrap();
@@ -914,7 +994,11 @@ totalTimePlayed=705341
             .join("forge")
             .join("1.20.1-47.4.13");
         std::fs::create_dir_all(&forge).unwrap();
-        std::fs::write(forge.join("forge-1.20.1-47.4.13-installer.jar"), "installer").unwrap();
+        std::fs::write(
+            forge.join("forge-1.20.1-47.4.13-installer.jar"),
+            "installer",
+        )
+        .unwrap();
         std::fs::write(forge.join("forge-1.20.1-47.4.13-client.jar"), "patched").unwrap();
 
         let objects = root.join(ASSETS).join("objects").join("ab");
@@ -925,7 +1009,10 @@ totalTimePlayed=705341
 
         std::fs::create_dir_all(root.join(JAVA).join("java-runtime-gamma").join("bin")).unwrap();
         std::fs::write(
-            root.join(JAVA).join("java-runtime-gamma").join("bin").join("javaw.exe"),
+            root.join(JAVA)
+                .join("java-runtime-gamma")
+                .join("bin")
+                .join("javaw.exe"),
             "java",
         )
         .unwrap();
@@ -958,9 +1045,13 @@ totalTimePlayed=705341
         let progress = Progress::new(&on_change, &cancelled);
 
         let steps = std::sync::Mutex::new(Vec::new());
-        copy_shared(&root, &ImportOptions::default(), &targets, &progress, |step| {
-            steps.lock().unwrap().push(step.to_string())
-        })
+        copy_shared(
+            &root,
+            &ImportOptions::default(),
+            &targets,
+            &progress,
+            |step| steps.lock().unwrap().push(step.to_string()),
+        )
         .await
         .unwrap();
 
@@ -978,7 +1069,10 @@ totalTimePlayed=705341
             .is_file());
         assert!(targets
             .libraries
-            .join("net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-client.jar".replace('/', std::path::MAIN_SEPARATOR_STR))
+            .join(
+                "net/minecraftforge/forge/1.20.1-47.4.13/forge-1.20.1-47.4.13-client.jar"
+                    .replace('/', std::path::MAIN_SEPARATOR_STR)
+            )
             .is_file());
 
         std::fs::remove_dir_all(&root).ok();
@@ -1007,7 +1101,9 @@ totalTimePlayed=705341
             ..ImportOptions::default()
         };
 
-        copy_shared(&root, &options, &targets, &progress, |_| {}).await.unwrap();
+        copy_shared(&root, &options, &targets, &progress, |_| {})
+            .await
+            .unwrap();
 
         assert!(targets.libraries.is_dir());
         assert!(!targets.asset_objects.exists());
@@ -1034,13 +1130,25 @@ totalTimePlayed=705341
         let cancelled = never();
         let progress = Progress::new(&on_change, &cancelled);
 
-        copy_instance(&root, &scanned, &targets, &progress).await.unwrap();
+        copy_instance(&root, &scanned, &targets, &progress)
+            .await
+            .unwrap();
 
         assert_eq!(
-            std::fs::read_to_string(targets.minecraft.join("saves").join("Мир").join("level.dat")).unwrap(),
+            std::fs::read_to_string(
+                targets
+                    .minecraft
+                    .join("saves")
+                    .join("Мир")
+                    .join("level.dat")
+            )
+            .unwrap(),
             "мир"
         );
-        assert_eq!(std::fs::read_to_string(&targets.client_jar).unwrap(), "client");
+        assert_eq!(
+            std::fs::read_to_string(&targets.client_jar).unwrap(),
+            "client"
+        );
         assert_eq!(
             std::fs::read_to_string(targets.loader_installer.as_ref().unwrap()).unwrap(),
             "installer"
@@ -1066,12 +1174,16 @@ totalTimePlayed=705341
         let cancelled = never();
 
         let first = Progress::new(&on_change, &cancelled);
-        copy_instance(&root, &scanned, &targets, &first).await.unwrap();
+        copy_instance(&root, &scanned, &targets, &first)
+            .await
+            .unwrap();
 
         std::fs::write(targets.minecraft.join("options.txt"), "fov:110").unwrap();
 
         let second = Progress::new(&on_change, &cancelled);
-        copy_instance(&root, &scanned, &targets, &second).await.unwrap();
+        copy_instance(&root, &scanned, &targets, &second)
+            .await
+            .unwrap();
 
         assert_eq!(
             std::fs::read_to_string(targets.minecraft.join("options.txt")).unwrap(),
@@ -1102,7 +1214,9 @@ totalTimePlayed=705341
         let cancelled = never();
         let progress = Progress::new(&on_change, &cancelled);
 
-        copy_instance(&root, &scanned, &targets, &progress).await.unwrap();
+        copy_instance(&root, &scanned, &targets, &progress)
+            .await
+            .unwrap();
 
         assert!(!targets.loader_installer.unwrap().exists());
 

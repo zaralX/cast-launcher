@@ -108,7 +108,10 @@ impl PackIndex {
         }
 
         if self.game != "minecraft" {
-            return Err(CommandError::manifest(format!("Модпак не для Minecraft: {}", self.game)));
+            return Err(CommandError::manifest(format!(
+                "Модпак не для Minecraft: {}",
+                self.game
+            )));
         }
 
         Ok(())
@@ -174,7 +177,9 @@ impl PackIndex {
     }
 
     pub fn client_paths(&self) -> CommandResult<Vec<String>> {
-        self.client_files().map(|file| relative_key(&file.client_path())).collect()
+        self.client_files()
+            .map(|file| relative_key(&file.client_path()))
+            .collect()
     }
 
     fn client_files(&self) -> impl Iterator<Item = &PackFile> {
@@ -190,7 +195,10 @@ impl PackIndex {
             loader_version,
             tasks: self.client_tasks(minecraft_dir)?,
             paths: self.client_paths()?,
-            overrides: OVERRIDES.iter().map(|prefix| (*prefix).to_string()).collect(),
+            overrides: OVERRIDES
+                .iter()
+                .map(|prefix| (*prefix).to_string())
+                .collect(),
             blocked: Vec::new(),
             recommended_ram: None,
             seed: Vec::new(),
@@ -212,8 +220,12 @@ mod tests {
         let mut json = json;
         let object = json.as_object_mut().unwrap();
 
-        object.entry("formatVersion").or_insert(serde_json::json!(1));
-        object.entry("game").or_insert(serde_json::json!("minecraft"));
+        object
+            .entry("formatVersion")
+            .or_insert(serde_json::json!(1));
+        object
+            .entry("game")
+            .or_insert(serde_json::json!("minecraft"));
 
         PackIndex::parse(&serde_json::to_vec(&json).unwrap()).unwrap()
     }
@@ -251,7 +263,10 @@ mod tests {
         let tasks = fabric_pack().client_tasks(Path::new("/mc")).unwrap();
 
         assert_eq!(tasks.len(), 1);
-        assert_eq!(tasks[0].destination, PathBuf::from("/mc").join("mods").join("jei.jar"));
+        assert_eq!(
+            tasks[0].destination,
+            PathBuf::from("/mc").join("mods").join("jei.jar")
+        );
         assert_eq!(tasks[0].sha1.as_deref(), Some("aaa"));
         assert_eq!(tasks[0].size, Some(1024));
     }
@@ -260,7 +275,10 @@ mod tests {
     fn a_manifest_of_another_format_or_game_is_rejected() {
         assert!(parse(serde_json::json!({"formatVersion": 2, "game": "minecraft"})).is_err());
         assert!(parse(serde_json::json!({"formatVersion": 1, "game": "terraria"})).is_err());
-        assert!(parse(serde_json::json!({"game": "minecraft"})).is_err(), "версия формата обязательна");
+        assert!(
+            parse(serde_json::json!({"game": "minecraft"})).is_err(),
+            "версия формата обязательна"
+        );
         assert!(parse(serde_json::json!({"formatVersion": 1, "game": "minecraft"})).is_ok());
     }
 
@@ -271,7 +289,10 @@ mod tests {
         }));
 
         let error = future.loader().unwrap_err();
-        assert!(error.message.contains("babric-loader"), "в тексте должно быть имя зависимости");
+        assert!(
+            error.message.contains("babric-loader"),
+            "в тексте должно быть имя зависимости"
+        );
     }
 
     #[test]
@@ -292,7 +313,9 @@ mod tests {
         assert!(paths.contains(&"mods/core.jar".to_string()));
 
         let tasks = pack.client_tasks(Path::new("/mc")).unwrap();
-        assert!(tasks.iter().any(|task| task.destination.ends_with("extra.jar.disabled")));
+        assert!(tasks
+            .iter()
+            .any(|task| task.destination.ends_with("extra.jar.disabled")));
     }
 
     #[test]
@@ -300,12 +323,18 @@ mod tests {
         let pack = fabric_pack();
 
         assert_eq!(pack.client_paths().unwrap(), vec!["mods/jei.jar"]);
-        assert_eq!(pack.client_paths().unwrap().len(), pack.client_tasks(Path::new("/mc")).unwrap().len());
+        assert_eq!(
+            pack.client_paths().unwrap().len(),
+            pack.client_tasks(Path::new("/mc")).unwrap().len()
+        );
     }
 
     #[test]
     fn fabric_loader_version_comes_from_the_manifest() {
-        assert_eq!(fabric_pack().loader().unwrap(), (LoaderType::Fabric, Some("0.15.7".into())));
+        assert_eq!(
+            fabric_pack().loader().unwrap(),
+            (LoaderType::Fabric, Some("0.15.7".into()))
+        );
         assert_eq!(fabric_pack().minecraft_version().unwrap(), "1.20.1");
     }
 
@@ -314,12 +343,18 @@ mod tests {
         let short = index(serde_json::json!({
             "dependencies": {"minecraft": "1.20.1", "forge": "47.2.0"}
         }));
-        assert_eq!(short.loader().unwrap(), (LoaderType::Forge, Some("1.20.1-47.2.0".into())));
+        assert_eq!(
+            short.loader().unwrap(),
+            (LoaderType::Forge, Some("1.20.1-47.2.0".into()))
+        );
 
         let full = index(serde_json::json!({
             "dependencies": {"minecraft": "1.20.1", "forge": "1.20.1-47.2.0"}
         }));
-        assert_eq!(full.loader().unwrap(), (LoaderType::Forge, Some("1.20.1-47.2.0".into())));
+        assert_eq!(
+            full.loader().unwrap(),
+            (LoaderType::Forge, Some("1.20.1-47.2.0".into()))
+        );
     }
 
     #[test]
@@ -342,7 +377,10 @@ mod tests {
         let modern = index(serde_json::json!({
             "dependencies": {"minecraft": "1.21.1", "neoforge": "21.1.243"}
         }));
-        assert_eq!(modern.loader().unwrap(), (LoaderType::NeoForge, Some("21.1.243".into())));
+        assert_eq!(
+            modern.loader().unwrap(),
+            (LoaderType::NeoForge, Some("21.1.243".into()))
+        );
 
         let legacy = index(serde_json::json!({
             "dependencies": {"minecraft": "1.20.1", "neoforge": "47.1.106"}

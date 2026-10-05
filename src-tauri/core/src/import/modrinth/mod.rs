@@ -306,7 +306,11 @@ fn settings(row: &db::InstanceRow) -> InstanceSettings {
         min_ram: 0,
         max_ram: row.memory_max.unwrap_or(0),
         override_java,
-        java_mode: if override_java { JavaMode::Manual } else { JavaMode::default() },
+        java_mode: if override_java {
+            JavaMode::Manual
+        } else {
+            JavaMode::default()
+        },
         java_path,
     }
 }
@@ -544,7 +548,11 @@ mod tests {
                 ..row()
             });
 
-            assert_eq!(scanned.loader, Some(LoaderType::Vanilla), "loader={loader:?}");
+            assert_eq!(
+                scanned.loader,
+                Some(LoaderType::Vanilla),
+                "loader={loader:?}"
+            );
             assert_eq!(scanned.loader_label, "Vanilla");
             assert!(scanned.loader_version.is_none());
             assert!(scanned.is_importable());
@@ -614,7 +622,10 @@ mod tests {
 
         assert!(settings.override_memory);
         assert_eq!(settings.max_ram, 6144);
-        assert_eq!(settings.min_ram, 0, "нижнюю границу берём из общих настроек");
+        assert_eq!(
+            settings.min_ram, 0,
+            "нижнюю границу берём из общих настроек"
+        );
     }
 
     #[test]
@@ -656,7 +667,9 @@ mod tests {
 
     #[test]
     fn conversion_produces_an_uninstalled_instance() {
-        let instance = parse(&row()).to_instance("abc".into(), "fo.png".into()).unwrap();
+        let instance = parse(&row())
+            .to_instance("abc".into(), "fo.png".into())
+            .unwrap();
 
         assert_eq!(instance.id, "abc");
         assert_eq!(instance.loader, LoaderType::Fabric);
@@ -714,7 +727,10 @@ mod tests {
         let found = client_jar(&root_at(&root), "1.20.1").await.unwrap();
         assert_eq!(std::fs::read_to_string(found).unwrap(), "client");
 
-        assert!(client_jar(&root_at(&root), "1.20").await.is_none(), "префикс точный");
+        assert!(
+            client_jar(&root_at(&root), "1.20").await.is_none(),
+            "префикс точный"
+        );
         assert!(client_jar(&root_at(&root), "1.21.1").await.is_none());
 
         std::fs::remove_dir_all(&root).ok();
@@ -774,13 +790,24 @@ mod tests {
 
     #[test]
     fn a_broken_folder_path_is_blocked_before_it_can_swallow_the_whole_tree() {
-        for path in ["", "   ", ".", "..", "../соседняя", "вложенная/папка", "C:\\другое"] {
+        for path in [
+            "",
+            "   ",
+            ".",
+            "..",
+            "../соседняя",
+            "вложенная/папка",
+            "C:\\другое",
+        ] {
             let scanned = parse(&db::InstanceRow {
                 path: path.into(),
                 ..row()
             });
 
-            assert!(scanned.blocked.is_some(), "путь {path:?} должен блокироваться");
+            assert!(
+                scanned.blocked.is_some(),
+                "путь {path:?} должен блокироваться"
+            );
         }
 
         assert!(is_folder_name("Create Azure"));
@@ -790,7 +817,11 @@ mod tests {
     fn modrinth_tree() -> PathBuf {
         let root = scratch();
 
-        let saves = root.join(PROFILES).join("Create Azure").join("saves").join("Мир");
+        let saves = root
+            .join(PROFILES)
+            .join("Create Azure")
+            .join("saves")
+            .join("Мир");
         std::fs::create_dir_all(&saves).unwrap();
         std::fs::write(saves.join("level.dat"), "мир").unwrap();
         std::fs::write(
@@ -859,11 +890,24 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(*steps.lock().unwrap(), vec!["Библиотеки", "Ресурсы игры", "Java"]);
-        assert!(targets.libraries.join("net").join("fabricmc").join("fabric.jar").is_file());
+        assert_eq!(
+            *steps.lock().unwrap(),
+            vec!["Библиотеки", "Ресурсы игры", "Java"]
+        );
+        assert!(targets
+            .libraries
+            .join("net")
+            .join("fabricmc")
+            .join("fabric.jar")
+            .is_file());
         assert!(targets.asset_objects.join("ab").join("abcdef").is_file());
         assert!(targets.asset_indexes.join("17.json").is_file());
-        assert!(targets.java_runtimes.join("zulu21").join("bin").join("javaw.exe").is_file());
+        assert!(targets
+            .java_runtimes
+            .join("zulu21")
+            .join("bin")
+            .join("javaw.exe")
+            .is_file());
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -928,11 +972,20 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            std::fs::read_to_string(targets.minecraft.join("saves").join("Мир").join("level.dat"))
-                .unwrap(),
+            std::fs::read_to_string(
+                targets
+                    .minecraft
+                    .join("saves")
+                    .join("Мир")
+                    .join("level.dat")
+            )
+            .unwrap(),
             "мир"
         );
-        assert_eq!(std::fs::read_to_string(&targets.client_jar).unwrap(), "client");
+        assert_eq!(
+            std::fs::read_to_string(&targets.client_jar).unwrap(),
+            "client"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -957,12 +1010,16 @@ mod tests {
         let cancelled = never();
 
         let first = Progress::new(&on_change, &cancelled);
-        copy_instance(&root_at(&root), &scanned, &targets, &first).await.unwrap();
+        copy_instance(&root_at(&root), &scanned, &targets, &first)
+            .await
+            .unwrap();
 
         std::fs::write(targets.minecraft.join("options.txt"), "fov:110").unwrap();
 
         let second = Progress::new(&on_change, &cancelled);
-        copy_instance(&root_at(&root), &scanned, &targets, &second).await.unwrap();
+        copy_instance(&root_at(&root), &scanned, &targets, &second)
+            .await
+            .unwrap();
 
         assert_eq!(
             std::fs::read_to_string(targets.minecraft.join("options.txt")).unwrap(),
@@ -1059,7 +1116,11 @@ mod tests {
 
         let opened = open(&root).await.unwrap();
         assert_eq!(opened.config, root, "custom_dir не задан - всё лежит рядом");
-        assert_eq!(opened.instances(), 2, "база прочитана один раз, при открытии");
+        assert_eq!(
+            opened.instances(),
+            2,
+            "база прочитана один раз, при открытии"
+        );
 
         let found = scan(&opened).await;
         assert_eq!(found.len(), 2);
@@ -1068,10 +1129,17 @@ mod tests {
         assert!(azure.is_importable(), "{schema:?}");
         assert_eq!(azure.loader, Some(LoaderType::Fabric), "{schema:?}");
         assert_eq!(azure.icon.as_deref(), Some("modrinth_Create Azure.png"));
-        assert_eq!(azure.icon_source.as_deref(), Some(icons.join("azure.png").as_path()));
+        assert_eq!(
+            azure.icon_source.as_deref(),
+            Some(icons.join("azure.png").as_path())
+        );
 
         let gone = found.iter().find(|i| i.folder == "Ушедшая").unwrap();
-        assert_eq!(gone.blocked.as_deref(), Some("папки сборки нет на диске"), "{schema:?}");
+        assert_eq!(
+            gone.blocked.as_deref(),
+            Some("папки сборки нет на диске"),
+            "{schema:?}"
+        );
         assert!(gone.icon.is_none(), "у непереносимой сборки иконку не ищем");
 
         std::fs::remove_dir_all(&root).ok();
@@ -1086,7 +1154,10 @@ mod tests {
 
         let connection = rusqlite::Connection::open(settings.join(db::DB_FILE)).unwrap();
         connection
-            .execute("UPDATE settings SET custom_dir = ?1", [config.to_str().unwrap()])
+            .execute(
+                "UPDATE settings SET custom_dir = ?1",
+                [config.to_str().unwrap()],
+            )
             .unwrap();
         drop(connection);
 
@@ -1097,7 +1168,11 @@ mod tests {
         assert!(opened.profiles().join("Create Azure").is_dir());
 
         let found = scan(&opened).await;
-        assert!(found.iter().find(|i| i.folder == "Create Azure").unwrap().is_importable());
+        assert!(found
+            .iter()
+            .find(|i| i.folder == "Create Azure")
+            .unwrap()
+            .is_importable());
 
         std::fs::remove_dir_all(&settings).ok();
         std::fs::remove_dir_all(&config).ok();

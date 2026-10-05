@@ -114,7 +114,9 @@ pub struct ModsScan {
 impl ModsScan {
     fn is_managed(&self, path: &str) -> bool {
         self.managed.contains(path)
-            || self.managed.contains(path.trim_end_matches(DISABLED_SUFFIX))
+            || self
+                .managed
+                .contains(path.trim_end_matches(DISABLED_SUFFIX))
     }
 }
 
@@ -161,7 +163,12 @@ pub async fn list(scan: &ModsScan, force: bool) -> CommandResult<Vec<ModFile>> {
         }
     }
 
-    let forgotten = index.retain(&entries.iter().map(|entry| entry.path.clone()).collect::<Vec<_>>());
+    let forgotten = index.retain(
+        &entries
+            .iter()
+            .map(|entry| entry.path.clone())
+            .collect::<Vec<_>>(),
+    );
 
     if !parsed.is_empty() || forgotten {
         if let Err(error) = index.save(&scan.index_file).await {
@@ -216,9 +223,13 @@ async fn collect(dir: &Path) -> CommandResult<Vec<Entry>> {
         .map_err(|e| CommandError::io("Не удалось прочитать каталог модов", dir, e))?
     {
         let file_name = entry.file_name().to_string_lossy().to_string();
-        let Ok(metadata) = entry.metadata().await else { continue };
+        let Ok(metadata) = entry.metadata().await else {
+            continue;
+        };
 
-        let Some(kind) = kind_of(&file_name, metadata.is_dir()) else { continue };
+        let Some(kind) = kind_of(&file_name, metadata.is_dir()) else {
+            continue;
+        };
 
         if kind == ModKind::Folder && !is_mod_folder(&entry.path()) {
             continue;
@@ -256,7 +267,10 @@ fn kind_of(file_name: &str, is_dir: bool) -> Option<ModKind> {
         return Some(ModKind::Folder);
     }
 
-    let extension = Path::new(name).extension()?.to_string_lossy().to_lowercase();
+    let extension = Path::new(name)
+        .extension()?
+        .to_string_lossy()
+        .to_lowercase();
 
     if !EXTENSIONS.contains(&extension.as_str()) {
         return None;
@@ -426,7 +440,12 @@ mod tests {
         let scan = scan_in(&root);
 
         fabric_jar(&scan.dir.join("sodium-0.5.3.jar"), "sodium", "Sodium", true);
-        fabric_jar(&scan.dir.join("lithium.jar.disabled"), "lithium", "Lithium", false);
+        fabric_jar(
+            &scan.dir.join("lithium.jar.disabled"),
+            "lithium",
+            "Lithium",
+            false,
+        );
         std::fs::write(scan.dir.join("notes.txt"), "не мод".as_bytes()).unwrap();
 
         let mods = list(&scan, false).await.unwrap();
@@ -447,9 +466,16 @@ mod tests {
         assert!(sodium.enabled);
         assert_eq!(sodium.details.version, "1.0.0");
 
-        let key = sodium.details.icon_key.clone().expect("иконка вынута из jar");
+        let key = sodium
+            .details
+            .icon_key
+            .clone()
+            .expect("иконка вынута из jar");
         assert!(icon::exists(&scan.icons, &key));
-        assert!(icon::data_url(&scan.icons, &key).await.unwrap().starts_with("data:image/png;base64,"));
+        assert!(icon::data_url(&scan.icons, &key)
+            .await
+            .unwrap()
+            .starts_with("data:image/png;base64,"));
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -459,8 +485,15 @@ mod tests {
         let root = temp_dir();
         let scan = scan_in(&root);
 
-        write_jar(&scan.dir.join("mysterymod-2.4.jar"), &[("data.bin", b"x".to_vec())]);
-        std::fs::write(scan.dir.join("broken-1.0.jar"), "это вообще не архив".as_bytes()).unwrap();
+        write_jar(
+            &scan.dir.join("mysterymod-2.4.jar"),
+            &[("data.bin", b"x".to_vec())],
+        );
+        std::fs::write(
+            scan.dir.join("broken-1.0.jar"),
+            "это вообще не архив".as_bytes(),
+        )
+        .unwrap();
 
         let mods = list(&scan, false).await.unwrap();
 
@@ -483,9 +516,17 @@ mod tests {
 
         assert_eq!(list(&scan, false).await.unwrap().len(), 2);
 
-        std::fs::write(scan.dir.join("sodium.jar"), "мусор поверх архива".as_bytes()).unwrap();
+        std::fs::write(
+            scan.dir.join("sodium.jar"),
+            "мусор поверх архива".as_bytes(),
+        )
+        .unwrap();
         let sizes_changed = list(&scan, false).await.unwrap();
-        assert_eq!(sizes_changed[1].display_name(), "sodium", "размер изменился - разбираем заново");
+        assert_eq!(
+            sizes_changed[1].display_name(),
+            "sodium",
+            "размер изменился - разбираем заново"
+        );
 
         std::fs::remove_file(scan.dir.join("lithium.jar")).unwrap();
         let mods = list(&scan, false).await.unwrap();
@@ -493,7 +534,10 @@ mod tests {
         assert_eq!(mods.len(), 1);
 
         let index = ModsIndex::load(&scan.index_file).await;
-        assert!(!index.entries.contains_key("mods/lithium.jar"), "удалённый мод ушёл из кэша");
+        assert!(
+            !index.entries.contains_key("mods/lithium.jar"),
+            "удалённый мод ушёл из кэша"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -506,13 +550,19 @@ mod tests {
         fabric_jar(&scan.dir.join("sodium.jar"), "sodium", "Sodium", true);
 
         list(&scan, false).await.unwrap();
-        let written = std::fs::metadata(&scan.index_file).unwrap().modified().unwrap();
+        let written = std::fs::metadata(&scan.index_file)
+            .unwrap()
+            .modified()
+            .unwrap();
 
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         list(&scan, false).await.unwrap();
 
         assert_eq!(
-            std::fs::metadata(&scan.index_file).unwrap().modified().unwrap(),
+            std::fs::metadata(&scan.index_file)
+                .unwrap()
+                .modified()
+                .unwrap(),
             written,
             "ничего не изменилось - кэш не переписан"
         );
@@ -539,7 +589,10 @@ mod tests {
         std::fs::create_dir_all(&unpacked).unwrap();
         std::fs::write(
             unpacked.join("fabric.mod.json"),
-            serde_json::to_vec(&serde_json::json!({"id": "unpacked", "name": "Unpacked", "version": "3.0"})).unwrap(),
+            serde_json::to_vec(
+                &serde_json::json!({"id": "unpacked", "name": "Unpacked", "version": "3.0"}),
+            )
+            .unwrap(),
         )
         .unwrap();
 
@@ -561,7 +614,12 @@ mod tests {
         let root = temp_dir();
         let scan = scan_in(&root);
 
-        fabric_jar(&scan.dir.join("sodium.jar.disabled"), "sodium", "Sodium", false);
+        fabric_jar(
+            &scan.dir.join("sodium.jar.disabled"),
+            "sodium",
+            "Sodium",
+            false,
+        );
 
         let mods = list(&scan, false).await.unwrap();
 
@@ -586,7 +644,10 @@ mod tests {
     #[test]
     fn the_instance_loader_picks_the_metadata_to_trust() {
         assert_eq!(ModLoader::of(LoaderType::Fabric), Some(ModLoader::Fabric));
-        assert_eq!(ModLoader::of(LoaderType::NeoForge), Some(ModLoader::NeoForge));
+        assert_eq!(
+            ModLoader::of(LoaderType::NeoForge),
+            Some(ModLoader::NeoForge)
+        );
         assert_eq!(ModLoader::of(LoaderType::Vanilla), None);
     }
 }

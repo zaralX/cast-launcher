@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
+use reqwest::header::{ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
+use reqwest::StatusCode;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use tokio::sync::RwLock;
-use reqwest::header::{ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
-use reqwest::StatusCode;
 
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::{read_json_opt, write_atomic, write_json_atomic};
@@ -53,7 +53,8 @@ impl MetaCache {
         let bytes = self.fetch_bytes_with(url, headers).await?;
 
         serde_json::from_slice(&bytes).map_err(|e| {
-            CommandError::manifest(format!("Некорректный ответ: {url}")).with_details(crate::error::error_chain(&e))
+            CommandError::manifest(format!("Некорректный ответ: {url}"))
+                .with_details(crate::error::error_chain(&e))
         })
     }
 
@@ -61,7 +62,11 @@ impl MetaCache {
         self.fetch_bytes_with(url, &[]).await
     }
 
-    pub async fn fetch_bytes_with(&self, url: &str, headers: &[(&str, &str)]) -> CommandResult<Vec<u8>> {
+    pub async fn fetch_bytes_with(
+        &self,
+        url: &str,
+        headers: &[(&str, &str)],
+    ) -> CommandResult<Vec<u8>> {
         let key = cache_key(url);
         let dir = self.dir().await;
         let body_path = dir.join(format!("{key}.body"));
@@ -98,8 +103,10 @@ impl MetaCache {
             Err(error) => {
                 return match cached {
                     Some(body) => Ok(body),
-                    None => Err(CommandError::network(format!("Не удалось подключиться к {url}"))
-                        .with_details(error.to_string())),
+                    None => Err(
+                        CommandError::network(format!("Не удалось подключиться к {url}"))
+                            .with_details(error.to_string()),
+                    ),
                 };
             }
         };
@@ -111,7 +118,9 @@ impl MetaCache {
                 self.touch(&meta_path, entry, url, &response).await;
                 return Ok(body);
             }
-            return self.fetch_uncached(url, headers, &body_path, &meta_path).await;
+            return self
+                .fetch_uncached(url, headers, &body_path, &meta_path)
+                .await;
         }
 
         if !status.is_success() {
@@ -132,11 +141,13 @@ impl MetaCache {
             .bytes()
             .await
             .map_err(|e| {
-                CommandError::network(format!("Обрыв ответа: {url}")).with_details(crate::error::error_chain(&e))
+                CommandError::network(format!("Обрыв ответа: {url}"))
+                    .with_details(crate::error::error_chain(&e))
             })?
             .to_vec();
 
-        self.store(&body_path, &meta_path, &body, &fresh_entry).await;
+        self.store(&body_path, &meta_path, &body, &fresh_entry)
+            .await;
 
         Ok(body)
     }
@@ -155,7 +166,8 @@ impl MetaCache {
         }
 
         let response = request.send().await.map_err(|e| {
-            CommandError::network(format!("Не удалось подключиться к {url}")).with_details(crate::error::error_chain(&e))
+            CommandError::network(format!("Не удалось подключиться к {url}"))
+                .with_details(crate::error::error_chain(&e))
         })?;
 
         let status = response.status();
@@ -173,7 +185,10 @@ impl MetaCache {
         let body = response
             .bytes()
             .await
-            .map_err(|e| CommandError::network(format!("Обрыв ответа: {url}")).with_details(crate::error::error_chain(&e)))?
+            .map_err(|e| {
+                CommandError::network(format!("Обрыв ответа: {url}"))
+                    .with_details(crate::error::error_chain(&e))
+            })?
             .to_vec();
 
         self.store(body_path, meta_path, &body, &entry).await;

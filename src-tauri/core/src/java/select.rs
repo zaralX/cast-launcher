@@ -36,7 +36,10 @@ impl JavaRuntime {
     }
 }
 
-pub fn pick<'a>(runtimes: &'a [JavaRuntime], requirement: &JavaRequirement) -> Option<&'a JavaRuntime> {
+pub fn pick<'a>(
+    runtimes: &'a [JavaRuntime],
+    requirement: &JavaRequirement,
+) -> Option<&'a JavaRuntime> {
     let major = requirement.major?;
 
     if requirement.at_least {
@@ -92,7 +95,11 @@ mod tests {
             version: format!("{major}.0.1"),
             major,
             vendor: "Test".into(),
-            arch: if is_64bit { "x86_64".into() } else { "x86".into() },
+            arch: if is_64bit {
+                "x86_64".into()
+            } else {
+                "x86".into()
+            },
             os_version: "10.0".into(),
             is_64bit,
             source,
@@ -150,7 +157,11 @@ mod tests {
 
     #[test]
     fn describes_what_is_installed() {
-        let runtimes = vec![runtime(21, true, "system"), runtime(8, true, "system"), runtime(21, false, "system")];
+        let runtimes = vec![
+            runtime(21, true, "system"),
+            runtime(8, true, "system"),
+            runtime(21, false, "system"),
+        ];
         assert_eq!(describe_installed(&runtimes), "установлены только 8, 21");
         assert_eq!(describe_installed(&[]), "в системе не найдено ни одной");
     }

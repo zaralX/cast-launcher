@@ -56,7 +56,9 @@ impl PackFiles {
         let mut missing = Vec::new();
 
         for relative in &self.paths {
-            let Ok(path) = safe_join(minecraft_dir, relative) else { continue };
+            let Ok(path) = safe_join(minecraft_dir, relative) else {
+                continue;
+            };
 
             if !path.is_file() && !switched_off(&path).is_file() {
                 missing.push(relative.clone());
@@ -84,7 +86,9 @@ pub async fn remove(minecraft_dir: &Path, paths: &[String]) -> usize {
     let mut removed = 0;
 
     for relative in paths {
-        let Ok(path) = safe_join(minecraft_dir, relative) else { continue };
+        let Ok(path) = safe_join(minecraft_dir, relative) else {
+            continue;
+        };
 
         // Игрок мог выключить мод: убираем и выключенную копию, иначе она
         // переживёт версию пака, из которой пришла.
@@ -145,7 +149,10 @@ mod tests {
         let previous = PackFiles::new("v1", set(&["mods/a.jar"]))
             .with_extracted(set(&["config/a.toml", "kubejs/x.js"]));
 
-        assert_eq!(previous.stale(&set(&["mods/a.jar", "kubejs/x.js"])), vec!["config/a.toml"]);
+        assert_eq!(
+            previous.stale(&set(&["mods/a.jar", "kubejs/x.js"])),
+            vec!["config/a.toml"]
+        );
     }
 
     #[tokio::test]
@@ -177,7 +184,10 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("cast-pack-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
 
-        assert_eq!(PackFiles::load(&dir.join("нет.json")).await, PackFiles::default());
+        assert_eq!(
+            PackFiles::load(&dir.join("нет.json")).await,
+            PackFiles::default()
+        );
 
         let broken = dir.join("broken.json");
         std::fs::write(&broken, "{ not json").unwrap();
@@ -198,12 +208,24 @@ mod tests {
         std::fs::write(minecraft.join("mods").join("kept.jar"), b"kept").unwrap();
         std::fs::write(minecraft.join("config").join("nested").join("a.toml"), b"a").unwrap();
 
-        let removed = remove(&minecraft, &set(&["mods/old.jar", "config/nested/a.toml"]).into_iter().collect::<Vec<_>>()).await;
+        let removed = remove(
+            &minecraft,
+            &set(&["mods/old.jar", "config/nested/a.toml"])
+                .into_iter()
+                .collect::<Vec<_>>(),
+        )
+        .await;
 
         assert_eq!(removed, 2);
         assert!(minecraft.join("mods").join("kept.jar").is_file());
-        assert!(minecraft.join("mods").is_dir(), "каталог с чужими файлами остаётся");
-        assert!(!minecraft.join("config").exists(), "опустевшая ветка убирается целиком");
+        assert!(
+            minecraft.join("mods").is_dir(),
+            "каталог с чужими файлами остаётся"
+        );
+        assert!(
+            !minecraft.join("config").exists(),
+            "опустевшая ветка убирается целиком"
+        );
         assert!(minecraft.is_dir(), "сам каталог игры не трогаем");
 
         std::fs::remove_dir_all(&root).ok();
@@ -217,7 +239,10 @@ mod tests {
         std::fs::create_dir_all(&minecraft).unwrap();
         std::fs::write(root.join("instance.json"), b"keep").unwrap();
 
-        assert_eq!(remove(&minecraft, &["../instance.json".to_string()]).await, 0);
+        assert_eq!(
+            remove(&minecraft, &["../instance.json".to_string()]).await,
+            0
+        );
         assert!(root.join("instance.json").is_file());
 
         std::fs::remove_dir_all(&root).ok();
@@ -231,7 +256,8 @@ mod tests {
         let blocked = vec![BlockedFile {
             file_name: "entityculling.jar".into(),
             target_path: "mods/entityculling.jar".into(),
-            website_url: "https://www.curseforge.com/minecraft/mc-mods/entityculling/download/8287120".into(),
+            website_url:
+                "https://www.curseforge.com/minecraft/mc-mods/entityculling/download/8287120".into(),
             sha1: Some("62ac7ed3bbc0b920428bcfc18d1962836b84c391".into()),
             local_path: None,
         }];

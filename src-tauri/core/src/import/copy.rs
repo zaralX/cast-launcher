@@ -125,7 +125,9 @@ pub async fn merge_dir(from: &Path, to: &Path, progress: &Progress<'_>) -> Comma
         let source = entry.path();
         let target = to.join(entry.file_name());
 
-        let Ok(kind) = entry.file_type().await else { continue };
+        let Ok(kind) = entry.file_type().await else {
+            continue;
+        };
 
         if kind.is_dir() {
             Box::pin(merge_dir(&source, &target, progress)).await?;
@@ -243,7 +245,9 @@ mod tests {
         let cancelled = never();
         let progress = Progress::new(&on_change, &cancelled);
 
-        merge_dir(&root.join("нет"), &root.join("to"), &progress).await.unwrap();
+        merge_dir(&root.join("нет"), &root.join("to"), &progress)
+            .await
+            .unwrap();
 
         assert_eq!(progress.stats(), CopyStats::default());
 
@@ -264,7 +268,9 @@ mod tests {
         let cancelled = || true;
         let progress = Progress::new(&on_change, &cancelled);
 
-        let error = merge_dir(&from, &root.join("to"), &progress).await.unwrap_err();
+        let error = merge_dir(&from, &root.join("to"), &progress)
+            .await
+            .unwrap_err();
 
         assert_eq!(error.code, "INSTALL_ABORTED");
         assert_eq!(progress.stats().files, 0);
@@ -335,7 +341,9 @@ mod tests {
 
         assert!(copy_file(&source, &target, &progress).await.unwrap());
         assert!(!copy_file(&source, &target, &progress).await.unwrap());
-        assert!(!copy_file(&root.join("нет.jar"), &target, &progress).await.unwrap());
+        assert!(!copy_file(&root.join("нет.jar"), &target, &progress)
+            .await
+            .unwrap());
 
         assert_eq!(progress.stats().files, 1);
         assert_eq!(progress.stats().skipped, 1);

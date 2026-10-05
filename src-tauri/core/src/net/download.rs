@@ -4,9 +4,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use reqwest;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use reqwest;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{watch, Semaphore};
 
@@ -165,7 +165,9 @@ impl Job {
     }
 
     fn report(&self, force: bool) {
-        let Some(reporter) = &self.reporter else { return };
+        let Some(reporter) = &self.reporter else {
+            return;
+        };
 
         {
             let mut last = lock(&self.last_emit);
@@ -216,7 +218,9 @@ impl Job {
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 pub type ProgressSink = Box<dyn Fn(&JobSnapshot) + Send + Sync>;
@@ -271,7 +275,11 @@ impl DownloadRegistry {
 
         let use_bytes = tasks.iter().all(|task| task.size.unwrap_or(0) > 0);
         let total_bytes: u64 = tasks.iter().map(|task| task.size.unwrap_or(0)).sum();
-        let total_weight = if use_bytes { total_bytes } else { tasks.len() as u64 };
+        let total_weight = if use_bytes {
+            total_bytes
+        } else {
+            tasks.len() as u64
+        };
 
         let (status, _) = watch::channel(JobStatus::Running);
 
@@ -330,7 +338,9 @@ impl DownloadRegistry {
                     return;
                 }
 
-                let Ok(_permit) = semaphore.acquire().await else { return };
+                let Ok(_permit) = semaphore.acquire().await else {
+                    return;
+                };
 
                 if job.is_stopped() {
                     return;
@@ -344,7 +354,9 @@ impl DownloadRegistry {
 
         for handle in handles {
             if handle.await.is_err() && !job.cancel.load(Ordering::Relaxed) {
-                job.fail(CommandError::download("Задача загрузки аварийно завершилась"));
+                job.fail(CommandError::download(
+                    "Задача загрузки аварийно завершилась",
+                ));
             }
         }
 
@@ -354,7 +366,9 @@ impl DownloadRegistry {
             job.status.send_replace(JobStatus::Cancelled);
             Err(CommandError::aborted("Загрузка отменена"))
         } else if let Some(error) = lock(&job.error).clone() {
-            job.status.send_replace(JobStatus::Failed { error: error.clone() });
+            job.status.send_replace(JobStatus::Failed {
+                error: error.clone(),
+            });
             Err(error.into())
         } else {
             job.done_weight.store(job.total_weight, Ordering::Relaxed);
@@ -412,18 +426,21 @@ async fn download_one(
             tokio::time::sleep(Duration::from_millis(250 * (1 << (attempt - 1)))).await;
         }
 
-        let outcome = fetch_to_file(client, job, task, &part_path, &name, weight, &mut counted).await;
+        let outcome =
+            fetch_to_file(client, job, task, &part_path, &name, weight, &mut counted).await;
         job.clear_active(&task.url);
 
         match outcome {
             Ok(FetchOutcome::Completed) => {
-                tokio::fs::rename(&part_path, &task.destination).await.map_err(|e| {
-                    CommandError::io(
-                        format!("Не удалось сохранить файл: {}", task.destination.display()),
-                        &task.destination,
-                        e,
-                    )
-                })?;
+                tokio::fs::rename(&part_path, &task.destination)
+                    .await
+                    .map_err(|e| {
+                        CommandError::io(
+                            format!("Не удалось сохранить файл: {}", task.destination.display()),
+                            &task.destination,
+                            e,
+                        )
+                    })?;
 
                 job.done_files.fetch_add(1, Ordering::Relaxed);
                 job.report(false);
@@ -436,7 +453,8 @@ async fn download_one(
             Err(error) => {
                 crate::fs_util::remove_file_if_exists(&part_path).await;
 
-                let retryable = matches!(error.code, "NETWORK" | "DOWNLOAD_FAILED" | "HASH_MISMATCH");
+                let retryable =
+                    matches!(error.code, "NETWORK" | "DOWNLOAD_FAILED" | "HASH_MISMATCH");
                 last_error = Some(error);
 
                 if !retryable {
@@ -488,13 +506,16 @@ async fn fetch_to_file(
     let mut received: u64 = 0;
     let mut last_percent = -1.0_f64;
 
-    job.set_active(&task.url, FileProgress {
-        url: task.url.clone(),
-        name: name.to_string(),
-        loaded: 0,
-        total,
-        percent: 0.0,
-    });
+    job.set_active(
+        &task.url,
+        FileProgress {
+            url: task.url.clone(),
+            name: name.to_string(),
+            loaded: 0,
+            total,
+            percent: 0.0,
+        },
+    );
 
     loop {
         if job.is_stopped() {
@@ -515,12 +536,17 @@ async fn fetch_to_file(
         let Some(chunk) = chunk else { break };
 
         file.write_all(&chunk).await.map_err(|e| {
-            CommandError::io(format!("Ошибка записи: {}", part_path.display()), part_path, e)
+            CommandError::io(
+                format!("Ошибка записи: {}", part_path.display()),
+                part_path,
+                e,
+            )
         })?;
 
         hasher.update(&chunk);
         received += chunk.len() as u64;
-        job.downloaded_bytes.fetch_add(chunk.len() as u64, Ordering::Relaxed);
+        job.downloaded_bytes
+            .fetch_add(chunk.len() as u64, Ordering::Relaxed);
 
         if job.use_bytes && total > 0 {
             let target = ((received.min(total) as f64 / total as f64) * weight as f64) as u64;
@@ -538,20 +564,27 @@ async fn fetch_to_file(
 
         if percent - last_percent >= FILE_PROGRESS_EPS {
             last_percent = percent;
-            job.set_active(&task.url, FileProgress {
-                url: task.url.clone(),
-                name: name.to_string(),
-                loaded: received,
-                total,
-                percent,
-            });
+            job.set_active(
+                &task.url,
+                FileProgress {
+                    url: task.url.clone(),
+                    name: name.to_string(),
+                    loaded: received,
+                    total,
+                    percent,
+                },
+            );
         }
 
         job.report(false);
     }
 
     file.flush().await.map_err(|e| {
-        CommandError::io(format!("Ошибка записи: {}", part_path.display()), part_path, e)
+        CommandError::io(
+            format!("Ошибка записи: {}", part_path.display()),
+            part_path,
+            e,
+        )
     })?;
     drop(file);
 
@@ -655,8 +688,14 @@ mod tests {
     #[test]
     fn one_destination_is_fetched_once() {
         let tasks = vec![
-            DownloadTask::new("https://a/text2speech.jar", PathBuf::from("/libs/text2speech.jar")),
-            DownloadTask::new("https://b/text2speech.jar", PathBuf::from("/libs/text2speech.jar")),
+            DownloadTask::new(
+                "https://a/text2speech.jar",
+                PathBuf::from("/libs/text2speech.jar"),
+            ),
+            DownloadTask::new(
+                "https://b/text2speech.jar",
+                PathBuf::from("/libs/text2speech.jar"),
+            ),
             DownloadTask::new("https://a/lwjgl.jar", PathBuf::from("/libs/lwjgl.jar")),
         ];
 
@@ -669,8 +708,14 @@ mod tests {
 
     #[test]
     fn part_file_sits_next_to_target() {
-        assert_eq!(part_path(Path::new("/a/b/client.jar")), PathBuf::from("/a/b/client.jar.part"));
-        assert_eq!(part_path(Path::new("/a/ab/abcdef")), PathBuf::from("/a/ab/abcdef.part"));
+        assert_eq!(
+            part_path(Path::new("/a/b/client.jar")),
+            PathBuf::from("/a/b/client.jar.part")
+        );
+        assert_eq!(
+            part_path(Path::new("/a/ab/abcdef")),
+            PathBuf::from("/a/ab/abcdef.part")
+        );
     }
 
     #[tokio::test]
@@ -683,7 +728,8 @@ mod tests {
         let task = DownloadTask::verified("http://example/lib.jar", file.clone(), Some(4), None);
         assert!(is_already_valid(&file, &task, false).await);
 
-        let wrong_size = DownloadTask::verified("http://example/lib.jar", file.clone(), Some(5), None);
+        let wrong_size =
+            DownloadTask::verified("http://example/lib.jar", file.clone(), Some(5), None);
         assert!(!is_already_valid(&file, &wrong_size, false).await);
 
         std::fs::remove_dir_all(&dir).ok();
@@ -719,8 +765,14 @@ mod tests {
             Some("deadbeef".into()),
         );
 
-        assert!(is_already_valid(&file, &task, false).await, "без deep verify доверяем размеру");
-        assert!(!is_already_valid(&file, &task, true).await, "с deep verify хэш не сходится");
+        assert!(
+            is_already_valid(&file, &task, false).await,
+            "без deep verify доверяем размеру"
+        );
+        assert!(
+            !is_already_valid(&file, &task, true).await,
+            "с deep verify хэш не сходится"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

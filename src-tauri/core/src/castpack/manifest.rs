@@ -212,9 +212,15 @@ impl Manifest {
             )));
         }
 
-        for (field, value) in [("id", &self.id), ("name", &self.name), ("version", &self.version)] {
+        for (field, value) in [
+            ("id", &self.id),
+            ("name", &self.name),
+            ("version", &self.version),
+        ] {
             if value.trim().is_empty() {
-                return Err(CommandError::manifest(format!("В манифесте не заполнено поле {field}")));
+                return Err(CommandError::manifest(format!(
+                    "В манифесте не заполнено поле {field}"
+                )));
             }
         }
 
@@ -286,7 +292,13 @@ impl Manifest {
         let mut files = Vec::new();
 
         for entry in &self.mods {
-            let ModRef::Direct { url, key, sha1, size } = entry.reference()? else {
+            let ModRef::Direct {
+                url,
+                key,
+                sha1,
+                size,
+            } = entry.reference()?
+            else {
                 continue;
             };
 
@@ -352,7 +364,9 @@ mod tests {
         let mut value = value;
         let object = value.as_object_mut().unwrap();
 
-        object.entry("schemaVersion").or_insert(json!(SCHEMA_VERSION));
+        object
+            .entry("schemaVersion")
+            .or_insert(json!(SCHEMA_VERSION));
         object.entry("id").or_insert(json!("zaralx-rpg"));
         object.entry("name").or_insert(json!("zaralX RPG"));
         object.entry("version").or_insert(json!("1.0.0"));
@@ -364,7 +378,9 @@ mod tests {
         let mut value = value;
         let object = value.as_object_mut().unwrap();
 
-        object.entry("schemaVersion").or_insert(json!(SCHEMA_VERSION));
+        object
+            .entry("schemaVersion")
+            .or_insert(json!(SCHEMA_VERSION));
         object.entry("id").or_insert(json!("zaralx-rpg"));
         object.entry("name").or_insert(json!("zaralX RPG"));
         object.entry("version").or_insert(json!("1.0.0"));
@@ -382,12 +398,19 @@ mod tests {
         let error = Manifest::parse(&serde_json::to_vec(&other).unwrap()).unwrap_err();
 
         assert_eq!(error.code, "MANIFEST_INVALID");
-        assert!(error.message.contains("99"), "в тексте должна быть чужая версия: {}", error.message);
+        assert!(
+            error.message.contains("99"),
+            "в тексте должна быть чужая версия: {}",
+            error.message
+        );
     }
 
     #[test]
     fn broken_json_is_reported_as_a_manifest_problem() {
-        assert_eq!(Manifest::parse(b"{ not json").unwrap_err().code, "MANIFEST_INVALID");
+        assert_eq!(
+            Manifest::parse(b"{ not json").unwrap_err().code,
+            "MANIFEST_INVALID"
+        );
     }
 
     #[test]
@@ -576,7 +599,10 @@ mod tests {
             "minecraft": "1.20.1",
             "loader": {"type": "forge", "version": "  1.20.1-47.2.0  "}
         }));
-        assert_eq!(forge.loader(), Some((LoaderType::Forge, Some("1.20.1-47.2.0".into()))));
+        assert_eq!(
+            forge.loader(),
+            Some((LoaderType::Forge, Some("1.20.1-47.2.0".into())))
+        );
 
         let bare = manifest(json!({"minecraft": "1.20.1", "loader": {"type": "fabric"}}));
         assert_eq!(bare.loader(), Some((LoaderType::Fabric, None)));

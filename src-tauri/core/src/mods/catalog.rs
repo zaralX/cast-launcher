@@ -205,7 +205,10 @@ pub async fn identify(
     let by_fingerprint: BTreeMap<u32, String> = unknown
         .iter()
         .filter(|file| !matched.contains_key(&file.sha1))
-        .filter_map(|file| file.fingerprint.map(|fingerprint| (fingerprint, file.sha1.clone())))
+        .filter_map(|file| {
+            file.fingerprint
+                .map(|fingerprint| (fingerprint, file.sha1.clone()))
+        })
         .collect();
 
     match crate::curseforge::is_available() {
@@ -266,7 +269,10 @@ pub(super) fn outcomes(
         .collect()
 }
 
-async fn hashes_of(scan: &ModsScan, mods: &[ModFile]) -> CommandResult<BTreeMap<String, FileHashes>> {
+async fn hashes_of(
+    scan: &ModsScan,
+    mods: &[ModFile],
+) -> CommandResult<BTreeMap<String, FileHashes>> {
     let mut index = ModsIndex::load(&scan.index_file).await;
 
     let mut ready: BTreeMap<String, FileHashes> = BTreeMap::new();
@@ -357,7 +363,9 @@ mod tests {
         let mut cache = CatalogCache::new();
         cache.remember("aaa", Some(matched()), 0);
 
-        let entry = cache.lookup("aaa", MISSING_TTL * 10).expect("найденное не протухает");
+        let entry = cache
+            .lookup("aaa", MISSING_TTL * 10)
+            .expect("найденное не протухает");
         assert_eq!(entry.found.as_ref().unwrap().title, "Sodium");
     }
 
@@ -366,9 +374,15 @@ mod tests {
         let mut cache = CatalogCache::new();
         cache.remember("bbb", None, 1_000);
 
-        assert!(cache.lookup("bbb", 1_000).is_some(), "только что спрашивали");
+        assert!(
+            cache.lookup("bbb", 1_000).is_some(),
+            "только что спрашивали"
+        );
         assert!(cache.lookup("bbb", 1_000 + MISSING_TTL / 2).is_some());
-        assert!(cache.lookup("bbb", 1_000 + MISSING_TTL).is_none(), "пора спросить снова");
+        assert!(
+            cache.lookup("bbb", 1_000 + MISSING_TTL).is_none(),
+            "пора спросить снова"
+        );
     }
 
     fn hashes(sha1: &str) -> FileHashes {
@@ -386,7 +400,11 @@ mod tests {
 
         let written = outcomes(&[&found, &missed], &matched, false);
 
-        assert_eq!(written.len(), 1, "запоминаем только то, что действительно нашли");
+        assert_eq!(
+            written.len(),
+            1,
+            "запоминаем только то, что действительно нашли"
+        );
         assert_eq!(written[0].0, "aaa");
         assert!(written[0].1.is_some());
     }

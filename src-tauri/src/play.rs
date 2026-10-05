@@ -92,7 +92,10 @@ async fn needs_install(state: &Arc<AppState>, paths: &LauncherPaths, instance: &
                 Ok(manifest) if source.is_outdated(&manifest.version) => return true,
                 Ok(_) => {}
                 Err(error) => {
-                    eprintln!("Обновление сборки «{}» не проверено: {error}", instance.name);
+                    eprintln!(
+                        "Обновление сборки «{}» не проверено: {error}",
+                        instance.name
+                    );
                 }
             }
         }
@@ -116,7 +119,12 @@ async fn missing_files(paths: &LauncherPaths, instance: &Instance) -> Vec<String
             "У сборки «{}» не хватает файлов ({}), переустанавливаю: {}",
             instance.name,
             missing.len(),
-            missing.iter().take(5).cloned().collect::<Vec<_>>().join(", ")
+            missing
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
         );
     }
 
@@ -177,4 +185,3 @@ pub async fn check_update(
         }
     }
 }
-

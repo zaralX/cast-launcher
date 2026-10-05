@@ -100,9 +100,9 @@ impl ScannedInstance {
             )));
         }
 
-        let loader = self
-            .loader
-            .ok_or_else(|| CommandError::manifest(format!("У сборки «{}» нет загрузчика", self.name)))?;
+        let loader = self.loader.ok_or_else(|| {
+            CommandError::manifest(format!("У сборки «{}» нет загрузчика", self.name))
+        })?;
 
         Ok(Instance {
             id,
@@ -162,7 +162,10 @@ impl Source {
         let path = path.trim();
 
         if path.is_empty() {
-            return Err(CommandError::fs(format!("Не указан каталог {}", kind.label())));
+            return Err(CommandError::fs(format!(
+                "Не указан каталог {}",
+                kind.label()
+            )));
         }
 
         match kind {
@@ -197,8 +200,12 @@ impl Source {
         on_step: impl Fn(&str),
     ) -> CommandResult<()> {
         match self {
-            Self::Prism(root) => prism::copy_shared(root, options, targets, progress, on_step).await,
-            Self::Modrinth(root) => modrinth::copy_shared(root, options, targets, progress, on_step).await,
+            Self::Prism(root) => {
+                prism::copy_shared(root, options, targets, progress, on_step).await
+            }
+            Self::Modrinth(root) => {
+                modrinth::copy_shared(root, options, targets, progress, on_step).await
+            }
         }
     }
 
@@ -304,7 +311,10 @@ pub struct ImportReport {
     pub cancelled: bool,
 }
 
-pub fn select(scanned: Vec<ScannedInstance>, folders: &[String]) -> (Vec<ScannedInstance>, ImportReport) {
+pub fn select(
+    scanned: Vec<ScannedInstance>,
+    folders: &[String],
+) -> (Vec<ScannedInstance>, ImportReport) {
     let mut report = ImportReport::default();
     let mut selected = Vec::new();
 
@@ -350,7 +360,9 @@ impl ImportRegistry {
     }
 
     fn slot(&self) -> std::sync::MutexGuard<'_, Option<ImportProgress>> {
-        self.progress.lock().unwrap_or_else(|error| error.into_inner())
+        self.progress
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
     }
 
     pub fn cancel(&self) {
@@ -365,7 +377,9 @@ impl ImportRegistry {
 
     pub fn begin(self: &Arc<Self>) -> CommandResult<ImportGuard> {
         if self.running.swap(true, Ordering::SeqCst) {
-            return Err(CommandError::fs("Перенос уже идёт, дождитесь его окончания"));
+            return Err(CommandError::fs(
+                "Перенос уже идёт, дождитесь его окончания",
+            ));
         }
 
         self.cancelled.store(false, Ordering::SeqCst);
@@ -561,10 +575,15 @@ mod tests {
     async fn instances_arrive_sorted_by_name_whatever_the_launcher() {
         let root = std::env::temp_dir().join(format!("cast-import-{}", uuid::Uuid::new_v4()));
 
-        for (folder, name) in [("c", "Ягоды"), ("a", "яблоки"), ("b", "Абрикос")] {
+        for (folder, name) in [("c", "Ягоды"), ("a", "яблоки"), ("b", "Абрикос")]
+        {
             let dir = root.join(prism::INSTANCES).join(folder);
             std::fs::create_dir_all(&dir).unwrap();
-            std::fs::write(dir.join(prism::CONFIG_FILE), format!("[General]\nname={name}")).unwrap();
+            std::fs::write(
+                dir.join(prism::CONFIG_FILE),
+                format!("[General]\nname={name}"),
+            )
+            .unwrap();
             std::fs::write(dir.join(prism::PACK_FILE), FABRIC_PACK).unwrap();
         }
 

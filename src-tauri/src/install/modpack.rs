@@ -76,14 +76,16 @@ pub async fn prepare(
         PackProvider::Modrinth => {
             use cast_core::modrinth::pack::{PackIndex, INDEX_ENTRY};
 
-            let manifest = archive::read_entry(archive_path.clone(), INDEX_ENTRY.to_string()).await?;
+            let manifest =
+                archive::read_entry(archive_path.clone(), INDEX_ENTRY.to_string()).await?;
 
             PackIndex::parse(&manifest)?.resolve(&minecraft)?
         }
         PackProvider::CurseForge => {
             use cast_core::curseforge::pack::{self, Manifest, MANIFEST_ENTRY};
 
-            let manifest = archive::read_entry(archive_path.clone(), MANIFEST_ENTRY.to_string()).await?;
+            let manifest =
+                archive::read_entry(archive_path.clone(), MANIFEST_ENTRY.to_string()).await?;
             let manifest = Manifest::parse(&manifest)?;
 
             reporter.begin_phase("modpack-resolve", "Список файлов пака");
@@ -158,9 +160,11 @@ async fn fetch_archive_by_hand(
     };
 
     let website_url = match pack.provider {
-        PackProvider::CurseForge => cast_core::curseforge::download_page(&pack.project_id, &pack.version_id)
-            .await
-            .unwrap_or_default(),
+        PackProvider::CurseForge => {
+            cast_core::curseforge::download_page(&pack.project_id, &pack.version_id)
+                .await
+                .unwrap_or_default()
+        }
         PackProvider::Modrinth => String::new(),
     };
 
@@ -323,7 +327,8 @@ pub async fn apply(
 
         for prefix in &resolved.overrides {
             let unpacked =
-                archive::extract_dir(archive.to_path_buf(), prefix.clone(), minecraft.clone()).await?;
+                archive::extract_dir(archive.to_path_buf(), prefix.clone(), minecraft.clone())
+                    .await?;
 
             extracted.extend(unpacked);
         }
@@ -357,7 +362,11 @@ pub async fn apply(
         .save(&instance_paths.pack_files())
         .await?;
 
-    let missing: Vec<_> = blocked.iter().filter(|file| !file.found()).cloned().collect();
+    let missing: Vec<_> = blocked
+        .iter()
+        .filter(|file| !file.found())
+        .cloned()
+        .collect();
 
     pack_files::save_blocked(&instance_paths.pack_blocked(), &missing).await?;
     reporter.set_blocked(missing);

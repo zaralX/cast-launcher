@@ -17,11 +17,19 @@ pub struct ResolvedMods {
 pub async fn resolve(refs: &[ModRef<'_>], minecraft_dir: &Path) -> CommandResult<ResolvedMods> {
     let mut resolved = ResolvedMods::default();
 
-    let modrinth: Vec<&ModRef<'_>> = refs.iter().filter(|entry| provider_of(entry) == Some(PackProvider::Modrinth)).collect();
-    let curseforge: Vec<&ModRef<'_>> = refs.iter().filter(|entry| provider_of(entry) == Some(PackProvider::CurseForge)).collect();
+    let modrinth: Vec<&ModRef<'_>> = refs
+        .iter()
+        .filter(|entry| provider_of(entry) == Some(PackProvider::Modrinth))
+        .collect();
+    let curseforge: Vec<&ModRef<'_>> = refs
+        .iter()
+        .filter(|entry| provider_of(entry) == Some(PackProvider::CurseForge))
+        .collect();
 
     if !modrinth.is_empty() {
-        resolved.files.extend(from_modrinth(&modrinth, minecraft_dir).await?);
+        resolved
+            .files
+            .extend(from_modrinth(&modrinth, minecraft_dir).await?);
     }
 
     if !curseforge.is_empty() {
@@ -57,7 +65,14 @@ async fn from_modrinth(
     let mut resolved = Vec::new();
 
     for entry in refs {
-        let ModRef::Catalog { version_id, optional, .. } = entry else { continue };
+        let ModRef::Catalog {
+            version_id,
+            optional,
+            ..
+        } = entry
+        else {
+            continue;
+        };
 
         let file = files.get(*version_id).ok_or_else(|| {
             CommandError::manifest(format!("Modrinth не отдал файл версии {version_id}"))
@@ -79,13 +94,24 @@ async fn from_modrinth(
     Ok(resolved)
 }
 
-async fn from_curseforge(refs: &[&ModRef<'_>], minecraft_dir: &Path) -> CommandResult<ResolvedMods> {
+async fn from_curseforge(
+    refs: &[&ModRef<'_>],
+    minecraft_dir: &Path,
+) -> CommandResult<ResolvedMods> {
     use crate::curseforge::pack::ManifestFile;
 
     let mut entries = Vec::with_capacity(refs.len());
 
     for entry in refs {
-        let ModRef::Catalog { project_id, version_id, optional, .. } = entry else { continue };
+        let ModRef::Catalog {
+            project_id,
+            version_id,
+            optional,
+            ..
+        } = entry
+        else {
+            continue;
+        };
 
         entries.push(ManifestFile {
             project_id: numeric(project_id, "projectId")?,
@@ -94,7 +120,8 @@ async fn from_curseforge(refs: &[&ModRef<'_>], minecraft_dir: &Path) -> CommandR
         });
     }
 
-    let (files, blocked) = crate::curseforge::pack::resolve_entries(&entries, minecraft_dir).await?;
+    let (files, blocked) =
+        crate::curseforge::pack::resolve_entries(&entries, minecraft_dir).await?;
 
     Ok(ResolvedMods { files, blocked })
 }
@@ -124,7 +151,10 @@ mod tests {
 
     #[test]
     fn a_mod_lands_in_the_folder_its_catalog_says() {
-        assert_eq!(target_key("mods", "jei-1.0.jar", false).unwrap(), "mods/jei-1.0.jar");
+        assert_eq!(
+            target_key("mods", "jei-1.0.jar", false).unwrap(),
+            "mods/jei-1.0.jar"
+        );
         assert_eq!(
             target_key("shaderpacks", "BSL.zip", false).unwrap(),
             "shaderpacks/BSL.zip"
@@ -144,7 +174,11 @@ mod tests {
         let key = target_key("mods", "../../evil.jar", false).unwrap();
 
         assert!(key.starts_with("mods/"), "{key}");
-        assert_eq!(key.split('/').count(), 2, "разделители в имени файла обезврежены: {key}");
+        assert_eq!(
+            key.split('/').count(),
+            2,
+            "разделители в имени файла обезврежены: {key}"
+        );
     }
 
     #[test]
@@ -178,7 +212,11 @@ mod tests {
 
         assert_eq!(provider_of(&modrinth), Some(PackProvider::Modrinth));
         assert_eq!(provider_of(&curseforge), Some(PackProvider::CurseForge));
-        assert_eq!(provider_of(&direct), None, "прямые ссылки в каталог не ходят");
+        assert_eq!(
+            provider_of(&direct),
+            None,
+            "прямые ссылки в каталог не ходят"
+        );
     }
 
     #[tokio::test]
