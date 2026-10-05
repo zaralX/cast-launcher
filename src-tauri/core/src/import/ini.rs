@@ -169,7 +169,7 @@ mods_Page\Columns=@ByteArray(\0\0\0\xff\0\0)
         assert_eq!(
             ini.general().number::<u64>("totalTimePlayed"),
             None,
-            "минус - это мусор"
+            "a minus is garbage"
         );
     }
 

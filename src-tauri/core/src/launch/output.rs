@@ -61,8 +61,8 @@ mod tests {
         let mut lines = BufReader::new(FORGE_STDOUT).lines();
 
         assert!(lines.next_line().await.unwrap().is_some());
-        // Старый `while let Ok(Some(line))` молча выходил из цикла вот здесь,
-        // дропал ChildStdout и закрывал трубу игре.
+        // The old `while let Ok(Some(line))` silently left the loop right here,
+        // dropped ChildStdout and closed the game's pipe.
         assert!(lines.next_line().await.is_err());
     }
 }

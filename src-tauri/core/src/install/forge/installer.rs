@@ -55,7 +55,7 @@ impl Installer {
     pub async fn open(jar: PathBuf) -> CommandResult<Self> {
         tokio::task::spawn_blocking(move || parse(jar))
             .await
-            .map_err(|e| CommandError::task_panicked("чтение установщика Forge", e))?
+            .map_err(|e| CommandError::task_panicked("read_forge_installer", e))?
     }
 
     pub fn minecraft_version(&self) -> &str {
@@ -97,7 +97,7 @@ impl Installer {
 
         tokio::task::spawn_blocking(move || unpack_blocking(&jar, &libraries, &pending))
             .await
-            .map_err(|e| CommandError::task_panicked("распаковка файлов Forge", e))?
+            .map_err(|e| CommandError::task_panicked("extract_forge_files", e))?
     }
 
     pub fn downloads(&self, paths: &LauncherPaths, ctx: &RuntimeContext) -> Vec<DownloadTask> {
@@ -228,7 +228,8 @@ fn parse(jar: PathBuf) -> CommandResult<Installer> {
 
     let raw: RawProfile = serde_json::from_slice(&read_entry(&mut archive, INSTALL_PROFILE)?)
         .map_err(|e| {
-            CommandError::manifest("Установщик Forge содержит нечитаемый install_profile.json")
+            CommandError::manifest("error.reason.forge.unreadable_entry")
+                .param("entry", "install_profile.json")
                 .with_details(e.to_string())
         })?;
 
@@ -239,25 +240,22 @@ fn parse(jar: PathBuf) -> CommandResult<Installer> {
 }
 
 fn parse_legacy(jar: PathBuf, raw: RawProfile) -> CommandResult<Installer> {
-    let install = raw.install.expect("install проверен вызывающим кодом");
+    let install = raw.install.expect("install is checked by the caller");
     let version_json = raw
         .version_info
-        .expect("versionInfo проверен вызывающим кодом");
+        .expect("versionInfo is checked by the caller");
 
-    let coordinate = install.path.as_deref().ok_or_else(|| {
-        CommandError::forge("Установщик Forge не указывает координату universal-архива")
-    })?;
+    let coordinate = install
+        .path
+        .as_deref()
+        .ok_or_else(|| CommandError::forge("error.reason.forge.no_universal"))?;
 
     let entry = install
         .file_path
         .as_deref()
         .map(|path| path.trim_start_matches('/').to_string())
         .filter(|path| !path.is_empty())
-        .ok_or_else(|| {
-            CommandError::forge(
-                "Эта версия Forge слишком старая: установщик не содержит universal-архива",
-            )
-        })?;
+        .ok_or_else(|| CommandError::forge("error.reason.forge.too_old"))?;
 
     let path = Gradle::parse(coordinate)?.path();
     let package = package_of(&version_json)?;
@@ -266,7 +264,7 @@ fn parse_legacy(jar: PathBuf, raw: RawProfile) -> CommandResult<Installer> {
         .minecraft
         .clone()
         .or_else(|| inherits_from(&version_json))
-        .ok_or_else(|| CommandError::forge("Установщик Forge не указывает версию Minecraft"))?;
+        .ok_or_else(|| CommandError::forge("error.reason.forge.no_minecraft"))?;
 
     Ok(Installer {
         jar,
@@ -300,7 +298,8 @@ fn parse_modern(
 
     let version_json: Value =
         serde_json::from_slice(&read_entry(archive, &entry)?).map_err(|e| {
-            CommandError::manifest(format!("Установщик Forge содержит нечитаемый {entry}"))
+            CommandError::manifest("error.reason.forge.unreadable_entry")
+                .param("entry", entry)
                 .with_details(e.to_string())
         })?;
 
@@ -310,7 +309,7 @@ fn parse_modern(
         .minecraft
         .clone()
         .or_else(|| inherits_from(&version_json))
-        .ok_or_else(|| CommandError::forge("Установщик Forge не указывает версию Minecraft"))?;
+        .ok_or_else(|| CommandError::forge("error.reason.forge.no_minecraft"))?;
 
     let mut bundled = Vec::new();
     let mut produced = HashSet::new();
@@ -378,7 +377,7 @@ fn runs_on_client(processor: &RawProcessor) -> bool {
 
 fn package_of(version_json: &Value) -> CommandResult<VersionPackage> {
     serde_json::from_value(version_json.clone()).map_err(|e| {
-        CommandError::manifest("Установщик Forge содержит нечитаемый манифест версии")
+        CommandError::manifest("error.reason.forge.unreadable_version_manifest")
             .with_details(e.to_string())
     })
 }
@@ -409,16 +408,16 @@ fn unpack_blocking(jar: &Path, libraries: &Path, pending: &[Bundled]) -> Command
 
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| CommandError::io("Не удалось создать каталог", parent, e))?;
+                .map_err(|e| CommandError::io("error.reason.fs.create_dir", parent, e))?;
         }
 
         std::fs::write(&temp, &bytes)
-            .map_err(|e| CommandError::io("Не удалось распаковать файл Forge", &temp, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.extract", &temp, e))?;
 
         if let Err(error) = std::fs::rename(&temp, &target) {
             let _ = std::fs::remove_file(&temp);
             return Err(CommandError::io(
-                "Не удалось сохранить файл Forge",
+                "error.reason.fs.write_file",
                 &target,
                 error,
             ));
@@ -431,25 +430,28 @@ fn unpack_blocking(jar: &Path, libraries: &Path, pending: &[Bundled]) -> Command
 }
 
 fn open_zip(jar: &Path) -> CommandResult<ZipArchive<File>> {
-    let file = File::open(jar)
-        .map_err(|e| CommandError::io("Не удалось открыть установщик Forge", jar, e))?;
+    let file =
+        File::open(jar).map_err(|e| CommandError::io("error.reason.fs.open_archive", jar, e))?;
 
     ZipArchive::new(file).map_err(|e| {
-        CommandError::archive(format!("Повреждённый установщик Forge: {}", jar.display()))
+        CommandError::archive("error.reason.forge.installer_corrupted")
+            .param("path", jar.display())
             .with_details(e.to_string())
     })
 }
 
 fn read_entry(archive: &mut ZipArchive<File>, name: &str) -> CommandResult<Vec<u8>> {
     let mut entry = archive.by_name(name).map_err(|e| {
-        CommandError::archive(format!("В установщике Forge нет файла {name}"))
+        CommandError::archive("error.reason.forge.installer_missing_entry")
+            .param("name", name)
             .with_details(e.to_string())
     })?;
 
     let mut bytes = Vec::with_capacity(entry.size() as usize);
 
     entry.read_to_end(&mut bytes).map_err(|e| {
-        CommandError::archive(format!("Не удалось прочитать {name} из установщика Forge"))
+        CommandError::archive("error.reason.forge.read_installer_entry")
+            .param("name", name)
             .with_details(e.to_string())
     })?;
 
@@ -649,7 +651,7 @@ mod tests {
         assert_eq!(
             installer.processors().len(),
             1,
-            "серверные процессоры отброшены"
+            "server processors are dropped"
         );
         assert_eq!(
             installer.processors()[0].jar,
@@ -672,7 +674,7 @@ mod tests {
         assert_eq!(
             installer.unpack(&paths).await.unwrap(),
             1,
-            "битый размер перекачивается"
+            "a wrong size is downloaded again"
         );
         assert_eq!(std::fs::read(&universal).unwrap(), b"universal");
 
@@ -800,7 +802,7 @@ mod tests {
         assert_eq!(
             installer.processors().len(),
             1,
-            "серверные процессоры отброшены"
+            "server processors are dropped"
         );
         assert_eq!(
             installer.patched_client(),
@@ -867,21 +869,21 @@ mod tests {
         std::fs::write(&empty, b"not a zip").unwrap();
         assert_eq!(
             Installer::open(empty).await.unwrap_err().code,
-            "ARCHIVE_INVALID"
+            crate::error::ErrorCode::ArchiveInvalid
         );
 
         let without_profile = dir.join("bare.jar");
         write_installer(&without_profile, &[("readme.txt", b"hi")]);
         assert_eq!(
             Installer::open(without_profile).await.unwrap_err().code,
-            "ARCHIVE_INVALID"
+            crate::error::ErrorCode::ArchiveInvalid
         );
 
         let broken = dir.join("broken.jar");
         write_installer(&broken, &[("install_profile.json", b"{ not json")]);
         assert_eq!(
             Installer::open(broken).await.unwrap_err().code,
-            "MANIFEST_INVALID"
+            crate::error::ErrorCode::ManifestInvalid
         );
 
         std::fs::remove_dir_all(&dir).ok();

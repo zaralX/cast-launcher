@@ -14,6 +14,7 @@ use cast_core::import::{
 use cast_core::instance::{Instance, PackProvider, PackSource};
 use cast_core::packs;
 use cast_core::paths::LauncherPaths;
+use cast_core::text::UiText;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
@@ -171,11 +172,12 @@ async fn import_all(
             break;
         }
 
-        publish(ImportStage::Instances, &instance.name, done, report.stats);
+        let name = UiText::new("settings.import.step.instance").param("name", &instance.name);
+        publish(ImportStage::Instances, &name, done, report.stats);
 
         let step = Step {
             publish: &publish,
-            name: &instance.name,
+            name: &name,
             done,
             base: report.stats,
         };
@@ -199,10 +201,13 @@ async fn import_all(
                 report.cancelled = true;
                 break;
             }
-            Err(error) => report.skipped.push(SkippedInstance {
-                name: instance.name.clone(),
-                reason: error.message,
-            }),
+            Err(error) => {
+                log::warn!("Failed to import instance '{}': {error}", instance.name);
+                report.skipped.push(SkippedInstance {
+                    name: instance.name.clone(),
+                    reason: error.text,
+                });
+            }
         }
 
         done += 1;
@@ -217,13 +222,16 @@ async fn copy_shared(
     source: &Source,
     paths: &LauncherPaths,
     options: &ImportOptions,
-    publish: &(impl Fn(ImportStage, &str, usize, CopyStats) + Send + Sync),
+    publish: &(impl Fn(ImportStage, &UiText, usize, CopyStats) + Send + Sync),
     cancelled: &(impl Fn() -> bool + Send + Sync),
 ) -> CommandResult<CopyStats> {
-    let step = std::sync::Mutex::new(String::from("Общие файлы"));
+    let step = std::sync::Mutex::new(UiText::new("settings.import.step.shared"));
 
     let on_change = |stats: CopyStats| {
-        let current = step.lock().map(|step| step.clone()).unwrap_or_default();
+        let current = step
+            .lock()
+            .map(|step| step.clone())
+            .unwrap_or_else(|_| UiText::new("settings.import.step.shared"));
         publish(ImportStage::Shared, &current, 0, stats);
     };
 
@@ -233,10 +241,10 @@ async fn copy_shared(
     source
         .copy_shared(options, &targets, &progress, |name| {
             if let Ok(mut step) = step.lock() {
-                *step = name.to_string();
+                *step = name.clone();
             }
 
-            publish(ImportStage::Shared, name, 0, progress.stats());
+            publish(ImportStage::Shared, &name, 0, progress.stats());
         })
         .await?;
 
@@ -247,7 +255,7 @@ async fn copy_shared(
 
 struct Step<'a, P> {
     publish: &'a P,
-    name: &'a str,
+    name: &'a UiText,
     done: usize,
     base: CopyStats,
 }
@@ -262,7 +270,7 @@ async fn import_one<P>(
     step: &Step<'_, P>,
 ) -> CommandResult<(ImportedInstance, CopyStats)>
 where
-    P: Fn(ImportStage, &str, usize, CopyStats) + Send + Sync,
+    P: Fn(ImportStage, &UiText, usize, CopyStats) + Send + Sync,
 {
     let on_change = |stats: CopyStats| {
         (step.publish)(
@@ -375,12 +383,12 @@ fn publisher(
     state: Arc<AppState>,
     source: LauncherKind,
     total: usize,
-) -> impl Fn(ImportStage, &str, usize, CopyStats) + Send + Sync {
+) -> impl Fn(ImportStage, &UiText, usize, CopyStats) + Send + Sync {
     move |stage, step, done, stats| {
         let progress = ImportProgress {
             source,
             stage,
-            step: step.to_string(),
+            step: step.clone(),
             done,
             total,
             stats,
@@ -404,7 +412,7 @@ async fn finish(
     LauncherEvent::Import(ImportProgress {
         source,
         stage: ImportStage::Done,
-        step: String::new(),
+        step: UiText::new("settings.import.step.done"),
         done: total,
         total,
         stats,

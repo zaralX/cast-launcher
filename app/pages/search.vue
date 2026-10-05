@@ -22,7 +22,7 @@ const route = useRoute()
 
 const providers = ref<PackProviderInfo[]>([])
 
-// source - выбор в переключателе, включая CastPack; searchSource - провайдер, чьи результаты сейчас на экране.
+// source is the switcher choice, CastPack included; searchSource is the provider whose results are on screen.
 const source = ref<Source>(route.query.source === CASTPACK ? CASTPACK : 'modrinth')
 const searchSource = ref<PackProvider>('modrinth')
 
@@ -260,7 +260,7 @@ const playPack = (instanceId: string) => safeRun(
           role="radio"
           :aria-checked="source === item.id"
           :disabled="!item.ready"
-          :title="item.reason"
+          :title="item.reason ? uiText(item.reason) : undefined"
           class="group relative flex items-center gap-2 border-r border-line px-4 py-2.5 transition-colors duration-300"
           :class="[
             !item.ready ? 'cursor-not-allowed opacity-40' : '',
@@ -362,8 +362,11 @@ const playPack = (instanceId: string) => safeRun(
               <p class="text-[13px] font-medium text-fg">
                 {{ searchError.title }}
               </p>
-              <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-                {{ searchError.hint ?? searchError.message }}
+              <p
+                v-if="searchError.reason ?? searchError.hint"
+                class="mt-2 text-[12px] leading-relaxed text-fg-muted"
+              >
+                {{ searchError.reason ?? searchError.hint }}
               </p>
               <AppButton
                 tone="quiet"

@@ -9,22 +9,20 @@ use crate::error::{CommandError, CommandResult};
 pub async fn extract_natives(jar_path: PathBuf, output_dir: PathBuf) -> CommandResult<()> {
     tokio::task::spawn_blocking(move || extract_natives_blocking(&jar_path, &output_dir))
         .await
-        .map_err(|e| CommandError::task_panicked("распаковка нативных библиотек", e))?
+        .map_err(|e| CommandError::task_panicked("extract_natives", e))?
 }
 
 fn extract_natives_blocking(jar_path: &Path, output_dir: &Path) -> CommandResult<()> {
     let mut archive = open(jar_path)?;
 
     std::fs::create_dir_all(output_dir)
-        .map_err(|e| CommandError::io("Не удалось создать каталог нативов", output_dir, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.create_dir", output_dir, e))?;
 
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(|e| {
-            CommandError::archive(format!(
-                "Не удалось прочитать запись архива: {}",
-                jar_path.display()
-            ))
-            .with_details(e.to_string())
+            CommandError::archive("error.reason.archive.read_entry")
+                .param("path", jar_path.display())
+                .with_details(e.to_string())
         })?;
 
         let name = entry.name().to_string();
@@ -39,10 +37,10 @@ fn extract_natives_blocking(jar_path: &Path, output_dir: &Path) -> CommandResult
         let out_path = output_dir.join(file_name);
 
         let mut out = File::create(&out_path)
-            .map_err(|e| CommandError::io("Не удалось создать файл", &out_path, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.create_file", &out_path, e))?;
 
         io::copy(&mut entry, &mut out)
-            .map_err(|e| CommandError::io("Не удалось распаковать файл", &out_path, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.extract", &out_path, e))?;
     }
 
     Ok(())
@@ -51,24 +49,25 @@ fn extract_natives_blocking(jar_path: &Path, output_dir: &Path) -> CommandResult
 pub async fn read_entry(archive_path: PathBuf, entry: String) -> CommandResult<Vec<u8>> {
     tokio::task::spawn_blocking(move || read_entry_blocking(&archive_path, &entry))
         .await
-        .map_err(|e| CommandError::task_panicked("чтение записи архива", e))?
+        .map_err(|e| CommandError::task_panicked("read_archive_entry", e))?
 }
 
 fn read_entry_blocking(archive_path: &Path, entry: &str) -> CommandResult<Vec<u8>> {
     let mut archive = open(archive_path)?;
 
     let mut file = archive.by_name(entry).map_err(|e| {
-        CommandError::archive(format!(
-            "В архиве нет файла {entry}: {}",
-            archive_path.display()
-        ))
-        .with_details(e.to_string())
+        CommandError::archive("error.reason.archive.missing_entry")
+            .param("entry", entry)
+            .param("path", archive_path.display())
+            .with_details(e.to_string())
     })?;
 
     let mut bytes = Vec::with_capacity(file.size() as usize);
 
     io::copy(&mut file, &mut bytes).map_err(|e| {
-        CommandError::archive(format!("Не удалось прочитать {entry}")).with_details(e.to_string())
+        CommandError::archive("error.reason.archive.read_file")
+            .param("entry", entry)
+            .with_details(e.to_string())
     })?;
 
     Ok(bytes)
@@ -81,7 +80,7 @@ pub async fn extract_dir(
 ) -> CommandResult<Vec<String>> {
     tokio::task::spawn_blocking(move || extract_dir_blocking(&archive_path, &prefix, &output_dir))
         .await
-        .map_err(|e| CommandError::task_panicked("распаковка каталога архива", e))?
+        .map_err(|e| CommandError::task_panicked("extract_archive_dir", e))?
 }
 
 fn extract_dir_blocking(
@@ -95,11 +94,9 @@ fn extract_dir_blocking(
 
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(|e| {
-            CommandError::archive(format!(
-                "Не удалось прочитать запись архива: {}",
-                archive_path.display()
-            ))
-            .with_details(e.to_string())
+            CommandError::archive("error.reason.archive.read_entry")
+                .param("path", archive_path.display())
+                .with_details(e.to_string())
         })?;
 
         let name = entry.name().to_string();
@@ -116,14 +113,14 @@ fn extract_dir_blocking(
 
         if let Some(parent) = out_path.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| CommandError::io("Не удалось создать каталог", parent, e))?;
+                .map_err(|e| CommandError::io("error.reason.fs.create_dir", parent, e))?;
         }
 
         let mut out = File::create(&out_path)
-            .map_err(|e| CommandError::io("Не удалось создать файл", &out_path, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.create_file", &out_path, e))?;
 
         io::copy(&mut entry, &mut out)
-            .map_err(|e| CommandError::io("Не удалось распаковать файл", &out_path, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.extract", &out_path, e))?;
 
         extracted.push(key);
     }
@@ -141,10 +138,11 @@ fn is_native(name: &str) -> bool {
 
 pub(crate) fn open(jar_path: &Path) -> CommandResult<ZipArchive<File>> {
     let file = File::open(jar_path)
-        .map_err(|e| CommandError::io("Не удалось открыть архив", jar_path, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.open_archive", jar_path, e))?;
 
     ZipArchive::new(file).map_err(|e| {
-        CommandError::archive(format!("Повреждённый архив: {}", jar_path.display()))
+        CommandError::archive("error.reason.archive.corrupted")
+            .param("path", jar_path.display())
             .with_details(e.to_string())
     })
 }

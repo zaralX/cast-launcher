@@ -19,7 +19,7 @@ pub fn client() -> &'static reqwest::Client {
             .user_agent(user_agent())
             .build()
             .unwrap_or_else(|error| {
-                eprintln!("Не удалось собрать HTTP-клиент, беру дефолтный: {error}");
+                log::warn!("Failed to build the HTTP client, using the default one: {error}");
                 reqwest::Client::new()
             })
     })
@@ -30,11 +30,13 @@ fn user_agent() -> String {
 }
 
 pub fn http_status_error(status: reqwest::StatusCode, url: &str) -> CommandError {
-    let message = format!("Сервер ответил HTTP {} на {url}", status.as_u16());
+    let key = "error.reason.network.http_status";
 
-    if status.is_server_error() || status.as_u16() == 429 {
-        CommandError::network(message)
+    let error = if status.is_server_error() || status.as_u16() == 429 {
+        CommandError::network(key)
     } else {
-        CommandError::download(message)
-    }
+        CommandError::download(key)
+    };
+
+    error.param("status", status.as_u16()).param("url", url)
 }

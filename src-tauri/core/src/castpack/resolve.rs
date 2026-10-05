@@ -29,7 +29,7 @@ pub fn merge(base: Option<ResolvedPack>, overlay: Overlay) -> CommandResult<Reso
     if let Some(base) = base {
         if base.paths.len() != base.tasks.len() {
             return Err(CommandError::manifest(
-                "Базовый модпак вернул рассогласованный список файлов",
+                "error.reason.castpack.base_inconsistent",
             ));
         }
 
@@ -45,9 +45,9 @@ pub fn merge(base: Option<ResolvedPack>, overlay: Overlay) -> CommandResult<Reso
 
     for (key, task) in overlay.files {
         if !added.insert(key.clone()) {
-            return Err(CommandError::manifest(format!(
-                "В сборке дважды указан один и тот же файл: {key}"
-            )));
+            return Err(
+                CommandError::manifest("error.reason.castpack.duplicate_file").param("path", key),
+            );
         }
 
         owned.insert(key, task);
@@ -82,7 +82,7 @@ pub fn merge(base: Option<ResolvedPack>, overlay: Overlay) -> CommandResult<Reso
 
     let minecraft_version = minecraft_version
         .filter(|version| !version.is_empty())
-        .ok_or_else(|| CommandError::manifest("У сборки не удалось определить версию Minecraft"))?;
+        .ok_or_else(|| CommandError::manifest("error.reason.castpack.no_minecraft"))?;
 
     let (loader, loader_version) = loader.unwrap_or((LoaderType::Vanilla, None));
 
@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(merged.minecraft_version, "1.21.1");
         assert_eq!(merged.loader, LoaderType::Fabric);
         assert_eq!(merged.paths, vec!["mods/sodium.jar"]);
-        assert!(merged.overrides.is_empty(), "распаковывать нечего");
+        assert!(merged.overrides.is_empty(), "nothing to unpack");
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(merged.paths.len(), 2, "путь тот же, файл другой");
+        assert_eq!(merged.paths.len(), 2, "same path, different file");
 
         let at = merged
             .paths
@@ -238,7 +238,7 @@ mod tests {
 
         assert!(
             !merged.paths.contains(&"mods/optifine.jar".to_string()),
-            "delete применяется последним и выигрывает - иначе непонятно, что имел в виду автор"
+            "delete applies last and wins, otherwise the author's intent is unclear"
         );
     }
 
@@ -272,7 +272,7 @@ mod tests {
             },
         );
 
-        assert!(twice.unwrap_err().message.contains("дважды"));
+        assert!(twice.unwrap_err().text.mentions("duplicate_file"));
     }
 
     #[test]
@@ -295,7 +295,10 @@ mod tests {
         )
         .unwrap();
 
-        assert!(merged.blocked.is_empty(), "руками качать больше нечего");
+        assert!(
+            merged.blocked.is_empty(),
+            "nothing is left to download manually"
+        );
     }
 
     #[test]

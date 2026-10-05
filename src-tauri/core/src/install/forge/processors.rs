@@ -44,10 +44,8 @@ where
     }
 
     if !env.minecraft_jar.is_file() {
-        return Err(CommandError::forge(
-            "Для сборки Forge нужен клиент Minecraft, но его файл отсутствует",
-        )
-        .with_details(env.minecraft_jar.display().to_string()));
+        return Err(CommandError::forge("error.reason.forge.client_missing")
+            .with_details(env.minecraft_jar.display().to_string()));
     }
 
     ensure_dir(env.root).await?;
@@ -58,7 +56,7 @@ where
 
     for (index, processor) in processors.iter().enumerate() {
         if cancelled() {
-            return Err(CommandError::aborted("Установка прервана"));
+            return Err(CommandError::aborted("error.reason.cancelled.install"));
         }
 
         let name = short_name(&processor.jar);
@@ -81,7 +79,8 @@ where
         execute(env.java, &classpath, &main_class, &args, &name, &cancelled).await?;
 
         verify(&outputs).await.map_err(|error| {
-            CommandError::forge(format!("Шаг сборки Forge «{name}» дал неверный результат"))
+            CommandError::forge("error.reason.forge.step_wrong_result")
+                .param("name", name)
                 .with_details(error)
         })?;
     }
@@ -153,7 +152,7 @@ async fn unpack(installer: &Path, entry: &str, scratch: &Path) -> CommandResult<
 
     tokio::fs::write(&target, &bytes)
         .await
-        .map_err(|e| CommandError::io("Не удалось распаковать данные Forge", &target, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.extract", &target, e))?;
 
     Ok(target)
 }
@@ -202,10 +201,9 @@ fn classpath(processor: &Processor, libraries: &Path) -> CommandResult<Vec<PathB
         let path = library_path(libraries, coordinate)?;
 
         if !path.is_file() {
-            return Err(CommandError::forge(format!(
-                "Для сборки Forge не хватает библиотеки {coordinate}"
-            ))
-            .with_details(display(&path)));
+            return Err(CommandError::forge("error.reason.forge.missing_library")
+                .param("library", coordinate)
+                .with_details(display(&path)));
         }
 
         entries.push(path);
@@ -219,8 +217,7 @@ async fn main_class(jar: &Path) -> CommandResult<String> {
         crate::archive::read_entry(jar.to_path_buf(), "META-INF/MANIFEST.MF".to_string()).await?;
 
     manifest_main_class(&String::from_utf8_lossy(&bytes)).ok_or_else(|| {
-        CommandError::forge("В инструменте Forge не указан главный класс")
-            .with_details(display(jar))
+        CommandError::forge("error.reason.forge.tool_no_main_class").with_details(display(jar))
     })
 }
 
@@ -306,10 +303,9 @@ fn replace_tokens(tokens: &HashMap<String, String>, value: &str) -> CommandResul
             out.push_str(&key);
         } else {
             let replacement = tokens.get(&key).ok_or_else(|| {
-                CommandError::forge(format!(
-                    "Установщик Forge ссылается на неизвестное значение {key}"
-                ))
-                .with_details(value.to_string())
+                CommandError::forge("error.reason.forge.unknown_value")
+                    .param("key", key)
+                    .with_details(value.to_string())
             })?;
 
             out.push_str(replacement);
@@ -322,24 +318,23 @@ fn replace_tokens(tokens: &HashMap<String, String>, value: &str) -> CommandResul
 }
 
 fn malformed(value: &str) -> CommandError {
-    CommandError::forge("Установщик Forge содержит некорректный шаблон")
-        .with_details(value.to_string())
+    CommandError::forge("error.reason.forge.invalid_template").with_details(value.to_string())
 }
 
 async fn verify(outputs: &[(PathBuf, Option<String>)]) -> Result<(), String> {
     for (path, expected) in outputs {
         if !path.is_file() {
-            return Err(format!("нет файла {}", path.display()));
+            return Err(format!("missing file {}", path.display()));
         }
 
         let Some(expected) = expected else { continue };
         let Some(actual) = file_sha1(path).await else {
-            return Err(format!("не удалось прочитать {}", path.display()));
+            return Err(format!("failed to read {}", path.display()));
         };
 
         if &actual != expected {
             return Err(format!(
-                "{}\nОжидалось: {expected}\nПолучено:  {actual}",
+                "{}\nExpected: {expected}\nActual:   {actual}",
                 path.display()
             ));
         }
@@ -419,26 +414,24 @@ where
             Err(error) => {
                 let _ = child.start_kill();
                 logs.abort();
-                return Err(
-                    CommandError::forge(format!("Шаг сборки Forge «{name}» прерван"))
-                        .with_details(error.to_string()),
-                );
+                return Err(CommandError::forge("error.reason.forge.step_interrupted")
+                    .param("name", name)
+                    .with_details(error.to_string()));
             }
         }
 
         if cancelled() {
             let _ = child.kill().await;
             logs.abort();
-            return Err(CommandError::aborted("Установка прервана"));
+            return Err(CommandError::aborted("error.reason.cancelled.install"));
         }
 
         if Instant::now() >= deadline {
             let _ = child.kill().await;
             logs.abort();
-            return Err(CommandError::forge(format!(
-                "Шаг сборки Forge «{name}» не уложился в {} мин",
-                STEP_TIMEOUT.as_secs() / 60
-            )));
+            return Err(CommandError::forge("error.reason.forge.step_timeout")
+                .param("name", name)
+                .param("minutes", STEP_TIMEOUT.as_secs() / 60));
         }
 
         tokio::time::sleep(POLL_INTERVAL).await;
@@ -453,17 +446,17 @@ where
     let code = status
         .code()
         .map(|code| code.to_string())
-        .unwrap_or_else(|| "неизвестен".to_string());
+        .unwrap_or_else(|| "unknown".to_string());
 
     let details = tail
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .join("\n");
 
-    Err(CommandError::forge(format!(
-        "Шаг сборки Forge «{name}» завершился с кодом {code}"
-    ))
-    .with_details(details))
+    Err(CommandError::forge("error.reason.forge.step_exit_code")
+        .param("name", name)
+        .param("code", code)
+        .with_details(details))
 }
 
 async fn drain<R>(reader: Option<R>, tail: Arc<Mutex<Vec<String>>>)

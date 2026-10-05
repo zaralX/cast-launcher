@@ -31,7 +31,7 @@ pub async fn catalog(url: &str, cache: &Path) -> CommandResult<Catalog> {
         }
         Err(error) => match tokio::fs::read(cache).await {
             Ok(bytes) => {
-                eprintln!("Каталог CastPack взят из кэша: {error}");
+                log::warn!("CastPack catalog is unavailable, using the cached copy: {error}");
                 Catalog::parse(&bytes)
             }
             Err(_) => Err(error),
@@ -49,7 +49,7 @@ pub async fn installed_manifest(path: &Path) -> Option<Manifest> {
     match Manifest::parse(&bytes) {
         Ok(manifest) => Some(manifest),
         Err(error) => {
-            eprintln!("Сохранённый манифест сборки не читается: {}", error.message);
+            log::warn!("Saved pack manifest is unreadable: {}", error);
             None
         }
     }
@@ -57,7 +57,7 @@ pub async fn installed_manifest(path: &Path) -> Option<Manifest> {
 
 pub async fn save_manifest(path: &Path, manifest: &Manifest) -> CommandResult<()> {
     let bytes = serde_json::to_vec_pretty(manifest).map_err(|e| {
-        CommandError::unknown("Не удалось сохранить манифест сборки")
+        CommandError::unknown("error.reason.castpack.save_manifest")
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -78,7 +78,8 @@ pub async fn probe(url: &str) -> CommandResult<ProbedFile> {
     let url = https_url(url)?;
 
     let response = http::client().get(url).send().await.map_err(|e| {
-        CommandError::network(format!("Не удалось скачать {url}"))
+        CommandError::network("error.reason.download.failed")
+            .param("url", url)
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -88,7 +89,8 @@ pub async fn probe(url: &str) -> CommandResult<ProbedFile> {
     }
 
     let bytes = response.bytes().await.map_err(|e| {
-        CommandError::download(format!("Обрыв загрузки: {url}"))
+        CommandError::download("error.reason.download.interrupted")
+            .param("url", url)
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -120,7 +122,8 @@ pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
         .send()
         .await
         .map_err(|e| {
-            CommandError::network(format!("Не удалось скачать иконку: {url}"))
+            CommandError::network("error.reason.download.icon_failed_url")
+                .param("url", url)
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -130,24 +133,25 @@ pub async fn icon(url: &str) -> CommandResult<Vec<u8>> {
     }
 
     if response.content_length().is_some_and(|size| size > limit) {
-        return Err(CommandError::download(format!(
-            "Иконка слишком большая: {url}"
-        )));
+        return Err(
+            CommandError::download("error.reason.download.icon_too_large").param("url", url),
+        );
     }
 
     let bytes = response
         .bytes()
         .await
         .map_err(|e| {
-            CommandError::download(format!("Обрыв загрузки иконки: {url}"))
+            CommandError::download("error.reason.download.icon_interrupted")
+                .param("url", url)
                 .with_details(crate::error::error_chain(&e))
         })?
         .to_vec();
 
     if bytes.len() as u64 > limit {
-        return Err(CommandError::download(format!(
-            "Иконка слишком большая: {url}"
-        )));
+        return Err(
+            CommandError::download("error.reason.download.icon_too_large").param("url", url),
+        );
     }
 
     Ok(bytes)
@@ -162,7 +166,8 @@ async fn fetch(url: &str) -> CommandResult<Vec<u8>> {
         .send()
         .await
         .map_err(|e| {
-            CommandError::network(format!("Не удалось получить данные CastPack: {url}"))
+            CommandError::network("error.reason.castpack.fetch_failed")
+                .param("url", url)
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -175,24 +180,25 @@ async fn fetch(url: &str) -> CommandResult<Vec<u8>> {
         .content_length()
         .is_some_and(|size| size > MAX_SIZE)
     {
-        return Err(CommandError::download(format!(
-            "Файл CastPack слишком большой: {url}"
-        )));
+        return Err(
+            CommandError::download("error.reason.castpack.file_too_large").param("url", url),
+        );
     }
 
     let bytes = response
         .bytes()
         .await
         .map_err(|e| {
-            CommandError::network(format!("Обрыв загрузки CastPack: {url}"))
+            CommandError::network("error.reason.download.interrupted")
+                .param("url", url)
                 .with_details(crate::error::error_chain(&e))
         })?
         .to_vec();
 
     if bytes.len() as u64 > MAX_SIZE {
-        return Err(CommandError::download(format!(
-            "Файл CastPack слишком большой: {url}"
-        )));
+        return Err(
+            CommandError::download("error.reason.castpack.file_too_large").param("url", url),
+        );
     }
 
     Ok(bytes)
@@ -206,7 +212,7 @@ async fn store(path: &Path, bytes: &[u8]) {
     }
 
     if let Err(error) = write_atomic(path, bytes).await {
-        eprintln!("Не удалось сохранить кэш каталога CastPack: {error}");
+        log::warn!("Failed to cache the CastPack catalog: {error}");
     }
 }
 
@@ -341,8 +347,8 @@ mod tests {
         assert!(
             foreign
                 .as_ref()
-                .is_err_and(|error| error.code != "MANIFEST_INVALID"),
-            "чужой хост должен дойти до сети, а не отвалиться на проверке ссылки: {foreign:?}"
+                .is_err_and(|error| error.code != crate::error::ErrorCode::ManifestInvalid),
+            "a foreign host must reach the network instead of failing the URL check: {foreign:?}"
         );
     }
 

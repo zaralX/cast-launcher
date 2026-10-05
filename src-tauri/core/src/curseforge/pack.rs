@@ -80,7 +80,8 @@ fn default_required() -> bool {
 impl Manifest {
     pub fn parse(bytes: &[u8]) -> CommandResult<Self> {
         let manifest: Self = serde_json::from_slice(bytes).map_err(|e| {
-            CommandError::manifest(format!("Повреждённый {MANIFEST_ENTRY} внутри модпака"))
+            CommandError::manifest("error.reason.modpack.corrupted_entry")
+                .param("entry", MANIFEST_ENTRY)
                 .with_details(e.to_string())
         })?;
 
@@ -91,17 +92,16 @@ impl Manifest {
 
     fn validate(&self) -> CommandResult<()> {
         if self.manifest_type != MANIFEST_TYPE {
-            return Err(CommandError::manifest(format!(
-                "Это не модпак Minecraft: {}",
-                self.manifest_type
-            )));
+            return Err(CommandError::invalid_input(
+                "error.reason.modpack.not_minecraft",
+            ));
         }
 
         if self.manifest_version != 1 {
-            return Err(CommandError::manifest(format!(
-                "Неизвестная версия формата модпака: {}",
-                self.manifest_version
-            )));
+            return Err(
+                CommandError::unsupported("error.reason.modpack.format_version")
+                    .param("version", self.manifest_version),
+            );
         }
 
         Ok(())
@@ -112,7 +112,7 @@ impl Manifest {
 
         (!version.is_empty())
             .then_some(version)
-            .ok_or_else(|| CommandError::manifest("В модпаке не указана версия Minecraft"))
+            .ok_or_else(|| CommandError::manifest("error.reason.modpack.no_minecraft"))
     }
 
     pub fn loader(&self) -> CommandResult<(LoaderType, Option<String>)> {
@@ -161,14 +161,13 @@ fn parse_loader(id: &str, minecraft: &str) -> CommandResult<(LoaderType, Option<
     }
 
     if id.starts_with("quilt-") {
-        return Err(CommandError::manifest(
-            "Модпаки на Quilt пока не поддерживаются",
-        ));
+        return Err(
+            CommandError::unsupported("error.reason.modpack.loader_unsupported")
+                .param("loader", "Quilt"),
+        );
     }
 
-    Err(CommandError::manifest(format!(
-        "Модпак собран неизвестным загрузчиком: {id}"
-    )))
+    Err(CommandError::unsupported("error.reason.modpack.loader_unknown").param("loader", id))
 }
 
 #[derive(Debug, Clone)]
@@ -473,7 +472,7 @@ mod tests {
         );
         assert!(
             parse(serde_json::json!({"manifestVersion": 1})).is_err(),
-            "тип обязателен"
+            "the type is required"
         );
         assert!(
             parse(serde_json::json!({"manifestType": MANIFEST_TYPE, "manifestVersion": 1})).is_ok()
@@ -484,7 +483,7 @@ mod tests {
     fn broken_json_is_reported_as_a_manifest_problem() {
         assert_eq!(
             Manifest::parse(b"{ not json").unwrap_err().code,
-            "MANIFEST_INVALID"
+            crate::error::ErrorCode::ManifestInvalid
         );
     }
 
@@ -497,7 +496,7 @@ mod tests {
         assert_eq!(
             with_loader("forge-1.20.1-47.2.0", "1.20.1").unwrap(),
             (LoaderType::Forge, Some("1.20.1-47.2.0".into())),
-            "уже полную версию не удваиваем"
+            "an already full version is not doubled"
         );
     }
 
@@ -558,12 +557,12 @@ mod tests {
     #[test]
     fn loaders_we_cannot_install_are_reported_by_name() {
         let quilt = with_loader("quilt-0.23.1", "1.20.1").unwrap_err();
-        assert!(quilt.message.contains("Quilt"));
+        assert!(quilt.text.mentions("Quilt"));
 
         let unknown = with_loader("babric-1.0", "1.20.1").unwrap_err();
         assert!(
-            unknown.message.contains("babric-1.0"),
-            "в тексте должен быть сам id"
+            unknown.text.mentions("babric-1.0"),
+            "the text must contain the id itself"
         );
     }
 
@@ -602,7 +601,7 @@ mod tests {
             ]
         }));
 
-        assert!(pack.files[0].required, "молчание - значит обязательный");
+        assert!(pack.files[0].required, "silence means required");
         assert!(!pack.files[1].required);
     }
 
@@ -656,7 +655,7 @@ mod tests {
 
         assert!(
             resolved("x.jar", true).download_page().is_empty(),
-            "без страницы проекта ссылки нет"
+            "no project page, no link"
         );
     }
 
@@ -689,7 +688,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "ходит в сеть"]
+    #[ignore = "hits the network"]
     async fn a_real_pack_resolves_into_downloads_and_a_manual_list() {
         let manifest = Manifest {
             files: vec![
@@ -712,7 +711,7 @@ mod tests {
         assert_eq!(
             resolved.tasks.len() + resolved.blocked.len(),
             2,
-            "каждый файл должен либо качаться, либо попасть в список ручных"
+            "every file must either download or land in the manual list"
         );
         assert_eq!(resolved.tasks.len(), resolved.paths.len());
 

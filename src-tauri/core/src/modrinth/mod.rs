@@ -50,8 +50,7 @@ impl From<&crate::packs::SearchQuery> for SearchQuery {
 
 impl SearchQuery {
     pub fn url(&self) -> String {
-        let mut url =
-            Url::parse(&format!("{API}/search")).expect("постоянный адрес поиска Modrinth");
+        let mut url = Url::parse(&format!("{API}/search")).expect("a constant Modrinth search URL");
 
         {
             let mut pairs = url.query_pairs_mut();
@@ -412,10 +411,10 @@ pub async fn catalog_files(version_ids: &[String]) -> CommandResult<BTreeMap<Str
     }
 
     if !missing.is_empty() {
-        return Err(CommandError::manifest(format!(
-            "Modrinth не отдал файлы для версий: {}",
-            missing.join(", ")
-        )));
+        return Err(
+            CommandError::manifest("error.reason.modrinth.no_version_files")
+                .param("versions", missing.join(", ")),
+        );
     }
 
     apply_folders(&mut files).await;
@@ -449,7 +448,9 @@ async fn apply_folders(files: &mut BTreeMap<String, CatalogFile>) {
     let projects: Vec<RawProject> = match get_json(&ids_url("projects", &ids)).await {
         Ok(projects) => projects,
         Err(error) => {
-            eprintln!("Modrinth не отдал типы проектов, всё кладём в mods: {error}");
+            log::warn!(
+                "Modrinth did not return project types, putting everything into mods: {error}"
+            );
             return;
         }
     };
@@ -469,7 +470,7 @@ async fn apply_folders(files: &mut BTreeMap<String, CatalogFile>) {
 fn ids_url(path: &str, ids: &[&str]) -> String {
     let quoted: Vec<String> = ids.iter().map(|id| format!("\"{id}\"")).collect();
 
-    let mut url = Url::parse(&format!("{API}/{path}")).expect("постоянный адрес Modrinth");
+    let mut url = Url::parse(&format!("{API}/{path}")).expect("a constant Modrinth URL");
     url.query_pairs_mut()
         .append_pair("ids", &format!("[{}]", quoted.join(",")));
 
@@ -576,7 +577,7 @@ pub async fn identify(hashes: &[String]) -> CommandResult<BTreeMap<String, Catal
                 .map(|project| (project.id.clone(), project))
                 .collect(),
             Err(error) => {
-                eprintln!("Modrinth не отдал проекты модов: {error}");
+                log::warn!("Modrinth did not return mod projects: {error}");
                 BTreeMap::new()
             }
         };
@@ -676,7 +677,7 @@ pub async fn search_mods(query: &crate::mods::install::ModSearch) -> CommandResu
 }
 
 pub(crate) fn mod_search_url(query: &crate::mods::install::ModSearch) -> String {
-    let mut url = Url::parse(&format!("{API}/search")).expect("постоянный адрес поиска Modrinth");
+    let mut url = Url::parse(&format!("{API}/search")).expect("a constant Modrinth search URL");
 
     let mut groups: Vec<Vec<String>> = vec![vec!["project_type:mod".to_string()]];
 
@@ -735,7 +736,9 @@ async fn compatible_versions(
     let id = segment(project_id)?;
 
     let mut url = Url::parse(&format!("{API}/project/{id}/version")).map_err(|_| {
-        CommandError::manifest(format!("Недопустимый идентификатор Modrinth: {project_id}"))
+        CommandError::manifest("error.reason.service.invalid_id")
+            .param("service", "Modrinth")
+            .param("id", project_id)
     })?;
 
     {
@@ -766,7 +769,8 @@ async fn post_json<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> Co
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось связаться с Modrinth")
+            CommandError::network("error.reason.network.service_unreachable")
+                .param("service", "Modrinth")
                 .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
         })?;
 
@@ -776,7 +780,8 @@ async fn post_json<B: Serialize, T: DeserializeOwned>(url: &str, body: &B) -> Co
     }
 
     response.json::<T>().await.map_err(|e| {
-        CommandError::manifest("Modrinth ответил в неожиданном формате")
+        CommandError::manifest("error.reason.service.unexpected_format")
+            .param("service", "Modrinth")
             .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
@@ -866,13 +871,16 @@ fn segment(value: &str) -> CommandResult<&str> {
             .all(|symbol| symbol.is_ascii_alphanumeric() || matches!(symbol, '-' | '_' | '.'));
 
     valid.then_some(value).ok_or_else(|| {
-        CommandError::manifest(format!("Недопустимый идентификатор Modrinth: {value}"))
+        CommandError::manifest("error.reason.service.invalid_id")
+            .param("service", "Modrinth")
+            .param("id", value)
     })
 }
 
 async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
     let response = http::client().get(url).send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с Modrinth")
+        CommandError::network("error.reason.network.service_unreachable")
+            .param("service", "Modrinth")
             .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
@@ -882,7 +890,8 @@ async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T> {
     }
 
     response.json::<T>().await.map_err(|e| {
-        CommandError::manifest("Modrinth ответил в неожиданном формате")
+        CommandError::manifest("error.reason.service.unexpected_format")
+            .param("service", "Modrinth")
             .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
@@ -953,7 +962,7 @@ mod tests {
         assert!(of("embedded", Some("shim")).is_none());
         assert!(
             of("required", None).is_none(),
-            "зависимость без проекта бесполезна"
+            "a dependency without a project is useless"
         );
     }
 
@@ -1003,7 +1012,7 @@ mod tests {
         assert_eq!(
             facets.len(),
             2,
-            "остаться должны только тип проекта и fabric"
+            "only the project type and fabric must remain"
         );
         assert!(facets.contains(&vec!["categories:fabric".to_string()]));
     }
@@ -1119,7 +1128,7 @@ mod tests {
 
         assert!(!summary.supported);
         assert!(summary.file.is_none());
-        assert!(!summary.blocked, "у Modrinth файлы никто не блокирует");
+        assert!(!summary.blocked, "nobody blocks files on Modrinth");
     }
 
     #[test]

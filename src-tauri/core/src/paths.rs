@@ -4,23 +4,23 @@ use serde::Serialize;
 
 ///
 /// ```text
-/// <config_root>/                  каталог конфигурации приложения
-///   config.json                   единственная точка входа: путь к <root> хранится тут
-/// <root>/                         "Файлы лаунчера" из настроек, по умолчанию = config_root
+/// <config_root>/                  app config directory
+///   config.json                   the only entry point: the path to <root> is stored here
+/// <root>/                         "Launcher files" from settings, config_root by default
 ///   accounts.json
 ///   icons/<name>
 ///   instances/<id>/instance.json
-///                 /mods-index.json              разобранные метаданные модов
+///                 /mods-index.json              parsed mod metadata
 ///                 /minecraft/{client.jar, natives/, mods/, ...}
 ///   libraries/<maven path>
 ///   assets/indexes/<id>.json
 ///   assets/objects/<ab>/<hash>
 ///   cache/<loader>/<version>/{installer.jar, client.json, installed.json}
-///   cache/meta/<hash>.json + .etag        кэш сетевых манифестов
-///   cache/mod-icons/<hash>.png            иконки, вынутые из jar-файлов
-///   cache/mod-catalog.json                опознанные в каталогах моды
-///   runtime/<component>/                  рантаймы Java от Mojang
-///   logs/<instance id>/<timestamp>.log    логи запусков
+///   cache/meta/<hash>.json + .etag        cached network manifests
+///   cache/mod-icons/<hash>.png            icons extracted from jar files
+///   cache/mod-catalog.json                mods identified in the catalogs
+///   runtime/<component>/                  Java runtimes from Mojang
+///   logs/<instance id>/<timestamp>.log    game session logs
 /// ```
 #[derive(Debug, Clone)]
 pub struct LauncherPaths {

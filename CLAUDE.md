@@ -4,35 +4,34 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-Cast Launcher — a Minecraft launcher, a Tauri 2 desktop app. Rust does all the work
+Cast Launcher is a Minecraft launcher, a Tauri 2 desktop app. Rust does all the work
 (version metadata, downloads, installs, Java, accounts, launching); the Nuxt 4 frontend
 in `app/` is a client-only SPA (`ssr: false`) that renders Rust state and calls Rust
 commands. The webview never touches the filesystem, the network or processes: the
 capabilities in [src-tauri/capabilities/](src-tauri/capabilities/) grant window operations,
-telemetry and the self-updater, nothing else.
+logging, telemetry and the self-updater, nothing else.
 
 Frontend style follows `vilbux-panel` (a Nuxt site), adapted for the desktop: there is no
-SSR and no HTTP API — the backend is the Rust process behind IPC.
+SSR and no HTTP API, the backend is the Rust process behind IPC.
 
 ## Commands
 
-Package manager is **npm** (`package-lock.json`).
+Package manager is **npm** (`package-lock.json`). Cargo commands run from `src-tauri/`.
 
-| Command                     | Result                                                       |
-|-----------------------------|--------------------------------------------------------------|
-| `npm run tauri:dev`         | the app with hot reload (`nuxt dev` + the Rust side)         |
-| `npm run generate`          | static frontend into `.output/public`, linked as `dist/`     |
-| `npm run build`             | `nuxt build` — quickest check that every SFC compiles        |
-| `npm run lint` / `lint:fix` | ESLint (`@nuxt/eslint`, stylistic)                           |
-| `npm run typecheck`         | `nuxt typecheck` (vue-tsc)                                   |
-| `cargo test -p cast-core`   | Rust tests, run from `src-tauri/`                            |
+| Command                                                | Result                                                 |
+|--------------------------------------------------------|--------------------------------------------------------|
+| `npm run tauri:dev`                                    | the app with hot reload (`nuxt dev` + the Rust side)   |
+| `npm run generate`                                     | static frontend into `.output/public`, linked as `dist/` |
+| `npm run build`                                        | `nuxt build`, the quickest check that every SFC compiles |
+| `npm run lint` / `lint:fix`                            | ESLint (`@nuxt/eslint`, stylistic)                     |
+| `npm run typecheck`                                    | `nuxt typecheck` (vue-tsc)                             |
+| `cargo test -p cast-core`                              | Rust tests                                             |
+| `cargo clippy --workspace --all-targets -- -D warnings` | lints, including the workspace lints from `Cargo.toml` |
+| `cargo fmt --all`                                      | rustfmt                                                |
 
 `nuxt dev` alone in a browser hangs on start: `bootstrap` has no Rust to answer it. The
-frontend has no tests — `lint` + `typecheck` is its gate, and CI runs both (`frontend` job).
-
-New logic goes to `cast-core` together with its tests: on windows-gnu a test binary that
-links Tauri doesn't start (no Common-Controls v6 manifest), so the app crate has
-`test = false` and stays a thin layer.
+frontend has no tests, so `lint` + `typecheck` is its gate. CI runs all of the above:
+rustfmt and clippy block merges, clippy runs on all three platforms.
 
 On a `*-windows-gnu` toolchain cargo needs a working MinGW gcc for bundled SQLite; under
 Git Bash it fails, so run cargo from PowerShell.
@@ -54,7 +53,7 @@ app/
 │  ├─ import/       # launcher import wizard, modpack file import
 │  └─ …             # castpack/, onboarding/, search/, settings/, skin/
 ├─ composables/     # use* only: useLauncherEvents, useInstanceActions, useFileDrop, …
-├─ utils/           # functions + their private constants (auto-imported): backend, error, telemetry, …
+├─ utils/           # functions + their private constants (auto-imported): backend, error, log, …
 ├─ types/           # one file per entity: types mirroring Rust structs + constants
 ├─ stores/          # Pinia option stores mirroring Rust state
 └─ layouts/ · pages/ · middleware/ · plugins/
@@ -63,14 +62,14 @@ i18n/locales/       # ru.json, en.json
 
 Components are path-prefixed: `components/instance/Card.vue` is `<InstanceCard>`.
 `checkUnknownComponents` is on, so `typecheck` catches a stale tag after a move.
-`utils/`, `composables/` and `stores/` are auto-imported — don't import them by hand.
+`utils/`, `composables/` and `stores/` are auto-imported, don't import them by hand.
 `types/` is not scanned: import its types and constants explicitly.
 
 ## The one rule that matters: Rust is the backend
 
 **Commands.** Every Rust command has a twin in `Commands`
 ([app/types/backend.ts](app/types/backend.ts)): `name: Command<Args, Result>`, `void` for
-none. Call it as `call('name', args)` ([app/utils/backend.ts](app/utils/backend.ts)) — typed
+none. Call it as `call('name', args)` ([app/utils/backend.ts](app/utils/backend.ts)): typed
 by that map, rejects with `LauncherError`. A new command is a `#[tauri::command]` in
 `src-tauri/src`, an entry in `generate_handler!` in `src-tauri/src/lib.rs` and a line in
 `Commands`. Argument keys are camelCase on the JS side (`instanceId`), as Tauri expects.
@@ -82,13 +81,38 @@ A new event kind needs the Rust variant, the TS union member and a case in that 
 
 ESLint rejects raw `invoke`/`listen` everywhere except `utils/backend.ts` and
 `utils/telemetry.ts`. Telemetry calls the aptabase plugin command directly because the
-`@aptabase/tauri` npm package is built for Tauri v1 — don't install it.
+`@aptabase/tauri` npm package is built for Tauri v1, don't install it.
 
-**Errors.** A failed command arrives as `{ code, message, details }`. `code` is one of the
-strings from `src-tauri/core/src/error.rs`, and `ErrorCode`
-([app/types/error.ts](app/types/error.ts)) mirrors them by hand — add new codes on both
-sides. `ERROR_CATALOG` maps a code to severity, icon and i18n key; the code itself is never
-translated, it goes to telemetry and reports as-is. In UI code:
+**Text for the user lives in the locales, never in Rust.** Rust sends a `UiText`
+(`{ key, params }`, [src-tauri/core/src/text.rs](src-tauri/core/src/text.rs)) and the
+frontend renders it with `uiText()`. A param can itself be a `UiText`, for a reason inside
+a sentence. Keys Rust sends: `error.reason.*`, `install.phase.*` / `install.message.*`,
+`settings.import.step.*`, `import.blocked.*`, `catalog.unsupported.*`. Add the key to both
+locales together with the Rust code: `cargo test` fails on a key that is missing in
+`ru.json` or `en.json`. Wording Rust needs before the frontend sees anything (native dialog
+titles, the page the browser shows after sign-in, the name of a copied skin) is passed in
+as a command argument.
+
+**Errors.** A failed command arrives as `{ code, text, details? }`
+([src-tauri/core/src/error.rs](src-tauri/core/src/error.rs)). There is no prose in it:
+
+- `code` is an `ErrorCode` and names the *cause*: the frontend picks the title, icon and
+  generic hint by it (`ERROR_CATALOG` in [app/types/error.ts](app/types/error.ts), mirrored
+  by hand). Bad user input is `INVALID_INPUT`, "not right now" (a running game, an install
+  in progress) is `CONFLICT`, a missing entity is `NOT_FOUND`, a feature we lack is
+  `UNSUPPORTED`. Never reach for `FS_ERROR` or `MANIFEST_INVALID` just because the error
+  happened near a file.
+- `text` is what happened, as an `error.reason.*` key with params. Every constructor takes
+  that key: `CommandError::network("error.reason.network.connect").param("url", url)`.
+  `CommandError::io(key, path, e)` adds the path as `{path}` by itself.
+- `details` is technical data only: an OS or library error, a path, an HTTP body, hashes.
+  Anything the user should read goes into `text` as a param.
+
+The toast shows the title and the text, the error center adds the code's hint and the
+details. Rust logs an error as `[CODE] key {params}`; `writeErrorLog()` on the frontend
+renders the text from `en.json` for the log file.
+
+In UI code:
 
 ```ts
 await safeRun(() => call('open_url', { url }), { context: { action: t('…') } }) // reports, returns undefined
@@ -96,24 +120,44 @@ const result = await attempt(() => store.deleteInstance(id))                    
 ```
 
 Anything uncaught (Vue errors, unhandled rejections) is reported by
-`plugins/errors.client.ts`. Reports land in the error center and become toasts through
-`registerErrorSink` in `app.vue`.
+`plugins/errors.client.ts`. Reports land in the error center, become toasts through
+`registerErrorSink` in `app.vue`, and are written to the log file by `writeErrorLog()`.
 
 **Platform APIs.** Window and app APIs (`getCurrentWindow`, `getVersion`) are fine in
 components. File drag-and-drop goes through `useFileDrop(onDrop)`, which returns the hover
 ref. External links and folders open via `call('open_url')` / `call('open_path')`.
 
-## Conventions
+## Rust conventions
+
+**Thin app crate.** A command takes state, calls core, emits events and telemetry, returns.
+Any domain decision (validation, picking a version, building a `PackSource`) lives in
+`cast-core` with a test; `InstanceUpdate::normalized` and `packs::switch` are the pattern.
+`cast-launcher` has `test = false` (on windows-gnu a test binary that links Tauri does not
+start, there is no Common-Controls v6 manifest), so a test there silently never runs: don't
+write one, move the code to core instead.
+
+**Logging.** Only the `log` macros, in English; clippy rejects `println!`/`eprintln!`
+(stderr goes nowhere in a Windows release build, the `log` file is what users send us).
+`warn!` for a failure we recover from, `error!` for one that breaks a flow, `info!` for
+facts worth having in a bug report. Log an error where it is swallowed; errors that reach
+the frontend are logged there.
+
+**Lints.** `[workspace.lints]` in `src-tauri/Cargo.toml` flag printing, `dbg!`, `todo!`,
+`unimplemented!` and `unwrap()` (`clippy.toml` allows unwrap and printing in tests), and CI
+turns every clippy warning into an error.
+`expect()` is for invariants only, with a message that states the invariant.
+
+## Frontend conventions
 
 **State.** Stores are Pinia option stores mirroring Rust: filled by `bootstrap` and events,
 changed by actions that call commands. Unlike vilbux there is no SSR or page data loading,
-so setup stores would buy nothing — keep the option style.
+so setup stores would buy nothing: keep the option style.
 
 **No SSR.** No `import.meta.client` guards, no `useAsyncData`/`callOnce`: load in
 `onMounted` or a store action.
 
 **i18n.** `@nuxtjs/i18n`, `no_prefix`, default `ru`, fallback `en`. Flat dotted keys in
-`i18n/locales/ru.json` and `en.json` — same keys in the same order; `"_comment…"` keys are
+`i18n/locales/ru.json` and `en.json`, same keys in the same order; `"_comment…"` keys are
 section markers. `$t` in templates, `const { t } = useI18n()` in scripts,
 `useNuxtApp().$i18n` in utils and stores; markup inside a message goes through `<i18n-t>`.
 Constants hold a `labelKey`, never text. The language lives in `config.launcher.language`
@@ -129,24 +173,27 @@ No hex in components. Fonts: Golos Text (body), `font-unbounded` (headings), `fo
 
 **Icons.** `i-lucide-*`, plus `simple-icons:*` and `flag:*`. They are bundled offline
 (`icon.provider: 'none'`, client bundle scanned from `app/**`), so an icon name must appear
-as a literal string in the source — a name built at runtime is not bundled and renders
+as a literal string in the source: a name built at runtime is not bundled and renders
 empty.
 
 **Auto-import trap.** mlly's export scanner drops the export that follows a one-line object
 literal with commas (`export const A = { w: 1, h: 2 }`). Write such objects multi-line in
 auto-imported dirs; `typecheck` reports the miss as `Cannot find name`.
 
-**Comments.** Default to none. When the code would surprise a reader (a workaround, a Rust
-quirk, an order that matters), one short sentence — in Russian, like the rest of the code.
-No JSDoc on internal functions, no section banners, no commented-out code.
+## Everywhere
 
-**Style** is enforced by ESLint stylistic: run `npm run lint:fix`, don't format by hand.
-The bulk-format commit is in `.git-blame-ignore-revs`
+**Comments.** Default to none. When the code would surprise a reader (a workaround, a Rust
+quirk, an order that matters), one short sentence. Comments, log messages and test
+assertion messages are in English and use no em dashes. No JSDoc on internal functions,
+no section banners, no commented-out code.
+
+**Style** is enforced by tools: `npm run lint:fix` and `cargo fmt --all`, don't format by
+hand. The bulk-format commits are in `.git-blame-ignore-revs`
 (`git config blame.ignoreRevsFile .git-blame-ignore-revs` to use it locally).
 
 ## Release
 
-- Version: `node scripts/set-version.mjs X.Y.Z` — strictly X.Y.Z, the NSIS installer and
+- Version: `node scripts/set-version.mjs X.Y.Z`. Strictly X.Y.Z: the NSIS installer and
   the updater's version comparison break on suffixes.
 - `bundle.targets` in `src-tauri/tauri.conf.json` stays an explicit list without `msi`:
   with `"all"` the updater's `windows-x86_64` entry points at the MSI and NSIS installs
@@ -154,6 +201,6 @@ The bulk-format commit is in `.git-blame-ignore-revs`
 
 ## Related repos
 
-[castpacks-manager](../../WebstormProjects/castpacks-manager) — the admin panel and API for
-CastPacks. Its `shared/castpack.ts` mirrors `src-tauri/core/src/castpack/*.rs` by hand:
+[castpacks-manager](../../WebstormProjects/castpacks-manager) is the admin panel and API
+for CastPacks. Its `shared/castpack.ts` mirrors `src-tauri/core/src/castpack/*.rs` by hand:
 change both together, or the launcher silently drops catalog entries.

@@ -1,6 +1,14 @@
 [workspace]
 members = ["core"]
 
+[workspace.lints.clippy]
+print_stdout = "warn"
+print_stderr = "warn"
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+unwrap_used = "warn"
+
 [package]
 name = "cast-launcher"
 version = "1.6.0"
@@ -11,7 +19,8 @@ repository = "https://github.com/zaralX/cast-launcher"
 license = "Apache-2.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lints]
+workspace = true
 
 [lib]
 # https://github.com/rust-lang/cargo/issues/8519

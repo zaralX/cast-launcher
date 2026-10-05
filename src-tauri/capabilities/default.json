@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Права главного окна. Файловая система, сеть и запуск процессов фронту недоступны: всё это делают команды в Rust.",
+  "description": "Main window permissions. The filesystem, network and processes are off limits for the frontend: Rust commands do all of that.",
   "windows": [
     "main"
   ],
@@ -12,6 +12,7 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-minimize",
     "core:window:allow-close",
-    "aptabase:allow-track-event"
+    "aptabase:allow-track-event",
+    "log:default"
   ]
 }

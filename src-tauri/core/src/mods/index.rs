@@ -139,11 +139,11 @@ mod tests {
         assert_eq!(index.reusable("mods/jei.jar", 100, 42).unwrap().name, "JEI");
         assert!(
             index.reusable("mods/jei.jar", 101, 42).is_none(),
-            "размер изменился"
+            "the size changed"
         );
         assert!(
             index.reusable("mods/jei.jar", 100, 43).is_none(),
-            "файл перезаписан"
+            "the file was rewritten"
         );
         assert!(index.reusable("mods/other.jar", 100, 42).is_none());
     }
@@ -157,7 +157,7 @@ mod tests {
         assert!(index.retain(&["mods/jei.jar".to_string()]));
         assert!(
             !index.retain(&["mods/jei.jar".to_string()]),
-            "второй раз выбрасывать нечего"
+            "nothing to drop the second time"
         );
 
         assert_eq!(index.entries.len(), 1);
@@ -181,13 +181,13 @@ mod tests {
         assert_eq!(
             index.hashes("mods/jei.jar", 100, 42),
             Some(&hashes),
-            "разбор не сбрасывает хэш"
+            "parsing does not reset the hash"
         );
 
         index.remember("mods/jei.jar", 101, 42, &details("JEI 3"));
         assert!(
             index.hashes("mods/jei.jar", 101, 42).is_none(),
-            "файл изменился - хэш заново"
+            "the file changed, hash again"
         );
     }
 

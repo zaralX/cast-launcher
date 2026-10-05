@@ -640,7 +640,7 @@ mod tests {
         assert!(mods_toml(b"[[mods]", ModLoader::Forge).is_none());
         assert!(
             mods_toml(b"modId = \"x\"", ModLoader::Forge).is_none(),
-            "нет [[mods]] - нет мода"
+            "no [[mods]], no mod"
         );
         assert_eq!(pick(&HashMap::new(), None, None), Meta::default());
     }

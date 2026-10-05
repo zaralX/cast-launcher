@@ -9,6 +9,7 @@ use crate::meta::forge::Family;
 use crate::meta::neoforge;
 use crate::mojang::maven::Gradle;
 use crate::paths::LauncherPaths;
+use crate::text::UiText;
 
 use super::copy::{self, Progress};
 use super::ini::Ini;
@@ -107,10 +108,9 @@ pub fn open(dir: &Path) -> CommandResult<PathBuf> {
     let root = normalize(dir);
 
     if !is_data_dir(&root) {
-        return Err(CommandError::fs(format!(
-            "Это не каталог данных PrismLauncher: внутри нет папки instances ({})",
-            root.display()
-        )));
+        return Err(CommandError::invalid_input(
+            "error.reason.import.not_prism_dir",
+        ));
     }
 
     Ok(root)
@@ -162,23 +162,23 @@ pub async fn copy_shared(
     options: &ImportOptions,
     targets: &SharedTargets,
     progress: &Progress<'_>,
-    on_step: impl Fn(&str),
+    on_step: impl Fn(UiText),
 ) -> CommandResult<()> {
     if options.libraries {
-        on_step("Библиотеки");
+        on_step(UiText::new("settings.import.step.libraries"));
         copy::merge_dir(&root.join(LIBRARIES), &targets.libraries, progress).await?;
     }
 
     if options.assets {
         let assets = root.join(ASSETS);
 
-        on_step("Ресурсы игры");
+        on_step(UiText::new("settings.import.step.assets"));
         copy::merge_dir(&assets.join("indexes"), &targets.asset_indexes, progress).await?;
         copy::merge_dir(&assets.join("objects"), &targets.asset_objects, progress).await?;
     }
 
     if options.java {
-        on_step("Java");
+        on_step(UiText::new("settings.import.step.java"));
         copy::merge_dir(&root.join(JAVA), &targets.java_runtimes, progress).await?;
     }
 
@@ -221,15 +221,14 @@ pub async fn scan(root: &Path) -> CommandResult<Vec<ScannedInstance>> {
     let instances = root.join(INSTANCES);
 
     if !instances.is_dir() {
-        return Err(CommandError::fs(format!(
-            "В каталоге нет папки instances: {}",
-            root.display()
-        )));
+        return Err(CommandError::invalid_input(
+            "error.reason.import.no_instances_dir",
+        ));
     }
 
     let mut entries = tokio::fs::read_dir(&instances)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать сборки Prism", &instances, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", &instances, e))?;
 
     let forge_versions = forge_versions(&root.join(LIBRARIES)).await;
     let mut found = Vec::new();
@@ -237,7 +236,7 @@ pub async fn scan(root: &Path) -> CommandResult<Vec<ScannedInstance>> {
     while let Some(entry) = entries
         .next_entry()
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать сборки Prism", &instances, e))?
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", &instances, e))?
     {
         let dir = entry.path();
         let config = dir.join(CONFIG_FILE);
@@ -299,7 +298,7 @@ pub fn parse(folder: &str, config: &str, pack: &str) -> ScannedInstance {
     };
 
     let Some(minecraft) = version_of(&components, MINECRAFT_UID) else {
-        scanned.blocked = Some("в mmc-pack.json нет версии Minecraft".into());
+        scanned.blocked = Some(UiText::new("import.blocked.mmc_no_minecraft"));
         return scanned;
     };
 
@@ -318,12 +317,14 @@ pub fn parse(folder: &str, config: &str, pack: &str) -> ScannedInstance {
     };
 
     let Some(kind) = kind else {
-        scanned.blocked = Some(format!("лаунчер пока не умеет {label}"));
+        scanned.blocked =
+            Some(UiText::new("import.blocked.loader_unsupported").param("loader", label));
         return scanned;
     };
 
     let Some(version) = version else {
-        scanned.blocked = Some(format!("в mmc-pack.json нет версии {label}"));
+        scanned.blocked =
+            Some(UiText::new("import.blocked.mmc_no_loader_version").param("loader", label));
         return scanned;
     };
 
@@ -439,14 +440,14 @@ struct MmcComponent {
     cached_version: Option<String>,
 }
 
-fn parse_components(pack: &str) -> Result<Vec<MmcComponent>, String> {
+fn parse_components(pack: &str) -> Result<Vec<MmcComponent>, UiText> {
     if pack.trim().is_empty() {
-        return Err("рядом со сборкой нет mmc-pack.json".into());
+        return Err(UiText::new("import.blocked.no_mmc_pack"));
     }
 
     serde_json::from_str::<MmcPack>(pack)
         .map(|pack| pack.components)
-        .map_err(|_| "mmc-pack.json не читается".to_string())
+        .map_err(|_| UiText::new("import.blocked.mmc_pack_unreadable"))
 }
 
 fn version_of(components: &[MmcComponent], uid: &str) -> Option<String> {
@@ -779,12 +780,12 @@ totalTimePlayed=705341
         assert_eq!(instance.minecraft_version, "1.21.11");
         assert!(
             !instance.installed,
-            "перенесённое всегда доустанавливается заново"
+            "an imported instance is always reinstalled"
         );
-        assert!(instance.pack.is_none(), "пак проставляется отдельно");
+        assert!(instance.pack.is_none(), "the pack is set separately");
         assert_eq!(
             instance.playtime.total_seconds, 705_341,
-            "наигранное едет со сборкой"
+            "playtime travels with the instance"
         );
     }
 
@@ -795,8 +796,8 @@ totalTimePlayed=705341
             .to_instance("abc".into(), String::new())
             .unwrap_err();
 
-        assert!(error.message.contains("Beyond"));
-        assert!(error.message.contains("Quilt"));
+        assert!(error.text.mentions("Beyond"));
+        assert!(error.text.mentions("Quilt"));
     }
 
     #[test]
@@ -879,11 +880,11 @@ totalTimePlayed=705341
 
         let forge = instance(FORGE_PACK);
         let target =
-            loader_installer_target(&paths, &forge).expect("forge-сборке нужен установщик");
+            loader_installer_target(&paths, &forge).expect("a forge instance needs the installer");
         assert!(target.ends_with(Path::new("forge/1.20.1-47.4.13/installer.jar")));
 
         let neoforge = instance(NEOFORGE_PACK);
-        let target = loader_installer_target(&paths, &neoforge).expect("neoforge-сборке тоже");
+        let target = loader_installer_target(&paths, &neoforge).expect("a neoforge instance too");
         assert!(target.ends_with(Path::new("neoforge/21.1.213/installer.jar")));
 
         assert!(loader_installer_target(&paths, &instance(FABRIC_PACK)).is_none());
@@ -1050,14 +1051,18 @@ totalTimePlayed=705341
             &ImportOptions::default(),
             &targets,
             &progress,
-            |step| steps.lock().unwrap().push(step.to_string()),
+            |step| steps.lock().unwrap().push(step.key),
         )
         .await
         .unwrap();
 
         assert_eq!(
             *steps.lock().unwrap(),
-            vec!["Библиотеки", "Ресурсы игры", "Java"]
+            vec![
+                "settings.import.step.libraries",
+                "settings.import.step.assets",
+                "settings.import.step.java"
+            ]
         );
         assert!(targets.asset_objects.join("ab").join("abcdef").is_file());
         assert!(targets.asset_indexes.join("5.json").is_file());

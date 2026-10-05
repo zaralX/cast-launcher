@@ -1,3 +1,4 @@
+import type { UiText } from '~/types/backend'
 import type { InstanceType, PackProvider } from '~/types/instance'
 
 export type PackSort = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated'
@@ -14,7 +15,7 @@ export interface PackProviderInfo {
   id: PackProvider
   label: string
   ready: boolean
-  reason?: string
+  reason?: UiText
   sorts: PackSort[]
   capabilities: PackCapabilities
 }

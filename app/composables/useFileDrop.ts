@@ -13,7 +13,7 @@ export function useFileDrop(onDrop: (paths: string[]) => unknown) {
       if (payload.type === 'drop') onDrop(payload.paths)
     })
 
-    // компонент мог размонтироваться, пока регистрировался слушатель
+    // the component may have unmounted while the listener was registering
     if (disposed) stop()
     else unlisten = stop
   })

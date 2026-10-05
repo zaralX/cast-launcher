@@ -70,6 +70,8 @@ jobs:
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -77,9 +79,10 @@ jobs:
           workspaces: './src-tauri -> target'
           key: ${{ matrix.platform }}
 
-      - name: cargo check (workspace)
+      # clippy type-checks everything cargo check does, plus the workspace lints from Cargo.toml.
+      - name: cargo clippy (workspace)
         working-directory: ./src-tauri
-        run: cargo check --workspace --all-targets --locked
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   frontend:
     name: frontend (eslint, typecheck)
@@ -104,11 +107,9 @@ jobs:
       - name: typecheck
         run: npm run typecheck
 
-  lint:
-    name: lint (non-blocking)
+  fmt:
+    name: rustfmt
     runs-on: ubuntu-22.04
-    # fmt/clippy have never run on this codebase — reported, but not gating merges yet.
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -116,18 +117,8 @@ jobs:
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-          key: lint
+          components: rustfmt
 
       - name: cargo fmt
         working-directory: ./src-tauri
         run: cargo fmt --all --check
-
-      - name: cargo clippy (cast-core)
-        working-directory: ./src-tauri
-        run: cargo clippy -p cast-core --all-targets --locked

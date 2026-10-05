@@ -62,19 +62,18 @@ impl ModLocks {
 impl AppState {
     pub async fn initialize(app: &AppHandle) -> CommandResult<Arc<Self>> {
         let config_root = app.path().app_config_dir().map_err(|e| {
-            CommandError::fs("Не удалось определить каталог конфигурации")
-                .with_details(e.to_string())
+            CommandError::fs("error.reason.fs.no_config_dir").with_details(e.to_string())
         })?;
 
         cast_core::fs_util::ensure_dir(&config_root).await?;
 
-        log::info!("Каталог конфигурации: {}", config_root.display());
+        log::info!("Config directory: {}", config_root.display());
 
         let bootstrap = LauncherPaths::new(config_root.clone(), None);
         let config = config::load(&config_root, &bootstrap.config_file()).await?;
         let paths = LauncherPaths::new(config_root.clone(), Some(&config.launcher.dir));
 
-        log::info!("Рабочий каталог лаунчера: {}", paths.root().display());
+        log::info!("Launcher data directory: {}", paths.root().display());
 
         let accounts = AccountStore::load(paths.accounts_file()).await;
 
@@ -99,8 +98,8 @@ impl AppState {
         let paths = state.paths().await;
 
         if let Err(error) = state.instances.reload(&paths).await {
-            eprintln!(
-                "Не удалось прочитать сборки в {}: {error}",
+            log::error!(
+                "Failed to read instances in {}: {error}",
                 paths.instances_root().display()
             );
         }

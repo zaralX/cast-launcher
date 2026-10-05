@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use serde::Deserialize;
 use sha1::Digest;
 use tiny_http::{Response, Server};
 use url::Url;
@@ -11,10 +12,31 @@ use super::microsoft;
 
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
-const SUCCESS_PAGE: &str = "<!doctype html><meta charset=\"utf-8\">\
-<title>Cast Launcher</title>\
-<body style=\"font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0\">\
-<h1>Готово, окно можно закрыть</h1>";
+/// What the browser shows once sign-in is over, worded by the frontend.
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoginPage {
+    pub done: String,
+    pub failed: String,
+}
+
+impl LoginPage {
+    fn render(heading: &str, body: &str) -> String {
+        format!(
+            "<!doctype html><meta charset=\"utf-8\"><title>Cast Launcher</title>\
+             <body style=\"font-family:system-ui;display:grid;place-items:center;\
+             height:100vh;margin:0;text-align:center\"><div><h1>{}</h1><p>{}</p></div>",
+            escape_html(heading),
+            escape_html(body),
+        )
+    }
+}
+
+fn escape_html(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
 
 pub struct Pkce {
     pub verifier: String,
@@ -34,42 +56,43 @@ impl Pkce {
 }
 
 pub async fn login(
+    page: LoginPage,
     open_browser: impl FnOnce(&str) -> CommandResult<()>,
 ) -> CommandResult<super::Account> {
     let pkce = Pkce::generate();
     let state = random_token(24);
 
     let server = Server::http(microsoft::LISTEN_ADDR).map_err(|e| {
-        CommandError::port_busy(format!(
-            "Не удалось занять {} для входа",
-            microsoft::LISTEN_ADDR
-        ))
-        .with_details(e.to_string())
+        CommandError::port_busy("error.reason.account.port_busy")
+            .param("address", microsoft::LISTEN_ADDR)
+            .with_details(e.to_string())
     })?;
 
     open_browser(&microsoft::authorize_url(&pkce.challenge, &state))?;
 
     let expected_state = state.clone();
-    let code = tokio::task::spawn_blocking(move || wait_for_code(server, &expected_state))
+    let code = tokio::task::spawn_blocking(move || wait_for_code(server, &expected_state, &page))
         .await
-        .map_err(|e| CommandError::task_panicked("ожидание ответа Microsoft", e))??;
+        .map_err(|e| CommandError::task_panicked("wait_microsoft_response", e))??;
 
     let tokens = microsoft::exchange_code(&code, &pkce.verifier).await?;
 
     super::complete_login(tokens).await
 }
 
-fn wait_for_code(server: Server, expected_state: &str) -> CommandResult<String> {
+fn wait_for_code(server: Server, expected_state: &str, page: &LoginPage) -> CommandResult<String> {
     let deadline = std::time::Instant::now() + LOGIN_TIMEOUT;
 
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
-            return Err(CommandError::auth("Вход не был завершён вовремя"));
+            return Err(CommandError::auth("error.reason.account.login_timeout"));
         }
 
         let Ok(Some(request)) = server.recv_timeout(remaining) else {
-            return Err(CommandError::auth("Соединение с браузером не установлено"));
+            return Err(CommandError::auth(
+                "error.reason.account.browser_no_connect",
+            ));
         };
 
         let query = parse_query(request.url());
@@ -82,12 +105,12 @@ fn wait_for_code(server: Server, expected_state: &str) -> CommandResult<String> 
         let outcome = interpret(&query, expected_state);
 
         let _ = request.respond(match &outcome {
-            Ok(_) => Response::from_string(SUCCESS_PAGE).with_header(html_header()),
-            Err(error) => {
-                Response::from_string(format!("<h1>Ошибка входа</h1><p>{}</p>", error.message))
-                    .with_header(html_header())
-                    .with_status_code(400)
+            Ok(_) => {
+                Response::from_string(LoginPage::render(&page.done, "")).with_header(html_header())
             }
+            Err(_) => Response::from_string(LoginPage::render(&page.failed, ""))
+                .with_header(html_header())
+                .with_status_code(400),
         });
 
         return outcome;
@@ -97,19 +120,19 @@ fn wait_for_code(server: Server, expected_state: &str) -> CommandResult<String> 
 fn interpret(query: &HashMap<String, String>, expected_state: &str) -> CommandResult<String> {
     if let Some(error) = query.get("error") {
         let description = query.get("error_description").unwrap_or(error);
-        return Err(CommandError::auth(description.clone()));
+        return Err(
+            CommandError::auth("error.reason.account.rejected").param("reason", description)
+        );
     }
 
     if query.get("state").map(String::as_str) != Some(expected_state) {
-        return Err(CommandError::auth(
-            "Ответ Microsoft не соответствует запросу входа",
-        ));
+        return Err(CommandError::auth("error.reason.account.state_mismatch"));
     }
 
     query
         .get("code")
         .cloned()
-        .ok_or_else(|| CommandError::auth("Microsoft не вернул код авторизации"))
+        .ok_or_else(|| CommandError::auth("error.reason.account.no_auth_code"))
 }
 
 fn parse_query(request_url: &str) -> HashMap<String, String> {
@@ -122,7 +145,7 @@ fn parse_query(request_url: &str) -> HashMap<String, String> {
 
 fn html_header() -> tiny_http::Header {
     tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..])
-        .expect("корректный заголовок")
+        .expect("a valid static header")
 }
 
 fn random_token(length: usize) -> String {
@@ -185,7 +208,7 @@ mod tests {
         assert_eq!(
             pkce.challenge.len(),
             43,
-            "SHA-256 без паддинга даёт 43 символа"
+            "unpadded SHA-256 is 43 characters long"
         );
         assert!(!pkce.challenge.contains(['+', '/', '=']));
     }
@@ -228,6 +251,6 @@ mod tests {
             parse_query("/?error=access_denied&error_description=User+cancelled&state=expected");
         let error = interpret(&query, "expected").unwrap_err();
 
-        assert_eq!(error.message, "User cancelled");
+        assert!(error.text.mentions("User cancelled"));
     }
 }

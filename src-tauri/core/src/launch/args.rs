@@ -355,7 +355,11 @@ mod tests {
         assert_eq!(vanilla[1], patched);
 
         let neoforge = classpath(&paths, &profile(GameJar::found_by_loader(patched)));
-        assert_eq!(neoforge.len(), 1, "клиент загрузчика в classpath не идёт");
+        assert_eq!(
+            neoforge.len(),
+            1,
+            "the loader client stays out of the classpath"
+        );
     }
 
     #[test]

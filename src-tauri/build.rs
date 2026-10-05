@@ -1,3 +1,8 @@
+#![allow(
+    clippy::print_stdout,
+    reason = "build scripts talk to cargo through stdout"
+)]
+
 fn main() {
     tauri_build::build();
 
@@ -21,7 +26,7 @@ mod windows {
         };
 
         let Some(source) = find_loader(&profile_dir.join("build")) else {
-            println!("cargo:warning=WebView2Loader.dll не найден, cargo test может не запуститься");
+            println!("cargo:warning=WebView2Loader.dll not found, cargo test may fail to start");
             return;
         };
 
@@ -36,7 +41,7 @@ mod windows {
         }
 
         if let Err(error) = std::fs::copy(&source, &target) {
-            println!("cargo:warning=Не удалось скопировать WebView2Loader.dll: {error}");
+            println!("cargo:warning=Failed to copy WebView2Loader.dll: {error}");
         }
     }
 

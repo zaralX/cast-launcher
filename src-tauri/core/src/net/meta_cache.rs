@@ -53,7 +53,8 @@ impl MetaCache {
         let bytes = self.fetch_bytes_with(url, headers).await?;
 
         serde_json::from_slice(&bytes).map_err(|e| {
-            CommandError::manifest(format!("Некорректный ответ: {url}"))
+            CommandError::manifest("error.reason.service.invalid_response")
+                .param("url", url)
                 .with_details(crate::error::error_chain(&e))
         })
     }
@@ -103,10 +104,9 @@ impl MetaCache {
             Err(error) => {
                 return match cached {
                     Some(body) => Ok(body),
-                    None => Err(
-                        CommandError::network(format!("Не удалось подключиться к {url}"))
-                            .with_details(error.to_string()),
-                    ),
+                    None => Err(CommandError::network("error.reason.network.connect")
+                        .param("url", url)
+                        .with_details(error.to_string())),
                 };
             }
         };
@@ -141,7 +141,8 @@ impl MetaCache {
             .bytes()
             .await
             .map_err(|e| {
-                CommandError::network(format!("Обрыв ответа: {url}"))
+                CommandError::network("error.reason.network.response_interrupted")
+                    .param("url", url)
                     .with_details(crate::error::error_chain(&e))
             })?
             .to_vec();
@@ -166,7 +167,8 @@ impl MetaCache {
         }
 
         let response = request.send().await.map_err(|e| {
-            CommandError::network(format!("Не удалось подключиться к {url}"))
+            CommandError::network("error.reason.network.connect")
+                .param("url", url)
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -186,7 +188,8 @@ impl MetaCache {
             .bytes()
             .await
             .map_err(|e| {
-                CommandError::network(format!("Обрыв ответа: {url}"))
+                CommandError::network("error.reason.network.response_interrupted")
+                    .param("url", url)
                     .with_details(crate::error::error_chain(&e))
             })?
             .to_vec();
@@ -212,18 +215,18 @@ impl MetaCache {
         };
 
         if let Err(error) = write_json_atomic(meta_path, &entry).await {
-            eprintln!("Не удалось обновить метаданные кэша: {error}");
+            log::warn!("Failed to update cache metadata: {error}");
         }
     }
 
     async fn store(&self, body_path: &Path, meta_path: &Path, body: &[u8], entry: &CacheEntry) {
         if let Err(error) = write_atomic(body_path, body).await {
-            eprintln!("Не удалось сохранить кэш манифеста: {error}");
+            log::warn!("Failed to cache the manifest: {error}");
             return;
         }
 
         if let Err(error) = write_json_atomic(meta_path, entry).await {
-            eprintln!("Не удалось сохранить метаданные кэша: {error}");
+            log::warn!("Failed to save cache metadata: {error}");
         }
     }
 }

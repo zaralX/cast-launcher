@@ -57,17 +57,17 @@ async fn run(
     let instance = state.instances.get(instance_id).await?;
 
     if !instance.installed {
-        return Err(CommandError::launch(format!(
-            "Сборка «{}» ещё не установлена",
-            instance.name
-        )));
+        return Err(
+            CommandError::conflict("error.reason.instance.not_installed")
+                .param("name", &instance.name),
+        );
     }
 
     if state.processes.is_running(&instance.id).await {
-        return Err(CommandError::launch(format!(
-            "Сборка «{}» уже запущена",
-            instance.name
-        )));
+        return Err(
+            CommandError::conflict("error.reason.instance.already_running")
+                .param("name", &instance.name),
+        );
     }
 
     let account = state.accounts.active_for_launch().await?;
@@ -101,11 +101,11 @@ async fn run(
             .await
             .ok();
 
-        return Err(CommandError::launch(format!(
-            "Файлы сборки «{}» неполные, установите её заново",
-            instance.name
-        ))
-        .with_details(profile.main_jar.path.display().to_string()));
+        return Err(
+            CommandError::launch("error.reason.instance.files_incomplete")
+                .param("name", &instance.name)
+                .with_details(profile.main_jar.path.display().to_string()),
+        );
     }
 
     let instance_paths = paths.instance(&instance.id);
@@ -161,7 +161,7 @@ async fn run(
         .record_launch(&paths, &instance.id, game.started_at)
         .await
     {
-        eprintln!("Не удалось отметить запуск сборки: {}", error.message);
+        log::warn!("Failed to record the instance launch: {}", error);
     }
 
     LauncherEvent::Instances {
@@ -184,11 +184,10 @@ async fn prepare_natives(
 
     for jar in args::native_jars(paths, profile) {
         if !jar.is_file() {
-            return Err(CommandError::fs(format!(
-                "Нативная библиотека не найдена: {}",
-                jar.display()
-            ))
-            .with_details("Переустановите сборку"));
+            return Err(
+                CommandError::launch("error.reason.instance.natives_missing")
+                    .with_details(jar.display().to_string()),
+            );
         }
 
         cast_core::archive::extract_natives(jar, dir.clone()).await?;

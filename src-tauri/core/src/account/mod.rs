@@ -133,7 +133,9 @@ impl AccountStore {
         let name = name.trim();
 
         if name.is_empty() {
-            return Err(CommandError::no_account("Укажите никнейм"));
+            return Err(CommandError::invalid_input(
+                "error.reason.account.nickname_required",
+            ));
         }
 
         self.upsert(Account {
@@ -174,7 +176,7 @@ impl AccountStore {
             .await
             .active()
             .cloned()
-            .ok_or_else(|| CommandError::no_account("Аккаунт не выбран"))?;
+            .ok_or_else(|| CommandError::no_account("error.reason.account.none_selected"))?;
 
         if !account.is_expired() {
             return Ok(account);
@@ -183,7 +185,7 @@ impl AccountStore {
         let uuid = account
             .uuid
             .clone()
-            .ok_or_else(|| CommandError::auth_expired("У аккаунта нет идентификатора"))?;
+            .ok_or_else(|| CommandError::auth_expired("error.reason.account.no_id"))?;
 
         self.refresh(&uuid).await
     }
@@ -194,17 +196,17 @@ impl AccountStore {
             .accounts
             .into_iter()
             .find(|account| account.uuid.as_deref() == Some(uuid))
-            .ok_or_else(|| CommandError::no_account("Аккаунт не найден"))
+            .ok_or_else(|| CommandError::not_found("error.reason.account.not_found"))
     }
 
     pub async fn licensed(&self, uuid: &str) -> CommandResult<Account> {
         let account = self.find(uuid).await?;
 
         if account.account_type != AccountType::Microsoft {
-            return Err(CommandError::no_account(format!(
-                "{} - оффлайн-аккаунт, у него нет профиля Mojang",
-                account.name
-            )));
+            return Err(
+                CommandError::unsupported("error.reason.account.offline_no_profile")
+                    .param("name", &account.name),
+            );
         }
 
         if account.is_expired() {
@@ -235,7 +237,7 @@ impl AccountStore {
         })
         .await?;
 
-        updated.ok_or_else(|| CommandError::no_account("Аккаунт не найден"))
+        updated.ok_or_else(|| CommandError::not_found("error.reason.account.not_found"))
     }
 
     pub async fn refresh(&self, uuid: &str) -> CommandResult<Account> {
@@ -245,13 +247,11 @@ impl AccountStore {
             .accounts
             .into_iter()
             .find(|account| account.uuid.as_deref() == Some(uuid))
-            .ok_or_else(|| CommandError::no_account("Аккаунт не найден"))?;
+            .ok_or_else(|| CommandError::not_found("error.reason.account.not_found"))?;
 
         let refresh_token = account.refresh_token.clone().ok_or_else(|| {
-            CommandError::auth_expired(format!(
-                "Для аккаунта {} нет refresh-токена. Войдите заново.",
-                account.name
-            ))
+            CommandError::auth_expired("error.reason.account.no_refresh_token")
+                .param("name", &account.name)
         })?;
 
         let tokens = microsoft::refresh(&refresh_token).await?;
@@ -291,9 +291,7 @@ pub async fn complete_login(tokens: microsoft::MicrosoftTokens) -> CommandResult
 
     let user_hash = xbox
         .user_hash()
-        .ok_or_else(|| {
-            CommandError::auth("Xbox Live вернул ответ без идентификатора пользователя")
-        })?
+        .ok_or_else(|| CommandError::auth("error.reason.account.xbox_no_user"))?
         .to_string();
 
     let xsts = microsoft::xsts(&xbox.token).await?;
@@ -324,8 +322,8 @@ fn offline_uuid(name: &str) -> String {
     let digest = md5(format!("OfflinePlayer:{name}").as_bytes());
 
     let mut bytes = digest;
-    bytes[6] = (bytes[6] & 0x0f) | 0x30; // версия 3
-    bytes[8] = (bytes[8] & 0x3f) | 0x80; // вариант RFC 4122
+    bytes[6] = (bytes[6] & 0x0f) | 0x30; // version 3
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC 4122 variant
 
     let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
 

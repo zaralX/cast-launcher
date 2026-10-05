@@ -76,9 +76,9 @@ pub async fn loader(
     loader_version: &str,
 ) -> CommandResult<FabricLoader> {
     let not_found = || {
-        CommandError::version_not_found(format!(
-            "Fabric {loader_version} недоступен для Minecraft {minecraft_version}"
-        ))
+        CommandError::version_not_found("error.reason.version.fabric_unavailable")
+            .param("loader", loader_version)
+            .param("minecraft", minecraft_version)
     };
 
     if loader_version.is_empty() || loader_version == "latest" {

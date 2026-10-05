@@ -116,10 +116,9 @@ async fn sha1(path: &Path) -> Option<String> {
 }
 
 pub async fn place(minecraft_dir: &Path, file: &BlockedFile) -> CommandResult<String> {
-    let source = file
-        .local_path
-        .as_ref()
-        .ok_or_else(|| CommandError::fs(format!("Файл не найден на диске: {}", file.file_name)))?;
+    let source = file.local_path.as_ref().ok_or_else(|| {
+        CommandError::not_found("error.reason.files.not_found").param("name", &file.file_name)
+    })?;
 
     let destination = safe_join(minecraft_dir, &file.target_path)?;
 
@@ -129,7 +128,7 @@ pub async fn place(minecraft_dir: &Path, file: &BlockedFile) -> CommandResult<St
 
     tokio::fs::copy(source, &destination)
         .await
-        .map_err(|e| CommandError::io("Не удалось скопировать скачанный файл", &destination, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.copy", &destination, e))?;
 
     crate::fs_util::relative_key(&file.target_path)
 }
@@ -206,7 +205,10 @@ mod tests {
         let mut files = vec![blocked("entityculling-1.10.5.jar", Some(&"a".repeat(40)))];
 
         assert_eq!(scan(&dir, &mut files).await, 0);
-        assert!(!files[0].found(), "подменённый файл в сборку не поедет");
+        assert!(
+            !files[0].found(),
+            "a swapped file does not go into the instance"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -219,7 +221,7 @@ mod tests {
         let mut files = vec![blocked("sodium-extra-0.6.0.jar", None)];
 
         assert_eq!(scan(&dir, &mut files).await, 1);
-        assert!(files[0].found(), "имя отличается только разделителями");
+        assert!(files[0].found(), "the name differs only in separators");
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -262,7 +264,11 @@ mod tests {
 
         let mut files = vec![blocked("a.jar", None)];
 
-        assert_eq!(scan(&dir, &mut files).await, 0, "в подпапки не заглядываем");
+        assert_eq!(
+            scan(&dir, &mut files).await,
+            0,
+            "subfolders are not searched"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }

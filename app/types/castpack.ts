@@ -1,3 +1,4 @@
+import type { CommandError } from '~/types/error'
 import type { InstanceType } from '~/types/instance'
 
 export const CASTPACK_SCHEMA_VERSION = 1
@@ -38,7 +39,7 @@ export interface CastPackUpdate {
   available: boolean
   version: string
   changelog: string
-  error?: string
+  error?: CommandError
 }
 
 export type PackState = 'absent' | 'installing' | 'outdated' | 'ready' | 'running'

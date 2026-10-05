@@ -1,3 +1,4 @@
+import type { UiText } from '~/types/backend'
 import type { Attempt, CommandError, ErrorCode, ErrorContext, ErrorSeverity, LauncherErrorOptions, ReportOptions } from '~/types/error'
 import { ERROR_CATALOG } from '~/types/error'
 
@@ -18,19 +19,25 @@ export function errorHint(code: ErrorCode): string | undefined {
 
 export class LauncherError extends Error {
   readonly code: ErrorCode
+  readonly text?: UiText
   readonly details?: string
   readonly context: ErrorContext
 
   constructor(code: ErrorCode, options: LauncherErrorOptions = {}) {
-    super(options.message ?? errorTitle(code), { cause: options.cause })
+    super(options.message ?? options.text?.key ?? errorTitle(code), { cause: options.cause })
     this.name = 'LauncherError'
     this.code = code
+    this.text = options.text
     this.details = options.details
     this.context = options.context ?? {}
   }
 
   get title(): string {
     return errorTitle(this.code)
+  }
+
+  get reason(): string | undefined {
+    return this.text ? uiText(this.text) : undefined
   }
 
   get hint(): string | undefined {
@@ -53,7 +60,8 @@ export class LauncherError extends Error {
   toReport(): string {
     const lines = [
       `[${this.code}] ${this.title}`,
-      this.message !== this.title ? this.message : null,
+      this.reason ?? null,
+      !this.text && this.message !== this.title ? this.message : null,
       this.details ? `\n${translate('error.report.details')}\n${this.details}` : null,
     ].filter(Boolean)
 
@@ -76,7 +84,7 @@ function isErrorCode(value: unknown): value is ErrorCode {
 function asCommandError(raw: unknown): CommandError | null {
   if (typeof raw !== 'object' || raw === null) return null
   const candidate = raw as Partial<CommandError>
-  if (!isErrorCode(candidate.code) || typeof candidate.message !== 'string') return null
+  if (!isErrorCode(candidate.code) || typeof candidate.text?.key !== 'string') return null
   return candidate as CommandError
 }
 
@@ -137,7 +145,7 @@ export function toLauncherError(
   const command = asCommandError(raw)
   if (command) {
     return new LauncherError(command.code as ErrorCode, {
-      message: command.message,
+      text: command.text,
       details: command.details,
       context,
       cause: raw,

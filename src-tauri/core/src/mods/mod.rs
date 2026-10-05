@@ -172,7 +172,7 @@ pub async fn list(scan: &ModsScan, force: bool) -> CommandResult<Vec<ModFile>> {
 
     if !parsed.is_empty() || forgotten {
         if let Err(error) = index.save(&scan.index_file).await {
-            eprintln!("Не удалось сохранить кэш модов: {}", error.message);
+            log::warn!("Failed to save the mod cache: {}", error);
         }
     }
 
@@ -213,14 +213,14 @@ async fn collect(dir: &Path) -> CommandResult<Vec<Entry>> {
 
     let mut entries = tokio::fs::read_dir(dir)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог модов", dir, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", dir, e))?;
 
     let mut found = Vec::new();
 
     while let Some(entry) = entries
         .next_entry()
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог модов", dir, e))?
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", dir, e))?
     {
         let file_name = entry.file_name().to_string_lossy().to_string();
         let Ok(metadata) = entry.metadata().await else {
@@ -450,18 +450,21 @@ mod tests {
 
         let mods = list(&scan, false).await.unwrap();
 
-        assert_eq!(mods.len(), 2, "текстовый файл в список не попал");
+        assert_eq!(mods.len(), 2, "a text file stays out of the list");
 
         let lithium = &mods[0];
         assert_eq!(lithium.display_name(), "Lithium");
-        assert!(!lithium.enabled, "суффикс .disabled - мод выключен");
+        assert!(
+            !lithium.enabled,
+            "the .disabled suffix means the mod is off"
+        );
         assert_eq!(lithium.details.icon_key, None);
 
         assert!(!lithium.managed);
 
         let sodium = &mods[1];
         assert_eq!(sodium.display_name(), "Sodium");
-        assert!(sodium.managed, "мод из пака помечен");
+        assert!(sodium.managed, "a mod from the pack is marked");
         assert_eq!(sodium.path, "mods/sodium-0.5.3.jar");
         assert!(sodium.enabled);
         assert_eq!(sodium.details.version, "1.0.0");
@@ -470,7 +473,7 @@ mod tests {
             .details
             .icon_key
             .clone()
-            .expect("иконка вынута из jar");
+            .expect("the icon is extracted from the jar");
         assert!(icon::exists(&scan.icons, &key));
         assert!(icon::data_url(&scan.icons, &key)
             .await
@@ -525,7 +528,7 @@ mod tests {
         assert_eq!(
             sizes_changed[1].display_name(),
             "sodium",
-            "размер изменился - разбираем заново"
+            "the size changed, parse again"
         );
 
         std::fs::remove_file(scan.dir.join("lithium.jar")).unwrap();
@@ -536,7 +539,7 @@ mod tests {
         let index = ModsIndex::load(&scan.index_file).await;
         assert!(
             !index.entries.contains_key("mods/lithium.jar"),
-            "удалённый мод ушёл из кэша"
+            "a deleted mod leaves the cache"
         );
 
         std::fs::remove_dir_all(&root).ok();
@@ -564,7 +567,7 @@ mod tests {
                 .modified()
                 .unwrap(),
             written,
-            "ничего не изменилось - кэш не переписан"
+            "nothing changed, the cache is not rewritten"
         );
 
         std::fs::remove_dir_all(&root).ok();

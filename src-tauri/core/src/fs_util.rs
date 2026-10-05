@@ -5,13 +5,9 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::error::{CommandError, CommandResult};
 
 pub async fn ensure_dir(dir: &Path) -> CommandResult<()> {
-    tokio::fs::create_dir_all(dir).await.map_err(|e| {
-        CommandError::io(
-            format!("Не удалось создать каталог: {}", dir.display()),
-            dir,
-            e,
-        )
-    })
+    tokio::fs::create_dir_all(dir)
+        .await
+        .map_err(|e| CommandError::io("error.reason.fs.create_dir", dir, e))
 }
 
 pub fn child_file(dir: &Path, name: &str) -> CommandResult<PathBuf> {
@@ -19,7 +15,7 @@ pub fn child_file(dir: &Path, name: &str) -> CommandResult<PathBuf> {
         .file_name()
         .filter(|file| *file == name && name != "." && name != "..")
         .map(|file| dir.join(file))
-        .ok_or_else(|| CommandError::fs(format!("Недопустимое имя файла: {name}")))
+        .ok_or_else(|| CommandError::fs("error.reason.fs.invalid_name").param("name", name))
 }
 
 pub fn relative_key(relative: &str) -> CommandResult<String> {
@@ -46,17 +42,13 @@ pub fn safe_join(base: &Path, relative: &str) -> CommandResult<PathBuf> {
 }
 
 fn escapes(relative: &str) -> CommandError {
-    CommandError::archive(format!("Недопустимый путь внутри пакета: {relative}"))
+    CommandError::archive("error.reason.archive.invalid_path").param("path", relative)
 }
 
 pub async fn read_text(path: &Path) -> CommandResult<String> {
-    tokio::fs::read_to_string(path).await.map_err(|e| {
-        CommandError::io(
-            format!("Не удалось прочитать файл: {}", path.display()),
-            path,
-            e,
-        )
-    })
+    tokio::fs::read_to_string(path)
+        .await
+        .map_err(|e| CommandError::io("error.reason.fs.read_file", path, e))
 }
 
 pub async fn read_json_opt<T: DeserializeOwned>(path: &Path) -> Option<T> {
@@ -65,8 +57,8 @@ pub async fn read_json_opt<T: DeserializeOwned>(path: &Path) -> Option<T> {
     match serde_json::from_str(&text) {
         Ok(value) => Some(value),
         Err(error) => {
-            eprintln!(
-                "Повреждённый JSON, файл будет перезаписан: {} ({error})",
+            log::warn!(
+                "Corrupted JSON, the file will be overwritten: {} ({error})",
                 path.display()
             );
             None
@@ -78,14 +70,15 @@ pub async fn read_json<T: DeserializeOwned>(path: &Path) -> CommandResult<T> {
     let text = read_text(path).await?;
 
     serde_json::from_str(&text).map_err(|e| {
-        CommandError::manifest(format!("Повреждённый JSON: {}", path.display()))
+        CommandError::manifest("error.reason.fs.corrupted_json")
+            .param("path", path.display())
             .with_details(e.to_string())
     })
 }
 
 pub async fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> CommandResult<()> {
     let bytes = serde_json::to_vec_pretty(value).map_err(|e| {
-        CommandError::unknown("Не удалось сериализовать данные").with_details(e.to_string())
+        CommandError::unknown("error.reason.internal.serialize").with_details(e.to_string())
     })?;
 
     write_atomic(path, &bytes).await
@@ -98,21 +91,13 @@ pub async fn write_atomic(path: &Path, bytes: &[u8]) -> CommandResult<()> {
 
     let temp = temp_sibling(path);
 
-    tokio::fs::write(&temp, bytes).await.map_err(|e| {
-        CommandError::io(
-            format!("Не удалось записать файл: {}", path.display()),
-            &temp,
-            e,
-        )
-    })?;
+    tokio::fs::write(&temp, bytes)
+        .await
+        .map_err(|e| CommandError::io("error.reason.fs.write_file", &temp, e))?;
 
     if let Err(error) = tokio::fs::rename(&temp, path).await {
         let _ = tokio::fs::remove_file(&temp).await;
-        return Err(CommandError::io(
-            format!("Не удалось сохранить файл: {}", path.display()),
-            path,
-            error,
-        ));
+        return Err(CommandError::io("error.reason.fs.write_file", path, error));
     }
 
     Ok(())
@@ -127,12 +112,12 @@ pub async fn merge_dir(from: &Path, to: &Path) -> CommandResult<()> {
 
     let mut entries = tokio::fs::read_dir(from)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог", from, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", from, e))?;
 
     while let Some(entry) = entries
         .next_entry()
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог", from, e))?
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", from, e))?
     {
         let source = entry.path();
         let target = to.join(entry.file_name());
@@ -158,7 +143,7 @@ pub async fn merge_dir(from: &Path, to: &Path) -> CommandResult<()> {
 
         tokio::fs::copy(&source, &target)
             .await
-            .map_err(|e| CommandError::io("Не удалось перенести файл", &source, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.move", &source, e))?;
     }
 
     Ok(())

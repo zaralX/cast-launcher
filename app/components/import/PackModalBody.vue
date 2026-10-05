@@ -39,7 +39,10 @@ async function choose() {
   if (busy.value) return
 
   picking.value = true
-  const path = await safeRun(() => call('pick_modpack_file'), { context: { action: t('import_pack.pick_action') } })
+  const path = await safeRun(
+    () => call('pick_modpack_file', { dialog: { title: t('dialog.modpack.title'), filter: t('dialog.modpack.filter') } }),
+    { context: { action: t('import_pack.pick_action') } },
+  )
   picking.value = false
 
   if (path) await read(path)
@@ -141,7 +144,7 @@ async function run() {
         name="i-lucide-triangle-alert"
         class="mt-0.5 size-3.5 shrink-0 text-amber-400"
       />
-      {{ $t('import_pack.blocked', { reason: pack.blocked }) }}
+      {{ $t('import_pack.blocked', { reason: uiText(pack.blocked) }) }}
     </div>
 
     <form

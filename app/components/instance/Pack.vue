@@ -213,8 +213,11 @@ async function apply() {
             <p class="text-[13px] font-medium text-fg">
               {{ loadError.title }}
             </p>
-            <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              {{ loadError.hint ?? loadError.message }}
+            <p
+              v-if="loadError.reason ?? loadError.hint"
+              class="mt-2 text-[12px] leading-relaxed text-fg-muted"
+            >
+              {{ loadError.reason ?? loadError.hint }}
             </p>
             <AppButton
               tone="quiet"

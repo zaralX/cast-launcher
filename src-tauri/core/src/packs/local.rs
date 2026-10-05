@@ -13,6 +13,7 @@ use crate::import::ScannedInstance;
 use crate::instance::{InstanceSettings, LoaderType, LocalPackKind};
 use crate::modrinth::pack::{PackIndex, INDEX_ENTRY};
 use crate::packs::ResolvedPack;
+use crate::text::UiText;
 
 const GAME_DIRS: [&str; 2] = [".minecraft", "minecraft"];
 
@@ -56,7 +57,7 @@ pub struct LocalPack {
     pub loader_label: String,
     pub files: usize,
     pub settings: InstanceSettings,
-    pub blocked: Option<String>,
+    pub blocked: Option<UiText>,
 }
 
 impl LocalPack {
@@ -73,7 +74,7 @@ pub async fn inspect(path: &Path) -> CommandResult<LocalPack> {
         Ok(opened.preview(&path))
     })
     .await
-    .map_err(|e| CommandError::task_panicked("чтение архива модпака", e))?
+    .map_err(|e| CommandError::task_panicked("read_modpack_archive", e))?
 }
 
 pub async fn resolve(path: &Path, minecraft_dir: &Path) -> CommandResult<ResolvedPack> {
@@ -82,7 +83,7 @@ pub async fn resolve(path: &Path, minecraft_dir: &Path) -> CommandResult<Resolve
 
         tokio::task::spawn_blocking(move || open_blocking(&path))
             .await
-            .map_err(|e| CommandError::task_panicked("чтение архива модпака", e))??
+            .map_err(|e| CommandError::task_panicked("read_modpack_archive", e))??
     };
 
     opened.resolve(minecraft_dir).await
@@ -156,7 +157,7 @@ impl Opened {
                 );
 
                 if !crate::curseforge::is_available() && pack.blocked.is_none() {
-                    pack.blocked = Some("лаунчер собран без ключа CurseForge API".into());
+                    pack.blocked = Some(UiText::new("import.blocked.no_curseforge_key"));
                 }
             }
             Contents::MultiMc { scanned, game_dir } => {
@@ -170,7 +171,7 @@ impl Opened {
                 pack.blocked = scanned.blocked.clone();
 
                 if game_dir.is_none() && pack.blocked.is_none() {
-                    pack.blocked = Some("в архиве нет папки с файлами игры".into());
+                    pack.blocked = Some(UiText::new("import.blocked.no_game_dir"));
                 }
             }
         }
@@ -186,19 +187,20 @@ impl Opened {
             }
             Contents::MultiMc { scanned, game_dir } => {
                 if let Some(reason) = &scanned.blocked {
-                    return Err(CommandError::manifest(format!(
-                        "Сборку «{}» перенести нельзя: {reason}",
-                        scanned.name
-                    )));
+                    return Err(
+                        CommandError::unsupported("error.reason.import.instance_blocked")
+                            .param("name", &scanned.name)
+                            .param_text("reason", reason.clone()),
+                    );
                 }
 
-                let game_dir = game_dir
-                    .clone()
-                    .ok_or_else(|| CommandError::manifest("В архиве нет папки с файлами игры"))?;
+                let game_dir = game_dir.clone().ok_or_else(|| {
+                    CommandError::invalid_input("error.reason.modpack.no_game_dir")
+                })?;
 
                 let loader = scanned
                     .loader
-                    .ok_or_else(|| CommandError::manifest("В архиве не указан загрузчик"))?;
+                    .ok_or_else(|| CommandError::invalid_input("error.reason.modpack.no_loader"))?;
 
                 ResolvedPack {
                     minecraft_version: scanned.minecraft_version.clone(),
@@ -233,7 +235,7 @@ fn fill(
     match minecraft {
         Ok(version) => pack.minecraft_version = version,
         Err(error) => {
-            pack.blocked = Some(error.message);
+            pack.blocked = Some(blocked_reason(error));
             return;
         }
     }
@@ -247,8 +249,13 @@ fn fill(
             };
             pack.loader_version = version;
         }
-        Err(error) => pack.blocked = Some(error.message),
+        Err(error) => pack.blocked = Some(blocked_reason(error)),
     }
+}
+
+fn blocked_reason(error: CommandError) -> UiText {
+    log::warn!("The modpack file can not be installed: {error}");
+    error.text
 }
 
 fn open_blocking(path: &Path) -> CommandResult<Opened> {
@@ -256,10 +263,9 @@ fn open_blocking(path: &Path) -> CommandResult<Opened> {
     let names: BTreeSet<String> = archive.file_names().map(str::to_string).collect();
 
     let Some((kind, root)) = detect(&names) else {
-        return Err(CommandError::manifest(format!(
-            "Непонятный файл: внутри нет ни {INDEX_ENTRY}, ни {MANIFEST_ENTRY}, ни {CONFIG_FILE} ({})",
-            file_name(path)
-        )));
+        return Err(CommandError::invalid_input(
+            "error.reason.modpack.unknown_file",
+        ));
     };
 
     let contents = match kind {
@@ -330,19 +336,23 @@ fn game_dir(names: &BTreeSet<String>, root: &str) -> Option<String> {
 
 fn read(archive: &mut ZipArchive<File>, entry: &str) -> CommandResult<Vec<u8>> {
     let mut file = archive.by_name(entry).map_err(|e| {
-        CommandError::archive(format!("В архиве нет файла {entry}")).with_details(e.to_string())
+        CommandError::archive("error.reason.archive.no_entry")
+            .param("entry", entry)
+            .with_details(e.to_string())
     })?;
 
     if file.size() > MAX_MANIFEST {
-        return Err(CommandError::archive(format!(
-            "Слишком большой {entry} внутри архива"
-        )));
+        return Err(
+            CommandError::archive("error.reason.archive.entry_too_large").param("entry", entry),
+        );
     }
 
     let mut bytes = Vec::with_capacity(file.size() as usize);
 
     file.read_to_end(&mut bytes).map_err(|e| {
-        CommandError::archive(format!("Не удалось прочитать {entry}")).with_details(e.to_string())
+        CommandError::archive("error.reason.archive.read_file")
+            .param("entry", entry)
+            .with_details(e.to_string())
     })?;
 
     Ok(bytes)
@@ -450,7 +460,7 @@ mod tests {
         assert_eq!(pack.minecraft_version, "1.20.1");
         assert_eq!(pack.loader, Some(LoaderType::Fabric));
         assert_eq!(pack.loader_version.as_deref(), Some("0.15.7"));
-        assert_eq!(pack.files, 1, "серверные файлы клиенту не нужны");
+        assert_eq!(pack.files, 1, "the client does not need server files");
         assert_eq!(pack.file_name, "fo.mrpack");
         assert!(pack.size > 0);
         assert!(pack.is_importable());
@@ -495,7 +505,7 @@ mod tests {
         assert_eq!(
             pack.is_importable(),
             crate::curseforge::is_available(),
-            "без ключа API ссылки на моды всё равно не найти"
+            "without an API key the mod links can not be found anyway"
         );
 
         std::fs::remove_dir_all(&dir).ok();
@@ -533,7 +543,7 @@ mod tests {
 
         assert!(
             resolved.tasks.is_empty(),
-            "в экспорте MultiMC все файлы уже лежат внутри"
+            "a MultiMC export already has every file inside"
         );
         assert_eq!(resolved.overrides, vec!["TerraFirmaGreg/.minecraft"]);
 
@@ -600,7 +610,7 @@ mod tests {
         assert!(minecraft.join("mods").join("jei.jar").is_file());
         assert!(
             !minecraft.join("лишнее.txt").exists(),
-            "берём только папку игры"
+            "only the game folder is taken"
         );
 
         std::fs::remove_dir_all(&dir).ok();
@@ -623,7 +633,7 @@ mod tests {
         let pack = inspect(&path).await.unwrap();
 
         assert!(!pack.is_importable());
-        assert!(pack.blocked.unwrap().contains("Quilt"));
+        assert!(pack.blocked.unwrap().mentions("Quilt"));
         assert!(resolve(&path, Path::new("/mc")).await.is_err());
 
         std::fs::remove_dir_all(&dir).ok();
@@ -655,7 +665,10 @@ mod tests {
         write_zip(&stranger, &[("readme.txt", "hello")]);
 
         let error = inspect(&stranger).await.unwrap_err();
-        assert!(error.message.contains(INDEX_ENTRY), "{}", error.message);
+        assert_eq!(
+            error.text.key, "error.reason.modpack.unknown_file",
+            "{error}"
+        );
 
         let broken = dir.join("broken.mrpack");
         std::fs::write(&broken, b"not a zip at all").unwrap();

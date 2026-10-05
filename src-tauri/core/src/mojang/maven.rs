@@ -22,9 +22,10 @@ impl Gradle {
         let version = parts.next().filter(|part| !part.is_empty());
 
         let (Some(group), Some(artifact), Some(version)) = (group, artifact, version) else {
-            return Err(CommandError::manifest(format!(
-                "Некорректная maven-координата: {coordinate}"
-            )));
+            return Err(
+                CommandError::manifest("error.reason.minecraft.invalid_maven")
+                    .param("coordinate", coordinate),
+            );
         };
 
         Ok(Self {

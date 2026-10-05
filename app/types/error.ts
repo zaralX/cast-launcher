@@ -1,3 +1,4 @@
+import type { UiText } from '~/types/backend'
 import type { LauncherError } from '~/utils/error'
 
 export type ErrorSeverity = 'error' | 'warning' | 'info'
@@ -20,6 +21,10 @@ export type ErrorCode
     | 'CONFIG_ERROR'
     | 'UPDATE_FAILED'
     | 'INSTALL_ABORTED'
+    | 'INVALID_INPUT'
+    | 'CONFLICT'
+    | 'NOT_FOUND'
+    | 'UNSUPPORTED'
     | 'UNKNOWN'
 
 export interface ErrorContext {
@@ -55,11 +60,16 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorDefinition> = {
   CONFIG_ERROR: { key: 'error.config', severity: 'warning', icon: 'i-lucide-settings-2' },
   UPDATE_FAILED: { key: 'error.update_failed', severity: 'warning', icon: 'i-lucide-download' },
   INSTALL_ABORTED: { key: 'error.install_aborted', severity: 'info', icon: 'i-lucide-circle-stop' },
+  INVALID_INPUT: { key: 'error.invalid_input', severity: 'warning', icon: 'i-lucide-circle-alert' },
+  CONFLICT: { key: 'error.conflict', severity: 'warning', icon: 'i-lucide-hourglass' },
+  NOT_FOUND: { key: 'error.not_found', severity: 'warning', icon: 'i-lucide-search-x' },
+  UNSUPPORTED: { key: 'error.unsupported', severity: 'warning', icon: 'i-lucide-ban' },
   UNKNOWN: { key: 'error.unknown', severity: 'error', icon: 'i-lucide-triangle-alert' },
 }
 
 export interface LauncherErrorOptions {
   message?: string
+  text?: UiText
   details?: string
   context?: ErrorContext
   cause?: unknown
@@ -73,6 +83,7 @@ export interface ErrorEntry {
   icon: string
   title: string
   message: string
+  reason?: string
   hint?: string
   details?: string
   context: ErrorContext
@@ -88,7 +99,7 @@ export interface ReportOptions {
 
 export interface CommandError {
   code: string
-  message: string
+  text: UiText
   details?: string
 }
 

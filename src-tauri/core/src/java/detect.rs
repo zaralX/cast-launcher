@@ -51,7 +51,7 @@ pub async fn list(extra_dirs: Vec<PathBuf>) -> CommandResult<Vec<JavaRuntime>> {
         runtimes
     })
     .await
-    .map_err(|e| CommandError::task_panicked("поиск Java", e))
+    .map_err(|e| CommandError::task_panicked("search_java", e))
 }
 
 pub async fn probe(path: String) -> CommandResult<Option<JavaRuntime>> {
@@ -80,7 +80,7 @@ pub async fn probe(path: String) -> CommandResult<Option<JavaRuntime>> {
         found.into_values().find_map(probe_candidate)
     })
     .await
-    .map_err(|e| CommandError::task_panicked("проверка Java", e))
+    .map_err(|e| CommandError::task_panicked("probe_java", e))
 }
 
 fn collect_candidates(extra_dirs: &[PathBuf]) -> Vec<Candidate> {

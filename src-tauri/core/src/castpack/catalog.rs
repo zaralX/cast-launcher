@@ -58,7 +58,8 @@ pub struct Catalog {
 impl Catalog {
     pub fn parse(bytes: &[u8]) -> CommandResult<Self> {
         let catalog: Self = serde_json::from_slice(bytes).map_err(|e| {
-            CommandError::manifest("Повреждённый каталог CastPack").with_details(e.to_string())
+            CommandError::manifest("error.reason.castpack.catalog_corrupted")
+                .with_details(e.to_string())
         })?;
 
         catalog.validated()
@@ -66,17 +67,18 @@ impl Catalog {
 
     fn validated(mut self) -> CommandResult<Self> {
         if self.schema_version != SCHEMA_VERSION {
-            return Err(CommandError::manifest(format!(
-                "Каталог написан под другую версию формата: {} (лаунчер понимает {SCHEMA_VERSION})",
-                self.schema_version
-            )));
+            return Err(
+                CommandError::unsupported("error.reason.castpack.catalog_version")
+                    .param("version", self.schema_version)
+                    .param("supported", SCHEMA_VERSION),
+            );
         }
 
         self.packs.truncate(MAX_PACKS);
         self.packs.retain(|pack| match pack.check() {
             Ok(()) => true,
             Err(error) => {
-                eprintln!("Пропускаю сборку каталога «{}»: {}", pack.id, error.message);
+                log::warn!("Skipping catalog pack '{}': {}", pack.id, error);
                 false
             }
         });
@@ -92,14 +94,13 @@ impl Catalog {
 impl CatalogPack {
     fn check(&self) -> CommandResult<()> {
         if !is_safe_id(&self.id) {
-            return Err(CommandError::manifest(format!(
-                "Недопустимый идентификатор сборки: {}",
-                self.id
-            )));
+            return Err(
+                CommandError::manifest("error.reason.castpack.invalid_id").param("id", &self.id)
+            );
         }
 
         if self.name.trim().is_empty() {
-            return Err(CommandError::manifest("У сборки не заполнено название"));
+            return Err(CommandError::manifest("error.reason.castpack.no_name"));
         }
 
         https_url(&self.manifest)?;
@@ -114,6 +115,18 @@ impl CatalogPack {
     pub fn instance_id(&self) -> String {
         format!("castpack-{}", self.id)
     }
+
+    /// The short text on the catalog card, falling back to the long description.
+    pub fn card_description(&self) -> String {
+        match self.summary.trim().is_empty() {
+            true => self.description.trim().to_string(),
+            false => self.summary.trim().to_string(),
+        }
+    }
+
+    pub fn icon_file_name(&self, url: &str) -> String {
+        format!("castpack-{}.{}", self.id, crate::packs::icon_extension(url))
+    }
 }
 
 pub fn is_safe_id(id: &str) -> bool {
@@ -127,6 +140,42 @@ pub fn is_safe_id(id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn icon_names_carry_the_pack_id_and_keep_the_extension() {
+        let pack = CatalogPack {
+            id: "zaralx-rpg".into(),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            pack.icon_file_name("https://cdn.zaralx.ru/icons/rpg.WEBP"),
+            "castpack-zaralx-rpg.webp"
+        );
+        assert_eq!(
+            pack.icon_file_name("https://cdn.zaralx.ru/icons/rpg.png?v=2"),
+            "castpack-zaralx-rpg.png"
+        );
+        assert_eq!(
+            pack.icon_file_name("https://cdn.zaralx.ru/icons/rpg"),
+            "castpack-zaralx-rpg.png",
+            "no extension means png"
+        );
+    }
+
+    #[test]
+    fn the_card_description_falls_back_to_the_long_text() {
+        let mut entry = CatalogPack {
+            summary: "  ".into(),
+            description: "  Длинное описание  ".into(),
+            ..Default::default()
+        };
+
+        assert_eq!(entry.card_description(), "Длинное описание");
+
+        entry.summary = "Короткое".into();
+        assert_eq!(entry.card_description(), "Короткое");
+    }
     use serde_json::json;
 
     fn catalog(packs: serde_json::Value) -> CommandResult<Catalog> {
@@ -153,7 +202,7 @@ mod tests {
     fn broken_json_is_reported_as_a_manifest_problem() {
         assert_eq!(
             Catalog::parse(b"{ not json").unwrap_err().code,
-            "MANIFEST_INVALID"
+            crate::error::ErrorCode::ManifestInvalid
         );
     }
 

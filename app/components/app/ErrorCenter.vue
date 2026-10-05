@@ -111,8 +111,15 @@ function copyAll() {
               </div>
 
               <p
-                v-if="entry.hint"
+                v-if="entry.reason"
                 class="mt-2 text-[12px] leading-relaxed text-fg-muted"
+              >
+                {{ entry.reason }}
+              </p>
+
+              <p
+                v-if="entry.hint"
+                class="mt-1 text-[12px] leading-relaxed text-fg-faint"
               >
                 {{ entry.hint }}
               </p>

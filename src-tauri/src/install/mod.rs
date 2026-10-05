@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::{Mutex, RwLock};
 
-use cast_core::error::{CommandError, CommandResult};
+use cast_core::error::{CommandError, CommandResult, ErrorCode};
 use cast_core::fs_util::ensure_dir;
 use cast_core::install::forge::{Installer, ProcessorEnv};
 use cast_core::instance::{Instance, LoaderType};
@@ -18,6 +18,7 @@ use cast_core::mojang::rules::RuntimeContext;
 use cast_core::mojang::version::{AssetIndex, VersionPackage};
 use cast_core::net::download::{DownloadOptions, DownloadTask};
 use cast_core::paths::LauncherPaths;
+use cast_core::text::UiText;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::state::AppState;
@@ -135,14 +136,14 @@ pub async fn start_with(
             if let Err(error) =
                 crate::launch::launch(app.clone(), Arc::clone(&state), &instance.id).await
             {
-                eprintln!(
-                    "Сборка «{}» установлена, но не запустилась: {error}",
+                log::warn!(
+                    "Instance '{}' is installed but failed to launch: {error}",
                     instance.name
                 );
                 LauncherEvent::LaunchFailed {
                     instance_id: instance.id.clone(),
                     instance_name: instance.name.clone(),
-                    error: error.message,
+                    error,
                 }
                 .emit(&app);
             }
@@ -218,8 +219,8 @@ async fn complete(
                 .await;
 
             if let Err(error) = saved {
-                reporter.fail(Stage::Failed, error.message.clone());
-                eprintln!("Установка завершена, но флаг не сохранился: {error}");
+                log::error!("Install finished, but the installed flag was not saved: {error}");
+                reporter.fail(error);
             } else {
                 reporter.finish();
                 LauncherEvent::Instances {
@@ -229,11 +230,11 @@ async fn complete(
             }
         }
         Err(error) if error.is_aborted() || reporter.is_cancelled() => {
-            reporter.fail(Stage::Aborted, "Установка прервана".into());
+            reporter.abort();
         }
         Err(error) => {
-            eprintln!("Установка «{}» не удалась: {error}", instance.name);
-            reporter.fail(Stage::Failed, error.message.clone());
+            log::error!("Install of '{}' failed: {error}", instance.name);
+            reporter.fail(error);
         }
     }
 
@@ -241,8 +242,8 @@ async fn complete(
 }
 
 enum Prepared {
-    Pack(modpack::Modpack),
-    CastPack(castpack::CastPack),
+    Pack(Box<modpack::Modpack>),
+    CastPack(Box<castpack::CastPack>),
 }
 
 async fn run(
@@ -254,7 +255,7 @@ async fn run(
     let paths = state.paths().await;
 
     reporter.set_stage(Stage::Prepare);
-    reporter.set_message("Подготовка");
+    reporter.set_message(UiText::new("install.message.preparing"));
     prepare_dirs(&paths, instance).await?;
 
     let (instance, mut prepared) = match Source::of(instance) {
@@ -262,20 +263,20 @@ async fn run(
             let source = instance
                 .castpack
                 .clone()
-                .ok_or_else(|| CommandError::manifest("У сборки пропал источник CastPack"))?;
+                .ok_or_else(|| CommandError::manifest("error.reason.instance.lost_castpack"))?;
 
             let pack = castpack::prepare(state, &paths, instance, &source, reporter).await?;
             check_cancelled(reporter)?;
 
             let synced = castpack::sync(state, &paths, instance, &pack).await?;
 
-            (synced, Some(Prepared::CastPack(pack)))
+            (synced, Some(Prepared::CastPack(Box::new(pack))))
         }
         Source::Pack(_) => {
             let source = instance
                 .pack
                 .clone()
-                .ok_or_else(|| CommandError::manifest("У сборки пропал источник модпака"))?;
+                .ok_or_else(|| CommandError::manifest("error.reason.instance.lost_pack"))?;
 
             let modpack = modpack::prepare(state, &paths, instance, &source, reporter).await?;
             check_cancelled(reporter)?;
@@ -283,13 +284,13 @@ async fn run(
             let synced =
                 modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
 
-            (synced, Some(Prepared::Pack(modpack)))
+            (synced, Some(Prepared::Pack(Box::new(modpack))))
         }
         Source::LocalPack(_) => {
             let source = instance
                 .local_pack
                 .clone()
-                .ok_or_else(|| CommandError::manifest("У сборки пропал источник модпака"))?;
+                .ok_or_else(|| CommandError::manifest("error.reason.instance.lost_pack"))?;
 
             let modpack = modpack::prepare_local(&paths, instance, &source, reporter).await?;
             check_cancelled(reporter)?;
@@ -297,7 +298,7 @@ async fn run(
             let synced =
                 modpack::sync_instance(state, &paths, instance, modpack.resolved()).await?;
 
-            (synced, Some(Prepared::Pack(modpack)))
+            (synced, Some(Prepared::Pack(Box::new(modpack))))
         }
         Source::Plain => (instance.clone(), None),
     };
@@ -362,7 +363,7 @@ async fn run(
                     archive: Some(pack.archive()),
                     version_id: pack_version_id(instance),
                     phase: "modpack",
-                    label: "Файлы модпака",
+                    message: "install.message.modpack_files",
                 },
                 reporter,
             )
@@ -420,7 +421,7 @@ async fn ensure_java(
     base: &VersionPackage,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<JavaRuntime> {
-    reporter.begin_phase("java", "Проверка Java");
+    reporter.begin_phase("java", UiText::new("install.message.java"));
 
     let requirement = cast_core::mojang::profile::JavaRequirement::from_package(base);
     let config = instance.effective_config(&state.config().await);
@@ -475,13 +476,13 @@ async fn download_client(
     base: &VersionPackage,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
-    reporter.begin_phase("client", "Клиент Minecraft");
+    reporter.begin_phase("client", UiText::new("install.message.client"));
 
     let client = base
         .downloads
         .as_ref()
         .and_then(|downloads| downloads.client.as_ref())
-        .ok_or_else(|| CommandError::manifest("В манифесте версии нет ссылки на client.jar"))?;
+        .ok_or_else(|| CommandError::manifest("error.reason.minecraft.no_client_jar"))?;
 
     let task = DownloadTask::verified(
         client.url.clone(),
@@ -501,7 +502,7 @@ async fn download_libraries(
     ctx: &RuntimeContext,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
-    reporter.begin_phase("libraries", "Библиотеки");
+    reporter.begin_phase("libraries", UiText::new("install.message.libraries"));
 
     let libraries = resolve_libraries(&base.libraries, ctx);
     let tasks = library_tasks(paths, &libraries);
@@ -533,11 +534,11 @@ async fn download_assets(
     base: &VersionPackage,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
-    reporter.begin_phase("assets", "Ресурсы игры");
+    reporter.begin_phase("assets", UiText::new("install.message.assets"));
 
     let Some(asset_index) = &base.asset_index else {
         return Err(CommandError::manifest(
-            "В манифесте версии нет индекса ассетов",
+            "error.reason.minecraft.no_asset_index",
         ));
     };
 
@@ -584,7 +585,7 @@ async fn install_fabric(
     resolver: &Resolver<'_>,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
-    reporter.begin_phase("fabric", "Библиотеки Fabric");
+    reporter.begin_phase("fabric", UiText::new("install.message.fabric"));
 
     let loader = resolver.fabric_loader(instance).await?;
     let libraries = meta::fabric::libraries(&loader)?;
@@ -612,13 +613,19 @@ async fn install_loader(
 
     let label = family.label();
 
-    reporter.begin_phase(&phase("installer"), &format!("Установщик {label}"));
+    reporter.begin_phase(
+        &phase("installer"),
+        UiText::new("install.message.loader_installer").param("loader", label),
+    );
 
     let installer =
         open_installer(state, instance, family, &version, &installer_jar, reporter).await?;
     check_cancelled(reporter)?;
 
-    reporter.begin_phase(&phase("libraries"), &format!("Библиотеки {label}"));
+    reporter.begin_phase(
+        &phase("libraries"),
+        UiText::new("install.message.loader_libraries").param("loader", label),
+    );
 
     installer.unpack(paths).await?;
     let tasks = installer.downloads(paths, ctx);
@@ -626,17 +633,19 @@ async fn install_loader(
     check_cancelled(reporter)?;
 
     reporter.set_stage(Stage::Install);
-    reporter.begin_phase(&phase("patch"), &format!("Сборка клиента {label}"));
+    reporter.begin_phase(
+        &phase("patch"),
+        UiText::new("install.message.loader_patch").param("loader", label),
+    );
 
     build_client(paths, instance, java, &installer, &installer_jar, reporter).await?;
 
     let missing = installer.missing(paths, ctx);
 
     if !missing.is_empty() {
-        return Err(
-            CommandError::forge(format!("После установки {label} не хватает файлов"))
-                .with_details(missing.join("\n")),
-        );
+        return Err(CommandError::forge("error.reason.forge.files_missing")
+            .param("loader", label)
+            .with_details(missing.join("\n")));
     }
 
     installer.save(&cache).await?;
@@ -672,14 +681,14 @@ async fn open_installer(
         }
     }
 
-    Err(CommandError::forge(format!(
-        "Не удалось прочитать установщик {}",
-        family.label()
-    )))
+    Err(CommandError::forge("error.reason.forge.read_installer").param("loader", family.label()))
 }
 
 fn is_damaged(error: &CommandError) -> bool {
-    matches!(error.code, "ARCHIVE_INVALID" | "MANIFEST_INVALID")
+    matches!(
+        error.code,
+        ErrorCode::ArchiveInvalid | ErrorCode::ManifestInvalid
+    )
 }
 
 async fn build_client(
@@ -714,7 +723,12 @@ async fn build_client(
         &env,
         |index, total, name| {
             reporter.set_fraction(index as f64 / total as f64);
-            reporter.set_message(format!("{name} ({}/{total})", index + 1));
+            reporter.set_message(
+                UiText::new("install.message.step")
+                    .param("name", name)
+                    .param("index", index + 1)
+                    .param("total", total),
+            );
         },
         || reporter.is_cancelled(),
     )
@@ -763,7 +777,7 @@ fn download_reporter(reporter: &Arc<ProgressReporter>) -> cast_core::net::downlo
 
 fn check_cancelled(reporter: &Arc<ProgressReporter>) -> CommandResult<()> {
     if reporter.is_cancelled() {
-        return Err(CommandError::aborted("Установка прервана"));
+        return Err(CommandError::aborted("error.reason.cancelled.install"));
     }
     Ok(())
 }

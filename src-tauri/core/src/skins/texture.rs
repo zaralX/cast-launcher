@@ -81,15 +81,15 @@ pub fn decode(bytes: &[u8]) -> CommandResult<Texture> {
     let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     decoder.set_transformations(png::Transformations::normalize_to_color8());
 
-    let mut reader = decoder
-        .read_info()
-        .map_err(|e| CommandError::fs("Это не png").with_details(e.to_string()))?;
+    let mut reader = decoder.read_info().map_err(|e| {
+        CommandError::invalid_input("error.reason.skins.not_png").with_details(e.to_string())
+    })?;
 
     let mut buffer = vec![0_u8; reader.output_buffer_size().unwrap_or(0)];
 
-    let info = reader
-        .next_frame(&mut buffer)
-        .map_err(|e| CommandError::fs("Не удалось прочитать png").with_details(e.to_string()))?;
+    let info = reader.next_frame(&mut buffer).map_err(|e| {
+        CommandError::invalid_input("error.reason.skins.unreadable_png").with_details(e.to_string())
+    })?;
 
     buffer.truncate(info.buffer_size());
 
@@ -122,12 +122,12 @@ pub fn decode(bytes: &[u8]) -> CommandResult<Texture> {
             1,
         ),
         png::ColorType::Indexed => {
-            return Err(CommandError::fs("png с палитрой не поддерживается"))
+            return Err(CommandError::unsupported("error.reason.skins.palette_png"))
         }
     };
 
     if rgba.len() != pixels * 4 {
-        return Err(CommandError::fs("png повреждён"));
+        return Err(CommandError::invalid_input("error.reason.skins.broken_png"));
     }
 
     Ok(Texture {
@@ -160,13 +160,13 @@ pub fn encode(texture: &Texture) -> CommandResult<Vec<u8>> {
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
 
-        let mut writer = encoder
-            .write_header()
-            .map_err(|e| CommandError::fs("Не удалось записать png").with_details(e.to_string()))?;
+        let mut writer = encoder.write_header().map_err(|e| {
+            CommandError::fs("error.reason.skins.write_png").with_details(e.to_string())
+        })?;
 
-        writer
-            .write_image_data(&texture.rgba)
-            .map_err(|e| CommandError::fs("Не удалось записать png").with_details(e.to_string()))?;
+        writer.write_image_data(&texture.rgba).map_err(|e| {
+            CommandError::fs("error.reason.skins.write_png").with_details(e.to_string())
+        })?;
     }
 
     Ok(out)
@@ -179,9 +179,9 @@ pub fn normalize(bytes: &[u8]) -> CommandResult<(Vec<u8>, SkinVariant)> {
         (SIZE, SIZE) => texture,
         (SIZE, LEGACY_HEIGHT) => expand_legacy(&texture),
         (width, height) => {
-            return Err(CommandError::fs(format!(
-                "Скин должен быть 64x64 или 64x32, а этот {width}x{height}"
-            )))
+            return Err(CommandError::invalid_input("error.reason.skins.wrong_size")
+                .param("width", width)
+                .param("height", height))
         }
     };
 
@@ -196,25 +196,25 @@ const SLIM_GAPS: [Rect; 4] = [
         y: 16,
         w: 2,
         h: 4,
-    }, // правая рука, верх и низ
+    }, // right arm, top and bottom
     Rect {
         x: 54,
         y: 20,
         w: 2,
         h: 12,
-    }, // правая рука, боковины
+    }, // right arm, sides
     Rect {
         x: 42,
         y: 48,
         w: 2,
         h: 4,
-    }, // левая рука, верх и низ
+    }, // left arm, top and bottom
     Rect {
         x: 46,
         y: 52,
         w: 2,
         h: 12,
-    }, // левая рука, боковины
+    }, // left arm, sides
 ];
 
 pub fn detect_variant(texture: &Texture) -> SkinVariant {
@@ -242,8 +242,8 @@ pub fn expand_legacy(legacy: &Texture) -> Texture {
         }
     }
 
-    mirror_limb(&mut texture, (0, 16), (16, 48)); // нога
-    mirror_limb(&mut texture, (40, 16), (32, 48)); // рука
+    mirror_limb(&mut texture, (0, 16), (16, 48)); // leg
+    mirror_limb(&mut texture, (40, 16), (32, 48)); // arm
 
     texture
 }
@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn wrong_sizes_are_rejected() {
         let error = normalize(&png_of(32, 32, |_| {})).unwrap_err();
-        assert!(error.message.contains("64x64"));
+        assert_eq!(error.text.key, "error.reason.skins.wrong_size");
 
         assert!(normalize(&png_of(128, 128, |_| {})).is_err());
         assert!(normalize(b"not a png").is_err());

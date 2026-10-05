@@ -27,12 +27,14 @@ export const useErrorStore = defineStore('error', {
       const error = toLauncherError(raw, options.code ?? 'UNKNOWN', options.context ?? {})
 
       console.error(`[${error.code}]`, error.message, error.context, error.cause ?? error)
+      writeErrorLog(error)
 
       const previous = this.entries[0]
       if (
         previous
         && previous.code === error.code
         && previous.message === error.message
+        && previous.reason === error.reason
         && Date.now() - previous.at < DEDUPE_WINDOW_MS
       ) {
         previous.count += 1
@@ -55,6 +57,7 @@ export const useErrorStore = defineStore('error', {
         icon: error.icon,
         title: error.title,
         message: error.message,
+        reason: error.reason,
         hint: error.hint,
         details: error.details,
         context: error.context,

@@ -59,7 +59,10 @@ export const useIconStore = defineStore('icon', {
     },
 
     async importFile(): Promise<IconFile | null> {
-      const icon = await call('import_icon', {})
+      const { $i18n } = useNuxtApp()
+      const icon = await call('import_icon', {
+        dialog: { title: $i18n.t('dialog.icon.title'), filter: $i18n.t('dialog.icon.filter') },
+      })
       if (!icon) return null
 
       await this.loadLibrary(true)

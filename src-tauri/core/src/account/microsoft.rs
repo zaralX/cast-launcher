@@ -130,13 +130,15 @@ async fn request_token(params: &[(&str, &str)]) -> CommandResult<MicrosoftTokens
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось связаться с сервером Microsoft")
+            CommandError::network("error.reason.network.service_unreachable")
+                .param("service", "Microsoft")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
     let status = response.status();
     let json: Value = response.json().await.map_err(|e| {
-        CommandError::auth(format!("Некорректный ответ Microsoft (HTTP {status})"))
+        CommandError::auth("error.reason.account.invalid_response")
+            .param("status", status)
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -146,14 +148,13 @@ async fn request_token(params: &[(&str, &str)]) -> CommandResult<MicrosoftTokens
             .and_then(Value::as_str)
             .unwrap_or(error);
 
-        return Err(
-            CommandError::auth(format!("Microsoft отклонил запрос: {error}"))
-                .with_details(description),
-        );
+        return Err(CommandError::auth("error.reason.account.request_rejected")
+            .param("error", error)
+            .with_details(description));
     }
 
     serde_json::from_value(json).map_err(|e| {
-        CommandError::auth("Microsoft вернул ответ без токенов")
+        CommandError::auth("error.reason.account.no_tokens")
             .with_details(crate::error::error_chain(&e))
     })
 }
@@ -204,7 +205,7 @@ pub async fn profile(minecraft_access_token: &str) -> CommandResult<MinecraftPro
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось получить профиль Minecraft")
+            CommandError::network("error.reason.account.profile_failed")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -223,7 +224,8 @@ async fn post_json<T: serde::de::DeserializeOwned>(
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network(format!("Запрос не выполнен: {url}"))
+        CommandError::network("error.reason.network.request_failed")
+            .param("url", url)
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -237,17 +239,19 @@ async fn parse<T: serde::de::DeserializeOwned>(response: Response, url: &str) ->
         let text = response.text().await.unwrap_or_default();
 
         return Err(match status.as_u16() {
-            401 | 403 => CommandError::auth_expired("Сессия Minecraft недействительна")
+            401 | 403 => CommandError::auth_expired("error.reason.account.session_invalid")
                 .with_details(format!("HTTP {status}\n{text}")),
-            404 => CommandError::auth("На этом аккаунте Microsoft нет купленного Minecraft")
+            404 => CommandError::auth("error.reason.account.no_minecraft")
                 .with_details(format!("HTTP {status}\n{url}\n{text}")),
-            _ => CommandError::network(format!("Сервер ответил HTTP {status}"))
+            _ => CommandError::network("error.reason.network.http_status_short")
+                .param("status", status)
                 .with_details(format!("{url}\n{text}")),
         });
     }
 
     response.json().await.map_err(|e| {
-        CommandError::manifest(format!("Некорректный ответ: {url}"))
+        CommandError::manifest("error.reason.service.invalid_response")
+            .param("url", url)
             .with_details(crate::error::error_chain(&e))
     })
 }

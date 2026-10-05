@@ -40,10 +40,10 @@ pub fn read(settings_dir: &Path) -> CommandResult<Snapshot> {
     let source = settings_dir.join(DB_FILE);
 
     if !source.is_file() {
-        return Err(CommandError::fs(format!(
-            "В каталоге нет базы Modrinth App ({DB_FILE}): {}",
-            settings_dir.display()
-        )));
+        return Err(
+            CommandError::invalid_input("error.reason.import.no_modrinth_db")
+                .param("file", DB_FILE),
+        );
     }
 
     let scratch = Scratch::of(&source)?;
@@ -62,7 +62,9 @@ fn open(path: &Path) -> CommandResult<Connection> {
         path,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
-    .map_err(|e| CommandError::fs(format!("Не удалось открыть базу Modrinth App: {e}")))
+    .map_err(|e| {
+        CommandError::fs("error.reason.import.modrinth_db_open").with_details(e.to_string())
+    })
 }
 
 pub fn schema(connection: &Connection) -> CommandResult<Schema> {
@@ -84,8 +86,8 @@ pub fn schema(connection: &Connection) -> CommandResult<Schema> {
         return Ok(Schema::Profiles);
     }
 
-    Err(CommandError::manifest(
-        "База Modrinth App незнакомой версии: в ней нет ни instances, ни profiles",
+    Err(CommandError::unsupported(
+        "error.reason.import.modrinth_db_version",
     ))
 }
 
@@ -152,7 +154,8 @@ fn instances(connection: &Connection) -> CommandResult<Vec<InstanceRow>> {
     };
 
     let failed = |e: rusqlite::Error| {
-        CommandError::manifest(format!("Не удалось прочитать сборки Modrinth App: {e}"))
+        CommandError::manifest("error.reason.import.modrinth_read_instances")
+            .with_details(e.to_string())
     };
 
     let mut statement = connection.prepare(query).map_err(failed)?;
@@ -203,7 +206,7 @@ impl Scratch {
         let dir = std::env::temp_dir().join(format!("cast-modrinth-{}", uuid::Uuid::new_v4()));
 
         std::fs::create_dir_all(&dir)
-            .map_err(|e| CommandError::io("Не удалось создать временный каталог", &dir, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.create_dir", &dir, e))?;
 
         let copy = Self {
             db: dir.join(DB_FILE),
@@ -211,15 +214,14 @@ impl Scratch {
         };
 
         std::fs::copy(source, &copy.db)
-            .map_err(|e| CommandError::io("Не удалось прочитать базу Modrinth App", source, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.read_file", source, e))?;
 
         for suffix in SIDECARS {
             let sidecar = with_suffix(source, suffix);
 
             if sidecar.is_file() {
-                std::fs::copy(&sidecar, with_suffix(&copy.db, suffix)).map_err(|e| {
-                    CommandError::io("Не удалось прочитать журнал Modrinth App", &sidecar, e)
-                })?;
+                std::fs::copy(&sidecar, with_suffix(&copy.db, suffix))
+                    .map_err(|e| CommandError::io("error.reason.fs.read_file", &sidecar, e))?;
             }
         }
 
@@ -386,7 +388,7 @@ mod tests {
         assert_eq!(std::fs::metadata(dir.join(DB_FILE)).unwrap().len(), before);
         assert!(
             !dir.join(format!("{DB_FILE}-wal")).exists(),
-            "журнал не появился"
+            "the journal did not appear"
         );
 
         std::fs::remove_dir_all(&dir).ok();
@@ -406,13 +408,16 @@ mod tests {
 
         assert!(
             dir.join(format!("{DB_FILE}-wal")).is_file(),
-            "хвост правда в журнале"
+            "the tail really is in the journal"
         );
 
         let name = only(&dir).name;
         drop(connection);
 
-        assert_eq!(name, "Переименовали", "журнал восстановлен без -shm");
+        assert_eq!(
+            name, "Переименовали",
+            "the journal is replayed without -shm"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -429,7 +434,7 @@ mod tests {
         drop(connection);
 
         let error = read(&dir).unwrap_err();
-        assert!(error.message.contains("instances"));
+        assert_eq!(error.text.key, "error.reason.import.modrinth_db_version");
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -439,7 +444,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("cast-modrinth-db-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
 
-        assert!(read(&dir).unwrap_err().message.contains(DB_FILE));
+        assert!(read(&dir).unwrap_err().text.mentions(DB_FILE));
 
         std::fs::remove_dir_all(&dir).ok();
     }

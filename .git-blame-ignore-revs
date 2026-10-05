@@ -1,2 +1,5 @@
 # ESLint stylistic autoformat of the frontend (also moved functions from types/ to utils/)
 02f9f8d9ebdbb26a984ece1c4b065d6a131f3c60
+
+# cargo fmt over the whole Rust workspace
+db3cf61b2e7f3e11849f41cbfc1e1dfff8cf7608

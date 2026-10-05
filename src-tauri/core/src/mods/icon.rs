@@ -22,7 +22,7 @@ pub fn store(dir: &Path, key: &str, bytes: &[u8]) -> CommandResult<()> {
     std::fs::create_dir_all(dir).ok();
 
     std::fs::write(&path, bytes)
-        .map_err(|e| crate::error::CommandError::io("Не удалось сохранить иконку мода", &path, e))
+        .map_err(|e| crate::error::CommandError::io("error.reason.fs.write_file", &path, e))
 }
 
 pub fn exists(dir: &Path, key: &str) -> bool {
@@ -69,9 +69,13 @@ mod tests {
         assert_eq!(
             first,
             key("mods/jei.jar", 100, 42, "png"),
-            "тот же файл - тот же ключ"
+            "same file, same key"
         );
-        assert_ne!(first, key("mods/jei.jar", 100, 43, "png"), "мод обновился");
+        assert_ne!(
+            first,
+            key("mods/jei.jar", 100, 43, "png"),
+            "the mod was updated"
+        );
         assert_ne!(first, key("mods/other.jar", 100, 42, "png"));
         assert!(first.ends_with(".png"));
     }

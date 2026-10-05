@@ -49,14 +49,14 @@ pub async fn list(dir: &Path) -> CommandResult<Vec<IconFile>> {
 
     let mut entries = tokio::fs::read_dir(dir)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог иконок", dir, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", dir, e))?;
 
     let mut icons = Vec::new();
 
     while let Some(entry) = entries
         .next_entry()
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог иконок", dir, e))?
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", dir, e))?
     {
         let path = entry.path();
 
@@ -97,7 +97,9 @@ pub fn resolve(dir: &Path, name: &str) -> CommandResult<PathBuf> {
     let path = child_file(dir, name)?;
 
     if mime(&path).is_none() {
-        return Err(CommandError::fs(format!("Это не картинка: {name}")));
+        return Err(
+            CommandError::invalid_input("error.reason.icons.not_an_image").param("name", name),
+        );
     }
 
     Ok(path)
@@ -105,33 +107,29 @@ pub fn resolve(dir: &Path, name: &str) -> CommandResult<PathBuf> {
 
 pub async fn import(dir: &Path, source: &Path) -> CommandResult<IconFile> {
     if mime(source).is_none() {
-        return Err(CommandError::fs(format!(
-            "Поддерживаются только картинки: {}",
-            extensions().join(", ")
-        )));
+        return Err(
+            CommandError::invalid_input("error.reason.icons.unsupported_format")
+                .param("formats", extensions().join(", ")),
+        );
     }
 
     let metadata = tokio::fs::metadata(source)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать картинку", source, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_file", source, e))?;
 
     if !metadata.is_file() {
-        return Err(CommandError::fs(format!(
-            "Это не файл: {}",
-            source.display()
-        )));
+        return Err(CommandError::invalid_input("error.reason.icons.not_a_file")
+            .param("path", source.display()));
     }
 
     if metadata.len() > MAX_SIZE {
-        return Err(CommandError::fs(format!(
-            "Картинка больше {} МБ",
-            MAX_SIZE / 1024 / 1024
-        )));
+        return Err(CommandError::invalid_input("error.reason.icons.too_large")
+            .param("size", MAX_SIZE / 1024 / 1024));
     }
 
     let bytes = tokio::fs::read(source)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать картинку", source, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_file", source, e))?;
 
     let name = source
         .file_name()
@@ -185,12 +183,13 @@ pub async fn save_once(dir: &Path, name: &str, bytes: &[u8]) -> CommandResult<Ic
 }
 
 pub async fn data_url(path: &Path) -> CommandResult<String> {
-    let mime = mime(path)
-        .ok_or_else(|| CommandError::fs(format!("Это не картинка: {}", path.display())))?;
+    let mime = mime(path).ok_or_else(|| {
+        CommandError::fs("error.reason.icons.not_an_image").param("name", path.display())
+    })?;
 
     let bytes = tokio::fs::read(path)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать иконку", path, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_file", path, e))?;
 
     Ok(to_data_url(mime, &bytes))
 }
@@ -204,7 +203,7 @@ pub async fn remove(dir: &Path, name: &str) -> CommandResult<()> {
 
     tokio::fs::remove_file(&path)
         .await
-        .map_err(|e| CommandError::io("Не удалось удалить иконку", &path, e))
+        .map_err(|e| CommandError::io("error.reason.fs.delete", &path, e))
 }
 
 fn sanitize_name(name: &str) -> String {

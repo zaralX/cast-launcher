@@ -1,7 +1,7 @@
 //!
 //! ```text
 //! settings_dir/app.db
-//! config_dir/profiles/<path>/   <- сама сборка, это сразу .minecraft
+//! config_dir/profiles/<path>/   <- the instance itself, already the .minecraft dir
 //! config_dir/meta/libraries/
 //! config_dir/meta/assets/{indexes,objects}
 //! config_dir/meta/java_versions/
@@ -18,6 +18,7 @@ use crate::config::JavaMode;
 use crate::error::{CommandError, CommandResult};
 use crate::instance::{InstanceSettings, LoaderType, Playtime};
 use crate::meta::neoforge;
+use crate::text::UiText;
 
 use super::copy::{self, Progress};
 use super::{prism, ImportOptions, InstanceTargets, ManagedPack, ScannedInstance, SharedTargets};
@@ -159,11 +160,10 @@ pub async fn open(dir: &Path) -> CommandResult<Root> {
     let settings = normalize(dir);
 
     if !is_data_dir(&settings) {
-        return Err(CommandError::fs(format!(
-            "Это не каталог данных Modrinth App: внутри нет {} ({})",
-            db::DB_FILE,
-            settings.display()
-        )));
+        return Err(
+            CommandError::invalid_input("error.reason.import.not_modrinth_dir")
+                .param("file", db::DB_FILE),
+        );
     }
 
     let snapshot = snapshot(&settings).await?;
@@ -180,7 +180,7 @@ async fn snapshot(settings: &Path) -> CommandResult<db::Snapshot> {
 
     tokio::task::spawn_blocking(move || db::read(&settings))
         .await
-        .map_err(|e| CommandError::task_panicked("чтение базы Modrinth App", e))?
+        .map_err(|e| CommandError::task_panicked("read_modrinth_db", e))?
 }
 
 pub async fn scan(root: &Root) -> Vec<ScannedInstance> {
@@ -192,7 +192,7 @@ pub async fn scan(root: &Root) -> Vec<ScannedInstance> {
         let mut scanned = parse(row);
 
         if scanned.blocked.is_none() && !root.profiles().join(&scanned.folder).is_dir() {
-            scanned.blocked = Some("папки сборки нет на диске".into());
+            scanned.blocked = Some(UiText::new("import.blocked.folder_missing"));
         }
 
         if scanned.is_importable() {
@@ -230,14 +230,14 @@ pub fn parse(row: &db::InstanceRow) -> ScannedInstance {
     };
 
     if !is_folder_name(&row.path) {
-        scanned.blocked = Some("в базе Modrinth App испорчен путь к папке сборки".into());
+        scanned.blocked = Some(UiText::new("import.blocked.broken_path"));
         return scanned;
     }
 
     let minecraft = row.game_version.trim().to_string();
 
     if minecraft.is_empty() {
-        scanned.blocked = Some("в базе Modrinth App нет версии Minecraft".into());
+        scanned.blocked = Some(UiText::new("import.blocked.modrinth_no_minecraft"));
         return scanned;
     }
 
@@ -255,7 +255,9 @@ pub fn parse(row: &db::InstanceRow) -> ScannedInstance {
         .find(|(key, _, _)| *key == loader)
         .map(|(_, label, kind)| (*label, *kind))
     else {
-        scanned.blocked = Some(format!("лаунчер пока не умеет {}", row.loader.trim()));
+        scanned.blocked = Some(
+            UiText::new("import.blocked.loader_unsupported").param("loader", row.loader.trim()),
+        );
         return scanned;
     };
 
@@ -271,12 +273,14 @@ pub fn parse(row: &db::InstanceRow) -> ScannedInstance {
     };
 
     let Some(kind) = kind else {
-        scanned.blocked = Some(format!("лаунчер пока не умеет {label}"));
+        scanned.blocked =
+            Some(UiText::new("import.blocked.loader_unsupported").param("loader", label));
         return scanned;
     };
 
     let Some(version) = version else {
-        scanned.blocked = Some(format!("в базе Modrinth App нет версии {label}"));
+        scanned.blocked =
+            Some(UiText::new("import.blocked.modrinth_no_loader_version").param("loader", label));
         return scanned;
     };
 
@@ -396,23 +400,23 @@ pub async fn copy_shared(
     options: &ImportOptions,
     targets: &SharedTargets,
     progress: &Progress<'_>,
-    on_step: impl Fn(&str),
+    on_step: impl Fn(UiText),
 ) -> CommandResult<()> {
     if options.libraries {
-        on_step("Библиотеки");
+        on_step(UiText::new("settings.import.step.libraries"));
         copy::merge_dir(&root.libraries(), &targets.libraries, progress).await?;
     }
 
     if options.assets {
         let assets = root.assets();
 
-        on_step("Ресурсы игры");
+        on_step(UiText::new("settings.import.step.assets"));
         copy::merge_dir(&assets.join("indexes"), &targets.asset_indexes, progress).await?;
         copy::merge_dir(&assets.join("objects"), &targets.asset_objects, progress).await?;
     }
 
     if options.java {
-        on_step("Java");
+        on_step(UiText::new("settings.import.step.java"));
         copy::merge_dir(&root.java_runtimes(), &targets.java_runtimes, progress).await?;
     }
 
@@ -568,7 +572,7 @@ mod tests {
         });
 
         assert_eq!(scanned.loader_label, "Quilt 0.28.1");
-        assert!(scanned.blocked.unwrap().contains("Quilt"));
+        assert!(scanned.blocked.unwrap().mentions("Quilt"));
     }
 
     #[test]
@@ -578,7 +582,7 @@ mod tests {
             ..row()
         });
 
-        assert!(scanned.blocked.unwrap().contains("liteloader"));
+        assert!(scanned.blocked.unwrap().mentions("liteloader"));
     }
 
     #[test]
@@ -589,7 +593,7 @@ mod tests {
         });
 
         assert_eq!(scanned.loader_label, "Fabric");
-        assert!(scanned.blocked.unwrap().contains("Fabric"));
+        assert!(scanned.blocked.unwrap().mentions("Fabric"));
     }
 
     #[test]
@@ -599,7 +603,7 @@ mod tests {
             ..row()
         });
 
-        assert!(scanned.blocked.unwrap().contains("Minecraft"));
+        assert!(scanned.blocked.unwrap().mentions("Minecraft"));
     }
 
     #[test]
@@ -624,7 +628,7 @@ mod tests {
         assert_eq!(settings.max_ram, 6144);
         assert_eq!(
             settings.min_ram, 0,
-            "нижнюю границу берём из общих настроек"
+            "the lower bound comes from the shared settings"
         );
     }
 
@@ -675,7 +679,7 @@ mod tests {
         assert_eq!(instance.loader, LoaderType::Fabric);
         assert_eq!(instance.minecraft_version, "1.21.1");
         assert!(!instance.installed);
-        assert!(instance.pack.is_none(), "пак проставляется отдельно");
+        assert!(instance.pack.is_none(), "the pack is set separately");
     }
 
     #[test]
@@ -729,7 +733,7 @@ mod tests {
 
         assert!(
             client_jar(&root_at(&root), "1.20").await.is_none(),
-            "префикс точный"
+            "the prefix is exact"
         );
         assert!(client_jar(&root_at(&root), "1.21.1").await.is_none());
 
@@ -767,7 +771,10 @@ mod tests {
         let second = icon_name("Fabulously Optimized", Path::new("/other/icon.png"));
 
         assert_eq!(first.as_deref(), Some("modrinth_Create Azure.png"));
-        assert_ne!(first, second, "иначе вторая сборка возьмёт картинку первой");
+        assert_ne!(
+            first, second,
+            "otherwise the second instance takes the first one's picture"
+        );
     }
 
     #[test]
@@ -783,7 +790,7 @@ mod tests {
 
             assert!(
                 crate::icons::resolve(Path::new("/icons"), &name).is_ok(),
-                "имя {name:?} не принимается"
+                "name {name:?} is refused"
             );
         }
     }
@@ -804,10 +811,7 @@ mod tests {
                 ..row()
             });
 
-            assert!(
-                scanned.blocked.is_some(),
-                "путь {path:?} должен блокироваться"
-            );
+            assert!(scanned.blocked.is_some(), "path {path:?} must be blocked");
         }
 
         assert!(is_folder_name("Create Azure"));
@@ -885,14 +889,18 @@ mod tests {
             &ImportOptions::default(),
             &targets,
             &progress,
-            |step| steps.lock().unwrap().push(step.to_string()),
+            |step| steps.lock().unwrap().push(step.key),
         )
         .await
         .unwrap();
 
         assert_eq!(
             *steps.lock().unwrap(),
-            vec!["Библиотеки", "Ресурсы игры", "Java"]
+            vec![
+                "settings.import.step.libraries",
+                "settings.import.step.assets",
+                "settings.import.step.java"
+            ]
         );
         assert!(targets
             .libraries
@@ -1115,12 +1123,11 @@ mod tests {
         std::fs::write(icons.join("azure.png"), b"pixels").unwrap();
 
         let opened = open(&root).await.unwrap();
-        assert_eq!(opened.config, root, "custom_dir не задан - всё лежит рядом");
         assert_eq!(
-            opened.instances(),
-            2,
-            "база прочитана один раз, при открытии"
+            opened.config, root,
+            "no custom_dir, everything lies next to it"
         );
+        assert_eq!(opened.instances(), 2, "the database is read once, on open");
 
         let found = scan(&opened).await;
         assert_eq!(found.len(), 2);
@@ -1136,11 +1143,14 @@ mod tests {
 
         let gone = found.iter().find(|i| i.folder == "Ушедшая").unwrap();
         assert_eq!(
-            gone.blocked.as_deref(),
-            Some("папки сборки нет на диске"),
+            gone.blocked.as_ref().map(|text| text.key.as_str()),
+            Some("import.blocked.folder_missing"),
             "{schema:?}"
         );
-        assert!(gone.icon.is_none(), "у непереносимой сборки иконку не ищем");
+        assert!(
+            gone.icon.is_none(),
+            "no icon lookup for an instance that can not be imported"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -1182,7 +1192,7 @@ mod tests {
     async fn opening_a_folder_without_a_database_is_an_error() {
         let root = scratch();
 
-        assert!(open(&root).await.unwrap_err().message.contains(db::DB_FILE));
+        assert!(open(&root).await.unwrap_err().text.mentions(db::DB_FILE));
 
         std::fs::remove_dir_all(&root).ok();
     }

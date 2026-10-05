@@ -37,7 +37,7 @@ pub async fn upload_skin(
         .file_name("skin.png")
         .mime_str("image/png")
         .map_err(|e| {
-            CommandError::unknown("Не удалось собрать запрос")
+            CommandError::unknown("error.reason.internal.build_request")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -52,7 +52,7 @@ pub async fn upload_skin(
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось отправить скин в Mojang")
+            CommandError::network("error.reason.skins.upload")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -66,7 +66,7 @@ pub async fn reset_skin(token: &str) -> CommandResult<()> {
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось сбросить скин")
+            CommandError::network("error.reason.skins.reset")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -81,7 +81,7 @@ pub async fn set_cape(token: &str, cape_id: &str) -> CommandResult<ProfileRespon
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось надеть плащ")
+            CommandError::network("error.reason.skins.equip_cape")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -95,7 +95,7 @@ pub async fn clear_cape(token: &str) -> CommandResult<()> {
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось снять плащ")
+            CommandError::network("error.reason.skins.remove_cape")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -104,7 +104,7 @@ pub async fn clear_cape(token: &str) -> CommandResult<()> {
 
 pub async fn download(url: &str) -> CommandResult<Vec<u8>> {
     let response = http::client().get(url).send().await.map_err(|e| {
-        CommandError::network("Не удалось скачать текстуру")
+        CommandError::network("error.reason.skins.texture_download")
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -119,7 +119,7 @@ pub async fn download(url: &str) -> CommandResult<Vec<u8>> {
         .await
         .map(|bytes| bytes.to_vec())
         .map_err(|e| {
-            CommandError::download("Текстура скачалась не полностью")
+            CommandError::download("error.reason.skins.texture_incomplete")
                 .with_details(crate::error::error_chain(&e))
         })
 }
@@ -135,17 +135,22 @@ pub async fn player_skin(name: &str) -> CommandResult<PlayerSkin> {
     let name = name.trim();
 
     if name.is_empty() {
-        return Err(CommandError::fs("Укажите никнейм"));
+        return Err(CommandError::invalid_input(
+            "error.reason.account.nickname_required",
+        ));
     }
 
     let lookup_url = format!("{NAME_LOOKUP_URL}/{name}");
 
     let response = http::client().get(&lookup_url).send().await.map_err(|e| {
-        CommandError::network("Не удалось найти игрока").with_details(crate::error::error_chain(&e))
+        CommandError::network("error.reason.skins.player_lookup")
+            .with_details(crate::error::error_chain(&e))
     })?;
 
     if response.status().as_u16() == 404 || response.status().as_u16() == 204 {
-        return Err(CommandError::fs(format!("Игрок {name} не найден")));
+        return Err(
+            CommandError::not_found("error.reason.skins.player_not_found").param("name", name),
+        );
     }
 
     let profile: Value = parse(response, &lookup_url).await?;
@@ -153,7 +158,7 @@ pub async fn player_skin(name: &str) -> CommandResult<PlayerSkin> {
     let id = profile
         .get("id")
         .and_then(Value::as_str)
-        .ok_or_else(|| CommandError::manifest("Mojang вернул игрока без идентификатора"))?;
+        .ok_or_else(|| CommandError::manifest("error.reason.skins.player_no_id"))?;
 
     let session_url = format!("{SESSION_PROFILE_URL}/{id}");
 
@@ -162,13 +167,13 @@ pub async fn player_skin(name: &str) -> CommandResult<PlayerSkin> {
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось получить профиль игрока")
+            CommandError::network("error.reason.skins.player_profile")
                 .with_details(crate::error::error_chain(&e))
         })?
         .json()
         .await
         .map_err(|e| {
-            CommandError::manifest("Некорректный ответ сессии")
+            CommandError::manifest("error.reason.skins.invalid_session")
                 .with_details(crate::error::error_chain(&e))
         })?;
 
@@ -182,27 +187,29 @@ pub async fn player_skin(name: &str) -> CommandResult<PlayerSkin> {
         })
         .and_then(|property| property.get("value"))
         .and_then(Value::as_str)
-        .ok_or_else(|| CommandError::manifest("У игрока нет текстур"))?;
+        .ok_or_else(|| CommandError::not_found("error.reason.skins.no_textures"))?;
 
     let decoded = STANDARD.decode(encoded).map_err(|e| {
-        CommandError::manifest("Текстуры игрока не читаются")
+        CommandError::manifest("error.reason.skins.textures_unreadable")
             .with_details(crate::error::error_chain(&e))
     })?;
 
     let textures: Value = serde_json::from_slice(&decoded).map_err(|e| {
-        CommandError::manifest("Текстуры игрока не читаются")
+        CommandError::manifest("error.reason.skins.textures_unreadable")
             .with_details(crate::error::error_chain(&e))
     })?;
 
     let skin = textures
         .get("textures")
         .and_then(|textures| textures.get("SKIN"))
-        .ok_or_else(|| CommandError::fs(format!("У игрока {name} стандартный скин")))?;
+        .ok_or_else(|| {
+            CommandError::not_found("error.reason.skins.default_skin").param("name", name)
+        })?;
 
     let url = skin
         .get("url")
         .and_then(Value::as_str)
-        .ok_or_else(|| CommandError::manifest("У текстуры нет ссылки"))?;
+        .ok_or_else(|| CommandError::manifest("error.reason.skins.texture_no_url"))?;
 
     let model = skin
         .get("metadata")
@@ -228,7 +235,8 @@ async fn parse<T: serde::de::DeserializeOwned>(response: Response, url: &str) ->
     }
 
     response.json().await.map_err(|e| {
-        CommandError::manifest(format!("Некорректный ответ: {url}"))
+        CommandError::manifest("error.reason.service.invalid_response")
+            .param("url", url)
             .with_details(crate::error::error_chain(&e))
     })
 }
@@ -246,14 +254,15 @@ async fn failure(response: Response, url: &str) -> CommandError {
     let text = response.text().await.unwrap_or_default();
 
     match status.as_u16() {
-        401 | 403 => CommandError::auth_expired("Сессия Minecraft недействительна")
+        401 | 403 => CommandError::auth_expired("error.reason.account.session_invalid")
             .with_details(format!("HTTP {status}\n{text}")),
-        404 => CommandError::auth("На этом аккаунте Microsoft нет купленного Minecraft")
+        404 => CommandError::auth("error.reason.account.no_minecraft")
             .with_details(format!("HTTP {status}\n{url}\n{text}")),
-        // Mojang жёстко ограничивает частоту смены внешнего вида.
-        429 => CommandError::network("Mojang просит подождать: слишком часто меняете внешний вид")
+        // Mojang strictly rate-limits look changes.
+        429 => CommandError::conflict("error.reason.skins.rate_limited")
             .with_details(format!("HTTP {status}\n{text}")),
-        _ => CommandError::network(format!("Сервер ответил HTTP {status}"))
+        _ => CommandError::network("error.reason.network.http_status_short")
+            .param("status", status)
             .with_details(format!("{url}\n{text}")),
     }
 }

@@ -51,9 +51,7 @@ pub async fn item_names(
 
 pub fn item_icon_url(item: &str) -> CommandResult<String> {
     if !is_item_id(item) {
-        return Err(CommandError::fs(format!(
-            "Некорректный идентификатор предмета: {item}"
-        )));
+        return Err(CommandError::unknown("error.reason.assets.invalid_item").param("item", item));
     }
 
     Ok(format!("{BASE}/item/{item}/icon"))
@@ -107,7 +105,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "ходит в сеть"]
+    #[ignore = "hits the network"]
     async fn catalog_is_reachable() {
         let dir = std::env::temp_dir().join(format!("cast-assets-{}", uuid::Uuid::new_v4()));
         let meta = MetaCache::new(dir.clone());
@@ -117,7 +115,7 @@ mod tests {
         assert!(categories["combat"].contains(&"diamond_sword".to_string()));
 
         let icon = item_icon(&meta, "grass_block").await.unwrap();
-        assert!(icon.starts_with(b"RIFF"), "ожидали webp");
+        assert!(icon.starts_with(b"RIFF"), "expected webp");
 
         let names = item_names(&meta, "ru").await.unwrap();
         assert_eq!(

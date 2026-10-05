@@ -15,7 +15,7 @@ use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
 use cast_core::import::{ImportProgress, ImportReport, LauncherKind, ScannedInstance};
 use cast_core::install::pack_files::PackFiles;
-use cast_core::instance::{Instance, InstanceSettings, PackProvider, PackSource};
+use cast_core::instance::{Instance, InstanceUpdate, PackProvider};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::{neoforge, vanilla};
@@ -107,19 +107,21 @@ pub async fn open_path(app: AppHandle, path: String) -> CommandResult<()> {
 #[tauri::command]
 pub async fn open_url(app: AppHandle, url: String) -> CommandResult<()> {
     let parsed = url::Url::parse(url.trim()).map_err(|e| {
-        CommandError::fs(format!("Некорректная ссылка: {url}")).with_details(e.to_string())
+        CommandError::unknown("error.reason.links.invalid")
+            .param("url", &url)
+            .with_details(e.to_string())
     })?;
 
     if !matches!(parsed.scheme(), "http" | "https") {
-        return Err(CommandError::fs(format!(
-            "Ссылку такого вида лаунчер не открывает: {url}"
-        )));
+        return Err(CommandError::unknown("error.reason.links.unsupported").param("url", &url));
     }
 
     app.opener()
         .open_url(parsed.as_str(), None::<&str>)
         .map_err(|e| {
-            CommandError::fs(format!("Не удалось открыть {url}")).with_details(e.to_string())
+            CommandError::unknown("error.reason.links.open_failed")
+                .param("url", &url)
+                .with_details(e.to_string())
         })
 }
 
@@ -127,7 +129,8 @@ fn open(app: &AppHandle, path: &Path) -> CommandResult<()> {
     app.opener()
         .open_path(path.to_string_lossy(), None::<&str>)
         .map_err(|e| {
-            CommandError::fs(format!("Не удалось открыть {}", path.display()))
+            CommandError::fs("error.reason.fs.open")
+                .param("path", path.display())
                 .with_details(e.to_string())
         })
 }
@@ -176,7 +179,9 @@ pub async fn delete_instance(
     instance_id: String,
 ) -> CommandResult<()> {
     if state.processes.is_running(&instance_id).await {
-        return Err(CommandError::launch("Сначала закройте запущенную игру"));
+        return Err(CommandError::conflict(
+            "error.reason.instance.close_game_first",
+        ));
     }
 
     state.installs.cancel(&instance_id).await;
@@ -207,15 +212,6 @@ pub async fn delete_instance(
     Ok(())
 }
 
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct InstanceUpdate {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub icon: Option<String>,
-    pub settings: Option<InstanceSettings>,
-}
-
 #[tauri::command]
 pub async fn update_instance(
     app: AppHandle,
@@ -223,55 +219,12 @@ pub async fn update_instance(
     instance_id: String,
     update: InstanceUpdate,
 ) -> CommandResult<Instance> {
-    let name = match update.name {
-        Some(name) => {
-            let name = name.trim().to_string();
-
-            if name.is_empty() {
-                return Err(CommandError::fs("Название сборки не может быть пустым"));
-            }
-
-            Some(name)
-        }
-        None => None,
-    };
-
-    let description = update.description.map(|text| text.trim().to_string());
-    let settings = update.settings;
-
     let paths = state.paths().await;
-
-    let icon = match update.icon {
-        Some(icon) if !icon.trim().is_empty() => {
-            let icon = icon.trim().to_string();
-            let path = icons::resolve(&paths.icons(), &icon)?;
-
-            if !path.is_file() {
-                return Err(CommandError::fs(format!("Иконка не найдена: {icon}")));
-            }
-
-            Some(icon)
-        }
-        Some(_) => Some(String::new()),
-        None => None,
-    };
+    let update = update.normalized(&paths.icons())?;
 
     let updated = state
         .instances
-        .update(&paths, &instance_id, move |instance| {
-            if let Some(name) = name {
-                instance.name = name;
-            }
-            if let Some(description) = description {
-                instance.description = description;
-            }
-            if let Some(icon) = icon {
-                instance.icon = icon;
-            }
-            if let Some(settings) = settings {
-                instance.settings = settings;
-            }
-        })
+        .update(&paths, &instance_id, move |instance| update.apply(instance))
         .await?;
 
     LauncherEvent::Instances {
@@ -511,9 +464,7 @@ pub async fn update_mods(
         .unwrap_or_default();
 
     if wanted.is_empty() {
-        return Err(CommandError::unknown(
-            "Обновления не найдены - проверьте их заново",
-        ));
+        return Err(CommandError::conflict("error.reason.mods.updates_stale"));
     }
 
     let scan = mods_scan(&state, &instance_id).await?;
@@ -615,7 +566,7 @@ pub async fn install_mod(
         .get(&plan_id)
         .filter(|(planned_for, _)| planned_for == &instance_id)
         .map(|(_, plan)| plan.clone())
-        .ok_or_else(|| CommandError::unknown("План установки устарел - выберите версию заново"))?;
+        .ok_or_else(|| CommandError::conflict("error.reason.mods.plan_stale"))?;
 
     let scan = mods_scan(&state, &instance_id).await?;
     let paths = state.paths().await;
@@ -664,14 +615,22 @@ async fn installed_projects(state: &Ctx<'_>, instance_id: &str) -> CommandResult
         .collect())
 }
 
+/// Native dialog wording, translated by the frontend.
+#[derive(Debug, Deserialize)]
+pub struct DialogText {
+    pub title: String,
+    #[serde(default)]
+    pub filter: String,
+}
+
 #[tauri::command]
-pub async fn pick_mod_files(app: AppHandle) -> CommandResult<Vec<String>> {
+pub async fn pick_mod_files(app: AppHandle, dialog: DialogText) -> CommandResult<Vec<String>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
     app.dialog()
         .file()
-        .set_title("Файлы модов")
-        .add_filter("Моды", &["jar", "zip", "litemod"])
+        .set_title(dialog.title)
+        .add_filter(dialog.filter, &["jar", "zip", "litemod"])
         .pick_files(move |picked| {
             let _ = sender.send(picked);
         });
@@ -727,10 +686,11 @@ pub async fn import_icon(
     app: AppHandle,
     state: Ctx<'_>,
     path: Option<String>,
+    dialog: DialogText,
 ) -> CommandResult<Option<IconFile>> {
     let source = match path {
         Some(path) => Some(PathBuf::from(path)),
-        None => pick_image(&app).await,
+        None => pick_image(&app, dialog).await,
     };
 
     let Some(source) = source else {
@@ -742,13 +702,13 @@ pub async fn import_icon(
     icons::import(&paths.icons(), &source).await.map(Some)
 }
 
-async fn pick_image(app: &AppHandle) -> Option<PathBuf> {
+async fn pick_image(app: &AppHandle, dialog: DialogText) -> Option<PathBuf> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
     app.dialog()
         .file()
-        .set_title("Иконка сборки")
-        .add_filter("Картинки", &icons::extensions())
+        .set_title(dialog.title)
+        .add_filter(dialog.filter, &icons::extensions())
         .pick_file(move |picked| {
             let _ = sender.send(picked);
         });
@@ -887,7 +847,9 @@ pub async fn scan_for_files(
     let folder = folder.trim();
 
     if folder.is_empty() {
-        return Err(CommandError::fs("Не указана папка для поиска"));
+        return Err(CommandError::invalid_input(
+            "error.reason.files.folder_required",
+        ));
     }
 
     state.blocked.scan(&instance_id, Path::new(folder)).await
@@ -906,15 +868,12 @@ pub async fn rescan_files(
 #[tauri::command]
 pub async fn pick_folder(
     app: AppHandle,
-    title: Option<String>,
+    title: String,
     directory: Option<String>,
 ) -> CommandResult<Option<String>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
-    let mut dialog = app
-        .dialog()
-        .file()
-        .set_title(title.unwrap_or_else(|| "Выберите папку".into()));
+    let mut dialog = app.dialog().file().set_title(title);
 
     let start = directory
         .map(PathBuf::from)
@@ -1029,12 +988,16 @@ pub async fn add_offline_account(
 }
 
 #[tauri::command]
-pub async fn login_microsoft(app: AppHandle, state: Ctx<'_>) -> CommandResult<Account> {
+pub async fn login_microsoft(
+    app: AppHandle,
+    state: Ctx<'_>,
+    page: cast_core::account::oauth::LoginPage,
+) -> CommandResult<Account> {
     let opener = app.clone();
 
-    let account = cast_core::account::oauth::login(move |url| {
+    let account = cast_core::account::oauth::login(page, move |url| {
         opener.opener().open_url(url, None::<&str>).map_err(|e| {
-            CommandError::auth("Не удалось открыть браузер для входа").with_details(e.to_string())
+            CommandError::auth("error.reason.account.browser_failed").with_details(e.to_string())
         })
     })
     .await
@@ -1075,10 +1038,11 @@ pub async fn import_skin(
     app: AppHandle,
     state: Ctx<'_>,
     path: Option<String>,
+    dialog: DialogText,
 ) -> CommandResult<Option<SkinEntry>> {
     let source = match path {
         Some(path) => Some(PathBuf::from(path)),
-        None => pick_skin_file(&app).await,
+        None => pick_skin_file(&app, dialog).await,
     };
 
     let Some(source) = source else {
@@ -1087,12 +1051,12 @@ pub async fn import_skin(
 
     let bytes = tokio::fs::read(&source)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать файл скина", &source, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_file", &source, e))?;
 
     let name = source
         .file_stem()
         .map(|stem| stem.to_string_lossy().to_string())
-        .unwrap_or_else(|| "Скин".into());
+        .unwrap_or_default();
 
     let paths = state.paths().await;
 
@@ -1107,13 +1071,13 @@ pub async fn import_skin(
     .map(Some)
 }
 
-async fn pick_skin_file(app: &AppHandle) -> Option<PathBuf> {
+async fn pick_skin_file(app: &AppHandle, dialog: DialogText) -> Option<PathBuf> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
     app.dialog()
         .file()
-        .set_title("Скин Minecraft")
-        .add_filter("Скин", &["png"])
+        .set_title(dialog.title)
+        .add_filter(dialog.filter, &["png"])
         .pick_file(move |picked| {
             let _ = sender.send(picked);
         });
@@ -1168,9 +1132,10 @@ pub async fn duplicate_skin(
     state: Ctx<'_>,
     id: String,
     cape_id: Option<String>,
+    name: String,
 ) -> CommandResult<SkinEntry> {
     let paths = state.paths().await;
-    skins::library::duplicate(&paths.skins(), &id, cape_id).await
+    skins::library::duplicate(&paths.skins(), &id, cape_id, &name).await
 }
 
 #[tauri::command]
@@ -1322,63 +1287,21 @@ pub async fn set_instance_pack_version(
     version_id: String,
 ) -> CommandResult<Instance> {
     if state.processes.is_running(&instance_id).await {
-        return Err(CommandError::launch("Сначала закройте запущенную игру"));
+        return Err(CommandError::conflict(
+            "error.reason.instance.close_game_first",
+        ));
     }
 
     if state.installs.snapshot(&instance_id).await.is_some() {
-        return Err(CommandError::launch(
-            "Дождитесь окончания текущей установки",
+        return Err(CommandError::conflict(
+            "error.reason.instance.wait_for_install",
         ));
     }
 
     let instance = state.instances.get(&instance_id).await?;
-
-    if instance.castpack.is_some() {
-        return Err(CommandError::manifest(
-            "Базовый модпак сборки CastPack задаёт её манифест: выбранная вручную версия слетит при обновлении",
-        ));
-    }
-
-    let current = instance.pack.clone().ok_or_else(|| {
-        CommandError::manifest("Эта сборка создана вручную, у неё нет версий пака")
-    })?;
-
+    let current = packs::switch::switchable_pack(&instance)?;
     let version = packs::version(current.provider, &current.project_id, &version_id).await?;
-
-    if !version.project_id.is_empty() && version.project_id != current.project_id {
-        return Err(CommandError::manifest(
-            "Эта версия принадлежит другому модпаку",
-        ));
-    }
-
-    if let Some(reason) = version.unsupported_reason() {
-        return Err(CommandError::manifest(format!(
-            "Версию «{}» лаунчер установить не сможет: {reason}",
-            version.version_number
-        )));
-    }
-
-    let (Some(loader), Some(minecraft_version), Some(file)) = (
-        version.loader,
-        version.minecraft_version.clone(),
-        version.file.clone(),
-    ) else {
-        return Err(CommandError::manifest(format!(
-            "Версию «{}» лаунчер установить не сможет",
-            version.version_number
-        )));
-    };
-
-    let pack = PackSource {
-        provider: current.provider,
-        project_id: current.project_id,
-        version_id: version.id,
-        version_number: version.version_number,
-        file_url: file.url,
-        file_name: file.filename,
-        file_sha1: file.hashes.sha1,
-        file_size: file.size,
-    };
+    let (pack, loader, minecraft_version) = packs::switch::switch_to(current, version)?;
 
     let paths = state.paths().await;
 
@@ -1435,12 +1358,15 @@ pub async fn detect_launchers() -> CommandResult<Vec<import::DetectedLauncher>> 
 }
 
 #[tauri::command]
-pub async fn pick_launcher_dir(app: AppHandle) -> CommandResult<Option<String>> {
+pub async fn pick_launcher_dir(
+    app: AppHandle,
+    dialog: DialogText,
+) -> CommandResult<Option<String>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
     app.dialog()
         .file()
-        .set_title("Каталог данных лаунчера")
+        .set_title(dialog.title)
         .pick_folder(move |picked| {
             let _ = sender.send(picked);
         });
@@ -1472,13 +1398,16 @@ pub async fn import_launcher_instances(
 }
 
 #[tauri::command]
-pub async fn pick_modpack_file(app: AppHandle) -> CommandResult<Option<String>> {
+pub async fn pick_modpack_file(
+    app: AppHandle,
+    dialog: DialogText,
+) -> CommandResult<Option<String>> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
 
     app.dialog()
         .file()
-        .set_title("Файл модпака")
-        .add_filter("Модпаки и сборки", &packs::local::EXTENSIONS)
+        .set_title(dialog.title)
+        .add_filter(dialog.filter, &packs::local::EXTENSIONS)
         .pick_file(move |picked| {
             let _ = sender.send(picked);
         });

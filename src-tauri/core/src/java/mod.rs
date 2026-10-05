@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::config::{AppConfig, JavaMode};
-use crate::error::{CommandError, CommandResult};
+use crate::error::{CommandError, CommandResult, ErrorCode};
 use crate::mojang::profile::JavaRequirement;
 use crate::mojang::rules::RuntimeContext;
 use crate::net::download::{DownloadRegistry, ProgressSink};
@@ -88,7 +88,7 @@ pub async fn resolve(
     if config.java.java_mode == JavaMode::Manual {
         if let Some(path) = config.manual_java_path() {
             return detect::probe(path.to_string()).await?.ok_or_else(|| {
-                CommandError::java_not_found(format!("Java по указанному пути не найдена: {path}"))
+                CommandError::java_not_found("error.reason.java.not_at_path").param("path", path)
             });
         }
     }
@@ -98,7 +98,7 @@ pub async fn resolve(
     if config.java.java_mode == JavaMode::System {
         return select::pick_system(&installed)
             .cloned()
-            .ok_or_else(|| CommandError::java_not_found("В системе не найдено ни одной Java"));
+            .ok_or_else(|| CommandError::java_not_found("error.reason.java.none"));
     }
 
     if let Some(picked) = select::pick(&installed, requirement) {
@@ -132,11 +132,10 @@ pub async fn resolve(
         }
     }
 
-    Err(CommandError::java_not_found(format!(
-        "Для этой сборки нужна {}, {}",
-        requirement.describe(),
-        select::describe_installed(&installed)
-    )))
+    Err(CommandError::from_text(
+        ErrorCode::JavaNotFound,
+        select::requirement_text(requirement, &installed),
+    ))
 }
 
 fn download_context(installed: &[JavaRuntime]) -> RuntimeContext {

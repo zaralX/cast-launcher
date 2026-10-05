@@ -19,9 +19,8 @@ pub async fn package(meta: &MetaCache, minecraft_version: &str) -> CommandResult
     let manifest = manifest(meta).await?;
 
     let entry = manifest.find(minecraft_version).ok_or_else(|| {
-        CommandError::version_not_found(format!(
-            "Версия {minecraft_version} отсутствует в манифесте Mojang"
-        ))
+        CommandError::version_not_found("error.reason.minecraft.version_missing")
+            .param("version", minecraft_version)
     })?;
 
     meta.fetch_json(&entry.url).await
@@ -34,7 +33,7 @@ pub fn profile(
     ctx: &RuntimeContext,
 ) -> CommandResult<ResolvedProfile> {
     let main_class = package.main_class.clone().ok_or_else(|| {
-        CommandError::manifest(format!("В манифесте версии {} нет mainClass", package.id))
+        CommandError::manifest("error.reason.minecraft.no_main_class").param("version", &package.id)
     })?;
 
     Ok(ResolvedProfile {

@@ -21,7 +21,7 @@ const uiLocale = useUiLocale()
 const unregister = registerErrorSink((entry) => {
   toast.add({
     title: entry.title,
-    description: entry.hint ?? entry.message,
+    description: entry.reason ?? entry.hint,
     icon: entry.icon,
     color: TOAST_COLOR[entry.severity],
     duration: entry.severity === 'info' ? 4000 : 8000,

@@ -51,7 +51,7 @@ pub fn run() {
             let handle = app.handle().clone();
 
             log::info!(
-                "Cast Launcher {} запускается ({} {})",
+                "Cast Launcher {} is starting ({} {})",
                 env!("CARGO_PKG_VERSION"),
                 std::env::consts::OS,
                 std::env::consts::ARCH

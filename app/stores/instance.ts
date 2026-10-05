@@ -35,10 +35,9 @@ export const useInstanceStore = defineStore('instance', {
       if (isTerminalStage(snapshot.stage)) {
         if (index >= 0) this.installs.splice(index, 1)
         if (snapshot.stage === 'failed' && snapshot.error) {
-          captureError(new LauncherError('UNKNOWN', {
-            message: snapshot.error,
+          captureError(snapshot.error, {
             context: { instanceId: snapshot.instanceId, instanceName: snapshot.instanceName },
-          }))
+          })
         }
         return
       }
@@ -80,9 +79,10 @@ export const useInstanceStore = defineStore('instance', {
       if (!game || code === 0) return
 
       captureError(new LauncherError('LAUNCH_FAILED', {
-        message: useNuxtApp().$i18n.t('instance.exited', {
-          code: code ?? useNuxtApp().$i18n.t('instance.exited_unknown'),
-        }),
+        text: {
+          key: 'instance.exited',
+          params: { code: code === null ? { key: 'instance.exited_unknown' } : String(code) },
+        },
         details: logTail,
         context: { instanceId: game.instanceId, instanceName: game.instanceName, exitCode: code },
       }))

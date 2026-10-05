@@ -144,7 +144,7 @@ pub async fn remember_all(cache_file: &Path, entries: &[(String, CatalogMatch)])
     }
 
     if let Err(error) = cache.save(cache_file).await {
-        eprintln!("Не удалось сохранить кэш каталога: {}", error.message);
+        log::warn!("Failed to save the mod catalog cache: {}", error);
     }
 }
 
@@ -196,7 +196,7 @@ pub async fn identify(
         match crate::modrinth::identify(chunk).await {
             Ok(page) => matched.extend(page),
             Err(error) => {
-                eprintln!("Modrinth не опознал моды: {}", error.message);
+                log::warn!("Modrinth failed to identify mods: {}", error);
                 answered = false;
             }
         }
@@ -226,7 +226,7 @@ pub async fn identify(
                         }
                     }
                     Err(error) => {
-                        eprintln!("CurseForge не опознал моды: {}", error.message);
+                        log::warn!("CurseForge failed to identify mods: {}", error);
                         answered = false;
                     }
                 }
@@ -242,7 +242,7 @@ pub async fn identify(
         }
 
         if let Err(error) = cache.save(cache_file).await {
-            eprintln!("Не удалось сохранить кэш каталога: {}", error.message);
+            log::warn!("Failed to save the mod catalog cache: {}", error);
         }
     }
 
@@ -320,7 +320,7 @@ async fn hashes_of(
 
     if counted {
         if let Err(error) = index.save(&scan.index_file).await {
-            eprintln!("Не удалось сохранить хэши модов: {}", error.message);
+            log::warn!("Failed to save mod hashes: {}", error);
         }
     }
 
@@ -365,7 +365,7 @@ mod tests {
 
         let entry = cache
             .lookup("aaa", MISSING_TTL * 10)
-            .expect("найденное не протухает");
+            .expect("a found entry does not expire");
         assert_eq!(entry.found.as_ref().unwrap().title, "Sodium");
     }
 
@@ -374,14 +374,11 @@ mod tests {
         let mut cache = CatalogCache::new();
         cache.remember("bbb", None, 1_000);
 
-        assert!(
-            cache.lookup("bbb", 1_000).is_some(),
-            "только что спрашивали"
-        );
+        assert!(cache.lookup("bbb", 1_000).is_some(), "just asked");
         assert!(cache.lookup("bbb", 1_000 + MISSING_TTL / 2).is_some());
         assert!(
             cache.lookup("bbb", 1_000 + MISSING_TTL).is_none(),
-            "пора спросить снова"
+            "time to ask again"
         );
     }
 
@@ -400,11 +397,7 @@ mod tests {
 
         let written = outcomes(&[&found, &missed], &matched, false);
 
-        assert_eq!(
-            written.len(),
-            1,
-            "запоминаем только то, что действительно нашли"
-        );
+        assert_eq!(written.len(), 1, "only real finds are remembered");
         assert_eq!(written[0].0, "aaa");
         assert!(written[0].1.is_some());
     }

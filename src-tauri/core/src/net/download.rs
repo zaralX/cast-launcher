@@ -10,7 +10,7 @@ use sha1::{Digest, Sha1};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{watch, Semaphore};
 
-use crate::error::{CommandError, CommandResult};
+use crate::error::{CommandError, CommandResult, ErrorCode};
 use crate::net::http::{self, LARGE_CONCURRENCY, SMALL_CONCURRENCY};
 
 const EMIT_INTERVAL: Duration = Duration::from_millis(100);
@@ -62,40 +62,12 @@ impl DownloadTask {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct JobError {
-    pub code: String,
-    pub message: String,
-    pub details: Option<String>,
-}
-
-impl From<CommandError> for JobError {
-    fn from(value: CommandError) -> Self {
-        Self {
-            code: value.code.to_string(),
-            message: value.message,
-            details: value.details,
-        }
-    }
-}
-
-impl From<JobError> for CommandError {
-    fn from(value: JobError) -> Self {
-        let error = CommandError::from_code(&value.code, value.message);
-        match value.details {
-            Some(details) => error.with_details(details),
-            None => error,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "state")]
 pub enum JobStatus {
     Running,
     Finished,
     Cancelled,
-    Failed { error: JobError },
+    Failed { error: CommandError },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -134,7 +106,7 @@ struct Job {
     total_bytes: u64,
     cancel: AtomicBool,
     failed: AtomicBool,
-    error: Mutex<Option<JobError>>,
+    error: Mutex<Option<CommandError>>,
     active: Mutex<HashMap<String, FileProgress>>,
     created_dirs: Mutex<HashSet<PathBuf>>,
     status: watch::Sender<JobStatus>,
@@ -188,7 +160,7 @@ impl Job {
         if self.failed.swap(true, Ordering::SeqCst) {
             return;
         }
-        *lock(&self.error) = Some(error.into());
+        *lock(&self.error) = Some(error);
     }
 
     fn add_weight(&self, delta: u64) {
@@ -354,9 +326,7 @@ impl DownloadRegistry {
 
         for handle in handles {
             if handle.await.is_err() && !job.cancel.load(Ordering::Relaxed) {
-                job.fail(CommandError::download(
-                    "Задача загрузки аварийно завершилась",
-                ));
+                job.fail(CommandError::download("error.reason.download.task_crashed"));
             }
         }
 
@@ -364,12 +334,12 @@ impl DownloadRegistry {
 
         let outcome = if job.cancel.load(Ordering::Relaxed) {
             job.status.send_replace(JobStatus::Cancelled);
-            Err(CommandError::aborted("Загрузка отменена"))
+            Err(CommandError::aborted("error.reason.cancelled.download"))
         } else if let Some(error) = lock(&job.error).clone() {
             job.status.send_replace(JobStatus::Failed {
                 error: error.clone(),
             });
-            Err(error.into())
+            Err(error)
         } else {
             job.done_weight.store(job.total_weight, Ordering::Relaxed);
             job.status.send_replace(JobStatus::Finished);
@@ -435,11 +405,7 @@ async fn download_one(
                 tokio::fs::rename(&part_path, &task.destination)
                     .await
                     .map_err(|e| {
-                        CommandError::io(
-                            format!("Не удалось сохранить файл: {}", task.destination.display()),
-                            &task.destination,
-                            e,
-                        )
+                        CommandError::io("error.reason.fs.write_file", &task.destination, e)
                     })?;
 
                 job.done_files.fetch_add(1, Ordering::Relaxed);
@@ -453,8 +419,10 @@ async fn download_one(
             Err(error) => {
                 crate::fs_util::remove_file_if_exists(&part_path).await;
 
-                let retryable =
-                    matches!(error.code, "NETWORK" | "DOWNLOAD_FAILED" | "HASH_MISMATCH");
+                let retryable = matches!(
+                    error.code,
+                    ErrorCode::Network | ErrorCode::DownloadFailed | ErrorCode::HashMismatch
+                );
                 last_error = Some(error);
 
                 if !retryable {
@@ -464,8 +432,9 @@ async fn download_one(
         }
     }
 
-    Err(last_error
-        .unwrap_or_else(|| CommandError::download(format!("Не удалось скачать {}", task.url))))
+    Err(last_error.unwrap_or_else(|| {
+        CommandError::download("error.reason.download.failed").param("url", &task.url)
+    }))
 }
 
 enum FetchOutcome {
@@ -483,7 +452,8 @@ async fn fetch_to_file(
     counted: &mut u64,
 ) -> CommandResult<FetchOutcome> {
     let mut response = client.get(&task.url).send().await.map_err(|e| {
-        CommandError::network(format!("Не удалось подключиться к {}", task.url))
+        CommandError::network("error.reason.network.connect")
+            .param("url", &task.url)
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -494,13 +464,9 @@ async fn fetch_to_file(
 
     let total = task.size.or_else(|| response.content_length()).unwrap_or(0);
 
-    let mut file = tokio::fs::File::create(part_path).await.map_err(|e| {
-        CommandError::io(
-            format!("Не удалось создать файл: {}", part_path.display()),
-            part_path,
-            e,
-        )
-    })?;
+    let mut file = tokio::fs::File::create(part_path)
+        .await
+        .map_err(|e| CommandError::io("error.reason.fs.create_file", part_path, e))?;
 
     let mut hasher = Sha1::new();
     let mut received: u64 = 0;
@@ -525,23 +491,21 @@ async fn fetch_to_file(
         let chunk = tokio::time::timeout(STALL_TIMEOUT, response.chunk())
             .await
             .map_err(|_| {
-                CommandError::network(format!("Загрузка встала: {}", task.url))
-                    .with_details(format!("нет данных дольше {} с", STALL_TIMEOUT.as_secs()))
+                CommandError::network("error.reason.network.stalled")
+                    .param("url", &task.url)
+                    .param("seconds", STALL_TIMEOUT.as_secs())
             })?
             .map_err(|e| {
-                CommandError::download(format!("Обрыв загрузки: {}", task.url))
+                CommandError::download("error.reason.download.interrupted")
+                    .param("url", &task.url)
                     .with_details(crate::error::error_chain(&e))
             })?;
 
         let Some(chunk) = chunk else { break };
 
-        file.write_all(&chunk).await.map_err(|e| {
-            CommandError::io(
-                format!("Ошибка записи: {}", part_path.display()),
-                part_path,
-                e,
-            )
-        })?;
+        file.write_all(&chunk)
+            .await
+            .map_err(|e| CommandError::io("error.reason.fs.write_file", part_path, e))?;
 
         hasher.update(&chunk);
         received += chunk.len() as u64;
@@ -579,23 +543,19 @@ async fn fetch_to_file(
         job.report(false);
     }
 
-    file.flush().await.map_err(|e| {
-        CommandError::io(
-            format!("Ошибка записи: {}", part_path.display()),
-            part_path,
-            e,
-        )
-    })?;
+    file.flush()
+        .await
+        .map_err(|e| CommandError::io("error.reason.fs.write_file", part_path, e))?;
     drop(file);
 
     if let Some(expected) = &task.sha1 {
         let actual = hex(&hasher.finalize());
         if &actual != expected {
-            return Err(CommandError::hash_mismatch(format!(
-                "Контрольная сумма не совпала: {}",
-                task.url
-            ))
-            .with_details(format!("Ожидалось: {expected}\nПолучено:  {actual}")));
+            return Err(
+                CommandError::hash_mismatch("error.reason.download.checksum")
+                    .param("url", &task.url)
+                    .with_details(format!("Expected: {expected}\nActual:   {actual}")),
+            );
         }
     }
 
@@ -652,7 +612,7 @@ async fn file_sha1(path: &Path) -> Option<String> {
 fn file_name(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().to_string())
-        .unwrap_or_else(|| "файл".to_string())
+        .unwrap_or_else(|| path.display().to_string())
 }
 
 fn part_path(destination: &Path) -> PathBuf {
@@ -767,11 +727,11 @@ mod tests {
 
         assert!(
             is_already_valid(&file, &task, false).await,
-            "без deep verify доверяем размеру"
+            "without deep verify the size is trusted"
         );
         assert!(
             !is_already_valid(&file, &task, true).await,
-            "с deep verify хэш не сходится"
+            "with deep verify the hash does not match"
         );
 
         std::fs::remove_dir_all(&dir).ok();

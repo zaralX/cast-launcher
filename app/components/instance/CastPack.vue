@@ -156,7 +156,7 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
             name="i-lucide-wifi-off"
             class="mt-0.5 size-3.5 shrink-0 text-amber-400"
           />
-          {{ $t('instance.castpack.check_failed', { error: update.error }) }}
+          {{ $t('instance.castpack.check_failed', { error: uiText(update.error.text) }) }}
         </p>
 
         <p

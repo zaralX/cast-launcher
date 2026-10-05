@@ -1,5 +1,6 @@
 use crate::java::detect::JavaRuntime;
 use crate::mojang::profile::JavaRequirement;
+use crate::text::UiText;
 
 fn max_compatible_major(required: u32) -> u32 {
     if required <= 8 {
@@ -67,22 +68,31 @@ pub fn pick_system(runtimes: &[JavaRuntime]) -> Option<&JavaRuntime> {
         .or_else(|| runtimes.first())
 }
 
-pub fn describe_installed(runtimes: &[JavaRuntime]) -> String {
+pub fn installed_majors(runtimes: &[JavaRuntime]) -> String {
     let mut majors: Vec<u32> = runtimes.iter().map(|runtime| runtime.major).collect();
     majors.sort_unstable();
     majors.dedup();
 
     if majors.is_empty() {
-        return "в системе не найдено ни одной".to_string();
+        return "none".to_string();
     }
 
-    let list = majors
+    majors
         .iter()
         .map(u32::to_string)
         .collect::<Vec<_>>()
-        .join(", ");
+        .join(", ")
+}
 
-    format!("установлены только {list}")
+pub fn requirement_text(requirement: &JavaRequirement, runtimes: &[JavaRuntime]) -> UiText {
+    if runtimes.is_empty() {
+        return UiText::new("error.reason.java.required_none")
+            .param_text("required", requirement.text());
+    }
+
+    UiText::new("error.reason.java.required_other")
+        .param_text("required", requirement.text())
+        .param("installed", installed_majors(runtimes))
 }
 
 #[cfg(test)]
@@ -162,7 +172,7 @@ mod tests {
             runtime(8, true, "system"),
             runtime(21, false, "system"),
         ];
-        assert_eq!(describe_installed(&runtimes), "установлены только 8, 21");
-        assert_eq!(describe_installed(&[]), "в системе не найдено ни одной");
+        assert_eq!(installed_majors(&runtimes), "8, 21");
+        assert_eq!(installed_majors(&[]), "none");
     }
 }

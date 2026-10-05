@@ -7,6 +7,7 @@ use crate::mojang::version::{
     Argument, AssetIndexRef, JavaVersionSpec, Library, LibraryArtifact, MojangArtifact,
     VersionPackage,
 };
+use crate::text::UiText;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -181,11 +182,13 @@ impl JavaRequirement {
         }
     }
 
-    pub fn describe(&self) -> String {
+    pub fn text(&self) -> UiText {
         match self.major {
-            Some(major) if self.at_least => format!("Java {major} или новее"),
-            Some(major) => format!("Java {major}"),
-            None => "любая Java".to_string(),
+            Some(major) if self.at_least => {
+                UiText::new("error.reason.java.at_least").param("major", major)
+            }
+            Some(major) => UiText::new("error.reason.java.exact").param("major", major),
+            None => UiText::new("error.reason.java.any"),
         }
     }
 }
@@ -308,7 +311,7 @@ mod tests {
         assert_eq!(x64[0].native.as_ref().unwrap().path, "w64.jar");
         assert!(
             x64[0].artifact.is_none(),
-            "native-only библиотека не идёт в classpath"
+            "a native-only library stays out of the classpath"
         );
 
         let x86 = resolve_libraries(&libs, &ctx(MojangOs::Windows, "x86"));

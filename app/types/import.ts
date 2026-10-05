@@ -1,3 +1,4 @@
+import type { UiText } from '~/types/backend'
 import type { InstanceSettings, InstanceType, LocalPackKind, Playtime } from '~/types/instance'
 
 export type LauncherKind = 'prism' | 'modrinth'
@@ -29,7 +30,7 @@ export interface ScannedInstance {
   settings: InstanceSettings
   playtime: Playtime
   pack?: ScannedPack
-  blocked?: string
+  blocked?: UiText
 }
 
 export interface LocalPack {
@@ -48,7 +49,7 @@ export interface LocalPack {
   loaderLabel: string
   files: number
   settings: InstanceSettings
-  blocked?: string
+  blocked?: UiText
 }
 
 export interface FileImportRequest {
@@ -83,7 +84,7 @@ export interface CopyStats {
 export interface ImportProgress {
   source: LauncherKind
   stage: ImportStage
-  step: string
+  step: UiText
   done: number
   total: number
   stats: CopyStats
@@ -97,7 +98,7 @@ export interface ImportedInstance {
 
 export interface SkippedInstance {
   name: string
-  reason: string
+  reason: UiText
 }
 
 export interface ImportReport {

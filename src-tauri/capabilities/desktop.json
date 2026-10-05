@@ -1,6 +1,6 @@
 {
   "identifier": "desktop-capability",
-  "description": "Автообновление лаунчера и перезапуск после него.",
+  "description": "Launcher self-update and the restart after it.",
   "platforms": [
     "macOS",
     "windows",

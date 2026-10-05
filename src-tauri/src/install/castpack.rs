@@ -6,6 +6,7 @@ use cast_core::error::CommandResult;
 use cast_core::instance::{CastPackSource, Instance, PackSource};
 use cast_core::packs::ResolvedPack;
 use cast_core::paths::LauncherPaths;
+use cast_core::text::UiText;
 
 use super::modpack;
 use super::ProgressReporter;
@@ -35,7 +36,10 @@ pub async fn prepare(
     source: &CastPackSource,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<CastPack> {
-    reporter.begin_phase("castpack-manifest", "Манифест сборки");
+    reporter.begin_phase(
+        "castpack-manifest",
+        UiText::new("install.message.castpack_manifest"),
+    );
 
     let saved = paths.instance(&instance.id).castpack_manifest();
     let url = crate::castpack::manifest_url(state, &instance.id, source).await;
@@ -46,7 +50,7 @@ pub async fn prepare(
 
     let minecraft = paths.instance(&instance.id).minecraft();
 
-    let (base, base_pack, archive) = match crate::castpack::base_pack(&manifest).await? {
+    let (base, base_pack, archive) = match castpack::base_pack(&manifest).await? {
         Some((pack, _, _)) => {
             let prepared = modpack::prepare(state, paths, instance, &pack, reporter).await?;
 
@@ -59,8 +63,13 @@ pub async fn prepare(
         None => (None, None, None),
     };
 
-    reporter.begin_phase("castpack-mods", "Список модов сборки");
-    reporter.set_message(format!("Проверка {} модов", manifest.mods.len()));
+    reporter.begin_phase(
+        "castpack-mods",
+        UiText::new("install.message.castpack_mods"),
+    );
+    reporter.set_message(
+        UiText::new("install.message.checking_mods").param("count", manifest.mods.len()),
+    );
 
     let mods = castpack::mods::resolve(&manifest.catalog_mods()?, &minecraft).await?;
 
@@ -100,7 +109,7 @@ async fn read_manifest(url: &str, saved: &std::path::Path) -> CommandResult<Mani
         Ok(manifest) => Ok(manifest),
         Err(error) => match castpack::source::installed_manifest(saved).await {
             Some(manifest) => {
-                eprintln!("Манифест сборки взят из сохранённого: {error}");
+                log::warn!("Using the saved pack manifest: {error}");
                 Ok(manifest)
             }
             None => Err(error),
@@ -173,7 +182,7 @@ pub async fn apply(
             archive: prepared.archive.as_deref(),
             version_id: &prepared.manifest.version,
             phase: "castpack",
-            label: "Файлы сборки",
+            message: "install.message.castpack_files",
         },
         reporter,
     )

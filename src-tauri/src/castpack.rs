@@ -6,7 +6,6 @@ use cast_core::castpack::{self, Catalog, CatalogPack, Manifest};
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons;
 use cast_core::instance::{CastPackSource, Instance, LoaderType, PackSource};
-use cast_core::packs;
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::install;
@@ -70,7 +69,7 @@ async fn heal_icons(app: &AppHandle, state: &Arc<AppState>, catalog: &Catalog) {
             .await
         {
             Ok(_) => healed = true,
-            Err(error) => eprintln!("Иконка сборки «{}» не прописалась: {error}", pack.id),
+            Err(error) => log::warn!("Failed to set the icon of pack '{}': {error}", pack.id),
         }
     }
 
@@ -94,9 +93,10 @@ pub async fn manifest_url(
         return url;
     }
 
-    eprintln!(
-        "Сборка «{}» переехала: {} -> {url}",
-        source.catalog_id, source.manifest_url
+    log::info!(
+        "Pack '{}' moved: {} -> {url}",
+        source.catalog_id,
+        source.manifest_url
     );
 
     let paths = state.paths().await;
@@ -111,7 +111,7 @@ pub async fn manifest_url(
         })
         .await
     {
-        eprintln!("Новый адрес манифеста не записался в инстанс: {error}");
+        log::warn!("Failed to store the new manifest URL in the instance: {error}");
     }
 
     url
@@ -131,7 +131,7 @@ async fn catalog_manifest_url(state: &Arc<AppState>, catalog_id: &str) -> Option
     )
     .await
     .inspect_err(|error| {
-        eprintln!("Каталог CastPack не прочитан, беру сохранённый адрес манифеста: {error}")
+        log::warn!("CastPack catalog is unreadable, using the saved manifest URL: {error}")
     })
     .ok()?;
 
@@ -147,11 +147,13 @@ pub async fn install_pack(
 
     let entry = catalog
         .find(pack_id)
-        .ok_or_else(|| CommandError::manifest(format!("Сборки «{pack_id}» нет в каталоге")))?
+        .ok_or_else(|| {
+            CommandError::not_found("error.reason.castpack.not_in_catalog").param("pack", pack_id)
+        })?
         .clone();
 
     let manifest = castpack::source::manifest(&entry.manifest).await?;
-    let base = base_pack(&manifest).await?;
+    let base = castpack::base_pack(&manifest).await?;
 
     let instance = upsert(&app, &state, &entry, &manifest, base).await?;
 
@@ -211,7 +213,7 @@ async fn upsert(
         Some(_) => {
             let manifest_url = entry.manifest.clone();
             let name = entry.name.clone();
-            let description = summary(entry);
+            let description = entry.card_description();
             let icon = icon.clone();
             let pack = pack.clone();
 
@@ -244,7 +246,7 @@ async fn upsert(
                     Instance {
                         id,
                         name: entry.name.clone(),
-                        description: summary(entry),
+                        description: entry.card_description(),
                         minecraft_version,
                         icon: icon.unwrap_or_default(),
                         loader,
@@ -272,95 +274,31 @@ async fn upsert(
     Ok(instance)
 }
 
-fn summary(entry: &CatalogPack) -> String {
-    match entry.summary.trim().is_empty() {
-        true => entry.description.trim().to_string(),
-        false => entry.summary.trim().to_string(),
-    }
-}
-
-pub async fn base_pack(
-    manifest: &Manifest,
-) -> CommandResult<Option<(PackSource, LoaderType, String)>> {
-    let Some(spec) = &manifest.base else {
-        return Ok(None);
-    };
-
-    let version = packs::version(spec.provider, &spec.project_id, &spec.version_id).await?;
-
-    if let Some(reason) = version.unsupported_reason() {
-        return Err(CommandError::manifest(format!(
-            "Базовый модпак сборки установить нельзя: {reason}"
-        )));
-    }
-
-    let (Some(loader), Some(minecraft_version), Some(file)) = (
-        version.loader,
-        version.minecraft_version.clone(),
-        version.file.clone(),
-    ) else {
-        return Err(CommandError::manifest(
-            "У базового модпака сборки нет файла для скачивания",
-        ));
-    };
-
-    let pack = PackSource {
-        provider: spec.provider,
-        project_id: spec.project_id.clone(),
-        version_id: version.id,
-        version_number: version.version_number,
-        file_url: file.url,
-        file_name: file.filename,
-        file_sha1: file.hashes.sha1,
-        file_size: file.size,
-    };
-
-    Ok(Some((pack, loader, minecraft_version)))
-}
-
 async fn save_icon(state: &Arc<AppState>, entry: &CatalogPack) -> Option<String> {
     let url = entry.icon.as_deref()?;
 
     let bytes = match castpack::source::icon(url).await {
         Ok(bytes) => bytes,
         Err(error) => {
-            eprintln!(
-                "Иконка сборки «{}» не скачалась: {}",
-                entry.id, error.message
+            log::warn!(
+                "Failed to download the icon of pack '{}': {}",
+                entry.id,
+                error
             );
             return None;
         }
     };
 
     let paths = state.paths().await;
-    let name = icon_name(&entry.id, url);
+    let name = entry.icon_file_name(url);
 
     match icons::save_once(&paths.icons(), &name, &bytes).await {
         Ok(icon) => Some(icon.name),
         Err(error) => {
-            eprintln!(
-                "Иконка сборки «{}» не сохранилась: {}",
-                entry.id, error.message
-            );
+            log::warn!("Failed to save the icon of pack '{}': {}", entry.id, error);
             None
         }
     }
-}
-
-fn icon_name(pack_id: &str, url: &str) -> String {
-    let extension = url
-        .split('?')
-        .next()
-        .and_then(|path| path.rsplit('/').next())
-        .and_then(|name| name.rsplit_once('.'))
-        .map(|(_, extension)| extension.to_ascii_lowercase())
-        .filter(|extension| {
-            (1..=5).contains(&extension.len())
-                && extension.chars().all(|c| c.is_ascii_alphanumeric())
-        })
-        .unwrap_or_else(|| "png".to_string());
-
-    format!("castpack-{pack_id}.{extension}")
 }
 
 pub async fn set_autoupdate(
@@ -381,7 +319,9 @@ pub async fn set_autoupdate(
         .await?;
 
     if updated.castpack.is_none() {
-        return Err(CommandError::manifest("Эта сборка не из каталога CastPack"));
+        return Err(CommandError::invalid_input(
+            "error.reason.castpack.not_castpack",
+        ));
     }
 
     telemetry::track(
@@ -397,40 +337,4 @@ pub async fn set_autoupdate(
     .emit(app);
 
     Ok(updated)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn icon_names_carry_the_pack_id_and_keep_the_extension() {
-        assert_eq!(
-            icon_name("zaralx-rpg", "https://cdn.zaralx.ru/icons/rpg.WEBP"),
-            "castpack-zaralx-rpg.webp"
-        );
-        assert_eq!(
-            icon_name("zaralx-rpg", "https://cdn.zaralx.ru/icons/rpg.png?v=2"),
-            "castpack-zaralx-rpg.png"
-        );
-        assert_eq!(
-            icon_name("zaralx-rpg", "https://cdn.zaralx.ru/icons/rpg"),
-            "castpack-zaralx-rpg.png",
-            "без расширения считаем png"
-        );
-    }
-
-    #[test]
-    fn the_card_description_falls_back_to_the_long_text() {
-        let mut entry = CatalogPack {
-            summary: "  ".into(),
-            description: "  Длинное описание  ".into(),
-            ..Default::default()
-        };
-
-        assert_eq!(summary(&entry), "Длинное описание");
-
-        entry.summary = "Короткое".into();
-        assert_eq!(summary(&entry), "Короткое");
-    }
 }

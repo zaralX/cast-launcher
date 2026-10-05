@@ -279,7 +279,7 @@ async function afterCatalogInstall() {
 
 async function pickFiles() {
   const result = await attempt(
-    () => call('pick_mod_files'),
+    () => call('pick_mod_files', { dialog: { title: t('dialog.mod_files.title'), filter: t('dialog.mod_files.filter') } }),
     { context: { instanceId: instanceId.value, action: t('instance.mods.pick_action') } },
   )
 

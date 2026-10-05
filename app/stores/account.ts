@@ -42,7 +42,8 @@ export const useAccountStore = defineStore('account', {
       this.loggingIn = true
 
       try {
-        await call('login_microsoft')
+        const { $i18n } = useNuxtApp()
+        await call('login_microsoft', { page: { done: $i18n.t('oauth.done'), failed: $i18n.t('oauth.failed') } })
         this.accountConfig = await call('list_accounts')
       }
       finally {

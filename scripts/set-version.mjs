@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Единственное место, которое знает, из каких файлов складывается версия лаунчера.
-// Платформенные обёртки (set-version.ps1 и set-version.sh) только зовут этот файл,
-// чтобы две копии логики не разъехались.
+// The only place that knows which files carry the launcher version.
+// The platform wrappers (set-version.ps1 and set-version.sh) just call this file,
+// so the logic has a single copy.
 //
-//   node scripts/set-version.mjs            показать текущие версии
-//   node scripts/set-version.mjs 1.5.0      проставить новую везде
-//   node scripts/set-version.mjs 1.5.0 -n   показать, что изменится, но не писать
+//   node scripts/set-version.mjs            show the current versions
+//   node scripts/set-version.mjs 1.5.0      set a new one everywhere
+//   node scripts/set-version.mjs 1.5.0 -n   show what would change without writing
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -13,13 +13,13 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-// Версия обязана быть строгой X.Y.Z: с суффиксами вроде -beta1 не собирается
-// установщик NSIS и ломается сравнение версий в автообновлении.
+// The version must be a strict X.Y.Z: with suffixes like -beta1 the NSIS installer
+// does not build and the updater's version comparison breaks.
 const SEMVER = /^\d+\.\d+\.\d+$/
 
-// Каждое правило - регулярка ровно с тремя группами: до версии, сама версия, после.
-// Правило, которое ничего не нашло, считается ошибкой: молча пропущенный файл -
-// это ровно тот случай, ради которого скрипт и написан.
+// Every rule is a regex with exactly three groups: before the version, the version, after it.
+// A rule that finds nothing is an error: a silently skipped file is exactly the case
+// this script exists for.
 const TARGETS = [
   {
     file: 'package.json',
@@ -29,8 +29,8 @@ const TARGETS = [
     file: 'package-lock.json',
     rules: [
       /(^ {2}"version": ")([^"]+)(")/m,
-      // Корневой пакет внутри "packages" лежит под пустым ключом,
-      // у всех остальных там свои версии - их трогать нельзя.
+      // The root package inside "packages" sits under the empty key,
+      // every other entry there has its own version and must stay untouched.
       /(""\s*:\s*\{[\s\S]*?"version": ")([^"]+)(")/,
     ],
   },
@@ -48,7 +48,7 @@ const TARGETS = [
   },
   {
     file: 'src-tauri/Cargo.lock',
-    // Только свои крейты: в блокировке полно чужих пакетов с такой же версией.
+    // Only our own crates: the lock file is full of other packages with the same version.
     rules: ['cast-launcher', 'cast-core'].map(crate =>
       new RegExp(`(name = "${crate}"[\\s\\S]*?\\bversion = ")([^"]+)(")`),
     ),
@@ -64,25 +64,25 @@ async function main() {
 
   if (!version) {
     report(files)
-    console.log('\nЧтобы сменить: node scripts/set-version.mjs <версия>')
+    console.log('\nTo change it: node scripts/set-version.mjs <version>')
     return
   }
 
   if (!SEMVER.test(version)) {
-    fail(`Версия должна быть в формате X.Y.Z, а не "${version}"`)
+    fail(`The version must look like X.Y.Z, got "${version}"`)
   }
 
   const changed = files.filter(file => file.versions.some(found => found !== version))
 
   if (!changed.length) {
-    console.log(`Везде уже ${version}, менять нечего.`)
+    console.log(`Already ${version} everywhere, nothing to change.`)
     return
   }
 
   report(files, version)
 
   if (dryRun) {
-    console.log('\n--dry-run: ничего не записано.')
+    console.log('\n--dry-run: nothing was written.')
     return
   }
 
@@ -90,21 +90,21 @@ async function main() {
     await writeFile(join(ROOT, file.target.file), replaced(file, version))
   }
 
-  console.log(`\nГотово: ${version} проставлена в ${changed.length} файл(ах).`)
-  console.log('Cargo.lock и package-lock.json обновлены здесь же, пересобирать их не нужно.')
+  console.log(`\nDone: ${version} is set in ${changed.length} file(s).`)
+  console.log('Cargo.lock and package-lock.json are updated here as well, no need to regenerate them.')
 }
 
 async function read(target) {
   const path = join(ROOT, target.file)
   const text = await readFile(path, 'utf8').catch((error) => {
-    fail(`Не удалось прочитать ${target.file}: ${error.message}`)
+    fail(`Failed to read ${target.file}: ${error.message}`)
   })
 
   const versions = target.rules.map((rule) => {
     const found = text.match(rule)
 
     if (!found) {
-      fail(`В ${target.file} не нашлось версии - формат файла изменился, поправьте правило в scripts/set-version.mjs`)
+      fail(`No version found in ${target.file}: the file format changed, fix the rule in scripts/set-version.mjs`)
     }
 
     return found[2]
@@ -132,12 +132,12 @@ function report(files, version) {
   }
 
   if (current.size > 1) {
-    console.log(`\nВнимание: до правки версии разошлись (${[...current].join(', ')}).`)
+    console.log(`\nWarning: the versions had already diverged (${[...current].join(', ')}).`)
   }
 }
 
 function fail(message) {
-  console.error(`Ошибка: ${message}`)
+  console.error(`Error: ${message}`)
   process.exit(1)
 }
 

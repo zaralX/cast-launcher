@@ -9,7 +9,7 @@ pub trait EmitExt {
 impl EmitExt for LauncherEvent {
     fn emit(self, app: &AppHandle) {
         if let Err(error) = app.emit(LAUNCHER_EVENT, self) {
-            eprintln!("Не удалось отправить событие во фронт: {error}");
+            log::error!("Failed to send an event to the frontend: {error}");
         }
     }
 }

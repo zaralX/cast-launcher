@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::error::CommandError;
 use crate::import::{ImportProgress, ImportReport};
 use crate::install::progress::InstallSnapshot;
 use crate::instance::Instance;
@@ -45,7 +46,7 @@ pub enum LauncherEvent {
     LaunchFailed {
         instance_id: String,
         instance_name: String,
-        error: String,
+        error: CommandError,
     },
 }
 
@@ -99,7 +100,7 @@ mod tests {
         assert_eq!(event["logTail"], "падение");
         assert!(
             event.get("run_id").is_none(),
-            "snake_case на фронт уходить не должен"
+            "snake_case must not reach the frontend"
         );
     }
 
@@ -142,8 +143,8 @@ mod tests {
             instance_id: "instance".into(),
             instance_name: "Сборка".into(),
             stage: Stage::Download,
-            phase: "Ресурсы".into(),
-            message: "Загрузка".into(),
+            phase: crate::text::UiText::new("install.phase.assets"),
+            message: crate::text::UiText::new("install.message.assets"),
             progress: 0.5,
             files: Vec::new(),
             started_at: 1,
@@ -161,7 +162,7 @@ mod tests {
         assert_eq!(event["stage"], "download");
         assert!(
             event.get("blocked").is_none(),
-            "пустой список не занимает место в событии"
+            "an empty list takes no space in the event"
         );
     }
 
@@ -169,14 +170,15 @@ mod tests {
     fn a_failed_autolaunch_names_the_instance() {
         let event = wire(LauncherEvent::LaunchFailed {
             instance_id: "instance".into(),
-            instance_name: "Сборка".into(),
-            error: "Java не найдена".into(),
+            instance_name: "Vanilla".into(),
+            error: CommandError::java_not_found("error.reason.java.none"),
         });
 
         assert_eq!(event["type"], "launchFailed");
         assert_eq!(event["instanceId"], "instance");
-        assert_eq!(event["instanceName"], "Сборка");
-        assert_eq!(event["error"], "Java не найдена");
+        assert_eq!(event["instanceName"], "Vanilla");
+        assert_eq!(event["error"]["code"], "JAVA_NOT_FOUND");
+        assert_eq!(event["error"]["text"]["key"], "error.reason.java.none");
     }
 
     #[test]
@@ -198,7 +200,8 @@ mod tests {
         let event = wire(LauncherEvent::Import(ImportProgress {
             source: crate::import::LauncherKind::Prism,
             stage: crate::import::ImportStage::Instances,
-            step: "Fabulously Optimized".into(),
+            step: crate::text::UiText::new("settings.import.step.instance")
+                .param("name", "Fabulously Optimized"),
             done: 2,
             total: 5,
             stats: Default::default(),
@@ -206,7 +209,8 @@ mod tests {
 
         assert_eq!(event["type"], "import");
         assert_eq!(event["stage"], "instances");
-        assert_eq!(event["step"], "Fabulously Optimized");
+        assert_eq!(event["step"]["key"], "settings.import.step.instance");
+        assert_eq!(event["step"]["params"]["name"], "Fabulously Optimized");
         assert_eq!(event["total"], 5);
     }
 }

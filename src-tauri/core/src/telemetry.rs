@@ -73,7 +73,7 @@ impl Event {
     }
 
     pub fn error(self, error: &CommandError) -> Self {
-        self.text("code", error.code)
+        self.text("code", error.code.as_str())
     }
 }
 
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn an_error_carries_only_its_code() {
-        let error = CommandError::download("Не скачался мод")
+        let error = CommandError::download("error.reason.download.failed")
             .with_details("C:\\Users\\vasya\\mods\\secret.jar");
 
         let props = Event::new("test").error(&error).into_props().to_string();

@@ -22,14 +22,14 @@ pub async fn list(dir: &Path) -> CommandResult<Vec<LogFile>> {
 
     let mut entries = tokio::fs::read_dir(dir)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог логов", dir, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", dir, e))?;
 
     let mut files = Vec::new();
 
     while let Some(entry) = entries
         .next_entry()
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог логов", dir, e))?
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", dir, e))?
     {
         let Ok(metadata) = entry.metadata().await else {
             continue;
@@ -65,13 +65,9 @@ pub fn resolve(dir: &Path, name: &str) -> CommandResult<PathBuf> {
 }
 
 pub async fn read_tail(path: &Path, max_bytes: usize) -> CommandResult<String> {
-    let bytes = tokio::fs::read(path).await.map_err(|e| {
-        CommandError::io(
-            format!("Не удалось прочитать лог: {}", path.display()),
-            path,
-            e,
-        )
-    })?;
+    let bytes = tokio::fs::read(path)
+        .await
+        .map_err(|e| CommandError::io("error.reason.fs.read_file", path, e))?;
 
     let start = bytes.len().saturating_sub(max_bytes);
     let text = String::from_utf8_lossy(&bytes[start..]).into_owned();
@@ -87,13 +83,9 @@ pub async fn read_tail(path: &Path, max_bytes: usize) -> CommandResult<String> {
 }
 
 pub async fn remove(path: &Path) -> CommandResult<()> {
-    tokio::fs::remove_file(path).await.map_err(|e| {
-        CommandError::io(
-            format!("Не удалось удалить лог: {}", path.display()),
-            path,
-            e,
-        )
-    })
+    tokio::fs::remove_file(path)
+        .await
+        .map_err(|e| CommandError::io("error.reason.fs.delete", path, e))
 }
 
 #[cfg(test)]

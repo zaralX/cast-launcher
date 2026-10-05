@@ -19,7 +19,7 @@ use crate::telemetry::{self, Event};
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum PlayOutcome {
     Launched { game: RunningGame },
-    Installing { install: InstallSnapshot },
+    Installing { install: Box<InstallSnapshot> },
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -29,7 +29,7 @@ pub struct CastPackUpdate {
     pub version: String,
     pub changelog: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    pub error: Option<CommandError>,
 }
 
 pub async fn play(
@@ -56,14 +56,16 @@ async fn prepare(
     let instance = state.instances.get(instance_id).await?;
 
     if state.processes.is_running(&instance.id).await {
-        return Err(CommandError::launch(format!(
-            "Сборка «{}» уже запущена",
-            instance.name
-        )));
+        return Err(
+            CommandError::conflict("error.reason.instance.already_running")
+                .param("name", &instance.name),
+        );
     }
 
     if let Some(install) = state.installs.snapshot(&instance.id).await {
-        return Ok(PlayOutcome::Installing { install });
+        return Ok(PlayOutcome::Installing {
+            install: Box::new(install),
+        });
     }
 
     let paths = state.paths().await;
@@ -71,7 +73,9 @@ async fn prepare(
     if needs_install(&state, &paths, &instance).await {
         let install = install::start_with(app, state, instance.id.clone(), true).await?;
 
-        return Ok(PlayOutcome::Installing { install });
+        return Ok(PlayOutcome::Installing {
+            install: Box::new(install),
+        });
     }
 
     let game = crate::launch::launch_guarded(app, state, &instance.id, guard).await?;
@@ -92,8 +96,8 @@ async fn needs_install(state: &Arc<AppState>, paths: &LauncherPaths, instance: &
                 Ok(manifest) if source.is_outdated(&manifest.version) => return true,
                 Ok(_) => {}
                 Err(error) => {
-                    eprintln!(
-                        "Обновление сборки «{}» не проверено: {error}",
+                    log::warn!(
+                        "Failed to check instance '{}' for updates: {error}",
                         instance.name
                     );
                 }
@@ -115,8 +119,8 @@ async fn missing_files(paths: &LauncherPaths, instance: &Instance) -> Vec<String
     let missing = record.missing(&instance_paths.minecraft()).await;
 
     if !missing.is_empty() {
-        eprintln!(
-            "У сборки «{}» не хватает файлов ({}), переустанавливаю: {}",
+        log::warn!(
+            "Instance '{}' is missing {} files, reinstalling: {}",
             instance.name,
             missing.len(),
             missing
@@ -141,7 +145,7 @@ pub async fn check_update(
     let source = instance
         .castpack
         .as_ref()
-        .ok_or_else(|| CommandError::manifest("Эта сборка не из каталога CastPack"))?;
+        .ok_or_else(|| CommandError::invalid_input("error.reason.castpack.not_castpack"))?;
 
     let url = crate::castpack::manifest_url(state, &instance.id, source).await;
 
@@ -180,7 +184,7 @@ pub async fn check_update(
                 available: false,
                 version: source.version.clone(),
                 changelog: source.changelog.clone(),
-                error: Some(error.message),
+                error: Some(error),
             })
         }
     }

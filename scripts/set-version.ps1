@@ -1,17 +1,14 @@
 ﻿#!/usr/bin/env pwsh
-# Смена версии лаунчера, Windows. Вся логика - в set-version.mjs рядом.
+# Changes the launcher version on Windows. All the logic lives in set-version.mjs next to it.
 #
-# ВАЖНО: файл должен лежать в UTF-8 с BOM. Windows PowerShell 5.1 без BOM читает
-# его как ANSI, кириллица превращается в мусор и скрипт падает на разборе.
-#
-#   .\scripts\set-version.ps1            показать текущие версии
-#   .\scripts\set-version.ps1 1.5.0      проставить новую везде
-#   .\scripts\set-version.ps1 1.5.0 -n   показать, что изменится, но не писать
+#   .\scripts\set-version.ps1            show the current versions
+#   .\scripts\set-version.ps1 1.5.0      set a new one everywhere
+#   .\scripts\set-version.ps1 1.5.0 -n   show what would change without writing
 
 $ErrorActionPreference = "Stop"
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Error "Не найден node - он нужен и для сборки фронта, поставьте Node.js"
+    Write-Error "node not found: it is needed to build the frontend too, install Node.js"
     exit 1
 }
 

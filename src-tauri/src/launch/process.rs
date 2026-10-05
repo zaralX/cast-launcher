@@ -55,7 +55,7 @@ impl Process {
         let mut file = self.log_file.lock().await;
         if let Some(file) = file.as_mut() {
             if let Err(error) = file.write_all(format!("{line}\n").as_bytes()).await {
-                eprintln!("Не удалось записать лог игры: {error}");
+                log::warn!("Failed to write the game log: {error}");
             }
         }
     }
@@ -351,7 +351,7 @@ async fn record_playtime(
         .record_session(&paths, instance_id, seconds)
         .await
     {
-        eprintln!("Не удалось записать наигранное время: {}", error.message);
+        log::warn!("Failed to save playtime: {}", error);
         return;
     }
 
@@ -434,7 +434,7 @@ async fn open_log(path: Option<PathBuf>) -> Option<tokio::fs::File> {
 
     if let Some(parent) = path.parent() {
         if let Err(error) = tokio::fs::create_dir_all(parent).await {
-            eprintln!("Не удалось создать каталог логов: {error}");
+            log::warn!("Failed to create the log directory: {error}");
             return None;
         }
     }
@@ -442,7 +442,7 @@ async fn open_log(path: Option<PathBuf>) -> Option<tokio::fs::File> {
     match tokio::fs::File::create(&path).await {
         Ok(file) => Some(file),
         Err(error) => {
-            eprintln!("Не удалось создать файл лога {}: {error}", path.display());
+            log::warn!("Failed to create log file {}: {error}", path.display());
             None
         }
     }

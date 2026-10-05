@@ -1,7 +1,8 @@
 import type { JavaMode } from '~/types/app'
 import type { BlockedFile } from '~/types/catalog'
 import type { CastPackSource } from '~/types/castpack'
-import type { InstanceDir } from '~/types/backend'
+import type { InstanceDir, UiText } from '~/types/backend'
+import type { CommandError } from '~/types/error'
 
 export type InstanceType = 'vanilla' | 'fabric' | 'forge' | 'neoforge'
 
@@ -110,13 +111,13 @@ export interface InstallSnapshot {
   instanceId: string
   instanceName: string
   stage: InstallStage
-  phase: string
-  message: string
+  phase: UiText
+  message: UiText
   progress: number
   files: DownloadFileProgress[]
   startedAt: number
   aborting: boolean
-  error?: string
+  error?: CommandError
   blocked?: BlockedFile[]
   awaitingFiles: boolean
 }

@@ -125,9 +125,10 @@ async fn latest(
     match found {
         Ok(version) => version,
         Err(error) => {
-            eprintln!(
-                "Не удалось проверить обновление «{}»: {}",
-                matched.title, error.message
+            log::warn!(
+                "Failed to check for an update of '{}': {}",
+                matched.title,
+                error
             );
             None
         }
@@ -210,7 +211,7 @@ pub async fn apply(
             .await;
 
         if let Err(error) = downloaded {
-            eprintln!("Не удалось обновить «{}»: {}", update.title, error.message);
+            log::warn!("Failed to update '{}': {}", update.title, error);
             report.failed.push(update.title.clone());
             continue;
         }
@@ -317,7 +318,7 @@ mod tests {
         assert_eq!(candidates.len(), 1);
         assert_eq!(
             candidates[0].0.path, "mods/jei.jar",
-            "обновляем только своё"
+            "only our own mods are updated"
         );
     }
 
@@ -358,7 +359,10 @@ mod tests {
         let entry = update.matched();
 
         assert_eq!(entry.version_id, "xyz");
-        assert_eq!(entry.version_number, "0.6.0", "в кэше уже новая версия");
+        assert_eq!(
+            entry.version_number, "0.6.0",
+            "the cache already has the new version"
+        );
         assert_eq!(entry.project_id, "AANobbMI");
     }
 

@@ -130,7 +130,8 @@ export const useSkinStore = defineStore('skin', {
     },
 
     async duplicate(id: string) {
-      const entry = await call('duplicate_skin', { id, capeId: this.draft.capeId })
+      const name = useNuxtApp().$i18n.t('skins.copy_name', { name: this.skinById(id)?.name ?? '' })
+      const entry = await call('duplicate_skin', { id, capeId: this.draft.capeId, name })
 
       await this.loadLibrary()
       this.select(this.skinById(entry.id))
@@ -139,7 +140,9 @@ export const useSkinStore = defineStore('skin', {
     },
 
     async importFile(path?: string) {
-      const entry = await call('import_skin', path ? { path } : {})
+      const { $i18n } = useNuxtApp()
+      const dialog = { title: $i18n.t('dialog.skin.title'), filter: $i18n.t('dialog.skin.filter') }
+      const entry = await call('import_skin', { path, dialog })
 
       if (entry) {
         await this.loadLibrary()

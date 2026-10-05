@@ -7,6 +7,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::fs_util::{relative_key, safe_join};
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::download::DownloadTask;
+use crate::text::UiText;
 
 use super::{https_url, SCHEMA_VERSION};
 
@@ -79,10 +80,8 @@ impl ModEntry {
                 let version_id = self.version_id.trim();
 
                 if project_id.is_empty() || version_id.is_empty() {
-                    return Err(CommandError::manifest(format!(
-                        "У мода из {} должны быть projectId и versionId",
-                        provider.label()
-                    )));
+                    return Err(CommandError::manifest("error.reason.castpack.mod_no_ids")
+                        .param("provider", provider.label()));
                 }
 
                 Ok(ModRef::Catalog {
@@ -92,11 +91,11 @@ impl ModEntry {
                     optional: self.optional,
                 })
             }
-            Some(_) => Err(CommandError::manifest(format!(
-                "У мода нельзя одновременно указывать provider и url: {url}"
-            ))),
+            Some(_) => Err(
+                CommandError::manifest("error.reason.castpack.mod_both_sources").param("url", url),
+            ),
             None if url.is_empty() => Err(CommandError::manifest(
-                "У мода не указан ни provider с projectId, ни прямая ссылка url",
+                "error.reason.castpack.mod_no_source",
             )),
             None => {
                 https_url(url)?;
@@ -107,7 +106,8 @@ impl ModEntry {
                     .map(str::trim)
                     .filter(|hash| !hash.is_empty())
                     .ok_or_else(|| {
-                        CommandError::manifest(format!("У мода по прямой ссылке нет sha1: {url}"))
+                        CommandError::manifest("error.reason.castpack.mod_no_sha1")
+                            .param("url", url)
                     })?;
 
                 let key = relative_key(&self.path)?;
@@ -154,7 +154,8 @@ impl FileEntry {
             .map(str::trim)
             .filter(|hash| !hash.is_empty())
             .ok_or_else(|| {
-                CommandError::manifest(format!("У файла «{}» не указан sha1", self.path))
+                CommandError::manifest("error.reason.castpack.file_no_sha1")
+                    .param("path", &self.path)
             })?;
 
         Ok((key, url, sha1))
@@ -196,7 +197,8 @@ pub struct SeedFile {
 impl Manifest {
     pub fn parse(bytes: &[u8]) -> CommandResult<Self> {
         let manifest: Self = serde_json::from_slice(bytes).map_err(|e| {
-            CommandError::manifest("Повреждённый манифест CastPack").with_details(e.to_string())
+            CommandError::manifest("error.reason.castpack.manifest_corrupted")
+                .with_details(e.to_string())
         })?;
 
         manifest.validate()?;
@@ -206,10 +208,11 @@ impl Manifest {
 
     pub fn validate(&self) -> CommandResult<()> {
         if self.schema_version != SCHEMA_VERSION {
-            return Err(CommandError::manifest(format!(
-                "Манифест написан под другую версию формата: {} (лаунчер понимает {SCHEMA_VERSION})",
-                self.schema_version
-            )));
+            return Err(
+                CommandError::unsupported("error.reason.castpack.manifest_version")
+                    .param("version", self.schema_version)
+                    .param("supported", SCHEMA_VERSION),
+            );
         }
 
         for (field, value) in [
@@ -218,35 +221,33 @@ impl Manifest {
             ("version", &self.version),
         ] {
             if value.trim().is_empty() {
-                return Err(CommandError::manifest(format!(
-                    "В манифесте не заполнено поле {field}"
-                )));
+                return Err(CommandError::manifest("error.reason.castpack.empty_field")
+                    .param("field", field));
             }
         }
 
         if self.base.is_none() && self.minecraft.trim().is_empty() {
             return Err(CommandError::manifest(
-                "Без базового модпака в манифесте обязательна версия Minecraft",
+                "error.reason.castpack.minecraft_required",
             ));
         }
 
         for (what, count) in [
-            ("модов", self.mods.len()),
-            ("файлов", self.files.len()),
-            ("путей на удаление", self.delete.len()),
+            ("error.reason.castpack.entries.mods", self.mods.len()),
+            ("error.reason.castpack.entries.files", self.files.len()),
+            ("error.reason.castpack.entries.delete", self.delete.len()),
         ] {
             if count > MAX_ENTRIES {
-                return Err(CommandError::manifest(format!(
-                    "В манифесте слишком много {what}: {count} при пределе {MAX_ENTRIES}"
-                )));
+                return Err(CommandError::manifest("error.reason.castpack.too_many")
+                    .param_text("what", UiText::new(what))
+                    .param("count", count)
+                    .param("limit", MAX_ENTRIES));
             }
         }
 
         if let Some(base) = &self.base {
             if base.project_id.trim().is_empty() || base.version_id.trim().is_empty() {
-                return Err(CommandError::manifest(
-                    "У базового модпака должны быть projectId и versionId",
-                ));
+                return Err(CommandError::manifest("error.reason.castpack.base_no_ids"));
             }
         }
 
@@ -397,19 +398,15 @@ mod tests {
         let other = json!({"schemaVersion": 99, "minecraft": "1.20.1"});
         let error = Manifest::parse(&serde_json::to_vec(&other).unwrap()).unwrap_err();
 
-        assert_eq!(error.code, "MANIFEST_INVALID");
-        assert!(
-            error.message.contains("99"),
-            "в тексте должна быть чужая версия: {}",
-            error.message
-        );
+        assert_eq!(error.code, crate::error::ErrorCode::Unsupported);
+        assert!(error.text.mentions("99"));
     }
 
     #[test]
     fn broken_json_is_reported_as_a_manifest_problem() {
         assert_eq!(
             Manifest::parse(b"{ not json").unwrap_err().code,
-            "MANIFEST_INVALID"
+            crate::error::ErrorCode::ManifestInvalid
         );
     }
 
@@ -421,7 +418,7 @@ mod tests {
         let with_base = parse(json!({
             "base": {"provider": "modrinth", "projectId": "1KVo5zza", "versionId": "abc"}
         }));
-        assert!(with_base.is_ok(), "версию игры даст сам модпак");
+        assert!(with_base.is_ok(), "the modpack provides the game version");
     }
 
     #[test]
@@ -437,7 +434,7 @@ mod tests {
         let value = json!({"schemaVersion": SCHEMA_VERSION, "id": "a", "name": "  ", "version": "1", "minecraft": "1.20.1"});
         let error = Manifest::parse(&serde_json::to_vec(&value).unwrap()).unwrap_err();
 
-        assert!(error.message.contains("name"), "{}", error.message);
+        assert!(error.text.mentions("name"), "{}", error);
     }
 
     #[test]
@@ -462,7 +459,7 @@ mod tests {
             "mods": [{"url": "https://cdn.zaralx.ru/core.jar", "path": "mods/core.jar"}]
         }));
 
-        assert!(no_hash.unwrap_err().message.contains("sha1"));
+        assert!(no_hash.unwrap_err().text.mentions("sha1"));
 
         assert!(parse(json!({
             "minecraft": "1.20.1",
@@ -539,7 +536,11 @@ mod tests {
         let owned = pack.owned_files(mc()).unwrap();
         let seeded = pack.seed_files(mc()).unwrap();
 
-        assert_eq!(owned.len(), 1, "без mode файл принадлежит сборке");
+        assert_eq!(
+            owned.len(),
+            1,
+            "without a mode the file belongs to the pack"
+        );
         assert_eq!(owned[0].0, "config/rpg.toml");
 
         let keys: Vec<_> = seeded.iter().map(|file| file.key.clone()).collect();
@@ -615,7 +616,7 @@ mod tests {
             .collect();
 
         let error = parse(json!({"minecraft": "1.20.1", "mods": many})).unwrap_err();
-        assert!(error.message.contains("слишком много"), "{}", error.message);
+        assert!(error.text.mentions("too_many"), "{error}");
     }
 
     #[test]

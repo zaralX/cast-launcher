@@ -23,3 +23,4 @@ pub mod packs;
 pub mod paths;
 pub mod skins;
 pub mod telemetry;
+pub mod text;

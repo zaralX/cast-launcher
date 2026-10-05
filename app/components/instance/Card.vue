@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { UiText } from '~/types/backend'
 import type { Instance } from '~/types/instance'
 
 const props = defineProps<{
@@ -6,7 +7,7 @@ const props = defineProps<{
   running?: boolean
   installing?: boolean
   progress?: number
-  phase?: string
+  phase?: UiText
 }>()
 
 const emit = defineEmits<{
@@ -100,7 +101,7 @@ const playtime = computed(() => formatPlaytime(total.value) || t('instance.playt
         >
           <span class="flex items-baseline justify-between gap-3">
             <span class="min-w-0 truncate font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
-              {{ phase || $t('instance.state.installing') }}
+              {{ phase ? uiText(phase) : $t('instance.state.installing') }}
             </span>
             <span
               v-if="progress != null"

@@ -90,7 +90,8 @@ impl PackFile {
 impl PackIndex {
     pub fn parse(bytes: &[u8]) -> CommandResult<Self> {
         let index: Self = serde_json::from_slice(bytes).map_err(|e| {
-            CommandError::manifest(format!("Повреждённый {INDEX_ENTRY} внутри модпака"))
+            CommandError::manifest("error.reason.modpack.corrupted_entry")
+                .param("entry", INDEX_ENTRY)
                 .with_details(e.to_string())
         })?;
 
@@ -101,17 +102,16 @@ impl PackIndex {
 
     fn validate(&self) -> CommandResult<()> {
         if self.format_version != 1 {
-            return Err(CommandError::manifest(format!(
-                "Неизвестная версия формата модпака: {}",
-                self.format_version
-            )));
+            return Err(
+                CommandError::unsupported("error.reason.modpack.format_version")
+                    .param("version", self.format_version),
+            );
         }
 
         if self.game != "minecraft" {
-            return Err(CommandError::manifest(format!(
-                "Модпак не для Minecraft: {}",
-                self.game
-            )));
+            return Err(CommandError::invalid_input(
+                "error.reason.modpack.not_minecraft",
+            ));
         }
 
         Ok(())
@@ -122,7 +122,7 @@ impl PackIndex {
             .get("minecraft")
             .map(String::as_str)
             .filter(|version| !version.is_empty())
-            .ok_or_else(|| CommandError::manifest("В модпаке не указана версия Minecraft"))
+            .ok_or_else(|| CommandError::manifest("error.reason.modpack.no_minecraft"))
     }
 
     pub fn loader(&self) -> CommandResult<(LoaderType, Option<String>)> {
@@ -143,9 +143,10 @@ impl PackIndex {
                 ),
                 "quilt-loader" => return Err(unsupported("Quilt")),
                 other => {
-                    return Err(CommandError::manifest(format!(
-                        "Модпак требует неизвестную зависимость: {other}"
-                    )))
+                    return Err(CommandError::unsupported(
+                        "error.reason.modpack.unknown_dependency",
+                    )
+                    .param("dependency", other))
                 }
             };
 
@@ -162,7 +163,7 @@ impl PackIndex {
             let destination = safe_join(minecraft_dir, &file.client_path())?;
 
             let url = file.downloads.first().ok_or_else(|| {
-                CommandError::manifest(format!("В модпаке нет ссылки на файл: {}", file.path))
+                CommandError::manifest("error.reason.modpack.no_file_url").param("path", &file.path)
             })?;
 
             tasks.push(DownloadTask::verified(
@@ -208,7 +209,7 @@ impl PackIndex {
 }
 
 fn unsupported(loader: &str) -> CommandError {
-    CommandError::manifest(format!("Модпаки на {loader} пока не поддерживаются"))
+    CommandError::unsupported("error.reason.modpack.loader_unsupported").param("loader", loader)
 }
 
 #[cfg(test)]
@@ -277,7 +278,7 @@ mod tests {
         assert!(parse(serde_json::json!({"formatVersion": 1, "game": "terraria"})).is_err());
         assert!(
             parse(serde_json::json!({"game": "minecraft"})).is_err(),
-            "версия формата обязательна"
+            "the format version is required"
         );
         assert!(parse(serde_json::json!({"formatVersion": 1, "game": "minecraft"})).is_ok());
     }
@@ -290,8 +291,8 @@ mod tests {
 
         let error = future.loader().unwrap_err();
         assert!(
-            error.message.contains("babric-loader"),
-            "в тексте должно быть имя зависимости"
+            error.text.mentions("babric-loader"),
+            "the text must name the dependency"
         );
     }
 
@@ -369,7 +370,7 @@ mod tests {
             "dependencies": {"minecraft": "1.20.1", "quilt-loader": "0.23.1"}
         }));
 
-        assert!(quilt.loader().unwrap_err().message.contains("Quilt"));
+        assert!(quilt.loader().unwrap_err().text.mentions("Quilt"));
     }
 
     #[test]
@@ -388,7 +389,7 @@ mod tests {
         assert_eq!(
             legacy.loader().unwrap(),
             (LoaderType::NeoForge, Some("1.20.1-47.1.106".into())),
-            "в maven эта ветка лежит под именем с версией игры"
+            "in maven this branch is named with the game version"
         );
     }
 
@@ -423,6 +424,6 @@ mod tests {
     #[test]
     fn broken_json_is_reported_as_a_manifest_problem() {
         let error = PackIndex::parse(b"{ not json").unwrap_err();
-        assert_eq!(error.code, "MANIFEST_INVALID");
+        assert_eq!(error.code, crate::error::ErrorCode::ManifestInvalid);
     }
 }

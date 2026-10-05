@@ -80,7 +80,7 @@ fn send(app: &AppHandle, event: Event) {
     let name = event.name().to_string();
 
     if let Err(error) = app.track_event(&name, Some(event.into_props())) {
-        eprintln!("Событие телеметрии «{name}» не ушло: {error}");
+        log::debug!("Telemetry event '{name}' was not sent: {error}");
     }
 }
 

@@ -15,7 +15,6 @@ use super::texture::{self, SkinVariant};
 const INDEX_FILE: &str = "library.json";
 const REMOTE_DIR: &str = "remote";
 const MAX_NAME: usize = 48;
-const COPY_SUFFIX: &str = "копия";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -59,7 +58,7 @@ impl SkinLibrary {
         self.skins
             .iter_mut()
             .find(|entry| entry.id == id)
-            .ok_or_else(|| CommandError::fs("Набор не найден в библиотеке"))
+            .ok_or_else(|| CommandError::not_found("error.reason.skins.set_not_found"))
     }
 
     fn users_of(&self, texture: &str) -> usize {
@@ -76,9 +75,9 @@ pub fn index_file(dir: &Path) -> PathBuf {
 
 pub fn texture_file(dir: &Path, texture: &str) -> CommandResult<PathBuf> {
     if texture.is_empty() || !texture.chars().all(|symbol| symbol.is_ascii_hexdigit()) {
-        return Err(CommandError::fs(format!(
-            "Некорректный идентификатор текстуры: {texture}"
-        )));
+        return Err(
+            CommandError::unknown("error.reason.skins.invalid_texture").param("texture", texture)
+        );
     }
 
     Ok(dir.join(format!("{texture}.png")))
@@ -141,7 +140,7 @@ pub async fn add(
             let entry = SkinEntry {
                 id: uuid::Uuid::new_v4().simple().to_string(),
                 texture: texture.clone(),
-                name: clean_name(name),
+                name: clean_name(name)?,
                 variant: variant.unwrap_or(detected),
                 cape_id: None,
                 source,
@@ -160,20 +159,25 @@ pub async fn add(
     library
         .find(&id)
         .cloned()
-        .ok_or_else(|| CommandError::fs("Набор не найден в библиотеке"))
+        .ok_or_else(|| CommandError::not_found("error.reason.skins.set_not_found"))
 }
 
-pub async fn duplicate(dir: &Path, id: &str, cape_id: Option<String>) -> CommandResult<SkinEntry> {
+pub async fn duplicate(
+    dir: &Path,
+    id: &str,
+    cape_id: Option<String>,
+    name: &str,
+) -> CommandResult<SkinEntry> {
     let mut library = load(dir).await;
 
     let source = library
         .find(id)
         .cloned()
-        .ok_or_else(|| CommandError::fs("Набор не найден в библиотеке"))?;
+        .ok_or_else(|| CommandError::not_found("error.reason.skins.set_not_found"))?;
 
     let copy = SkinEntry {
         id: uuid::Uuid::new_v4().simple().to_string(),
-        name: copy_name(&source.name),
+        name: clean_name(name)?,
         cape_id,
         added_at: now_millis(),
         ..source
@@ -189,7 +193,7 @@ pub async fn duplicate(dir: &Path, id: &str, cape_id: Option<String>) -> Command
 pub async fn rename(dir: &Path, id: &str, name: &str) -> CommandResult<SkinLibrary> {
     let mut library = load(dir).await;
 
-    library.find_mut(id)?.name = clean_name(name);
+    library.find_mut(id)?.name = clean_name(name)?;
 
     save(dir, &library).await?;
 
@@ -241,7 +245,7 @@ pub async fn read(dir: &Path, texture: &str) -> CommandResult<Vec<u8>> {
 
     tokio::fs::read(&path)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать скин", &path, e))
+        .map_err(|e| CommandError::io("error.reason.fs.read_file", &path, e))
 }
 
 pub async fn data_url(dir: &Path, texture: &str) -> CommandResult<String> {
@@ -275,7 +279,7 @@ pub async fn remote_data_url(dir: &Path, url: &str) -> CommandResult<String> {
     Ok(to_data_url("image/png", &remote_bytes(dir, url).await?))
 }
 
-fn clean_name(name: &str) -> String {
+fn clean_name(name: &str) -> CommandResult<String> {
     let name: String = name
         .trim()
         .chars()
@@ -286,14 +290,10 @@ fn clean_name(name: &str) -> String {
     let name = name.trim().to_string();
 
     if name.is_empty() {
-        "Без названия".to_string()
-    } else {
-        name
+        return Err(CommandError::invalid_input("error.reason.skins.name_empty"));
     }
-}
 
-fn copy_name(name: &str) -> String {
-    clean_name(&format!("{name} - {COPY_SUFFIX}"))
+    Ok(name)
 }
 
 fn now_millis() -> u64 {
@@ -372,7 +372,7 @@ mod tests {
         .await
         .unwrap();
 
-        let copy = duplicate(&dir, &origin.id, Some("cape-1".into()))
+        let copy = duplicate(&dir, &origin.id, Some("cape-1".into()), "Ночной - копия")
             .await
             .unwrap();
 
@@ -401,7 +401,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let copy = duplicate(&dir, &origin.id, None).await.unwrap();
+        let copy = duplicate(&dir, &origin.id, None, "Ночной - копия")
+            .await
+            .unwrap();
 
         let library = remove(&dir, &copy.id).await.unwrap();
 
@@ -429,7 +431,7 @@ mod tests {
         )
         .await
         .unwrap();
-        let copy = duplicate(&dir, &origin.id, Some("cape-1".into()))
+        let copy = duplicate(&dir, &origin.id, Some("cape-1".into()), "Ночной - копия")
             .await
             .unwrap();
 
@@ -483,7 +485,7 @@ mod tests {
     async fn renaming_trims_and_never_leaves_an_empty_name() {
         let dir = temp_dir();
 
-        let entry = add(
+        let blank = add(
             &dir,
             "  ",
             &skin_png([5, 5, 5, 255]),
@@ -491,11 +493,24 @@ mod tests {
             None,
         )
         .await
+        .unwrap_err();
+        assert_eq!(blank.code, crate::error::ErrorCode::InvalidInput);
+
+        let entry = add(
+            &dir,
+            "Ночной",
+            &skin_png([5, 5, 5, 255]),
+            SkinSource::Local,
+            None,
+        )
+        .await
         .unwrap();
-        assert_eq!(entry.name, "Без названия");
 
         let library = rename(&dir, &entry.id, "  Ночной  ").await.unwrap();
         assert_eq!(library.skins[0].name, "Ночной");
+
+        let empty = rename(&dir, &entry.id, "   ").await.unwrap_err();
+        assert_eq!(empty.code, crate::error::ErrorCode::InvalidInput);
 
         std::fs::remove_dir_all(&dir).ok();
     }

@@ -8,6 +8,7 @@ use tokio::sync::{oneshot, Mutex};
 use cast_core::error::CommandResult;
 use cast_core::install::progress::ProgressReporter;
 use cast_core::packs::{manual, BlockedFile};
+use cast_core::text::UiText;
 
 const RESCAN_EVERY: Duration = Duration::from_secs(5);
 
@@ -56,7 +57,7 @@ impl BlockedRegistry {
             return found;
         }
 
-        reporter.set_message("Ожидание файлов, которые нужно скачать вручную");
+        reporter.set_message(UiText::new("install.message.awaiting_files"));
         reporter.set_awaiting_files(true);
 
         self.until_resumed(instance_id, receiver).await;
@@ -216,7 +217,9 @@ pub async fn place_found(minecraft: &Path, files: &[BlockedFile]) -> Vec<String>
     for file in files.iter().filter(|file| file.found()) {
         match manual::place(minecraft, file).await {
             Ok(key) => placed.push(key),
-            Err(error) => eprintln!("Не удалось положить скачанный файл в сборку: {error}"),
+            Err(error) => {
+                log::warn!("Failed to move the downloaded file into the instance: {error}")
+            }
         }
     }
 

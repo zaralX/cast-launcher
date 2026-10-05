@@ -1,5 +1,6 @@
 pub mod local;
 pub mod manual;
+pub mod switch;
 
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +8,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::instance::{LoaderType, PackProvider};
 use crate::net::download::DownloadTask;
 use crate::net::meta_cache::MetaCache;
+use crate::text::UiText;
 
 pub const SORTS: &[&str] = &["relevance", "downloads", "follows", "newest", "updated"];
 
@@ -47,7 +49,7 @@ pub struct ProviderInfo {
     pub label: &'static str,
     pub ready: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
+    pub reason: Option<UiText>,
     pub sorts: Vec<&'static str>,
     pub capabilities: Capabilities,
 }
@@ -65,7 +67,7 @@ pub fn providers() -> Vec<ProviderInfo> {
                 id: provider,
                 label: provider.label(),
                 ready,
-                reason: (!ready).then(|| "Лаунчер собран без ключа CurseForge API".to_string()),
+                reason: (!ready).then(|| UiText::new("catalog.provider.no_api_key")),
                 sorts: sorts_for(provider),
                 capabilities: capabilities(provider),
             }
@@ -209,29 +211,32 @@ pub struct PackVersion {
 }
 
 impl PackVersion {
-    pub fn unsupported_reason(&self) -> Option<String> {
+    /// Mirrors `unsupportedReason()` on the frontend, which shows the same keys in the catalog.
+    pub fn unsupported_reason(&self) -> Option<UiText> {
         if self.supported {
             return None;
         }
 
         if self.blocked {
-            return Some("автор запретил скачивание через сторонние лаунчеры".into());
+            return Some(UiText::new("catalog.unsupported.blocked"));
         }
 
         if self.loader.is_none() {
-            let loaders = match self.loaders.is_empty() {
-                true => "не указан".to_string(),
-                false => self.loaders.join(", "),
-            };
+            let reason = UiText::new("catalog.unsupported.loader");
 
-            return Some(format!("неподдерживаемый загрузчик ({loaders})"));
+            return Some(match self.loaders.is_empty() {
+                true => {
+                    reason.param_text("loaders", UiText::new("catalog.unsupported.loader_unknown"))
+                }
+                false => reason.param("loaders", self.loaders.join(", ")),
+            });
         }
 
         if self.minecraft_version.is_none() {
-            return Some("не указана версия Minecraft".into());
+            return Some(UiText::new("catalog.unsupported.minecraft"));
         }
 
-        Some("в версии нет архива пака".into())
+        Some(UiText::new("catalog.unsupported.archive"))
     }
 }
 
@@ -307,8 +312,12 @@ pub async fn icon(provider: PackProvider, url: &str) -> CommandResult<Vec<u8>> {
 }
 
 pub fn icon_file_name(provider: PackProvider, project_id: &str, url: &str) -> String {
-    let extension = url
-        .split('?')
+    format!("{}-{project_id}.{}", provider.key(), icon_extension(url))
+}
+
+/// The extension of an icon URL, `png` when the URL does not show a sane one.
+pub fn icon_extension(url: &str) -> String {
+    url.split('?')
         .next()
         .and_then(|path| path.rsplit('/').next())
         .and_then(|name| name.rsplit_once('.'))
@@ -317,14 +326,12 @@ pub fn icon_file_name(provider: PackProvider, project_id: &str, url: &str) -> St
             (1..=5).contains(&extension.len())
                 && extension.chars().all(|c| c.is_ascii_alphanumeric())
         })
-        .unwrap_or_else(|| "png".to_string());
-
-    format!("{}-{project_id}.{extension}", provider.key())
+        .unwrap_or_else(|| "png".to_string())
 }
 
 pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u8>> {
     let parsed = url::Url::parse(url).map_err(|e| {
-        CommandError::network("Некорректная ссылка на иконку")
+        CommandError::network("error.reason.links.invalid_icon")
             .with_details(crate::error::error_chain(&e))
     })?;
 
@@ -336,10 +343,9 @@ pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u
         });
 
     if !allowed {
-        return Err(CommandError::network(format!(
-            "Иконка не из каталога {}: {url}",
-            hosts.join(" / ")
-        )));
+        return Err(CommandError::network("error.reason.links.foreign_icon")
+            .param("hosts", hosts.join(" / "))
+            .param("url", url));
     }
 
     let response = crate::net::http::client()
@@ -347,7 +353,7 @@ pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u
         .send()
         .await
         .map_err(|e| {
-            CommandError::network("Не удалось скачать иконку")
+            CommandError::network("error.reason.download.icon_failed")
                 .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
         })?;
 
@@ -360,20 +366,21 @@ pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u
         .content_length()
         .is_some_and(|size| size > crate::icons::MAX_SIZE)
     {
-        return Err(CommandError::download(format!(
-            "Иконка слишком большая: {url}"
-        )));
+        return Err(
+            CommandError::download("error.reason.download.icon_too_large").param("url", url),
+        );
     }
 
     let bytes = response.bytes().await.map_err(|e| {
-        CommandError::download(format!("Обрыв загрузки иконки: {url}"))
+        CommandError::download("error.reason.download.icon_interrupted")
+            .param("url", url)
             .with_details(crate::error::error_chain(&e))
     })?;
 
     if bytes.len() as u64 > crate::icons::MAX_SIZE {
-        return Err(CommandError::download(format!(
-            "Иконка слишком большая: {url}"
-        )));
+        return Err(
+            CommandError::download("error.reason.download.icon_too_large").param("url", url),
+        );
     }
 
     Ok(bytes.to_vec())
@@ -382,15 +389,16 @@ pub(crate) async fn fetch_icon(url: &str, hosts: &[&str]) -> CommandResult<Vec<u
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::text::Param;
 
     #[test]
     fn curseforge_hides_the_sorts_it_cannot_do() {
         let cf = sorts_for(PackProvider::CurseForge);
 
-        assert!(!cf.contains(&"follows"), "у CurseForge нет подписок");
+        assert!(!cf.contains(&"follows"), "CurseForge has no follows");
         assert!(
             !cf.contains(&"newest"),
-            "у CurseForge нет сортировки по дате создания"
+            "CurseForge can not sort by creation date"
         );
         assert!(cf.contains(&"downloads"));
 
@@ -413,7 +421,7 @@ mod tests {
         assert_eq!(
             query(PackProvider::CurseForge, "follows"),
             "relevance",
-            "сортировку не из списка провайдера подменяем, а не шлём как есть"
+            "a sort the provider does not list is replaced, not sent as is"
         );
         assert_eq!(query(PackProvider::CurseForge, "; drop"), "relevance");
     }
@@ -453,7 +461,7 @@ mod tests {
                 "https://media.forgecdn.net/avatars/x"
             ),
             "curseforge-925200.png",
-            "без расширения - считаем png"
+            "no extension means png"
         );
     }
 
@@ -506,20 +514,21 @@ mod tests {
             .is_none());
 
         let quilt = version(None, true, false).unsupported_reason().unwrap();
+        assert_eq!(quilt.key, "catalog.unsupported.loader");
         assert!(
-            quilt.contains("quilt"),
-            "в тексте должен быть загрузчик: {quilt}"
+            matches!(&quilt.params["loaders"], Param::Value(loaders) if loaders.contains("quilt")),
+            "the text must name the loader: {quilt:?}"
         );
 
         let blocked = version(Some(LoaderType::Fabric), false, true)
             .unsupported_reason()
             .unwrap();
-        assert!(blocked.contains("запретил"), "{blocked}");
+        assert_eq!(blocked.key, "catalog.unsupported.blocked");
 
         let empty = version(Some(LoaderType::Fabric), false, false)
             .unsupported_reason()
             .unwrap();
-        assert!(empty.contains("архива"), "{empty}");
+        assert_eq!(empty.key, "catalog.unsupported.archive");
     }
 
     #[test]

@@ -146,7 +146,7 @@ pub struct PlanRequest<'a> {
 pub async fn plan(request: PlanRequest<'_>) -> CommandResult<InstallPlan> {
     let target = version_of(request.provider, request.project_id, request.version_id)
         .await?
-        .ok_or_else(|| CommandError::version_not_found("Такой версии мода в каталоге нет"))?;
+        .ok_or_else(|| CommandError::version_not_found("error.reason.mods.version_not_found"))?;
 
     let mut visited: BTreeSet<String> = BTreeSet::from([request.project_id.trim().to_string()]);
     let mut required: Vec<(String, CatalogVersion)> = Vec::new();
@@ -252,9 +252,10 @@ async fn resolve(
     match found {
         Ok(version) => version,
         Err(error) => {
-            eprintln!(
-                "Зависимость {} не разобрана: {}",
-                dependency.project_id, error.message
+            log::warn!(
+                "Failed to resolve dependency {}: {}",
+                dependency.project_id,
+                error
             );
             None
         }
@@ -295,7 +296,7 @@ async fn projects_info(provider: PackProvider, ids: &[String]) -> BTreeMap<Strin
     };
 
     found.unwrap_or_else(|error| {
-        eprintln!("Каталог не отдал проекты модов: {}", error.message);
+        log::warn!("The catalog did not return mod projects: {}", error);
         BTreeMap::new()
     })
 }
@@ -411,10 +412,7 @@ pub async fn apply(
             .await;
 
         if let Err(error) = downloaded {
-            eprintln!(
-                "Не удалось поставить «{}»: {}",
-                planned.title, error.message
-            );
+            log::warn!("Failed to install '{}': {}", planned.title, error);
             report.failed.push(planned.title.clone());
             continue;
         }

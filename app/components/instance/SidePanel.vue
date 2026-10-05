@@ -65,7 +65,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
           >
             <span class="flex items-baseline justify-between gap-3">
               <span class="min-w-0 truncate font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
-                {{ install?.phase || $t('instance.state.installing') }}
+                {{ install ? uiText(install.phase) : $t('instance.state.installing') }}
               </span>
               <span
                 v-if="install?.progress != null"

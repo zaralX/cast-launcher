@@ -79,7 +79,7 @@ fn loader_id(name: &str) -> Option<u32> {
 
 pub fn search_url(query: &SearchQuery) -> String {
     let mut url =
-        Url::parse(&format!("{API}/mods/search")).expect("постоянный адрес поиска CurseForge");
+        Url::parse(&format!("{API}/mods/search")).expect("a constant CurseForge search URL");
 
     let limit = query.limit.clamp(1, MAX_LIMIT);
     let offset = query.offset.min(MAX_OFFSET.saturating_sub(limit));
@@ -222,7 +222,7 @@ pub async fn identify(fingerprints: &[u32]) -> CommandResult<BTreeMap<u32, Catal
     let projects: BTreeMap<u64, RawMod> = match mods_by_id(&ids).await {
         Ok(projects) => projects,
         Err(error) => {
-            eprintln!("CurseForge не отдал проекты модов: {error}");
+            log::warn!("CurseForge did not return mod projects: {error}");
             BTreeMap::new()
         }
     };
@@ -306,7 +306,7 @@ pub(crate) fn mod_search_url(query: &crate::mods::install::ModSearch) -> String 
     let offset = query.offset.min(MAX_OFFSET.saturating_sub(limit));
 
     let mut url =
-        Url::parse(&format!("{API}/mods/search")).expect("постоянный адрес поиска CurseForge");
+        Url::parse(&format!("{API}/mods/search")).expect("a constant CurseForge search URL");
 
     {
         let mut pairs = url.query_pairs_mut();
@@ -368,9 +368,9 @@ async fn compatible_files(
     let id = numeric(project_id)?;
 
     let mut url = Url::parse(&format!("{API}/mods/{id}/files")).map_err(|_| {
-        CommandError::manifest(format!(
-            "Недопустимый идентификатор CurseForge: {project_id}"
-        ))
+        CommandError::manifest("error.reason.service.invalid_id")
+            .param("service", "CurseForge")
+            .param("id", project_id)
     })?;
 
     {
@@ -460,9 +460,9 @@ pub async fn latest_mod(
     let id = numeric(project_id)?;
 
     let mut url = Url::parse(&format!("{API}/mods/{id}/files")).map_err(|_| {
-        CommandError::manifest(format!(
-            "Недопустимый идентификатор CurseForge: {project_id}"
-        ))
+        CommandError::manifest("error.reason.service.invalid_id")
+            .param("service", "CurseForge")
+            .param("id", project_id)
     })?;
 
     {
@@ -548,7 +548,9 @@ fn numeric(value: &str) -> CommandResult<&str> {
         && value.chars().all(|symbol| symbol.is_ascii_digit());
 
     valid.then_some(value).ok_or_else(|| {
-        CommandError::manifest(format!("Недопустимый идентификатор CurseForge: {value}"))
+        CommandError::manifest("error.reason.service.invalid_id")
+            .param("service", "CurseForge")
+            .param("id", value)
     })
 }
 
@@ -868,7 +870,8 @@ pub(crate) async fn get_json<T: DeserializeOwned>(url: &str) -> CommandResult<T>
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с CurseForge")
+        CommandError::network("error.reason.network.service_unreachable")
+            .param("service", "CurseForge")
             .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
@@ -886,7 +889,8 @@ pub(crate) async fn post_json<B: Serialize, T: DeserializeOwned>(
     }
 
     let response = request.send().await.map_err(|e| {
-        CommandError::network("Не удалось связаться с CurseForge")
+        CommandError::network("error.reason.network.service_unreachable")
+            .param("service", "CurseForge")
             .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })?;
 
@@ -904,9 +908,7 @@ async fn read_json<T: DeserializeOwned>(
         let mut error = http::http_status_error(status, url);
 
         if status == reqwest::StatusCode::FORBIDDEN || status == reqwest::StatusCode::UNAUTHORIZED {
-            error = CommandError::network(
-                "CurseForge отклонил ключ API - лаунчер собран со старым или недействительным ключом",
-            );
+            error = CommandError::network("error.reason.curseforge.api_key_rejected");
         }
 
         if let Some(details) = api_error(&body) {
@@ -917,12 +919,14 @@ async fn read_json<T: DeserializeOwned>(
     }
 
     let body = response.bytes().await.map_err(|e| {
-        CommandError::network(format!("Обрыв ответа CurseForge: {url}"))
+        CommandError::network("error.reason.network.response_interrupted")
+            .param("url", url)
             .with_details(crate::error::error_chain(&e))
     })?;
 
     serde_json::from_slice(&body).map_err(|e| {
-        CommandError::manifest("CurseForge ответил в неожиданном формате")
+        CommandError::manifest("error.reason.service.unexpected_format")
+            .param("service", "CurseForge")
             .with_details(format!("{url}\n{}", crate::error::error_chain(&e)))
     })
 }
@@ -1013,8 +1017,14 @@ mod tests {
         assert!(of(3, 238222).unwrap().required);
         assert!(!of(2, 238222).unwrap().required);
         assert_eq!(of(3, 238222).unwrap().project_id, "238222");
-        assert!(of(5, 238222).is_none(), "несовместимость - не зависимость");
-        assert!(of(6, 238222).is_none(), "включённое внутрь уже там");
+        assert!(
+            of(5, 238222).is_none(),
+            "an incompatibility is not a dependency"
+        );
+        assert!(
+            of(6, 238222).is_none(),
+            "an embedded dependency is already inside"
+        );
         assert!(of(3, 0).is_none());
     }
     use crate::packs::SearchQuery;
@@ -1076,11 +1086,11 @@ mod tests {
 
         assert!(
             !url.contains("modLoaderTypes"),
-            "неизвестный загрузчик отбрасываем"
+            "an unknown loader is dropped"
         );
         assert!(
             !url.contains("categoryIds"),
-            "нечисловую категорию отбрасываем"
+            "a non-numeric category is dropped"
         );
     }
 
@@ -1095,7 +1105,7 @@ mod tests {
         assert_eq!(
             url.matches("gameVersion=").count(),
             1,
-            "API принимает только одну"
+            "the API accepts only one"
         );
     }
 
@@ -1155,7 +1165,7 @@ mod tests {
         assert_eq!(
             archive.hashes.sha1.as_deref(),
             Some("aa09"),
-            "md5 нам не подходит"
+            "md5 is of no use here"
         );
         assert_eq!(archive.size, Some(200194596));
     }
@@ -1174,10 +1184,10 @@ mod tests {
             "downloadUrl": null
         }));
 
-        assert!(version.blocked, "ссылки нет - качать будет пользователь");
+        assert!(version.blocked, "no link, the user downloads it");
         assert!(
             version.supported,
-            "отказывать в установке нельзя: архив можно скачать вручную"
+            "the install must not be refused: the archive can be downloaded manually"
         );
         assert!(version.unsupported_reason().is_none());
 
@@ -1209,7 +1219,12 @@ mod tests {
 
         assert!(quilt.loader.is_none());
         assert!(!quilt.supported);
-        assert!(quilt.unsupported_reason().unwrap().contains("quilt"));
+        let reason = quilt.unsupported_reason().unwrap();
+        assert_eq!(reason.key, "catalog.unsupported.loader");
+        assert!(matches!(
+            &reason.params["loaders"],
+            crate::text::Param::Value(loaders) if loaders.contains("quilt")
+        ));
     }
 
     #[test]
@@ -1226,7 +1241,7 @@ mod tests {
         assert_eq!(kind(1), "release");
         assert_eq!(kind(2), "beta");
         assert_eq!(kind(3), "alpha");
-        assert_eq!(kind(99), "release", "незнакомое считаем релизом");
+        assert_eq!(kind(99), "release", "an unknown type counts as a release");
     }
 
     #[test]
@@ -1260,7 +1275,7 @@ mod tests {
         assert_eq!(
             hit.versions,
             vec!["1.21.1"],
-            "дубли и загрузчики в список версий не идут"
+            "duplicates and loaders stay out of the version list"
         );
         assert_eq!(hit.follows, 0);
         assert!(hit.distribution_allowed);
@@ -1278,7 +1293,7 @@ mod tests {
         let unknown: RawMod = serde_json::from_value(serde_json::json!({"id": 1})).unwrap();
         assert!(
             PackHit::from(unknown).distribution_allowed,
-            "молчание считаем разрешением, как и Prism"
+            "silence means allowed, as in Prism"
         );
     }
 
@@ -1298,7 +1313,7 @@ mod tests {
         assert_eq!(
             folder(serde_json::json!(4546)),
             "mods",
-            "оформление кладём к модам"
+            "cosmetics go to mods"
         );
         assert_eq!(folder(serde_json::Value::Null), "mods");
     }
@@ -1322,11 +1337,14 @@ mod tests {
 
     #[test]
     fn the_launcher_ships_with_a_usable_key() {
-        assert!(is_available(), "без ключа источник CurseForge не включится");
+        assert!(
+            is_available(),
+            "without a key the CurseForge source stays off"
+        );
     }
 
     #[tokio::test]
-    #[ignore = "ходит в сеть"]
+    #[ignore = "hits the network"]
     async fn the_catalog_answers_the_way_we_parse_it() {
         let page = search(&SearchQuery {
             query: "All the Mods".into(),
@@ -1336,19 +1354,13 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(
-            !page.hits.is_empty(),
-            "по такому запросу что-то обязано найтись"
-        );
+        assert!(!page.hits.is_empty(), "this query must find something");
         assert!(page.total_hits > 0);
 
         let hit = &page.hits[0];
         assert_eq!(hit.provider, PackProvider::CurseForge);
         assert!(!hit.title.is_empty());
-        assert!(
-            hit.downloads > 0,
-            "счётчик загрузок приходит дробным числом"
-        );
+        assert!(hit.downloads > 0, "the download count arrives as a float");
         assert!(hit
             .icon_url
             .as_deref()
@@ -1356,11 +1368,11 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "ходит в сеть"]
+    #[ignore = "hits the network"]
     async fn versions_of_a_real_pack_are_installable() {
         let versions = versions("925200").await.unwrap();
 
-        assert!(versions.len() > 10, "у пака должна быть история версий");
+        assert!(versions.len() > 10, "the pack must have a version history");
         assert!(versions.iter().any(|version| version.supported));
 
         let newest = &versions[0];
@@ -1373,19 +1385,19 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "ходит в сеть"]
+    #[ignore = "hits the network"]
     async fn a_blocked_pack_still_offers_everything_needed_to_fetch_it_by_hand() {
         let version = version("886999", "4635891").await.unwrap();
 
         assert!(version.blocked);
-        assert!(version.supported, "ставится вручную");
+        assert!(version.supported, "installable manually");
 
         let archive = version.file.unwrap();
         assert!(archive.url.is_empty());
         assert!(!archive.filename.is_empty());
         assert!(
             archive.hashes.sha1.is_some(),
-            "без хеша нечем проверить скачанное"
+            "without a hash there is nothing to verify the download with"
         );
 
         let page = download_page("886999", "4635891").await.unwrap();

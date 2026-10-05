@@ -250,6 +250,67 @@ impl Playtime {
     }
 }
 
+/// Changes to an instance from the settings page.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstanceUpdate {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub icon: Option<String>,
+    pub settings: Option<InstanceSettings>,
+}
+
+impl InstanceUpdate {
+    /// Trims the text fields and checks the icon against `icons_dir`, so `apply` can not break the instance.
+    pub fn normalized(self, icons_dir: &Path) -> CommandResult<Self> {
+        let name = match self.name {
+            Some(name) if name.trim().is_empty() => {
+                return Err(CommandError::invalid_input(
+                    "error.reason.instance.name_empty",
+                ));
+            }
+            name => name.map(|name| name.trim().to_string()),
+        };
+
+        let icon = match self.icon {
+            Some(icon) if !icon.trim().is_empty() => {
+                let icon = icon.trim().to_string();
+
+                if !crate::icons::resolve(icons_dir, &icon)?.is_file() {
+                    return Err(CommandError::not_found("error.reason.icons.not_found")
+                        .param("icon", &icon));
+                }
+
+                Some(icon)
+            }
+            Some(_) => Some(String::new()),
+            None => None,
+        };
+
+        Ok(Self {
+            name,
+            description: self.description.map(|text| text.trim().to_string()),
+            icon,
+            settings: self.settings,
+        })
+    }
+
+    pub fn apply(self, instance: &mut Instance) {
+        if let Some(name) = self.name {
+            instance.name = name;
+        }
+        if let Some(description) = self.description {
+            instance.description = description;
+        }
+        if let Some(icon) = self.icon {
+            instance.icon = icon;
+        }
+        if let Some(settings) = self.settings {
+            instance.settings = settings;
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Instance {
@@ -298,11 +359,9 @@ impl Instance {
             .as_deref()
             .filter(|v| !v.is_empty())
             .ok_or_else(|| {
-                CommandError::manifest(format!(
-                    "У сборки «{}» не указана версия {}",
-                    self.name,
-                    self.loader.label()
-                ))
+                CommandError::manifest("error.reason.instance.no_loader_version")
+                    .param("name", &self.name)
+                    .param("loader", self.loader.label())
             })
     }
 }
@@ -330,7 +389,7 @@ impl InstanceRegistry {
             .await
             .get(id)
             .cloned()
-            .ok_or_else(|| CommandError::unknown(format!("Сборка {id} не найдена")))
+            .ok_or_else(|| CommandError::not_found("error.reason.instance.not_found"))
     }
 
     pub async fn reload(&self, paths: &LauncherPaths) -> CommandResult<Vec<Instance>> {
@@ -339,14 +398,14 @@ impl InstanceRegistry {
 
         let mut entries = tokio::fs::read_dir(&root)
             .await
-            .map_err(|e| CommandError::io("Не удалось прочитать каталог сборок", &root, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.read_dir", &root, e))?;
 
         let mut loaded = HashMap::new();
 
         while let Some(entry) = entries
             .next_entry()
             .await
-            .map_err(|e| CommandError::io("Не удалось прочитать каталог сборок", &root, e))?
+            .map_err(|e| CommandError::io("error.reason.fs.read_dir", &root, e))?
         {
             if !entry
                 .file_type()
@@ -409,7 +468,7 @@ impl InstanceRegistry {
 
         let instance = instances
             .get_mut(id)
-            .ok_or_else(|| CommandError::unknown(format!("Сборка {id} не найдена")))?;
+            .ok_or_else(|| CommandError::not_found("error.reason.instance.not_found"))?;
 
         apply(instance);
 
@@ -451,7 +510,7 @@ impl InstanceRegistry {
 
         tokio::fs::remove_dir_all(&dir)
             .await
-            .map_err(|e| CommandError::io("Не удалось удалить каталог сборки", &dir, e))?;
+            .map_err(|e| CommandError::io("error.reason.fs.delete_dir", &dir, e))?;
 
         self.instances.write().await.remove(id);
 
@@ -466,7 +525,7 @@ async fn load_from_dir(dir: &Path) -> Option<Instance> {
     instance.dir = dir.display().to_string();
 
     if instance.id.trim().is_empty() {
-        eprintln!("Пропускаю сборку без id: {}", file.display());
+        log::warn!("Skipping an instance without id: {}", file.display());
         return None;
     }
 
@@ -476,6 +535,73 @@ async fn load_from_dir(dir: &Path) -> Option<Instance> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn update_target() -> Instance {
+        serde_json::from_value(serde_json::json!({
+            "id": "abc",
+            "name": "Old",
+            "minecraftVersion": "1.20.1",
+            "type": "vanilla",
+            "icon": "old.png"
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn a_blank_name_is_refused() {
+        let update = InstanceUpdate {
+            name: Some("   ".into()),
+            ..Default::default()
+        };
+
+        let error = update.normalized(Path::new("unused")).unwrap_err();
+        assert_eq!(error.code, crate::error::ErrorCode::InvalidInput);
+    }
+
+    #[test]
+    fn text_fields_are_trimmed_and_an_empty_icon_clears_it() {
+        let mut instance = update_target();
+
+        InstanceUpdate {
+            name: Some("  New  ".into()),
+            description: Some("  About  ".into()),
+            icon: Some("  ".into()),
+            settings: None,
+        }
+        .normalized(Path::new("unused"))
+        .unwrap()
+        .apply(&mut instance);
+
+        assert_eq!(instance.name, "New");
+        assert_eq!(instance.description, "About");
+        assert_eq!(instance.icon, "");
+    }
+
+    #[test]
+    fn an_icon_must_exist_in_the_icons_directory() {
+        let dir =
+            std::env::temp_dir().join(format!("cast-update-{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("there.png"), b"png").unwrap();
+
+        let missing = InstanceUpdate {
+            icon: Some("gone.png".into()),
+            ..Default::default()
+        }
+        .normalized(&dir)
+        .unwrap_err();
+        assert_eq!(missing.code, crate::error::ErrorCode::NotFound);
+
+        let found = InstanceUpdate {
+            icon: Some(" there.png ".into()),
+            ..Default::default()
+        }
+        .normalized(&dir)
+        .unwrap();
+        assert_eq!(found.icon.as_deref(), Some("there.png"));
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
     use serde_json::json;
 
     #[test]
@@ -569,12 +695,12 @@ mod tests {
     fn a_pack_kind_says_whether_its_files_still_have_to_be_looked_up() {
         assert!(
             LocalPackKind::CurseForge.resolves_files(),
-            "в архиве только ссылки на моды"
+            "the archive has only links to mods"
         );
         assert!(!LocalPackKind::Modrinth.resolves_files());
         assert!(
             !LocalPackKind::MultiMc.resolves_files(),
-            "моды уже лежат внутри"
+            "the mods are already inside"
         );
 
         for kind in LocalPackKind::ALL {
@@ -624,7 +750,7 @@ mod tests {
         }))
         .unwrap();
 
-        assert!(source.autoupdate, "по умолчанию сборка обновляется");
+        assert!(source.autoupdate, "an instance updates by default");
         assert!(!source.ram_applied);
         assert!(source.version.is_empty());
     }
@@ -639,12 +765,12 @@ mod tests {
         assert!(!source.is_outdated("  1.4.2  "));
         assert!(
             !source.is_outdated("  "),
-            "пустая версия ничего не говорит об обновлении"
+            "an empty version says nothing about an update"
         );
 
         assert!(
             source.is_outdated("1.0.0"),
-            "откат автора - тоже повод переустановить: версии не сравниваем, а сверяем"
+            "an author rollback is also a reason to reinstall: versions are matched, not compared"
         );
     }
 
@@ -659,7 +785,7 @@ mod tests {
         assert_eq!(
             source.manifest_url_from(Some("https://castpacks.zaralx.ru/packs/rpg/manifest.json")),
             "https://castpacks.zaralx.ru/packs/rpg/manifest.json",
-            "переезд сборки виден только каталогу - записанный при установке адрес о нём не знает"
+            "only the catalog knows the pack moved, the URL saved at install time does not"
         );
 
         assert_eq!(
@@ -675,13 +801,13 @@ mod tests {
         assert_eq!(
             source.manifest_url_from(None),
             "https://cdn.zaralx.ru/m.json",
-            "каталог не ответил - играем по сохранённому адресу, а не падаем"
+            "the catalog did not answer: play from the saved URL instead of failing"
         );
 
         assert_eq!(
             source.manifest_url_from(Some("   ")),
             "https://cdn.zaralx.ru/m.json",
-            "пустая ссылка в каталоге - это отсутствие ссылки"
+            "an empty link in the catalog means no link"
         );
     }
 
@@ -851,11 +977,11 @@ mod tests {
         assert_eq!(playtime.total_seconds, 4200);
         assert_eq!(
             playtime.last_seconds, 600,
-            "последняя сессия перезаписывается"
+            "the last session is overwritten"
         );
         assert_eq!(
             playtime.last_played_at, 1_700_000_000_000,
-            "запуск отмечен один раз"
+            "the launch is recorded once"
         );
     }
 
@@ -866,7 +992,7 @@ mod tests {
         assert_eq!(
             Playtime::session_seconds(5_000, 1_000),
             0,
-            "переведённые назад часы не должны отматывать счётчик"
+            "a clock moved back must not rewind the counter"
         );
     }
 
@@ -905,7 +1031,7 @@ mod tests {
         .unwrap();
 
         let error = instance.require_loader_version().unwrap_err();
-        assert!(error.message.contains("Без версии"));
-        assert!(error.message.contains("Fabric"));
+        assert!(error.text.mentions("Без версии"));
+        assert!(error.text.mentions("Fabric"));
     }
 }

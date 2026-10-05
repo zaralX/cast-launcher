@@ -99,7 +99,7 @@ impl<'a> Progress<'a> {
 }
 
 fn aborted() -> CommandError {
-    CommandError::aborted("Перенос прерван")
+    CommandError::aborted("error.reason.cancelled.import")
 }
 
 pub async fn merge_dir(from: &Path, to: &Path, progress: &Progress<'_>) -> CommandResult<()> {
@@ -111,12 +111,12 @@ pub async fn merge_dir(from: &Path, to: &Path, progress: &Progress<'_>) -> Comma
 
     let mut entries = tokio::fs::read_dir(from)
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог", from, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", from, e))?;
 
     while let Some(entry) = entries
         .next_entry()
         .await
-        .map_err(|e| CommandError::io("Не удалось прочитать каталог", from, e))?
+        .map_err(|e| CommandError::io("error.reason.fs.read_dir", from, e))?
     {
         if progress.is_cancelled() {
             return Err(aborted());
@@ -160,7 +160,7 @@ pub async fn copy_file(from: &Path, to: &Path, progress: &Progress<'_>) -> Comma
 
     let bytes = tokio::fs::copy(from, to)
         .await
-        .map_err(|e| CommandError::io("Не удалось скопировать файл", from, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.copy", from, e))?;
 
     progress.copied(bytes);
 
@@ -272,7 +272,7 @@ mod tests {
             .await
             .unwrap_err();
 
-        assert_eq!(error.code, "INSTALL_ABORTED");
+        assert_eq!(error.code, crate::error::ErrorCode::InstallAborted);
         assert_eq!(progress.stats().files, 0);
 
         std::fs::remove_dir_all(&root).ok();

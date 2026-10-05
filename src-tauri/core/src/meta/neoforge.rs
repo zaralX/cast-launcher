@@ -157,7 +157,7 @@ mod tests {
                     minecraft_version: "1.20.1".into()
                 },
             ],
-            "сборка под снапшот отброшена, внутри ветки - свежие сверху"
+            "a snapshot build is dropped, newest first within a branch"
         );
     }
 

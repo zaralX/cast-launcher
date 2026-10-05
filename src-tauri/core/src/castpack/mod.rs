@@ -1,3 +1,4 @@
+pub mod base;
 pub mod catalog;
 pub mod manifest;
 pub mod mods;
@@ -6,6 +7,7 @@ pub mod source;
 
 use crate::error::{CommandError, CommandResult};
 
+pub use base::base_pack;
 pub use catalog::{Catalog, CatalogPack};
 pub use manifest::{FileMode, Manifest, ModRef, SeedFile};
 pub use resolve::{merge, Overlay};
@@ -16,19 +18,17 @@ pub fn https_url(url: &str) -> CommandResult<&str> {
     let trimmed = url.trim();
 
     let parsed = url::Url::parse(trimmed).map_err(|e| {
-        CommandError::manifest(format!("Некорректная ссылка: {url}")).with_details(e.to_string())
+        CommandError::manifest("error.reason.links.invalid")
+            .param("url", url)
+            .with_details(e.to_string())
     })?;
 
     if parsed.scheme() != "https" {
-        return Err(CommandError::manifest(format!(
-            "Лаунчер качает файлы сборок только по https: {url}"
-        )));
+        return Err(CommandError::manifest("error.reason.castpack.https_only").param("url", url));
     }
 
     if parsed.host_str().is_none() {
-        return Err(CommandError::manifest(format!(
-            "В ссылке нет адреса сервера: {url}"
-        )));
+        return Err(CommandError::manifest("error.reason.links.no_host").param("url", url));
     }
 
     Ok(trimmed)

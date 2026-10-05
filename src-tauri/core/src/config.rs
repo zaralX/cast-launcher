@@ -243,7 +243,7 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
 fn set_in(raw: &mut Value, section: &str, key: &str, value: Value) {
     let entry = raw
         .as_object_mut()
-        .expect("migrate вызывается только для объектов")
+        .expect("migrate is only called on objects")
         .entry(section.to_string())
         .or_insert_with(|| Value::Object(Default::default()));
 

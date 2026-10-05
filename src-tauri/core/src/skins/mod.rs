@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::account::{Account, AccountStore, AccountType};
-use crate::error::{CommandError, CommandResult};
+use crate::error::{CommandError, CommandResult, ErrorCode};
 
 pub use library::{SkinEntry, SkinLibrary, SkinSource};
 pub use texture::SkinVariant;
@@ -123,7 +123,7 @@ pub async fn look(
     if refresh {
         match refresh_profile(accounts, &account).await {
             Ok(updated) => account = updated,
-            Err(error) if error.code == "AUTH_EXPIRED" => return Err(error),
+            Err(error) if error.code == ErrorCode::AuthExpired => return Err(error),
             Err(_) => stale = true,
         }
     }
@@ -144,7 +144,7 @@ pub async fn apply_skin(
         .await
         .find(id)
         .cloned()
-        .ok_or_else(|| CommandError::fs("Набор не найден в библиотеке"))?;
+        .ok_or_else(|| CommandError::not_found("error.reason.skins.set_not_found"))?;
 
     let bytes = library::read(dir, &entry.texture).await?;
     let profile = mojang::upload_skin(&token, bytes, entry.variant).await?;
@@ -238,11 +238,14 @@ async fn build_look(dir: &Path, account: &Account, stale: bool) -> CommandResult
             continue;
         }
 
-        let name = skin
-            .texture_key
-            .as_deref()
-            .map(|key| format!("Профиль {}", key.chars().take(8).collect::<String>()))
-            .unwrap_or_else(|| format!("Скин {}", account.name));
+        let name = match skin.texture_key.as_deref() {
+            Some(key) => format!(
+                "{} {}",
+                account.name,
+                key.chars().take(8).collect::<String>()
+            ),
+            None => account.name.clone(),
+        };
 
         let Ok(bytes) = library::remote_bytes(dir, &skin.url).await else {
             continue;
@@ -293,7 +296,7 @@ async fn refresh_profile(accounts: &AccountStore, account: &Account) -> CommandR
     let uuid = account
         .uuid
         .clone()
-        .ok_or_else(|| CommandError::no_account("У аккаунта нет идентификатора"))?;
+        .ok_or_else(|| CommandError::no_account("error.reason.account.no_id"))?;
 
     let profile = crate::account::microsoft::profile(&token).await?;
 
@@ -304,15 +307,15 @@ async fn refresh_profile(accounts: &AccountStore, account: &Account) -> CommandR
 
 fn token_of(account: &Account) -> CommandResult<String> {
     if account.account_type != AccountType::Microsoft {
-        return Err(CommandError::no_account(
-            "Скин можно менять только у аккаунта Microsoft",
+        return Err(CommandError::unsupported(
+            "error.reason.skins.microsoft_only",
         ));
     }
 
     account
         .access_token
         .clone()
-        .ok_or_else(|| CommandError::auth_expired("Нужно войти в аккаунт заново"))
+        .ok_or_else(|| CommandError::auth_expired("error.reason.account.sign_in_again"))
 }
 
 #[cfg(test)]
@@ -376,7 +379,7 @@ mod tests {
         };
 
         let error = token_of(&offline).unwrap_err();
-        assert_eq!(error.code, "NO_ACCOUNT");
+        assert_eq!(error.code, crate::error::ErrorCode::Unsupported);
 
         let microsoft = Account {
             account_type: AccountType::Microsoft,
@@ -384,7 +387,10 @@ mod tests {
             ..offline.clone()
         };
 
-        assert_eq!(token_of(&microsoft).unwrap_err().code, "AUTH_EXPIRED");
+        assert_eq!(
+            token_of(&microsoft).unwrap_err().code,
+            crate::error::ErrorCode::AuthExpired
+        );
 
         let ready = Account {
             account_type: AccountType::Microsoft,

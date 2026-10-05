@@ -42,7 +42,7 @@ watch(installs, (value) => {
 
       <template v-if="installs.length === 1">
         <span class="min-w-0 flex-1 truncate font-mono text-[11px] leading-none text-fg-muted">
-          {{ installs[0]!.instanceName }} · {{ installs[0]!.phase }}
+          {{ installs[0]!.instanceName }} · {{ uiText(installs[0]!.phase) }}
         </span>
       </template>
       <template v-else>
@@ -73,7 +73,7 @@ watch(installs, (value) => {
                 {{ install.instanceName }}
               </h3>
               <p class="mt-1.5 flex items-center gap-2 truncate font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
-                {{ install.phase }}
+                {{ uiText(install.phase) }}
               </p>
             </div>
 
@@ -117,7 +117,7 @@ watch(installs, (value) => {
             v-else
             class="mt-4 truncate font-mono text-[10px] text-fg-faint"
           >
-            {{ install.message }}
+            {{ uiText(install.message) }}
           </p>
 
           <AppButton

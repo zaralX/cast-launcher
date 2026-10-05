@@ -7,8 +7,26 @@ import type { AccountLook, SkinEntry, SkinLibrary, SkinVariant } from '~/types/s
 import type { DetectedLauncher, FileImportRequest, ImportProgress, ImportReport, ImportRequest, LauncherKind, LocalPack, ScannedInstance } from '~/types/import'
 import type { Catalog, CastPackUpdate } from '~/types/castpack'
 import type { BlockedFile, PackFilters, PackProviderInfo, PackSearchPage, PackSearchQuery, PackVersion } from '~/types/catalog'
+import type { CommandError } from '~/types/error'
 
 export const LAUNCHER_EVENT = 'launcher://event'
+
+// User-facing text from Rust: an i18n key with its parameters, rendered by uiText().
+export interface UiText {
+  key: string
+  params?: Record<string, string | UiText>
+}
+
+// Native dialogs are opened by Rust, but their wording comes from the frontend locales.
+export interface DialogText {
+  title: string
+  filter?: string
+}
+
+export interface LoginPage {
+  done: string
+  failed: string
+}
 
 export type LauncherEvent
   = | (InstallSnapshot & { type: 'install' })
@@ -19,7 +37,7 @@ export type LauncherEvent
     | { type: 'gameStatus', runId: string, instanceId: string, status: RunningGame['status'] }
     | { type: 'gameLog', runId: string, instanceId: string, line: string, isError: boolean }
     | { type: 'gameExited', runId: string, instanceId: string, code: number | null, logTail?: string }
-    | { type: 'launchFailed', instanceId: string, instanceName: string, error: string }
+    | { type: 'launchFailed', instanceId: string, instanceName: string, error: CommandError }
 
 export interface Bootstrap {
   config: AppConfig
@@ -59,7 +77,7 @@ export interface Commands {
   set_mod_enabled: Command<{ instanceId: string, path: string, enabled: boolean }, ModFile[]>
   delete_mods: Command<{ instanceId: string, paths: string[] }, ModFile[]>
   add_mods: Command<{ instanceId: string, paths: string[] }, AddedMods>
-  pick_mod_files: Command<void, string[]>
+  pick_mod_files: Command<{ dialog: DialogText }, string[]>
   identify_instance_mods: Command<{ instanceId: string }, Record<string, CatalogMatch>>
   check_mod_updates: Command<{ instanceId: string }, ModUpdate[]>
   update_mods: Command<{ instanceId: string, paths: string[] }, UpdatedMods>
@@ -73,7 +91,7 @@ export interface Commands {
 
   list_icons: Command<void, IconFile[]>
   read_icon: Command<{ name: string }, string>
-  import_icon: Command<{ path?: string }, IconFile | null>
+  import_icon: Command<{ path?: string, dialog: DialogText }, IconFile | null>
   delete_icon: Command<{ name: string }, IconFile[]>
   list_item_icons: Command<void, ItemCatalog>
   item_icons: Command<{ items: string[] }, Record<string, string>>
@@ -87,7 +105,7 @@ export interface Commands {
   downloads_dir: Command<void, string | null>
   scan_for_files: Command<{ instanceId: string, folder: string }, BlockedFile[]>
   rescan_files: Command<{ instanceId: string }, BlockedFile[]>
-  pick_folder: Command<{ title?: string, directory?: string }, string | null>
+  pick_folder: Command<{ title: string, directory?: string }, string | null>
   resume_install: Command<{ instanceId: string }, void>
 
   launch_instance: Command<{ instanceId: string }, RunningGame>
@@ -102,17 +120,17 @@ export interface Commands {
   select_account: Command<{ index: number }, AccountConfig>
   remove_account: Command<{ uuid: string }, AccountConfig>
   add_offline_account: Command<{ name: string }, AccountConfig>
-  login_microsoft: Command<void, Account>
+  login_microsoft: Command<{ page: LoginPage }, Account>
   refresh_account: Command<{ uuid: string }, Account>
 
   skin_library: Command<void, SkinLibrary>
   skin_texture: Command<{ texture: string }, string>
-  import_skin: Command<{ path?: string }, SkinEntry | null>
+  import_skin: Command<{ path?: string, dialog: DialogText }, SkinEntry | null>
   import_player_skin: Command<{ name: string }, SkinEntry>
   rename_skin: Command<{ id: string, name: string }, SkinLibrary>
   set_skin_variant: Command<{ id: string, variant: SkinVariant }, SkinLibrary>
   set_skin_cape: Command<{ id: string, capeId?: string | null }, SkinLibrary>
-  duplicate_skin: Command<{ id: string, capeId?: string | null }, SkinEntry>
+  duplicate_skin: Command<{ id: string, capeId?: string | null, name: string }, SkinEntry>
   delete_skin: Command<{ id: string }, SkinLibrary>
   account_look: Command<{ uuid: string, refresh: boolean }, AccountLook>
   apply_skin: Command<{ uuid: string, id: string }, AccountLook>
@@ -133,12 +151,12 @@ export interface Commands {
   save_pack_icon: Command<{ provider: PackProvider, projectId: string, url: string }, IconFile>
 
   detect_launchers: Command<void, DetectedLauncher[]>
-  pick_launcher_dir: Command<void, string | null>
+  pick_launcher_dir: Command<{ dialog: DialogText }, string | null>
   scan_launcher_instances: Command<{ kind: LauncherKind, path: string }, ScannedInstance[]>
   import_launcher_instances: Command<{ request: ImportRequest }, ImportReport>
   cancel_import: Command<void, void>
 
-  pick_modpack_file: Command<void, string | null>
+  pick_modpack_file: Command<{ dialog: DialogText }, string | null>
   inspect_modpack_file: Command<{ path: string }, LocalPack>
   import_modpack_file: Command<{ request: FileImportRequest }, Instance>
 

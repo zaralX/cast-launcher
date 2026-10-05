@@ -4,8 +4,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
+use crate::error::CommandError;
 use crate::net::download::{FileProgress, JobSnapshot};
 use crate::packs::BlockedFile;
+use crate::text::UiText;
 
 pub type Publisher = Arc<dyn Fn(InstallSnapshot) + Send + Sync>;
 
@@ -27,16 +29,20 @@ impl Stage {
     }
 }
 
+/// The frontend shows a phase as `install.phase.<key>`.
 #[derive(Debug, Clone, Copy)]
 pub struct Phase {
     pub key: &'static str,
-    pub label: &'static str,
     pub weight: u32,
 }
 
 impl Phase {
-    pub const fn new(key: &'static str, label: &'static str, weight: u32) -> Self {
-        Self { key, label, weight }
+    pub const fn new(key: &'static str, weight: u32) -> Self {
+        Self { key, weight }
+    }
+
+    pub fn text(&self) -> UiText {
+        UiText::new(format!("install.phase.{}", self.key))
     }
 }
 
@@ -46,14 +52,14 @@ pub struct InstallSnapshot {
     pub instance_id: String,
     pub instance_name: String,
     pub stage: Stage,
-    pub phase: String,
-    pub message: String,
+    pub phase: UiText,
+    pub message: UiText,
     pub progress: f64,
     pub files: Vec<FileProgress>,
     pub started_at: u64,
     pub aborting: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
+    pub error: Option<CommandError>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub blocked: Vec<BlockedFile>,
     pub awaiting_files: bool,
@@ -62,10 +68,10 @@ pub struct InstallSnapshot {
 struct State {
     stage: Stage,
     phase: usize,
-    message: String,
+    message: UiText,
     progress: f64,
     files: Vec<FileProgress>,
-    error: Option<String>,
+    error: Option<CommandError>,
     blocked: Vec<BlockedFile>,
     awaiting_files: bool,
 }
@@ -103,7 +109,7 @@ impl ProgressReporter {
             state: Mutex::new(State {
                 stage: Stage::Prepare,
                 phase: 0,
-                message: "Подготовка".into(),
+                message: UiText::new("install.message.preparing"),
                 progress: 0.0,
                 files: Vec::new(),
                 error: None,
@@ -126,16 +132,16 @@ impl ProgressReporter {
         self.cancel.load(Ordering::Relaxed)
     }
 
-    pub fn begin_phase(&self, key: &str, message: &str) {
+    pub fn begin_phase(&self, key: &str, message: UiText) {
         let Some(index) = self.phases.iter().position(|phase| phase.key == key) else {
-            eprintln!("Неизвестная фаза установки: {key}");
+            log::error!("Unknown install phase: {key}");
             return;
         };
 
         {
             let mut state = self.lock();
             state.phase = index;
-            state.message = message.to_string();
+            state.message = message;
             state.files.clear();
         }
 
@@ -181,8 +187,8 @@ impl ProgressReporter {
         self.publish();
     }
 
-    pub fn set_message(&self, message: impl Into<String>) {
-        self.lock().message = message.into();
+    pub fn set_message(&self, message: UiText) {
+        self.lock().message = message;
         self.publish();
     }
 
@@ -222,19 +228,30 @@ impl ProgressReporter {
             let mut state = self.lock();
             state.stage = Stage::Finished;
             state.progress = 1.0;
-            state.message = "Установка завершена".into();
+            state.message = UiText::new("install.message.finished");
             state.files.clear();
         }
 
         self.publish();
     }
 
-    pub fn fail(&self, stage: Stage, message: String) {
+    pub fn fail(&self, error: CommandError) {
         {
             let mut state = self.lock();
-            state.stage = stage;
-            state.message = message.clone();
-            state.error = Some(message);
+            state.stage = Stage::Failed;
+            state.message = UiText::new("install.message.failed");
+            state.error = Some(error);
+            state.files.clear();
+        }
+
+        self.publish();
+    }
+
+    pub fn abort(&self) {
+        {
+            let mut state = self.lock();
+            state.stage = Stage::Aborted;
+            state.message = UiText::new("install.message.aborted");
             state.files.clear();
         }
 
@@ -250,8 +267,8 @@ impl ProgressReporter {
             instance_name: self.instance_name.clone(),
             stage: state.stage,
             phase: phase
-                .map(|phase| phase.label.to_string())
-                .unwrap_or_default(),
+                .map(Phase::text)
+                .unwrap_or_else(|| UiText::new("install.phase.prepare")),
             message: state.message.clone(),
             progress: state.progress.clamp(0.0, 1.0),
             files: state.files.clone(),
@@ -307,9 +324,9 @@ mod tests {
 
     fn phases() -> Vec<Phase> {
         vec![
-            Phase::new("java", "Java", 10),
-            Phase::new("libraries", "Библиотеки", 30),
-            Phase::new("assets", "Ресурсы", 60),
+            Phase::new("java", 10),
+            Phase::new("libraries", 30),
+            Phase::new("assets", 60),
         ]
     }
 
@@ -320,7 +337,7 @@ mod tests {
         let reporter = Arc::new(ProgressReporter::new(
             Arc::new(move |snapshot| sink.lock().unwrap().push(snapshot)),
             "id".into(),
-            "Сборка".into(),
+            "Vanilla".into(),
             phases(),
         ));
 
@@ -331,15 +348,15 @@ mod tests {
     fn phases_split_the_scale_by_weight() {
         let (reporter, _) = reporter();
 
-        reporter.begin_phase("java", "Java");
+        reporter.begin_phase("java", UiText::new("install.message.java"));
         reporter.set_fraction(1.0);
         assert!((reporter.snapshot().progress - 0.1).abs() < 1e-9);
 
-        reporter.begin_phase("libraries", "Библиотеки");
+        reporter.begin_phase("libraries", UiText::new("install.message.libraries"));
         reporter.set_fraction(0.5);
         assert!((reporter.snapshot().progress - 0.25).abs() < 1e-9);
 
-        reporter.begin_phase("assets", "Ресурсы");
+        reporter.begin_phase("assets", UiText::new("install.message.assets"));
         reporter.set_fraction(1.0);
         assert!((reporter.snapshot().progress - 1.0).abs() < 1e-9);
     }
@@ -348,7 +365,7 @@ mod tests {
     fn progress_never_goes_backwards() {
         let (reporter, _) = reporter();
 
-        reporter.begin_phase("libraries", "Библиотеки");
+        reporter.begin_phase("libraries", UiText::new("install.message.libraries"));
         reporter.set_fraction(1.0);
         let peak = reporter.snapshot().progress;
 
@@ -374,13 +391,13 @@ mod tests {
     fn downloaded_bytes_add_up_across_phases() {
         let (reporter, _) = reporter();
 
-        reporter.begin_phase("libraries", "Библиотеки");
+        reporter.begin_phase("libraries", UiText::new("install.message.libraries"));
         reporter.apply_download(&job(300));
         reporter.apply_download(&job(1000));
 
         assert_eq!(reporter.downloaded_bytes(), 1000);
 
-        reporter.begin_phase("assets", "Ресурсы");
+        reporter.begin_phase("assets", UiText::new("install.message.assets"));
         reporter.apply_download(&job(500));
 
         assert_eq!(reporter.downloaded_bytes(), 1500);
@@ -409,28 +426,28 @@ mod tests {
     fn the_current_phase_is_reported_by_its_key() {
         let (reporter, _) = reporter();
 
-        reporter.begin_phase("assets", "Ресурсы");
+        reporter.begin_phase("assets", UiText::new("install.message.assets"));
 
         assert_eq!(reporter.phase_key(), "assets");
-        assert_eq!(reporter.snapshot().phase, "Ресурсы");
+        assert_eq!(reporter.snapshot().phase.key, "install.phase.assets");
     }
 
     #[test]
     fn unknown_phase_key_is_ignored() {
         let (reporter, _) = reporter();
 
-        reporter.begin_phase("java", "Java");
-        reporter.begin_phase("опечатка", "Опечатка");
+        reporter.begin_phase("java", UiText::new("install.message.java"));
+        reporter.begin_phase("typo", UiText::new("install.message.java"));
 
-        assert_eq!(reporter.snapshot().phase, "Java");
+        assert_eq!(reporter.snapshot().phase.key, "install.phase.java");
     }
 
     #[test]
     fn every_change_is_published() {
         let (reporter, published) = reporter();
 
-        reporter.begin_phase("java", "Проверка Java");
-        reporter.set_message("Скачивание");
+        reporter.begin_phase("java", UiText::new("install.message.java"));
+        reporter.set_message(UiText::new("install.message.libraries"));
         reporter.finish();
 
         let snapshots = published.lock().unwrap();
@@ -446,7 +463,7 @@ mod tests {
         reporter.request_cancel();
         assert!(reporter.snapshot().aborting);
 
-        reporter.fail(Stage::Aborted, "Установка прервана".into());
+        reporter.abort();
         assert!(!reporter.snapshot().aborting);
     }
 

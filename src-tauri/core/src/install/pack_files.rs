@@ -90,8 +90,8 @@ pub async fn remove(minecraft_dir: &Path, paths: &[String]) -> usize {
             continue;
         };
 
-        // Игрок мог выключить мод: убираем и выключенную копию, иначе она
-        // переживёт версию пака, из которой пришла.
+        // The player may have switched the mod off: remove the disabled copy too,
+        // otherwise it outlives the pack version it came from.
         for path in [path.clone(), switched_off(&path)] {
             if tokio::fs::remove_file(&path).await.is_ok() {
                 removed += 1;
@@ -168,7 +168,7 @@ mod tests {
 
         assert!(
             record.missing(&minecraft).await.is_empty(),
-            "файлы из overrides мод вправе переименовать или убрать"
+            "a mod may rename or remove files from overrides"
         );
 
         std::fs::remove_dir_all(&root).ok();
@@ -220,13 +220,16 @@ mod tests {
         assert!(minecraft.join("mods").join("kept.jar").is_file());
         assert!(
             minecraft.join("mods").is_dir(),
-            "каталог с чужими файлами остаётся"
+            "a directory with foreign files stays"
         );
         assert!(
             !minecraft.join("config").exists(),
-            "опустевшая ветка убирается целиком"
+            "an emptied branch is removed whole"
         );
-        assert!(minecraft.is_dir(), "сам каталог игры не трогаем");
+        assert!(
+            minecraft.is_dir(),
+            "the game directory itself is left alone"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -267,7 +270,7 @@ mod tests {
 
         save_blocked(&file, &[]).await.unwrap();
         assert!(load_blocked(&file).await.is_empty());
-        assert!(!file.exists(), "пустой список не должен оставлять файл");
+        assert!(!file.exists(), "an empty list must not leave a file");
 
         std::fs::remove_dir_all(&dir).ok();
     }

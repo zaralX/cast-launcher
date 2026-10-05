@@ -1,11 +1,83 @@
 use std::fmt;
 use std::path::Path;
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+use serde::{Deserialize, Serialize};
+
+use crate::text::UiText;
+
+/// The category of a failure. The frontend picks the title, icon and generic hint by it,
+/// so it must name the cause, not the place where the error happened.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ErrorCode {
+    Network,
+    DownloadFailed,
+    HashMismatch,
+    FsError,
+    ArchiveInvalid,
+    ManifestInvalid,
+    VersionNotFound,
+    JavaNotFound,
+    LaunchFailed,
+    ForgeInstallFailed,
+    AuthFailed,
+    AuthPortBusy,
+    AuthExpired,
+    NoAccount,
+    ConfigError,
+    UpdateFailed,
+    InstallAborted,
+    InvalidInput,
+    Conflict,
+    NotFound,
+    Unsupported,
+    #[serde(other)]
+    Unknown,
+}
+
+impl ErrorCode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Network => "NETWORK",
+            Self::DownloadFailed => "DOWNLOAD_FAILED",
+            Self::HashMismatch => "HASH_MISMATCH",
+            Self::FsError => "FS_ERROR",
+            Self::ArchiveInvalid => "ARCHIVE_INVALID",
+            Self::ManifestInvalid => "MANIFEST_INVALID",
+            Self::VersionNotFound => "VERSION_NOT_FOUND",
+            Self::JavaNotFound => "JAVA_NOT_FOUND",
+            Self::LaunchFailed => "LAUNCH_FAILED",
+            Self::ForgeInstallFailed => "FORGE_INSTALL_FAILED",
+            Self::AuthFailed => "AUTH_FAILED",
+            Self::AuthPortBusy => "AUTH_PORT_BUSY",
+            Self::AuthExpired => "AUTH_EXPIRED",
+            Self::NoAccount => "NO_ACCOUNT",
+            Self::ConfigError => "CONFIG_ERROR",
+            Self::UpdateFailed => "UPDATE_FAILED",
+            Self::InstallAborted => "INSTALL_ABORTED",
+            Self::InvalidInput => "INVALID_INPUT",
+            Self::Conflict => "CONFLICT",
+            Self::NotFound => "NOT_FOUND",
+            Self::Unsupported => "UNSUPPORTED",
+            Self::Unknown => "UNKNOWN",
+        }
+    }
+}
+
+impl fmt::Display for ErrorCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CommandError {
-    pub code: &'static str,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: ErrorCode,
+    /// What happened, as an i18n key with parameters; the frontend translates it.
+    pub text: UiText,
+    /// Technical data for reports and logs: paths, library errors, HTTP bodies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<String>,
 }
 
@@ -28,145 +100,146 @@ pub fn error_chain(error: &dyn std::error::Error) -> String {
 }
 
 impl CommandError {
-    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+    pub fn new(code: ErrorCode, key: &str) -> Self {
+        Self::from_text(code, UiText::new(key))
+    }
+
+    pub fn from_text(code: ErrorCode, text: UiText) -> Self {
         Self {
             code,
-            message: message.into(),
+            text,
             details: None,
         }
     }
 
     pub fn with_details(mut self, details: impl Into<String>) -> Self {
         self.details = Some(details.into());
-
-        if self.is_aborted() {
-            log::debug!("{self}");
-        } else {
-            log::warn!("{self}");
-        }
-
         self
     }
 
-    pub fn fs(message: impl Into<String>) -> Self {
-        Self::new("FS_ERROR", message)
+    pub fn param(mut self, name: &str, value: impl fmt::Display) -> Self {
+        self.text = self.text.param(name, value);
+        self
     }
 
-    pub fn archive(message: impl Into<String>) -> Self {
-        Self::new("ARCHIVE_INVALID", message)
+    pub fn param_text(mut self, name: &str, value: UiText) -> Self {
+        self.text = self.text.param_text(name, value);
+        self
     }
 
-    pub fn manifest(message: impl Into<String>) -> Self {
-        Self::new("MANIFEST_INVALID", message)
+    pub fn invalid_input(key: &str) -> Self {
+        Self::new(ErrorCode::InvalidInput, key)
     }
 
-    pub fn version_not_found(message: impl Into<String>) -> Self {
-        Self::new("VERSION_NOT_FOUND", message)
+    pub fn conflict(key: &str) -> Self {
+        Self::new(ErrorCode::Conflict, key)
     }
 
-    pub fn java_not_found(message: impl Into<String>) -> Self {
-        Self::new("JAVA_NOT_FOUND", message)
+    pub fn not_found(key: &str) -> Self {
+        Self::new(ErrorCode::NotFound, key)
     }
 
-    pub fn launch(message: impl Into<String>) -> Self {
-        Self::new("LAUNCH_FAILED", message)
+    pub fn unsupported(key: &str) -> Self {
+        Self::new(ErrorCode::Unsupported, key)
     }
 
-    pub fn forge(message: impl Into<String>) -> Self {
-        Self::new("FORGE_INSTALL_FAILED", message)
+    pub fn fs(key: &str) -> Self {
+        Self::new(ErrorCode::FsError, key)
     }
 
-    pub fn auth(message: impl Into<String>) -> Self {
-        Self::new("AUTH_FAILED", message)
+    pub fn archive(key: &str) -> Self {
+        Self::new(ErrorCode::ArchiveInvalid, key)
     }
 
-    pub fn auth_expired(message: impl Into<String>) -> Self {
-        Self::new("AUTH_EXPIRED", message)
+    pub fn manifest(key: &str) -> Self {
+        Self::new(ErrorCode::ManifestInvalid, key)
     }
 
-    pub fn no_account(message: impl Into<String>) -> Self {
-        Self::new("NO_ACCOUNT", message)
+    pub fn version_not_found(key: &str) -> Self {
+        Self::new(ErrorCode::VersionNotFound, key)
     }
 
-    pub fn port_busy(message: impl Into<String>) -> Self {
-        Self::new("AUTH_PORT_BUSY", message)
+    pub fn java_not_found(key: &str) -> Self {
+        Self::new(ErrorCode::JavaNotFound, key)
     }
 
-    pub fn network(message: impl Into<String>) -> Self {
-        Self::new("NETWORK", message)
+    pub fn launch(key: &str) -> Self {
+        Self::new(ErrorCode::LaunchFailed, key)
     }
 
-    pub fn download(message: impl Into<String>) -> Self {
-        Self::new("DOWNLOAD_FAILED", message)
+    pub fn forge(key: &str) -> Self {
+        Self::new(ErrorCode::ForgeInstallFailed, key)
     }
 
-    pub fn hash_mismatch(message: impl Into<String>) -> Self {
-        Self::new("HASH_MISMATCH", message)
+    pub fn auth(key: &str) -> Self {
+        Self::new(ErrorCode::AuthFailed, key)
     }
 
-    pub fn aborted(message: impl Into<String>) -> Self {
-        Self::new("INSTALL_ABORTED", message)
+    pub fn auth_expired(key: &str) -> Self {
+        Self::new(ErrorCode::AuthExpired, key)
     }
 
-    pub fn unknown(message: impl Into<String>) -> Self {
-        Self::new("UNKNOWN", message)
+    pub fn no_account(key: &str) -> Self {
+        Self::new(ErrorCode::NoAccount, key)
+    }
+
+    pub fn port_busy(key: &str) -> Self {
+        Self::new(ErrorCode::AuthPortBusy, key)
+    }
+
+    pub fn network(key: &str) -> Self {
+        Self::new(ErrorCode::Network, key)
+    }
+
+    pub fn download(key: &str) -> Self {
+        Self::new(ErrorCode::DownloadFailed, key)
+    }
+
+    pub fn hash_mismatch(key: &str) -> Self {
+        Self::new(ErrorCode::HashMismatch, key)
+    }
+
+    pub fn aborted(key: &str) -> Self {
+        Self::new(ErrorCode::InstallAborted, key)
+    }
+
+    pub fn unknown(key: &str) -> Self {
+        Self::new(ErrorCode::Unknown, key)
     }
 
     pub fn is_aborted(&self) -> bool {
-        self.code == "INSTALL_ABORTED"
-    }
-
-    pub fn from_code(code: &str, message: impl Into<String>) -> Self {
-        const KNOWN: &[&str] = &[
-            "NETWORK",
-            "DOWNLOAD_FAILED",
-            "HASH_MISMATCH",
-            "FS_ERROR",
-            "ARCHIVE_INVALID",
-            "MANIFEST_INVALID",
-            "VERSION_NOT_FOUND",
-            "JAVA_NOT_FOUND",
-            "LAUNCH_FAILED",
-            "FORGE_INSTALL_FAILED",
-            "AUTH_FAILED",
-            "AUTH_PORT_BUSY",
-            "AUTH_EXPIRED",
-            "NO_ACCOUNT",
-            "CONFIG_ERROR",
-            "UPDATE_FAILED",
-            "INSTALL_ABORTED",
-        ];
-
-        let code = KNOWN
-            .iter()
-            .copied()
-            .find(|known| *known == code)
-            .unwrap_or("UNKNOWN");
-        Self::new(code, message)
+        self.code == ErrorCode::InstallAborted
     }
 
     pub fn spawn(program: &str, error: std::io::Error) -> Self {
-        if error.kind() == std::io::ErrorKind::NotFound {
-            Self::java_not_found(format!("Исполняемый файл не найден: {program}"))
-                .with_details(error.to_string())
-        } else {
-            Self::launch(format!("Не удалось запустить процесс: {program}"))
-                .with_details(error.to_string())
+        let error_text = error.to_string();
+
+        match error.kind() {
+            std::io::ErrorKind::NotFound => {
+                Self::java_not_found("error.reason.launch.executable_not_found")
+            }
+            _ => Self::launch("error.reason.launch.process_failed"),
         }
+        .param("program", program)
+        .with_details(error_text)
     }
 
-    pub fn io(message: impl Into<String>, path: &Path, error: std::io::Error) -> Self {
-        Self::fs(message).with_details(format!("{}\n{error}", path.display()))
+    /// A filesystem error; `path` becomes the `{path}` parameter of the text.
+    pub fn io(key: &str, path: &Path, error: std::io::Error) -> Self {
+        Self::fs(key)
+            .param("path", path.display())
+            .with_details(error.to_string())
     }
 
-    pub fn task_panicked(what: &str, error: tokio::task::JoinError) -> Self {
-        Self::unknown(format!("Задача прервана: {what}")).with_details(error.to_string())
+    /// `task` is an identifier for the details, not text for the user.
+    pub fn task_panicked(task: &str, error: tokio::task::JoinError) -> Self {
+        Self::unknown("error.reason.task_failed").with_details(format!("{task}: {error}"))
     }
 }
 
 impl fmt::Display for CommandError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}] {}", self.code, self.message)?;
+        write!(f, "[{}] {}", self.code, self.text)?;
         if let Some(details) = &self.details {
             write!(f, "\n{details}")?;
         }
@@ -227,15 +300,74 @@ mod tests {
 
     #[test]
     fn an_error_without_a_cause_reads_the_same_as_before() {
-        let error = layer("нет места на диске", None);
+        let error = layer("no space left on device", None);
 
-        assert_eq!(error_chain(&error), "нет места на диске");
+        assert_eq!(error_chain(&error), "no space left on device");
     }
 
     #[test]
     fn a_layer_that_only_repeats_its_cause_is_not_printed_twice() {
-        let error = layer("вложенная причина", Some(layer("вложенная причина", None)));
+        let error = layer("nested cause", Some(layer("nested cause", None)));
 
-        assert_eq!(error_chain(&error), "вложенная причина");
+        assert_eq!(error_chain(&error), "nested cause");
+    }
+
+    #[test]
+    fn the_frontend_gets_a_code_a_key_and_details_but_no_prose() {
+        let error =
+            CommandError::invalid_input("error.reason.instance.name_empty").with_details("trace");
+
+        assert_eq!(
+            serde_json::to_value(&error).unwrap(),
+            serde_json::json!({
+                "code": "INVALID_INPUT",
+                "text": { "key": "error.reason.instance.name_empty" },
+                "details": "trace",
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(CommandError::fs("error.reason.fs.read_file")).unwrap()["code"],
+            "FS_ERROR"
+        );
+    }
+
+    #[test]
+    fn an_io_error_names_the_path_in_the_text_and_keeps_the_os_error_in_details() {
+        let error = CommandError::io(
+            "error.reason.fs.read_file",
+            Path::new("instances/abc/instance.json"),
+            std::io::Error::other("disk on fire"),
+        );
+
+        assert_eq!(error.code, ErrorCode::FsError);
+        assert!(error.text.mentions("instance.json"));
+        assert_eq!(error.details.as_deref(), Some("disk on fire"));
+        assert!(error
+            .to_string()
+            .starts_with("[FS_ERROR] error.reason.fs.read_file {path: "));
+    }
+
+    #[test]
+    fn an_unknown_code_from_storage_becomes_unknown() {
+        let error: CommandError = serde_json::from_value(
+            serde_json::json!({ "code": "SOMETHING_NEW", "text": { "key": "k" } }),
+        )
+        .unwrap();
+
+        assert_eq!(error.code, ErrorCode::Unknown);
+    }
+
+    #[test]
+    fn as_str_matches_the_serialized_name() {
+        for code in [
+            ErrorCode::Network,
+            ErrorCode::FsError,
+            ErrorCode::InstallAborted,
+            ErrorCode::InvalidInput,
+            ErrorCode::NotFound,
+            ErrorCode::Unknown,
+        ] {
+            assert_eq!(serde_json::to_value(code).unwrap(), code.as_str());
+        }
     }
 }

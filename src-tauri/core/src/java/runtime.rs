@@ -179,13 +179,12 @@ async fn finalize(
                 }
 
                 if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).map_err(|e| {
-                        CommandError::io("Не удалось создать каталог рантайма", parent, e)
-                    })?;
+                    std::fs::create_dir_all(parent)
+                        .map_err(|e| CommandError::io("error.reason.fs.create_dir", parent, e))?;
                 }
 
                 std::os::unix::fs::symlink(&link.target, &path)
-                    .map_err(|e| CommandError::io("Не удалось создать ссылку", &path, e))?;
+                    .map_err(|e| CommandError::io("error.reason.fs.link", &path, e))?;
             }
 
             for executable in &executables {
@@ -197,9 +196,8 @@ async fn finalize(
                 let mut perms = meta.permissions();
                 perms.set_mode(perms.mode() | 0o111);
 
-                std::fs::set_permissions(&path, perms).map_err(|e| {
-                    CommandError::io("Не удалось сделать файл исполняемым", &path, e)
-                })?;
+                std::fs::set_permissions(&path, perms)
+                    .map_err(|e| CommandError::io("error.reason.fs.make_executable", &path, e))?;
             }
         }
 
@@ -211,7 +209,7 @@ async fn finalize(
         Ok(())
     })
     .await
-    .map_err(|e| CommandError::task_panicked("подготовка рантайма Java", e))?
+    .map_err(|e| CommandError::task_panicked("prepare_java_runtime", e))?
 }
 
 fn join_relative(base: &Path, relative: &str) -> PathBuf {

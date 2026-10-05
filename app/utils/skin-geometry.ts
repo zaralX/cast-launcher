@@ -4,7 +4,7 @@ export const MODEL_HEIGHT = 32
 
 export const MODEL_WIDTH = 16
 
-// объекты в одну строку с запятыми ломают сканер экспортов mlly: следующий экспорт выпадает из автоимпорта
+// keep these objects multi-line: mlly's export scanner drops the export after a one-line object with commas
 export const SKIN_TEXTURE_SIZE = {
   w: 64,
   h: 64,

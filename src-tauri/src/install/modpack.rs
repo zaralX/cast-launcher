@@ -10,6 +10,7 @@ use cast_core::instance::{Instance, LocalPackSource, PackProvider, PackSource};
 use cast_core::net::download::{DownloadOptions, DownloadTask};
 use cast_core::packs::{BlockedFile, ResolvedPack};
 use cast_core::paths::LauncherPaths;
+use cast_core::text::UiText;
 
 use super::{blocked, download_reporter, job_id, ProgressReporter};
 use crate::state::AppState;
@@ -44,7 +45,9 @@ pub async fn prepare(
     pack: &PackSource,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<Modpack> {
-    reporter.set_message(format!("Загрузка модпака {}", pack.version_number));
+    reporter.set_message(
+        UiText::new("install.message.downloading_modpack").param("version", &pack.version_number),
+    );
 
     let archive_path = archive_path(paths, pack)?;
 
@@ -88,8 +91,14 @@ pub async fn prepare(
                 archive::read_entry(archive_path.clone(), MANIFEST_ENTRY.to_string()).await?;
             let manifest = Manifest::parse(&manifest)?;
 
-            reporter.begin_phase("modpack-resolve", "Список файлов пака");
-            reporter.set_message(format!("Проверка {} файлов пака", manifest.files.len()));
+            reporter.begin_phase(
+                "modpack-resolve",
+                UiText::new("install.message.modpack_resolve"),
+            );
+            reporter.set_message(
+                UiText::new("install.message.checking_pack_files_count")
+                    .param("count", manifest.files.len()),
+            );
 
             let resolved = pack::resolve(&manifest, &minecraft).await?;
 
@@ -117,17 +126,20 @@ pub async fn prepare_local(
     let archive = paths.instance(&instance.id).pack_archive();
 
     if !archive.is_file() {
-        return Err(CommandError::fs(format!(
-            "Архив модпака «{}» не найден рядом со сборкой: импортируйте его заново",
-            pack.name
-        )));
+        return Err(
+            CommandError::not_found("error.reason.modpack.archive_missing")
+                .param("name", &pack.name),
+        );
     }
 
     let minecraft = paths.instance(&instance.id).minecraft();
 
     if pack.kind.resolves_files() {
-        reporter.begin_phase("modpack-resolve", "Список файлов пака");
-        reporter.set_message("Проверка файлов пака");
+        reporter.begin_phase(
+            "modpack-resolve",
+            UiText::new("install.message.modpack_resolve"),
+        );
+        reporter.set_message(UiText::new("install.message.checking_pack_files"));
     }
 
     let resolved = cast_core::packs::local::resolve(&archive, &minecraft).await?;
@@ -184,11 +196,10 @@ async fn fetch_archive_by_hand(
     super::check_cancelled(reporter)?;
 
     let Some(source) = found.first().and_then(|file| file.local_path.clone()) else {
-        return Err(CommandError::download(format!(
-            "Без архива «{}» установить сборку нельзя: автор запретил скачивание через сторонние лаунчеры, \
-             поэтому его нужно скачать со страницы пака вручную",
-            pack.version_number
-        )));
+        return Err(
+            CommandError::download("error.reason.modpack.manual_download")
+                .param("version", &pack.version_number),
+        );
     };
 
     if let Some(parent) = archive_path.parent() {
@@ -197,7 +208,7 @@ async fn fetch_archive_by_hand(
 
     tokio::fs::copy(&source, archive_path)
         .await
-        .map_err(|e| CommandError::io("Не удалось скопировать архив модпака", archive_path, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.copy", archive_path, e))?;
 
     Ok(())
 }
@@ -213,11 +224,11 @@ pub async fn sync_instance(
     let minecraft_version = resolved.minecraft_version.clone();
 
     if instance.installed && loader != instance.loader {
-        return Err(CommandError::manifest(format!(
-            "Модпак собран под {}, а сборка установлена под {}",
-            loader.label(),
-            instance.loader.label()
-        )));
+        return Err(
+            CommandError::unsupported("error.reason.modpack.loader_mismatch")
+                .param("pack", loader.label())
+                .param("instance", instance.loader.label()),
+        );
     }
 
     let unchanged = instance.loader == loader
@@ -265,7 +276,8 @@ pub struct Applied<'a> {
     pub archive: Option<&'a Path>,
     pub version_id: &'a str,
     pub phase: &'a str,
-    pub label: &'a str,
+    /// i18n key of the progress message.
+    pub message: &'static str,
 }
 
 fn wanted(tasks: &[DownloadTask]) -> Vec<DownloadTask> {
@@ -289,7 +301,7 @@ pub async fn apply(
     what: Applied<'_>,
     reporter: &Arc<ProgressReporter>,
 ) -> CommandResult<()> {
-    reporter.begin_phase(what.phase, what.label);
+    reporter.begin_phase(what.phase, UiText::new(what.message));
 
     let instance_paths = paths.instance(&instance.id);
     let minecraft = instance_paths.minecraft();
@@ -303,7 +315,7 @@ pub async fn apply(
     let blocked = &resolved.blocked;
 
     if blocked.iter().any(BlockedFile::found) {
-        reporter.set_message("Перенос скачанных вручную файлов");
+        reporter.set_message(UiText::new("install.message.moving_manual_files"));
 
         owned.extend(blocked::place_found(&minecraft, blocked).await);
     }
@@ -323,7 +335,7 @@ pub async fn apply(
     }
 
     if let Some(archive) = what.archive {
-        reporter.set_message("Распаковка модпака");
+        reporter.set_message(UiText::new("install.message.unpacking_modpack"));
 
         for prefix in &resolved.overrides {
             let unpacked =
@@ -334,7 +346,7 @@ pub async fn apply(
         }
     }
 
-    // Файл может прийти и из списка пака, и из overrides: следим за ним как за скачанным.
+    // A file may come both from the pack list and from overrides: track it as downloaded.
     extracted.retain(|key| !owned.contains(key));
 
     if !resolved.delete.is_empty() {
@@ -343,14 +355,17 @@ pub async fn apply(
             extracted.remove(key);
         }
 
-        reporter.set_message(format!("Удаление лишних файлов: {}", resolved.delete.len()));
+        reporter.set_message(
+            UiText::new("install.message.removing_extra").param("count", resolved.delete.len()),
+        );
         pack_files::remove(&minecraft, &resolved.delete).await;
     }
 
     let stale = previous.stale(&owned.union(&extracted).cloned().collect());
 
     if !stale.is_empty() {
-        reporter.set_message(format!("Удаление файлов прошлой версии: {}", stale.len()));
+        reporter
+            .set_message(UiText::new("install.message.removing_stale").param("count", stale.len()));
         pack_files::remove(&minecraft, &stale).await;
     }
 
@@ -403,7 +418,7 @@ async fn seed(
         return Ok(seeded);
     }
 
-    reporter.set_message(format!("Файлы по умолчанию: {}", tasks.len()));
+    reporter.set_message(UiText::new("install.message.default_files").param("count", tasks.len()));
 
     state
         .downloads
@@ -427,10 +442,10 @@ fn archive_path(paths: &LauncherPaths, pack: &PackSource) -> CommandResult<PathB
         .collect();
 
     if key.is_empty() {
-        return Err(CommandError::manifest(format!(
-            "Некорректная версия модпака: {}",
-            pack.version_id
-        )));
+        return Err(
+            CommandError::manifest("error.reason.modpack.invalid_version")
+                .param("version", &pack.version_id),
+        );
     }
 
     let name = format!(

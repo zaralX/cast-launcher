@@ -112,7 +112,7 @@ watch(source, () => {
 })
 
 async function browse() {
-  const picked = await safeRun(() => call('pick_launcher_dir'))
+  const picked = await safeRun(() => call('pick_launcher_dir', { dialog: { title: t('dialog.launcher_dir.title') } }))
 
   if (picked) {
     path.value = picked
@@ -290,7 +290,7 @@ onMounted(async () => {
               v-if="instance.blocked"
               class="mt-1 truncate font-mono text-[10px] text-amber-400"
             >
-              {{ instance.blocked }}
+              {{ uiText(instance.blocked) }}
             </p>
           </div>
         </li>
@@ -347,7 +347,7 @@ onMounted(async () => {
           <span
             v-if="progress?.step"
             class="text-fg-muted"
-          > · {{ progress.step }}</span>
+          > · {{ uiText(progress.step) }}</span>
         </p>
 
         <AppButton
@@ -404,7 +404,7 @@ onMounted(async () => {
           :key="skipped.name"
           class="font-mono text-[10px] leading-relaxed text-amber-400"
         >
-          {{ skipped.name }} - {{ skipped.reason }}
+          {{ skipped.name }} - {{ uiText(skipped.reason) }}
         </li>
       </ul>
     </div>

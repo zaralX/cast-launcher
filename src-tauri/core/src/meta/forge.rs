@@ -89,11 +89,9 @@ impl Family {
     }
 
     fn not_installed(self, file: &std::path::Path) -> CommandError {
-        CommandError::forge(format!(
-            "{} для этой сборки ещё не установлен. Запустите установку заново.",
-            self.label()
-        ))
-        .with_details(file.display().to_string())
+        CommandError::forge("error.reason.forge.not_installed")
+            .param("loader", self.label())
+            .with_details(file.display().to_string())
     }
 }
 
@@ -165,7 +163,7 @@ pub fn profile(
     let forge = &installed.package;
 
     let main_class = forge.main_class.clone().ok_or_else(|| {
-        CommandError::forge(format!("В манифесте {} нет mainClass", family.label()))
+        CommandError::forge("error.reason.forge.no_main_class").param("loader", family.label())
     })?;
 
     profile.version_type = family.label().into();
@@ -334,11 +332,11 @@ mod tests {
         assert_ne!(
             profile.main_jar.path,
             paths.instance("abc").client_jar(),
-            "ванильный клиент вторым модулем с теми же пакетами роняет игру"
+            "the vanilla client as a second module with the same packages crashes the game"
         );
         assert!(
             !profile.main_jar.on_classpath,
-            "собранный клиент FML находит сам, из classpath он попал бы в слой модулей второй раз"
+            "FML finds the built client itself, from the classpath it would enter the module layer twice"
         );
     }
 
@@ -367,7 +365,7 @@ mod tests {
         assert_eq!(profile.main_jar.path, paths.instance("abc").client_jar());
         assert!(
             profile.main_jar.on_classpath,
-            "launchwrapper патчит клиент из classpath"
+            "launchwrapper patches the client from the classpath"
         );
     }
 
@@ -435,7 +433,7 @@ mod tests {
 
         assert_eq!(
             profile.version_id, "1.20.1",
-            "ассеты и версия остаются ванильными"
+            "assets and version stay vanilla"
         );
         assert_eq!(profile.version_type, "Forge");
         assert_eq!(
@@ -473,7 +471,7 @@ mod tests {
         )
         .unwrap_err();
 
-        assert!(error.message.contains("Без версии"));
+        assert!(error.text.mentions("Без версии"));
     }
 
     #[test]
@@ -491,7 +489,7 @@ mod tests {
         assert_eq!(
             Family::NeoForge.installer_url("1.20.1-47.1.106"),
             "https://maven.neoforged.net/releases/net/neoforged/forge/1.20.1-47.1.106/forge-1.20.1-47.1.106-installer.jar",
-            "под 1.20.1 NeoForge выкладывался как форк Forge"
+            "for 1.20.1 NeoForge shipped as a Forge fork"
         );
     }
 

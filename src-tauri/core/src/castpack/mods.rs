@@ -75,7 +75,8 @@ async fn from_modrinth(
         };
 
         let file = files.get(*version_id).ok_or_else(|| {
-            CommandError::manifest(format!("Modrinth не отдал файл версии {version_id}"))
+            CommandError::manifest("error.reason.modrinth.no_version_file")
+                .param("version", version_id)
         })?;
 
         let key = target_key(file.folder, &file.file_name, *optional)?;
@@ -139,9 +140,9 @@ fn target_key(folder: &str, file_name: &str, optional: bool) -> CommandResult<St
 
 fn numeric(value: &str, field: &str) -> CommandResult<u64> {
     value.trim().parse().map_err(|_| {
-        CommandError::manifest(format!(
-            "У мода CurseForge поле {field} должно быть числом, а не «{value}»"
-        ))
+        CommandError::manifest("error.reason.castpack.curseforge_field")
+            .param("field", field)
+            .param("value", value)
     })
 }
 
@@ -177,7 +178,7 @@ mod tests {
         assert_eq!(
             key.split('/').count(),
             2,
-            "разделители в имени файла обезврежены: {key}"
+            "separators in the file name are defused: {key}"
         );
     }
 
@@ -186,7 +187,7 @@ mod tests {
         assert_eq!(numeric(" 238222 ", "projectId").unwrap(), 238222);
 
         let error = numeric("AANobbMI", "projectId").unwrap_err();
-        assert!(error.message.contains("projectId"), "{}", error.message);
+        assert!(error.text.mentions("projectId"), "{}", error);
     }
 
     #[test]
@@ -215,7 +216,7 @@ mod tests {
         assert_eq!(
             provider_of(&direct),
             None,
-            "прямые ссылки в каталог не ходят"
+            "direct links do not query the catalog"
         );
     }
 

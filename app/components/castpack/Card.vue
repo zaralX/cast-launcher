@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { UiText } from '~/types/backend'
 import type { CatalogPack, PackState } from '~/types/castpack'
 import { INSTANCE_TYPE_LABELS } from '~/types/instance'
 
@@ -6,7 +7,7 @@ const props = defineProps<{
   pack: CatalogPack
   state: PackState
   progress?: number
-  phase?: string
+  phase?: UiText
   instanceId?: string
   icon?: string
 }>()
@@ -110,7 +111,7 @@ function activate() {
         class="flex shrink-0 flex-col items-end gap-1.5"
       >
         <span class="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
-          {{ phase || $t('castpack.action.installing') }}
+          {{ phase ? uiText(phase) : $t('castpack.action.installing') }}
           <span
             v-if="progress != null"
             class="text-acid"

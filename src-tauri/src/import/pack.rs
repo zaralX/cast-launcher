@@ -27,7 +27,9 @@ pub async fn inspect(path: &str) -> CommandResult<LocalPack> {
     let path = path.trim();
 
     if path.is_empty() {
-        return Err(CommandError::fs("Не выбран файл модпака"));
+        return Err(CommandError::invalid_input(
+            "error.reason.modpack.file_required",
+        ));
     }
 
     local::inspect(Path::new(path)).await
@@ -41,15 +43,14 @@ pub async fn import(
     let pack = inspect(&request.path).await?;
 
     if let Some(reason) = &pack.blocked {
-        return Err(CommandError::manifest(format!(
-            "Модпак «{}» установить нельзя: {reason}",
-            pack.name
-        )));
+        return Err(CommandError::unsupported("error.reason.modpack.blocked")
+            .param("name", &pack.name)
+            .param_text("reason", reason.clone()));
     }
 
     let loader = pack
         .loader
-        .ok_or_else(|| CommandError::manifest("В модпаке не указан загрузчик"))?;
+        .ok_or_else(|| CommandError::invalid_input("error.reason.modpack.no_loader"))?;
 
     let instance = Instance {
         id: uuid::Uuid::new_v4().to_string(),
@@ -113,7 +114,7 @@ async fn store_archive(
 
     tokio::fs::copy(source, &target)
         .await
-        .map_err(|e| CommandError::io("Не удалось скопировать архив модпака", &target, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.copy", &target, e))?;
 
     Ok(())
 }

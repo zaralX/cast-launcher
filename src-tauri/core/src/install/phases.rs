@@ -2,49 +2,49 @@ use crate::install::progress::Phase;
 use crate::instance::{LoaderType, LocalPackKind, PackProvider};
 
 const VANILLA: &[Phase] = &[
-    Phase::new("java", "Java", 8),
-    Phase::new("client", "Клиент", 12),
-    Phase::new("libraries", "Библиотеки", 20),
-    Phase::new("assets", "Ресурсы", 60),
+    Phase::new("java", 8),
+    Phase::new("client", 12),
+    Phase::new("libraries", 20),
+    Phase::new("assets", 60),
 ];
 
 const FABRIC: &[Phase] = &[
-    Phase::new("java", "Java", 8),
-    Phase::new("client", "Клиент", 12),
-    Phase::new("libraries", "Библиотеки", 20),
-    Phase::new("assets", "Ресурсы", 50),
-    Phase::new("fabric", "Fabric", 10),
+    Phase::new("java", 8),
+    Phase::new("client", 12),
+    Phase::new("libraries", 20),
+    Phase::new("assets", 50),
+    Phase::new("fabric", 10),
 ];
 
 const FORGE: &[Phase] = &[
-    Phase::new("java", "Java", 8),
-    Phase::new("client", "Клиент", 10),
-    Phase::new("libraries", "Библиотеки", 18),
-    Phase::new("assets", "Ресурсы", 40),
-    Phase::new("forge-installer", "Установщик Forge", 4),
-    Phase::new("forge-libraries", "Библиотеки Forge", 12),
-    Phase::new("forge-patch", "Сборка Forge", 8),
+    Phase::new("java", 8),
+    Phase::new("client", 10),
+    Phase::new("libraries", 18),
+    Phase::new("assets", 40),
+    Phase::new("forge-installer", 4),
+    Phase::new("forge-libraries", 12),
+    Phase::new("forge-patch", 8),
 ];
 
 const NEOFORGE: &[Phase] = &[
-    Phase::new("java", "Java", 8),
-    Phase::new("client", "Клиент", 10),
-    Phase::new("libraries", "Библиотеки", 18),
-    Phase::new("assets", "Ресурсы", 40),
-    Phase::new("neoforge-installer", "Установщик NeoForge", 4),
-    Phase::new("neoforge-libraries", "Библиотеки NeoForge", 12),
-    Phase::new("neoforge-patch", "Сборка NeoForge", 8),
+    Phase::new("java", 8),
+    Phase::new("client", 10),
+    Phase::new("libraries", 18),
+    Phase::new("assets", 40),
+    Phase::new("neoforge-installer", 4),
+    Phase::new("neoforge-libraries", 12),
+    Phase::new("neoforge-patch", 8),
 ];
 
-const MODPACK: Phase = Phase::new("modpack", "Файлы модпака", 25);
+const MODPACK: Phase = Phase::new("modpack", 25);
 
-const MODPACK_RESOLVE: Phase = Phase::new("modpack-resolve", "Список файлов пака", 5);
+const MODPACK_RESOLVE: Phase = Phase::new("modpack-resolve", 5);
 
-const CASTPACK_MANIFEST: Phase = Phase::new("castpack-manifest", "Манифест сборки", 4);
+const CASTPACK_MANIFEST: Phase = Phase::new("castpack-manifest", 4);
 
-const CASTPACK_MODS: Phase = Phase::new("castpack-mods", "Список модов сборки", 4);
+const CASTPACK_MODS: Phase = Phase::new("castpack-mods", 4);
 
-const CASTPACK: Phase = Phase::new("castpack", "Файлы сборки", 22);
+const CASTPACK: Phase = Phase::new("castpack", 22);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {
@@ -139,7 +139,7 @@ fn rescale(phases: &[Phase], target: u32) -> Vec<Phase> {
 
             used += weight;
 
-            Phase::new(phase.key, phase.label, weight)
+            Phase::new(phase.key, weight)
         })
         .collect()
 }
@@ -160,7 +160,7 @@ mod tests {
     fn every_loader_has_a_full_scale() {
         for loader in LoaderType::ALL {
             let total: u32 = for_loader(loader).iter().map(|phase| phase.weight).sum();
-            assert_eq!(total, 100, "фазы {loader:?} должны в сумме давать 100");
+            assert_eq!(total, 100, "the phases of {loader:?} must add up to 100");
         }
     }
 
@@ -188,7 +188,7 @@ mod tests {
 
                 assert_eq!(
                     total, 100,
-                    "фазы {loader:?} из источника {source:?} должны в сумме давать 100"
+                    "the phases of {loader:?} from {source:?} must add up to 100"
                 );
             }
         }
@@ -239,7 +239,7 @@ mod tests {
 
         assert!(
             at("modpack-resolve") < at("modpack"),
-            "сначала список, потом загрузка"
+            "the list first, then the download"
         );
     }
 
@@ -287,7 +287,7 @@ mod tests {
             keys.sort_unstable();
             keys.dedup();
 
-            assert_eq!(keys.len(), phases.len(), "дубли ключей у {source:?}");
+            assert_eq!(keys.len(), phases.len(), "duplicate keys in {source:?}");
         }
     }
 
@@ -303,7 +303,7 @@ mod tests {
             assert_eq!(
                 keys.contains(&"modpack-resolve"),
                 kind == LocalPackKind::CurseForge,
-                "ссылки на файлы ищем только там, где их нет в архиве: {kind:?}"
+                "file links are resolved only where the archive lacks them: {kind:?}"
             );
         }
     }
@@ -408,7 +408,7 @@ mod tests {
             keys.sort_unstable();
             keys.dedup();
 
-            assert_eq!(keys.len(), phases.len(), "дубли ключей у {loader:?}");
+            assert_eq!(keys.len(), phases.len(), "duplicate keys in {loader:?}");
         }
     }
 

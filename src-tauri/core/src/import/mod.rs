@@ -14,6 +14,7 @@ use copy::{CopyStats, Progress};
 use crate::error::{CommandError, CommandResult};
 use crate::instance::{Instance, InstanceSettings, LoaderType, Playtime};
 use crate::paths::LauncherPaths;
+use crate::text::UiText;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -66,7 +67,7 @@ pub struct ScannedInstance {
     pub settings: InstanceSettings,
     pub playtime: Playtime,
     pub pack: Option<ManagedPack>,
-    pub blocked: Option<String>,
+    pub blocked: Option<UiText>,
 }
 
 impl ScannedInstance {
@@ -94,14 +95,16 @@ impl ScannedInstance {
 
     pub fn to_instance(&self, id: String, icon: String) -> CommandResult<Instance> {
         if let Some(reason) = &self.blocked {
-            return Err(CommandError::manifest(format!(
-                "Сборку «{}» перенести нельзя: {reason}",
-                self.name
-            )));
+            return Err(
+                CommandError::unsupported("error.reason.import.instance_blocked")
+                    .param("name", &self.name)
+                    .param_text("reason", reason.clone()),
+            );
         }
 
         let loader = self.loader.ok_or_else(|| {
-            CommandError::manifest(format!("У сборки «{}» нет загрузчика", self.name))
+            CommandError::manifest("error.reason.import.instance_no_loader")
+                .param("name", &self.name)
         })?;
 
         Ok(Instance {
@@ -162,10 +165,10 @@ impl Source {
         let path = path.trim();
 
         if path.is_empty() {
-            return Err(CommandError::fs(format!(
-                "Не указан каталог {}",
-                kind.label()
-            )));
+            return Err(
+                CommandError::invalid_input("error.reason.import.dir_required")
+                    .param("launcher", kind.label()),
+            );
         }
 
         match kind {
@@ -197,7 +200,7 @@ impl Source {
         options: &ImportOptions,
         targets: &SharedTargets,
         progress: &Progress<'_>,
-        on_step: impl Fn(&str),
+        on_step: impl Fn(UiText),
     ) -> CommandResult<()> {
         match self {
             Self::Prism(root) => {
@@ -281,7 +284,7 @@ pub enum ImportStage {
 pub struct ImportProgress {
     pub source: LauncherKind,
     pub stage: ImportStage,
-    pub step: String,
+    pub step: UiText,
     pub done: usize,
     pub total: usize,
     pub stats: CopyStats,
@@ -299,7 +302,7 @@ pub struct ImportedInstance {
 #[serde(rename_all = "camelCase")]
 pub struct SkippedInstance {
     pub name: String,
-    pub reason: String,
+    pub reason: UiText,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -377,9 +380,7 @@ impl ImportRegistry {
 
     pub fn begin(self: &Arc<Self>) -> CommandResult<ImportGuard> {
         if self.running.swap(true, Ordering::SeqCst) {
-            return Err(CommandError::fs(
-                "Перенос уже идёт, дождитесь его окончания",
-            ));
+            return Err(CommandError::conflict("error.reason.import.in_progress"));
         }
 
         self.cancelled.store(false, Ordering::SeqCst);
@@ -455,7 +456,7 @@ mod tests {
 
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].folder, "b");
-        assert!(report.skipped.is_empty(), "невыбранное - не пропущенное");
+        assert!(report.skipped.is_empty(), "not selected is not skipped");
     }
 
     #[test]
@@ -468,18 +469,21 @@ mod tests {
         assert_eq!(selected.len(), 1);
         assert_eq!(report.skipped.len(), 1);
         assert_eq!(report.skipped[0].name, "Beyond");
-        assert!(report.skipped[0].reason.contains("Quilt"));
+        assert!(report.skipped[0].reason.mentions("Quilt"));
     }
 
     #[test]
     fn a_second_import_is_refused_while_the_first_one_runs() {
         let registry = Arc::new(ImportRegistry::new());
 
-        let guard = registry.begin().expect("первый перенос стартует");
+        let guard = registry.begin().expect("the first import starts");
         assert!(registry.begin().is_err());
 
         drop(guard);
-        assert!(registry.begin().is_ok(), "после завершения можно снова");
+        assert!(
+            registry.begin().is_ok(),
+            "another import may start after the first one ends"
+        );
     }
 
     #[test]
@@ -487,7 +491,7 @@ mod tests {
         let registry = Arc::new(ImportRegistry::new());
 
         registry.cancel();
-        assert!(!registry.is_cancelled(), "отменять нечего");
+        assert!(!registry.is_cancelled(), "nothing to cancel");
 
         let _guard = registry.begin().unwrap();
         registry.cancel();
@@ -545,7 +549,7 @@ mod tests {
         for kind in LauncherKind::ALL {
             let error = Source::open(kind, "   ").await.unwrap_err();
 
-            assert!(error.message.contains(kind.label()), "{kind:?}");
+            assert!(error.text.mentions(kind.label()), "{kind:?}");
         }
     }
 
@@ -559,14 +563,14 @@ mod tests {
         assert!(Source::open(LauncherKind::Prism, &path)
             .await
             .unwrap_err()
-            .message
-            .contains("instances"));
+            .text
+            .mentions("not_prism_dir"));
 
         assert!(Source::open(LauncherKind::Modrinth, &path)
             .await
             .unwrap_err()
-            .message
-            .contains("app.db"));
+            .text
+            .mentions("app.db"));
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -610,7 +614,7 @@ mod tests {
         let wire = serde_json::to_value(ImportProgress {
             source: LauncherKind::Prism,
             stage: ImportStage::Shared,
-            step: "Библиотеки".into(),
+            step: UiText::new("settings.import.step.libraries"),
             done: 1,
             total: 3,
             stats: CopyStats {

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import type { Commands, LauncherEvent } from '~/types/backend'
+import type { Locale } from 'vue-i18n'
+import type { Commands, LauncherEvent, UiText } from '~/types/backend'
 import { LAUNCHER_EVENT } from '~/types/backend'
 
 type Args<K extends keyof Commands> = Commands[K][0]
@@ -19,4 +20,13 @@ export async function call<K extends keyof Commands>(
 
 export async function onLauncherEvent(handler: (event: LauncherEvent) => void) {
   return await listen<LauncherEvent>(LAUNCHER_EVENT, e => handler(e.payload))
+}
+
+export function uiText(text: UiText, locale?: Locale): string {
+  const params = Object.fromEntries(
+    Object.entries(text.params ?? {}).map(([name, value]) => [name, typeof value === 'string' ? value : uiText(value, locale)]),
+  )
+  const { $i18n } = useNuxtApp()
+
+  return locale ? $i18n.t(text.key, params, { locale }) : $i18n.t(text.key, params)
 }

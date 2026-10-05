@@ -157,7 +157,7 @@ fn os_version_matches(pattern: &str, current: &str) -> bool {
     match Regex::new(pattern) {
         Ok(regex) => regex.is_match(current),
         Err(error) => {
-            eprintln!("Некорректное правило по версии ОС '{pattern}': {error}");
+            log::warn!("Invalid OS version rule '{pattern}': {error}");
             false
         }
     }

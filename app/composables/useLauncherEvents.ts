@@ -57,10 +57,10 @@ async function connect() {
         })
         break
       case 'launchFailed':
-        captureError(new LauncherError('LAUNCH_FAILED', {
-          message: event.error,
+        captureError(event.error, {
+          code: 'LAUNCH_FAILED',
           context: { instanceId: event.instanceId, instanceName: event.instanceName },
-        }))
+        })
         break
     }
   })

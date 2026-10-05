@@ -33,7 +33,7 @@ pub fn apply_after_launch(app: &AppHandle, mode: AfterLaunch) {
         };
 
         if let Err(error) = hidden {
-            eprintln!("Не удалось убрать окно лаунчера: {error}");
+            log::warn!("Failed to hide the launcher window: {error}");
         }
     }
 }
@@ -53,14 +53,14 @@ pub fn focus_or_create(app: &AppHandle) {
         .cloned();
 
     let Some(config) = config else {
-        eprintln!("В конфигурации нет окна «{MAIN}», открыть лаунчер не получится");
+        log::error!("No '{MAIN}' window in the config, the launcher cannot be opened");
         return;
     };
 
     let built = WebviewWindowBuilder::from_config(app, &config).and_then(|builder| builder.build());
 
     if let Err(error) = built {
-        eprintln!("Не удалось открыть окно лаунчера: {error}");
+        log::error!("Failed to open the launcher window: {error}");
     }
 }
 

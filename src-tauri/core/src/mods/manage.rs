@@ -29,14 +29,12 @@ pub async fn set_enabled(scan: &ModsScan, path: &str, enabled: bool) -> CommandR
     let to = scan.dir.join(&renamed);
 
     if to.exists() {
-        return Err(CommandError::fs(format!(
-            "В папке модов уже есть «{renamed}» - переименуйте или удалите его"
-        )));
+        return Err(CommandError::conflict("error.reason.mods.name_taken").param("name", &renamed));
     }
 
     tokio::fs::rename(&from, &to)
         .await
-        .map_err(|e| CommandError::io("Не удалось переключить мод", &from, e))?;
+        .map_err(|e| CommandError::io("error.reason.fs.rename", &from, e))?;
 
     let mut index = ModsIndex::load(&scan.index_file).await;
 
@@ -66,7 +64,7 @@ pub async fn remove(scan: &ModsScan, paths: &[String]) -> CommandResult<usize> {
             Ok(()) => removed += 1,
             Err(error) if error.kind() == ErrorKind::NotFound => {}
             Err(error) => {
-                failure = Some(CommandError::io("Не удалось удалить мод", &file, error));
+                failure = Some(CommandError::io("error.reason.fs.delete", &file, error));
                 continue;
             }
         }
@@ -118,7 +116,7 @@ pub async fn install(scan: &ModsScan, sources: &[PathBuf]) -> CommandResult<Inst
         let existed = destination.exists() || switched_off.is_file();
 
         if let Err(error) = tokio::fs::copy(source, &destination).await {
-            eprintln!("Не удалось скопировать {}: {error}", source.display());
+            log::warn!("Failed to copy {}: {error}", source.display());
             report.failed.push(name);
             continue;
         }
@@ -156,7 +154,7 @@ fn key(file_name: &str) -> String {
 }
 
 fn target(scan: &ModsScan, path: &str) -> CommandResult<(String, PathBuf)> {
-    let outside = || CommandError::fs(format!("Мод «{path}» лежит не в папке модов"));
+    let outside = || CommandError::fs("error.reason.mods.outside_folder").param("path", path);
 
     let key = relative_key(path).map_err(|_| outside())?;
     let (folder, name) = key.split_once('/').ok_or_else(outside)?;
@@ -255,7 +253,7 @@ mod tests {
         assert!(!remembered(&scan, "mods/jei.jar").await);
         assert!(
             remembered(&scan, "mods/jei.jar.disabled").await,
-            "jar не перечитывается"
+            "the jar is not read again"
         );
 
         std::fs::remove_dir_all(&root).ok();
@@ -270,12 +268,8 @@ mod tests {
 
         let error = set_enabled(&scan, "mods/jei.jar", false).await.unwrap_err();
 
-        assert!(
-            error.message.contains("jei.jar.disabled"),
-            "{}",
-            error.message
-        );
-        assert!(scan.dir.join("jei.jar").is_file(), "файл на месте");
+        assert!(error.text.mentions("jei.jar.disabled"), "{error}");
+        assert!(scan.dir.join("jei.jar").is_file(), "the file is in place");
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -403,7 +397,7 @@ mod tests {
         std::fs::create_dir_all(&source).unwrap();
         std::fs::write(source.join("sodium.jar"), b"new").unwrap();
 
-        // Каталог вместо файла: скопировать его нельзя, но сосед должен доехать.
+        // A directory instead of a file can't be copied, but its neighbour must still arrive.
         std::fs::create_dir_all(source.join("broken.jar")).unwrap();
 
         let report = install(
@@ -432,7 +426,7 @@ mod tests {
         assert_eq!(report.skipped, vec!["jei.jar"]);
         assert!(
             scan.dir.join("jei.jar.disabled").is_file(),
-            "выключенная копия на месте"
+            "the disabled copy is in place"
         );
 
         std::fs::remove_dir_all(&root).ok();
@@ -452,7 +446,7 @@ mod tests {
         assert_eq!(report.replaced, vec!["jei.jar"]);
         assert!(
             !scan.dir.join("jei.jar.disabled").exists(),
-            "выключенной копии не осталось"
+            "no disabled copy is left"
         );
         assert!(scan.dir.join("jei.jar").is_file());
 
