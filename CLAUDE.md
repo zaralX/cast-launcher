@@ -51,7 +51,7 @@ app/
 │  ├─ app/          # shell and shared pieces: Button, ErrorCenter, LoadingScreen, UnsavedChangesModal
 │  ├─ instance/     # instance page tabs, cards, icon, create modal, blocked files
 │  ├─ import/       # launcher import wizard, modpack file import
-│  └─ …             # castpack/, onboarding/, search/, settings/, skin/
+│  └─ …             # cast/, castpack/, onboarding/, search/, settings/, skin/
 ├─ composables/     # use* only: useLauncherEvents, useInstanceActions, useFileDrop, …
 ├─ utils/           # functions + their private constants (auto-imported): backend, error, log, …
 ├─ types/           # one file per entity: types mirroring Rust structs + constants
@@ -206,3 +206,8 @@ hand. The bulk-format commits are in `.git-blame-ignore-revs`
 [castpacks-manager](../../WebstormProjects/castpacks-manager) is the admin panel and API
 for CastPacks. Its `shared/castpack.ts` mirrors `src-tauri/core/src/castpack/*.rs` by hand:
 change both together, or the launcher silently drops catalog entries.
+
+A `.cast` file (`castpack/file.rs`) is a zip with the same manifest inside `cast.json`, plus
+files under `files/` that the manifest lists as `embedded`. The catalog refuses embedded
+files, so the panel never needs them. An instance from a file is a CastPack with
+`origin: file`: its pack archive is the `.cast` itself, and a newer file updates it.

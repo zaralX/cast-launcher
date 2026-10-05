@@ -292,6 +292,16 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             {{ $t('cast_export.empty') }}
           </p>
         </template>
+
+        <AppButton
+          v-else
+          tone="quiet"
+          class="text-[10px] tracking-[0.18em]"
+          icon="i-lucide-rotate-cw"
+          @click="load"
+        >
+          {{ $t('cast_export.retry') }}
+        </AppButton>
       </div>
 
       <form
