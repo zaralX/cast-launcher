@@ -235,6 +235,22 @@ fn is_code(key: &str) -> bool {
     }
 }
 
+/// `.cast` files among the arguments the system started the launcher with.
+pub fn opened_paths(args: &[String], cwd: Option<&Path>) -> Vec<String> {
+    args.iter()
+        .map(|arg| Path::new(arg.trim()))
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case(EXTENSION))
+        })
+        .map(|path| match (path.is_relative(), cwd) {
+            (true, Some(cwd)) => cwd.join(path),
+            _ => path.to_path_buf(),
+        })
+        .map(|path| path.display().to_string())
+        .collect()
+}
+
 pub fn forbidden(key: &str) -> bool {
     let key = key
         .strip_suffix(crate::mods::DISABLED_SUFFIX)
@@ -1149,6 +1165,26 @@ mod tests {
         );
         assert_eq!(preview.base.unwrap().name, "TerraFirmaGreg");
         assert!(pack.needs_curseforge());
+    }
+
+    #[test]
+    fn only_cast_files_are_taken_from_the_arguments() {
+        let cwd = Path::new("/home/player");
+        let args = vec![
+            "/opt/cast-launcher".to_string(),
+            "--flag".to_string(),
+            "Мой пак.CAST".to_string(),
+            "/tmp/other.cast".to_string(),
+            "pack.mrpack".to_string(),
+        ];
+
+        assert_eq!(
+            opened_paths(&args, Some(cwd)),
+            vec![
+                cwd.join("Мой пак.CAST").display().to_string(),
+                Path::new("/tmp/other.cast").display().to_string(),
+            ]
+        );
     }
 
     #[test]

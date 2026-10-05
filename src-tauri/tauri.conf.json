@@ -46,6 +46,20 @@
     "resources": [
       "../public"
     ],
+    "fileAssociations": [
+      {
+        "ext": ["cast"],
+        "name": "Cast Pack",
+        "description": "Cast Launcher modpack",
+        "role": "Viewer",
+        "mimeType": "application/x-cast-pack",
+        "contentTypes": ["ru.zaralx.castlauncher.pack"],
+        "exportedType": {
+          "identifier": "ru.zaralx.castlauncher.pack",
+          "conformsTo": ["public.data", "public.zip-archive"]
+        }
+      }
+    ],
     "macOS": {
       "minimumSystemVersion": "10.15"
     }

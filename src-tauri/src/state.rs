@@ -40,6 +40,8 @@ pub struct AppState {
     pub mod_updates: RwLock<HashMap<String, Vec<ModUpdate>>>,
     pub mod_plans: RwLock<HashMap<String, (String, InstallPlan)>>,
     pub exports: ExportRegistry,
+    /// Pack files the system asked to open, waiting for the window to take them.
+    opened: std::sync::Mutex<Vec<String>>,
 }
 
 #[derive(Default)]
@@ -96,6 +98,7 @@ impl AppState {
             mod_updates: RwLock::new(HashMap::new()),
             mod_plans: RwLock::new(HashMap::new()),
             exports: ExportRegistry::default(),
+            opened: std::sync::Mutex::new(Vec::new()),
         });
 
         let paths = state.paths().await;
@@ -112,6 +115,23 @@ impl AppState {
 
     pub async fn config(&self) -> AppConfig {
         self.config.read().await.clone()
+    }
+
+    pub fn keep_opened(&self, files: Vec<String>) {
+        if let Ok(mut opened) = self.opened.lock() {
+            for file in files {
+                if !opened.contains(&file) {
+                    opened.push(file);
+                }
+            }
+        }
+    }
+
+    pub fn take_opened(&self) -> Vec<String> {
+        self.opened
+            .lock()
+            .map(|mut opened| std::mem::take(&mut *opened))
+            .unwrap_or_default()
     }
 
     pub async fn paths(&self) -> LauncherPaths {

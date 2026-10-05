@@ -50,6 +50,8 @@ pub enum LauncherEvent {
         error: CommandError,
     },
     CastExport(ExportProgress),
+    /// The system handed the launcher pack files to open: the window takes them with `take_opened_files`.
+    FilesOpened,
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ mod export;
 mod import;
 mod install;
 mod launch;
+mod opened;
 mod play;
 mod state;
 mod telemetry;
@@ -38,8 +39,9 @@ pub fn run() {
     let builder = tauri::Builder::default().plugin(log_plugin());
 
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
         window::focus_or_create(app);
+        opened::from_second_start(app, &args, &cwd);
     }));
 
     builder
@@ -62,6 +64,7 @@ pub fn run() {
                 let state = state::AppState::initialize(&handle).await?;
 
                 telemetry::set_enabled(state.config().await.launcher.telemetry);
+                opened::at_start(&state);
                 handle.manage(std::sync::Arc::clone(&state));
                 telemetry::app_started(&handle, &state).await;
 
@@ -163,6 +166,7 @@ pub fn run() {
             commands::cast_export_scan,
             commands::cast_export,
             commands::cancel_cast_export,
+            commands::take_opened_files,
             commands::list_minecraft_versions,
             commands::list_fabric_versions,
             commands::list_forge_versions,
@@ -185,6 +189,19 @@ pub fn run() {
                 if !has_visible_windows {
                     window::focus_or_create(app);
                 }
+            }
+
+            // macOS hands over files opened from Finder as an event, not as arguments.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            tauri::RunEvent::Opened { urls } => {
+                let files = urls
+                    .iter()
+                    .filter_map(|url| url.to_file_path().ok())
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>();
+
+                window::focus_or_create(app);
+                opened::receive(app, cast_core::castpack::file::opened_paths(&files, None));
             }
 
             tauri::RunEvent::Exit => telemetry::app_exited(app),

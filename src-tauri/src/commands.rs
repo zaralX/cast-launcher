@@ -1477,6 +1477,11 @@ pub async fn cancel_cast_export(state: Ctx<'_>) -> CommandResult<()> {
 }
 
 #[tauri::command]
+pub async fn take_opened_files(state: Ctx<'_>) -> CommandResult<Vec<String>> {
+    Ok(state.take_opened())
+}
+
+#[tauri::command]
 pub async fn cancel_import(state: Ctx<'_>) -> CommandResult<()> {
     state.imports.cancel();
 
