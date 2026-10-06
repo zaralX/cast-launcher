@@ -15,6 +15,7 @@ export function useAppearance() {
 
   watchEffect(() => {
     appConfig.ui.colors.primary = accent.value
+    document.documentElement.dataset.accent = accent.value
   })
 
   watchEffect(() => {

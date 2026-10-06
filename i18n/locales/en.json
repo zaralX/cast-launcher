@@ -34,6 +34,8 @@
   "common.playtime.days": "d",
   "common.playtime.hours": "h",
   "common.playtime.minutes": "min",
+  "common.close": "Close",
+  "common.loading": "Loading",
 
   "_commentLayout": "LAYOUT SECTION",
   "layout.nav.library": "Library",

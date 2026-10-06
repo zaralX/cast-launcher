@@ -2,14 +2,22 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@pinia/nuxt', '@nuxt/ui', '@nuxtjs/i18n'],
+  modules: ['@nuxt/eslint', '@nuxt/icon', '@nuxt/fonts', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxt/ui', '@nuxtjs/i18n'],
   ssr: false,
+  components: [
+    { path: '~/components/ui', pathPrefix: false, extensions: ['vue'] },
+    { path: '~/components', pathPrefix: true, ignore: ['**/ui/**'] },
+  ],
   devtools: { enabled: true },
   app: {
     layoutTransition: { name: 'layout', mode: 'out-in' },
     pageTransition: { name: 'page', mode: 'out-in' },
   },
   css: ['~/assets/css/main.css'],
+  colorMode: {
+    classSuffix: '',
+    disableTransition: true,
+  },
   ignore: ['**/src-tauri/**'],
   compatibilityDate: '2025-07-15',
   vite: {
