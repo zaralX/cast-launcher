@@ -12,9 +12,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
 log = "0.4"
-reqwest = { version = "0.13.1", features = ["json", "form", "multipart"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["rustls-no-provider", "charset", "http2", "system-proxy", "json", "form", "multipart"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 tokio = { version = "1", features = ["sync", "fs", "io-util", "time", "process", "rt", "macros"] }
-zip = "7.2.0"
+zip = { version = "7.2.0", default-features = false, features = ["deflate", "deflate64"] }
 sha1 = "0.10"
 sha2 = "0.10"
 regex = "1"

@@ -12,6 +12,8 @@ static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 pub fn client() -> &'static reqwest::Client {
     CLIENT.get_or_init(|| {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
         reqwest::Client::builder()
             .pool_max_idle_per_host(SMALL_CONCURRENCY * 2)
             .pool_idle_timeout(Duration::from_secs(90))
@@ -39,4 +41,15 @@ pub fn http_status_error(status: reqwest::StatusCode, url: &str) -> CommandError
     };
 
     error.param("status", status.as_u16()).param("url", url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn client_builds_with_the_ring_provider() {
+        client();
+        assert!(rustls::crypto::CryptoProvider::get_default().is_some());
+    }
 }
