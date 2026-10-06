@@ -12,6 +12,13 @@ const emit = defineEmits<{
 
 const actions = useInstanceActions()
 
+const exportOpen = ref(false)
+
+// The panel stays mounted while the selection moves: a dialog of the previous instance closes.
+watch(() => props.instance?.id, () => {
+  exportOpen.value = false
+})
+
 const state = computed(() => props.instance ? actions.stateOf(props.instance) : null)
 const install = computed(() => props.instance ? actions.installOf(props.instance.id) : undefined)
 
@@ -137,6 +144,16 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
             </AppButton>
           </NuxtLink>
 
+          <AppButton
+            block
+            class="h-8 text-[10px] tracking-[0.18em]"
+            icon="i-lucide-file-down"
+            :disabled="state === 'installing'"
+            @click="exportOpen = true"
+          >
+            {{ $t('instance.export_cast') }}
+          </AppButton>
+
           <div class="grid grid-cols-3 gap-2">
             <button
               v-for="target in INSTANCE_DIRS"
@@ -196,6 +213,11 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
           {{ $t('instance.panel.remove') }}
         </AppButton>
       </div>
+
+      <CastExportModal
+        v-model:open="exportOpen"
+        :instance="instance"
+      />
     </div>
 
     <div
