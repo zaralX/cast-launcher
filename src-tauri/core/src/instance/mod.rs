@@ -419,7 +419,7 @@ impl InstanceRegistry {
     pub async fn all(&self) -> Vec<Instance> {
         let instances = self.instances.read().await;
         let mut list: Vec<Instance> = instances.values().cloned().collect();
-        list.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        list.sort_by_key(|instance| instance.name.to_lowercase());
         list
     }
 

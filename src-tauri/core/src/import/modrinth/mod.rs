@@ -797,15 +797,14 @@ mod tests {
 
     #[test]
     fn a_broken_folder_path_is_blocked_before_it_can_swallow_the_whole_tree() {
-        for path in [
-            "",
-            "   ",
-            ".",
-            "..",
-            "../соседняя",
-            "вложенная/папка",
-            "C:\\другое",
-        ] {
+        let mut paths = vec!["", "   ", ".", "..", "../соседняя", "вложенная/папка"];
+
+        // Off Windows a backslash is an ordinary character, so this is a plain folder name there.
+        if cfg!(windows) {
+            paths.push("C:\\другое");
+        }
+
+        for path in paths {
             let scanned = parse(&db::InstanceRow {
                 path: path.into(),
                 ..row()

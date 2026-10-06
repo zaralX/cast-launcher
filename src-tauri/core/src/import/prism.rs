@@ -267,7 +267,7 @@ pub async fn scan(root: &Path) -> CommandResult<Vec<ScannedInstance>> {
         found.push(scanned);
     }
 
-    found.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    found.sort_by_key(|instance| instance.name.to_lowercase());
 
     Ok(found)
 }
