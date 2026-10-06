@@ -509,6 +509,7 @@ fn probe_candidate(candidate: Candidate) -> Option<JavaRuntime> {
 }
 
 fn new_command(program: &Path) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
     let mut command = Command::new(program);
 
     #[cfg(windows)]
