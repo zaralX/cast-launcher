@@ -44,23 +44,26 @@ src-tauri/
 ├─ src/             # cast-launcher: thin #[tauri::command]s, events, AppState, orchestration
 └─ capabilities/    # what the webview may do
 app/
-├─ app.vue          # UApp, appearance + language, error toasts
-├─ app.config.ts    # Nuxt UI theme overrides (square corners, mono labels)
-├─ assets/css/      # tailwind.css: @theme tokens · main.css: --cast-* palette, :root dark / html.light
+├─ app.vue          # tooltip provider, toaster, appearance + language, error toasts
+├─ assets/css/      # tailwind.css: @theme tokens · main.css: --cast-* palette, accents, :root dark / html.light
 ├─ components/
-│  ├─ app/          # shell and shared pieces: Button, ErrorCenter, LoadingScreen, UnsavedChangesModal
+│  ├─ ui/           # shadcn-vue primitives, rewritten for the launcher: <Button>, <Dialog>, <Select>, …
+│  ├─ kit/          # launcher blocks built from ui/: <KitPanel>, <KitField>, <KitConfirmDialog>, …
+│  ├─ app/          # window shell: TitleBar, NavRail, WindowControls, ErrorCenter, ActiveDownloads, …
 │  ├─ instance/     # instance page tabs, cards, icon, create modal, blocked files
 │  ├─ import/       # launcher import wizard, modpack file import
 │  └─ …             # cast/, castpack/, onboarding/, search/, settings/, skin/
-├─ composables/     # use* only: useLauncherEvents, useInstanceActions, useFileDrop, …
+├─ composables/     # use* only: useLauncherEvents, useInstanceActions, useFileDrop, useAppToast, …
 ├─ utils/           # functions + their private constants (auto-imported): backend, error, log, …
-├─ types/           # one file per entity: types mirroring Rust structs + constants
+├─ types/           # one file per entity: types mirroring Rust structs + constants; ui.ts for kit props
+├─ lib/             # cn() and the shared looks of ui/ (lib/styles.ts), imported by hand
 ├─ stores/          # Pinia option stores mirroring Rust state
 └─ layouts/ · pages/ · middleware/ · plugins/
 i18n/locales/       # ru.json, en.json
 ```
 
-Components are path-prefixed: `components/instance/Card.vue` is `<InstanceCard>`.
+Components are path-prefixed: `components/instance/Card.vue` is `<InstanceCard>`. The
+exception is `components/ui/`, registered without a prefix (`<Button>`, `<DialogContent>`).
 `checkUnknownComponents` is on, so `typecheck` catches a stale tag after a move.
 `utils/`, `composables/` and `stores/` are auto-imported, don't import them by hand.
 `types/` is not scanned: import its types and constants explicitly.
@@ -165,13 +168,42 @@ Constants hold a `labelKey`, never text. The language lives in `config.launcher.
 `nuxt.config.ts`. Dates format with the current locale (`toLocaleString(locale.value)`),
 never a hardcoded one.
 
-**UI.** Nuxt UI 4 themed in `app.config.ts`; `<AppButton>` is the launcher's own button.
-Colors come only from tokens: `bg-ink-900…600`, `text-fg` / `fg-muted` / `fg-faint`,
-`border-line`, `acid` (the accent the user picks in settings, via `ui.colors.primary`).
-No hex in components. Fonts: Golos Text (body), `font-unbounded` (headings), `font-mono`
-(labels).
+**UI.** Three layers, each built only from the one below:
 
-**Icons.** `i-lucide-*`, plus `simple-icons:*` and `flag:*`. They are bundled offline
+- `components/ui/` holds shadcn-vue primitives on Reka UI. They come from the CLI and are
+  then rewritten for the launcher, as in vilbux-panel: our tokens instead of shadcn's, icons
+  through `<Icon>`, `cva` variants for every look. Add one with
+  `npx shadcn-vue@latest add <name>` and `npm run lint:fix`, then restyle it (under a proxy
+  the CLI needs `HTTPS_PROXY` unset). Looks shared by several primitives (a field, a floating
+  panel, a menu row) live in `lib/styles.ts`.
+- `components/kit/` holds launcher blocks: panel, field, row, status line, alert-like note,
+  confirm dialog, selects, search and number inputs, stat grid, list item, tile, page header.
+- Screens use only these two. A screen with its own button, field, label, badge or status
+  color is a missing variant or a missing kit block: add it there instead.
+
+`<Button>` variants: `fill` (default, the accent sweep), `danger`, `outline`, `dashed`,
+`ghost`, `toolbar` (active state through `aria-pressed`), `quiet`, `quiet-danger`, `link`;
+sizes `xs…xl` and `icon-sm` / `icon` / `icon-lg`. It takes `icon`, `loading` and `to`.
+Toasts go through `useAppToast().add({ title, description, icon, color, actions })`, which
+renders `ui/sonner/Toast.vue` in vue-sonner.
+
+Colors come only from tokens: `bg-ink-900…600`, `text-fg` / `fg-muted` / `fg-faint`,
+`border-line`, `acid` (the accent the user picks, set as `data-accent` on `<html>`),
+`success`, `warning`, `danger` / `danger-strong`. No hex and no Tailwind palette colors in
+components. Type sizes are tokens too: `text-micro` 9px, `text-label` 10px, `text-caption`
+11px, `text-body` 12px, `text-title` 13px, `text-lead` 14px, `text-heading` 15px; uppercase
+mono labels use `tracking-caps` (`tracking-caps-wide` for eyebrows), Unbounded headings
+`tracking-heading` / `tracking-display`. A one-off `text-[Npx]` is for display sizes only.
+A new size or tracking token also goes into the `extendTailwindMerge` list in
+`lib/utils.ts`, otherwise `cn()` drops it next to a color class. Fonts: Golos Text (body),
+`font-unbounded` (headings), `font-mono` (labels).
+
+The window is at least 1080px wide, so `sm:`, `md:` and `lg:` always apply; only `xl:` and
+`2xl:` are real breakpoints. Scrollbars are native and styled in `main.css`; there is no
+`ScrollArea`.
+
+**Icons.** `<Icon name="i-lucide-…">`, plus `simple-icons:*` and `flag:*` (flags need
+`mode="svg"`, they are multicolored). They are bundled offline
 (`icon.provider: 'none'`, client bundle scanned from `app/**`), so an icon name must appear
 as a literal string in the source: a name built at runtime is not bundled and renders
 empty.
