@@ -27,9 +27,7 @@ export function useUiLocale() {
 }
 
 export function useAvailableLocales() {
-  const { localeCodes } = useI18n()
+  const { locales } = useI18n()
 
-  return computed(() => localeCodes.value
-    .map(code => UI_LOCALES[code])
-    .filter((locale): locale is UiLocale => !!locale))
+  return computed(() => locales.value.map(locale => ({ code: locale.code, name: locale.name ?? locale.code })))
 }
