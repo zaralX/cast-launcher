@@ -34,10 +34,10 @@ watch(installs, (value) => {
         type="button"
         class="group relative flex max-w-md min-w-64 cursor-pointer items-center gap-2.5 overflow-hidden border border-line bg-ink-700 px-3 py-1 text-left outline-none transition-colors duration-300 hover:border-acid/50 hover:bg-ink-600 focus-visible:border-acid/50"
       >
-        <span class="relative grid size-1.5 shrink-0 place-items-center">
-          <span class="absolute size-1.5 bg-acid animate-breathe" />
-          <span class="size-1.5 bg-acid" />
-        </span>
+        <KitLiveDot
+          size="sm"
+          class="text-acid"
+        />
 
         <span class="min-w-0 flex-1 truncate font-mono text-caption leading-none text-fg-muted">
           <template v-if="installs.length === 1">

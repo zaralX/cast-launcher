@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<{
   tone?: StatusTone
-  blink?: boolean
+  dot?: 'blink' | 'static' | 'live'
   class?: HTMLAttributes['class']
 }>(), {
   tone: 'muted',
-  blink: true,
+  dot: 'blink',
   class: undefined,
 })
 
@@ -23,10 +23,17 @@ const TONE: Record<StatusTone, string> = {
 
 <template>
   <p :class="cn('flex items-start gap-2.5 font-mono text-label uppercase leading-relaxed tracking-caps', TONE[tone], props.class)">
-    <span
-      class="mt-[0.5em] size-1.5 shrink-0 bg-current"
-      :class="blink && 'animate-blink'"
-    />
+    <span class="flex h-[1.625em] shrink-0 items-center">
+      <KitLiveDot
+        v-if="dot === 'live'"
+        size="sm"
+      />
+      <span
+        v-else
+        class="size-1.5 bg-current"
+        :class="dot === 'blink' && 'animate-blink'"
+      />
+    </span>
     <span class="min-w-0">
       <slot />
     </span>

@@ -65,7 +65,7 @@ function copyAll() {
       <DialogBody>
         <KitStatus
           v-if="!entries.length"
-          :blink="false"
+          dot="static"
           class="justify-center py-12"
         >
           {{ $t('error.center.empty') }}

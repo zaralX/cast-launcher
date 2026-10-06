@@ -52,127 +52,96 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
             class="text-fg-faint"
           />
 
-          <div class="min-w-0 w-full">
+          <div class="w-full min-w-0">
             <h3
-              class="break-words font-unbounded text-[14px] font-semibold leading-tight tracking-[-0.045em] text-fg"
+              class="font-unbounded text-lead font-semibold leading-tight break-words tracking-heading text-fg"
               :title="instance.name"
             >
               {{ instance.name }}
             </h3>
-            <p class="mt-2 font-mono text-[9px] uppercase tracking-[0.18em] text-fg-faint">
+            <p class="mt-2 font-mono text-micro uppercase tracking-caps text-fg-faint">
               {{ INSTANCE_TYPE_LABELS[instance.type] ?? instance.type }} · {{ instance.minecraftVersion }}
             </p>
           </div>
         </header>
 
         <div class="space-y-3 px-5 py-5">
-          <div
+          <InstanceInstallProgress
             v-if="state === 'installing'"
-            class="flex h-9 flex-col justify-center gap-1.5"
-          >
-            <span class="flex items-baseline justify-between gap-3">
-              <span class="min-w-0 truncate font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
-                {{ install ? uiText(install.phase) : $t('instance.state.installing') }}
-              </span>
-              <span
-                v-if="install?.progress != null"
-                class="shrink-0 font-mono text-[9px] tabular-nums text-acid"
-              >
-                {{ Math.round(install.progress * 100) }}%
-              </span>
-            </span>
+            :phase="install?.phase"
+            :progress="install?.progress"
+            class="h-9"
+          />
 
-            <span class="relative block h-px w-full overflow-hidden bg-line">
-              <span
-                v-if="install?.progress == null"
-                class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep"
-              />
-              <span
-                v-else
-                class="absolute inset-y-0 left-0 bg-acid transition-[width] duration-500 ease-deck"
-                :style="{ width: `${Math.round(install.progress * 100)}%` }"
-              />
-            </span>
-          </div>
-
-          <AppButton
-            v-else-if="state != 'running'"
-            block
-            class="group/act text-[10px] tracking-[0.18em]"
+          <Button
+            v-else-if="state !== 'running'"
+            size="sm"
+            class="group/act w-full"
             @click="actions.primary(instance)"
           >
-            <template #leading>
-              <UIcon
-                :name="state === 'ready' ? 'i-lucide-play' : 'i-lucide-arrow-down-to-line'"
-                class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-0.5"
-              />
-            </template>
+            <Icon
+              :name="state === 'ready' ? 'i-lucide-play' : 'i-lucide-arrow-down-to-line'"
+              class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-0.5"
+            />
             {{ state === 'ready' ? $t('instance.action.play') : $t('instance.action.install') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
+          <Button
             v-if="state === 'running'"
-            block
-            class="h-8 text-[10px] tracking-[0.18em] border-acid/40 text-acid"
+            size="sm"
             icon="i-lucide-square"
+            class="w-full border-acid/40 text-acid"
             @click="actions.stop(instance.id)"
           >
             {{ $t('instance.panel.stop') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
+          <Button
             v-if="state === 'installing'"
-            block
-            class="h-8 text-[10px] tracking-[0.18em]"
+            size="sm"
             icon="i-lucide-x"
+            class="w-full"
             :disabled="install?.aborting"
             @click="actions.cancelInstall(instance.id)"
           >
             {{ install?.aborting ? $t('instance.panel.aborting') : $t('instance.panel.cancel') }}
-          </AppButton>
+          </Button>
 
-          <NuxtLink
+          <Button
             :to="`/instance/${instance.id}`"
-            class="block"
+            size="sm"
+            icon="i-lucide-settings"
+            class="w-full"
           >
-            <AppButton
-              block
-              class="h-8 text-[10px] tracking-[0.18em]"
-              icon="i-lucide-settings"
-            >
-              {{ $t('instance.action.settings') }}
-            </AppButton>
-          </NuxtLink>
+            {{ $t('instance.action.settings') }}
+          </Button>
 
-          <AppButton
-            block
-            class="h-8 text-[10px] tracking-[0.18em]"
+          <Button
+            size="sm"
             icon="i-lucide-file-down"
+            class="w-full"
             :disabled="state === 'installing'"
             @click="exportOpen = true"
           >
             {{ $t('instance.export_cast') }}
-          </AppButton>
+          </Button>
 
           <div class="grid grid-cols-3 gap-2">
-            <button
+            <Button
               v-for="target in INSTANCE_DIRS"
               :key="target"
-              type="button"
+              variant="outline"
+              size="sm"
+              :icon="DIR_ICONS[target]"
               :title="$t(INSTANCE_DIR_KEYS[target])"
               :aria-label="$t(INSTANCE_DIR_KEYS[target])"
-              class="grid h-8 cursor-pointer place-items-center border border-line text-fg-faint transition-colors duration-300 hover:border-acid hover:text-acid"
+              class="text-fg-faint hover:border-acid hover:text-acid"
               @click="actions.openDir(instance.id, target)"
-            >
-              <UIcon
-                :name="DIR_ICONS[target]"
-                class="size-3.5"
-              />
-            </button>
+            />
           </div>
         </div>
 
-        <dl class="space-y-2 border-t border-line px-5 py-4 font-mono text-[10px] uppercase tracking-[0.14em]">
+        <dl class="space-y-2 border-t border-line px-5 py-4 font-mono text-label uppercase tracking-caps">
           <div>
             <dt class="text-fg-faint">
               {{ $t('instance.panel.playtime') }}
@@ -204,14 +173,13 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
       </div>
 
       <div class="border-t border-line px-5 py-4">
-        <AppButton
-          tone="quiet"
-          class="text-[10px] tracking-[0.18em] hover:text-red-400"
+        <Button
+          variant="quiet-danger"
           icon="i-lucide-trash-2"
           @click="emit('remove', instance.id)"
         >
           {{ $t('instance.panel.remove') }}
-        </AppButton>
+        </Button>
       </div>
 
       <CastExportModal
@@ -224,14 +192,14 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
       v-else
       class="flex flex-1 flex-col items-center justify-center gap-3 px-5 py-14 text-center"
     >
-      <UIcon
+      <Icon
         name="i-lucide-mouse-pointer-click"
         class="size-5 text-fg-faint"
       />
       <i18n-t
         keypath="instance.panel.empty"
         tag="p"
-        class="font-mono text-[10px] uppercase leading-relaxed tracking-[0.18em] text-fg-faint"
+        class="font-mono text-label uppercase leading-relaxed tracking-caps text-fg-faint"
       >
         <template #br>
           <br>
