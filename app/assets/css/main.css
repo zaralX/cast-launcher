@@ -1,7 +1,6 @@
 @import "./tailwind.css";
 @import "tw-animate-css";
 @import "vue-sonner/style.css";
-@import "@nuxt/ui";
 
 :root {
     --cast-ink-900: #07080a;
@@ -107,6 +106,10 @@ html[data-accent="teal"] {
 html[data-accent="cyan"] {
     --cast-accent-400: var(--color-cyan-400);
     --cast-accent-700: var(--color-cyan-700);
+}
+
+#__nuxt {
+    isolation: isolate;
 }
 
 body {

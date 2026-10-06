@@ -2,7 +2,7 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/icon', '@nuxt/fonts', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxt/ui', '@nuxtjs/i18n'],
+  modules: ['@nuxt/eslint', '@nuxt/icon', '@nuxt/fonts', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxtjs/i18n'],
   ssr: false,
   components: [
     { path: '~/components/ui', pathPrefix: false, extensions: ['vue'] },
@@ -62,7 +62,7 @@ export default defineNuxtConfig({
     provider: 'none',
     clientBundle: {
       scan: {
-        globInclude: ['app/**/*.{vue,ts}', 'node_modules/@nuxt/ui/dist/**/*.mjs'],
+        globInclude: ['app/**/*.{vue,ts}'],
         globExclude: [],
       },
       sizeLimitKb: 0,

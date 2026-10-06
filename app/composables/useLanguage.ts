@@ -1,13 +1,3 @@
-import { en, ru } from '#ui/locale'
-
-type UiLocale = typeof ru
-
-const UI_LOCALES: Record<string, UiLocale | undefined> = { ru, en }
-
-function uiLocaleOf(code: string): UiLocale {
-  return UI_LOCALES[code] ?? ru
-}
-
 export function useLanguage() {
   const { locale, localeCodes, defaultLocale, setLocale } = useI18n()
   const store = useAppStore()
@@ -19,11 +9,6 @@ export function useLanguage() {
   }, { immediate: true })
 
   return locale
-}
-
-export function useUiLocale() {
-  const { locale } = useI18n()
-  return computed(() => uiLocaleOf(locale.value))
 }
 
 export function useAvailableLocales() {
