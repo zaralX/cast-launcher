@@ -86,12 +86,10 @@ onUnmounted(unregister)
 
 .page-enter-from {
   opacity: 0;
-  transform: translateY(10px);
 }
 
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
 }
 
 @media (prefers-reduced-motion: reduce) {
