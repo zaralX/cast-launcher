@@ -26,72 +26,47 @@ const compact = computed({
 
 <template>
   <OnboardingPane :title="$t('onboarding.appearance.title')">
-    <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div class="grid grid-cols-[minmax(0,1fr)_20rem] gap-10">
       <div class="space-y-8">
-        <SettingsField :label="$t('settings.launcher.language')">
-          <div class="flex flex-wrap gap-2">
-            <button
+        <KitField :label="$t('settings.launcher.language')">
+          <RadioGroup
+            v-model="language"
+            variant="tiles"
+          >
+            <RadioGroupItem
               v-for="locale in locales"
               :key="locale.code"
-              type="button"
-              class="flex cursor-pointer items-center gap-2.5 border px-3.5 py-2 transition-colors duration-300"
-              :class="language === locale.code
-                ? 'border-fg text-fg'
-                : 'border-line text-fg-muted hover:border-line-strong hover:text-fg'"
-              @click="language = locale.code"
+              :value="locale.code"
+              class="gap-2.5 px-3.5 py-2"
             >
-              <UIcon
+              <Icon
                 v-if="flagOf(locale.code)"
                 :name="flagOf(locale.code)!"
                 mode="svg"
                 class="size-4 shrink-0"
               />
-              <span class="text-[13px]">{{ locale.name }}</span>
-            </button>
-          </div>
-        </SettingsField>
+              <span class="text-title">{{ locale.name }}</span>
+            </RadioGroupItem>
+          </RadioGroup>
+        </KitField>
 
-        <SettingsField :label="$t('settings.launcher.accent.label')">
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="item in ACCENTS"
-              :key="item.value"
-              type="button"
-              :title="$t(item.labelKey)"
-              :aria-label="$t(item.labelKey)"
-              :aria-pressed="accent === item.value"
-              class="group grid size-9 cursor-pointer place-items-center border transition-colors duration-300"
-              :class="accent === item.value ? 'border-fg' : 'border-line hover:border-line-strong'"
-              @click="accent = item.value"
-            >
-              <span
-                class="size-4 transition-transform duration-300 ease-deck group-hover:scale-110"
-                :style="{ backgroundColor: item.preview }"
-              />
-            </button>
-          </div>
-        </SettingsField>
+        <KitField :label="$t('settings.launcher.accent.label')">
+          <KitAccentPicker v-model="accent" />
+        </KitField>
 
-        <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
-          <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ $t('settings.launcher.compact.label') }}
-            </p>
-            <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              {{ $t('settings.launcher.compact.hint') }}
-            </p>
-          </div>
-          <USwitch
+        <KitRow
+          :label="$t('settings.launcher.compact.label')"
+          :description="$t('settings.launcher.compact.hint')"
+        >
+          <Switch
             v-model="compact"
             size="lg"
           />
-        </div>
+        </KitRow>
       </div>
 
       <aside class="space-y-3">
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-          {{ $t('onboarding.appearance.preview') }}
-        </p>
+        <Label>{{ $t('onboarding.appearance.preview') }}</Label>
         <OnboardingPreview :compact="compact" />
       </aside>
     </div>
