@@ -40,9 +40,7 @@ function activate() {
 </script>
 
 <template>
-  <article
-    class="group relative flex flex-col justify-between overflow-hidden border border-line bg-ink-800 transition-all duration-500 ease-deck hover:border-acid/40 hover:bg-ink-700"
-  >
+  <article class="group relative flex flex-col justify-between overflow-hidden border border-line bg-ink-800 transition-all duration-500 ease-deck hover:border-acid/40 hover:bg-ink-700">
     <span
       class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-acid transition-transform duration-700 ease-deck group-hover:scale-y-100"
       aria-hidden="true"
@@ -50,16 +48,17 @@ function activate() {
 
     <div class="p-4 pl-5">
       <div class="flex items-center gap-3">
-        <span class="font-mono text-[9px] uppercase tracking-[0.28em] text-acid">CastPack</span>
+        <span class="font-mono text-micro uppercase tracking-caps-wide text-acid">CastPack</span>
         <span class="h-px w-6 bg-acid/40" />
-        <span class="truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">{{ pack.id }}</span>
+        <span class="truncate font-mono text-micro uppercase tracking-caps text-fg-faint">{{ pack.id }}</span>
 
-        <span
+        <Badge
           v-if="state === 'outdated'"
-          class="ml-auto shrink-0 border border-amber-400/40 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-amber-400"
+          variant="warning"
+          class="ml-auto"
         >
           {{ $t('castpack.update') }}
-        </span>
+        </Badge>
       </div>
 
       <div class="mt-3 flex items-start gap-3.5">
@@ -82,10 +81,10 @@ function activate() {
         </span>
 
         <div class="min-w-0">
-          <h3 class="font-unbounded text-[16px] font-semibold leading-[1.1] tracking-[-0.045em] text-fg">
+          <h3 class="font-unbounded text-[16px] font-semibold leading-[1.1] tracking-heading text-fg">
             {{ pack.name }}
           </h3>
-          <p class="mt-2 line-clamp-2 max-w-[46ch] text-[12px] leading-relaxed text-fg-muted">
+          <p class="mt-2 line-clamp-2 max-w-[46ch] text-body leading-relaxed text-fg-muted">
             {{ pack.summary || pack.description }}
           </p>
         </div>
@@ -93,14 +92,15 @@ function activate() {
     </div>
 
     <div class="flex items-center justify-between gap-3 border-t border-line px-4 py-2 pl-5">
-      <div class="flex min-w-0 items-center gap-3 font-mono text-[9px] uppercase tracking-[0.14em] text-fg-faint">
+      <div class="flex min-w-0 items-center gap-3 font-mono text-micro uppercase tracking-caps text-fg-faint">
         <template
           v-for="(item, i) in meta"
           :key="item"
         >
-          <span
+          <Separator
             v-if="i"
-            class="h-3 w-px shrink-0 bg-line"
+            orientation="vertical"
+            class="h-3"
           />
           <span class="truncate">{{ item }}</span>
         </template>
@@ -110,7 +110,7 @@ function activate() {
         v-if="state === 'installing'"
         class="flex shrink-0 flex-col items-end gap-1.5"
       >
-        <span class="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-muted">
+        <span class="font-mono text-micro uppercase tracking-caps text-fg-muted">
           {{ phase ? uiText(phase) : $t('castpack.action.installing') }}
           <span
             v-if="progress != null"
@@ -118,32 +118,25 @@ function activate() {
           >{{ Math.round(progress * 100) }}%</span>
         </span>
 
-        <span class="relative block h-px w-24 overflow-hidden bg-line">
-          <span
-            v-if="progress == null"
-            class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep"
-          />
-          <span
-            v-else
-            class="absolute inset-y-0 left-0 bg-acid transition-[width] duration-500 ease-deck"
-            :style="{ width: `${Math.round(progress * 100)}%` }"
-          />
-        </span>
+        <Progress
+          :model-value="progress == null ? null : progress * 100"
+          class="w-24"
+        />
       </div>
 
-      <AppButton
+      <Button
         v-else
-        tone="quiet"
-        class="group/act shrink-0 text-[10px] tracking-[0.18em]"
+        variant="quiet"
+        class="group/act shrink-0"
         :disabled="state === 'running'"
         @click="activate"
       >
         {{ $t(action.labelKey) }}
-        <UIcon
+        <Icon
           :name="action.icon"
           class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-1"
         />
-      </AppButton>
+      </Button>
     </div>
   </article>
 </template>

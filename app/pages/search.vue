@@ -237,80 +237,56 @@ const playPack = (instanceId: string) => safeRun(
 </script>
 
 <template>
-  <div class="min-h-full w-full px-6 pb-10 pt-6 xl:px-10">
+  <div class="min-h-full w-full px-6 pt-6 pb-10 xl:px-10">
     <header class="animate-rise flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
-      <div>
-        <p class="font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">
-          {{ $t('search.eyebrow') }}
-        </p>
-        <h1 class="mt-2.5 font-unbounded text-lg font-bold leading-none tracking-[-0.055em] text-fg xl:text-xl">
-          {{ $t('search.title') }}<span class="text-acid">.</span>
-        </h1>
-      </div>
+      <KitPageHeader
+        :eyebrow="$t('search.eyebrow')"
+        :title="$t('search.title')"
+        size="xs"
+      />
 
-      <div
-        role="radiogroup"
+      <RadioGroup
+        :model-value="source"
         :aria-label="$t('search.sources')"
-        class="flex border border-line"
+        @update:model-value="value => selectSource(value as Source)"
       >
-        <button
+        <RadioGroupItem
           v-for="item in providers"
           :key="item.id"
-          type="button"
-          role="radio"
-          :aria-checked="source === item.id"
+          :value="item.id"
           :disabled="!item.ready"
           :title="item.reason ? uiText(item.reason) : undefined"
-          class="group relative flex items-center gap-2 border-r border-line px-4 py-2.5 transition-colors duration-300"
-          :class="[
-            !item.ready ? 'cursor-not-allowed opacity-40' : '',
-            source === item.id ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted',
-          ]"
-          @click="item.ready && selectSource(item.id)"
+          class="flex-none px-4 py-2.5"
         >
-          <span
-            class="absolute inset-x-0 top-0 h-px origin-center bg-acid transition-transform duration-500 ease-deck"
-            :class="source === item.id ? 'scale-x-100' : 'scale-x-0'"
-          />
           <img
             :src="PROVIDER_LOGOS[item.id]"
             class="size-3.5"
             alt=""
           >
-          <span class="font-mono text-[10px] uppercase tracking-[0.16em]">{{ item.label }}</span>
+          <span class="font-mono text-label uppercase tracking-caps">{{ item.label }}</span>
           <span
             v-if="!item.ready"
-            class="font-mono text-[9px] tracking-[0.12em] text-fg-faint"
+            class="font-mono text-micro tracking-[0.12em] text-fg-faint"
           >{{ $t('search.no_key') }}</span>
-        </button>
+        </RadioGroupItem>
 
-        <button
-          type="button"
-          role="radio"
-          :aria-checked="source === CASTPACK"
-          class="group relative flex items-center gap-2 px-4 py-2.5 transition-colors duration-300"
-          :class="source === CASTPACK
-            ? 'bg-ink-700 text-fg'
-            : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted'"
-          @click="selectSource(CASTPACK)"
+        <RadioGroupItem
+          :value="CASTPACK"
+          class="flex-none px-4 py-2.5"
         >
-          <span
-            class="absolute inset-x-0 top-0 h-px origin-center bg-acid transition-transform duration-500 ease-deck"
-            :class="source === CASTPACK ? 'scale-x-100' : 'scale-x-0'"
-          />
           <img
             src="/logo.svg"
             class="size-3.5"
             alt=""
           >
-          <span class="font-mono text-[10px] uppercase tracking-[0.16em]">CastPack</span>
-        </button>
-      </div>
+          <span class="font-mono text-label uppercase tracking-caps">CastPack</span>
+        </RadioGroupItem>
+      </RadioGroup>
     </header>
 
     <section
       v-if="source !== CASTPACK"
-      class="mt-6 grid gap-8 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]"
+      class="mt-6 grid grid-cols-[minmax(0,15rem)_minmax(0,1fr)] gap-8"
     >
       <SearchFilters
         v-model:loaders="loaders"
@@ -325,75 +301,49 @@ const playPack = (instanceId: string) => safeRun(
 
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-3">
-          <UInput
+          <KitSearchInput
             v-model="query"
             :placeholder="$t('search.placeholder')"
-            icon="i-lucide-search"
+            :loading="searching"
             size="lg"
             class="min-w-0 flex-1"
-            :loading="searching"
           />
-          <USelect
+          <KitSelect
             v-model="sort"
             :items="SORT_ITEMS"
-            value-key="value"
             size="lg"
             class="w-52"
           />
         </div>
 
         <div class="mt-4 flex items-center gap-4">
-          <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
+          <span class="font-mono text-label uppercase tracking-caps text-fg-faint">
             {{ searching ? $t('search.searching') : $t('search.found', { count: total }) }}
           </span>
-          <span class="h-px flex-1 bg-line" />
+          <Separator class="flex-1" />
         </div>
 
-        <div
+        <KitLoadError
           v-if="searchError"
-          class="mt-6 border border-red-400/30 bg-ink-900 p-5"
-        >
-          <div class="flex items-start gap-3">
-            <UIcon
-              name="i-lucide-wifi-off"
-              class="mt-0.5 size-4 shrink-0 text-red-400"
-            />
-            <div class="min-w-0">
-              <p class="text-[13px] font-medium text-fg">
-                {{ searchError.title }}
-              </p>
-              <p
-                v-if="searchError.reason ?? searchError.hint"
-                class="mt-2 text-[12px] leading-relaxed text-fg-muted"
-              >
-                {{ searchError.reason ?? searchError.hint }}
-              </p>
-              <AppButton
-                tone="quiet"
-                class="mt-4 text-[10px] tracking-[0.18em]"
-                icon="i-lucide-rotate-cw"
-                @click="search()"
-              >
-                {{ $t('search.retry') }}
-              </AppButton>
-            </div>
-          </div>
-        </div>
+          :error="searchError"
+          class="mt-6"
+          @retry="search()"
+        />
 
         <div
           v-else-if="searching && !hits.length"
           class="mt-4 grid gap-3 2xl:grid-cols-2"
         >
-          <span
+          <Skeleton
             v-for="row in 6"
             :key="row"
-            class="block h-[7.5rem] animate-pulse bg-ink-800"
+            class="h-30 bg-ink-800"
           />
         </div>
 
         <p
           v-else-if="!hits.length"
-          class="mt-8 text-[13px] leading-relaxed text-fg-muted"
+          class="mt-8 text-title leading-relaxed text-fg-muted"
         >
           {{ $t('search.nothing_found') }}
         </p>
@@ -416,13 +366,14 @@ const playPack = (instanceId: string) => safeRun(
           v-if="hasMore && !searchError"
           class="mt-6 flex justify-center"
         >
-          <AppButton
-            class="h-10 px-8 tracking-[0.2em]"
+          <Button
+            size="lg"
+            class="px-8"
             :loading="loadingMore"
             @click="search(hits.length)"
           >
             {{ $t('search.show_more') }}
-          </AppButton>
+          </Button>
         </div>
       </div>
     </section>
@@ -432,57 +383,48 @@ const playPack = (instanceId: string) => safeRun(
       class="mt-6"
     >
       <div class="flex flex-wrap items-center gap-3">
-        <UInput
+        <KitSearchInput
           v-model="catalogQuery"
           :placeholder="$t('search.catalog_placeholder')"
-          icon="i-lucide-search"
           size="lg"
           class="min-w-0 flex-1"
         />
 
-        <AppButton
-          tone="quiet"
-          class="h-10 shrink-0 px-5 text-[10px] tracking-[0.18em]"
+        <Button
+          variant="quiet"
           icon="i-lucide-rotate-cw"
+          class="px-2"
           :loading="catalogLoading"
           @click="loadCatalog(true)"
         >
           {{ $t('search.refresh') }}
-        </AppButton>
+        </Button>
       </div>
 
-      <p
+      <Alert
         v-if="outdated"
-        class="animate-rise mt-6 border border-amber-400/30 bg-amber-400/[0.04] px-4 py-3 text-[12px] leading-relaxed text-fg-muted"
+        variant="warning"
+        class="animate-rise mt-6"
       >
         {{ $t('search.outdated', { count: outdated }) }}
-      </p>
+      </Alert>
 
-      <div
+      <KitLoading
         v-if="catalogLoading && !catalogLoaded"
-        class="flex flex-col items-center gap-4 py-20"
-      >
-        <span class="relative block h-px w-40 overflow-hidden bg-line">
-          <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep" />
-        </span>
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-          {{ $t('search.catalog_loading') }}
-        </p>
-      </div>
+        :label="$t('search.catalog_loading')"
+        class="py-20"
+      />
 
-      <div
+      <KitStatus
         v-else-if="!catalogPacks.length"
-        class="flex items-center gap-3 py-20"
+        class="py-20"
       >
-        <span class="size-1.5 bg-fg-faint animate-blink" />
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-          {{ catalogQuery ? $t('search.catalog_nothing_found') : $t('search.catalog_empty') }}
-        </p>
-      </div>
+        {{ catalogQuery ? $t('search.catalog_nothing_found') : $t('search.catalog_empty') }}
+      </KitStatus>
 
       <div
         v-else
-        class="mt-6 grid gap-3 lg:grid-cols-2 2xl:grid-cols-3"
+        class="mt-6 grid grid-cols-2 gap-3 2xl:grid-cols-3"
       >
         <CastpackCard
           v-for="(pack, i) in catalogPacks"
@@ -502,24 +444,26 @@ const playPack = (instanceId: string) => safeRun(
 
       <p
         v-if="catalog?.updatedAt"
-        class="mt-8 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+        class="mt-8 font-mono text-label uppercase tracking-caps text-fg-faint"
       >
         {{ $t('search.catalog_updated', { date: catalog.updatedAt }) }}
       </p>
     </section>
 
-    <UModal
-      v-model:open="installOpen"
-      :title="$t('search.install_title')"
-    >
-      <template #body>
-        <SearchInstallModalBody
-          v-if="installTarget"
-          :key="installTarget.projectId"
-          :hit="installTarget"
-          @installed="onInstalled"
-        />
-      </template>
-    </UModal>
+    <Dialog v-model:open="installOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('search.install_title') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <SearchInstallModalBody
+            v-if="installTarget"
+            :key="installTarget.projectId"
+            :hit="installTarget"
+            @installed="onInstalled"
+          />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

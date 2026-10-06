@@ -297,18 +297,12 @@ onBeforeUnmount(() => {
               class="flex w-full cursor-pointer items-center gap-4 border-b border-line px-1 py-3 text-left outline-none transition-colors duration-300 hover:bg-ink-700 focus-visible:bg-ink-700"
               @click="choose(hit)"
             >
-              <span class="grid size-10 shrink-0 place-items-center overflow-hidden border border-line bg-ink-900">
-                <img
-                  v-if="hit.iconUrl"
-                  :src="hit.iconUrl"
-                  alt=""
-                  class="size-full object-cover"
-                >
-                <span
-                  v-else
-                  class="font-mono text-label text-fg-faint"
-                >{{ hit.title.slice(0, 2).toUpperCase() }}</span>
-              </span>
+              <KitThumb
+                :src="hit.iconUrl"
+                size="sm"
+              >
+                <span class="font-mono text-label text-fg-faint">{{ hit.title.slice(0, 2).toUpperCase() }}</span>
+              </KitThumb>
 
               <span class="min-w-0 flex-1">
                 <span class="flex items-center gap-2.5">

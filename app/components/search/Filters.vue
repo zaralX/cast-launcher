@@ -20,11 +20,20 @@ const environment = defineModel<PackEnvironment | null>('environment', { require
 
 const { t } = useI18n()
 
-const ENVIRONMENTS = computed<{ value: PackEnvironment | null, label: string }[]>(() => [
-  { value: null, label: t('search.filters.env_any') },
+const ANY_ENVIRONMENT = 'any'
+
+const ENVIRONMENTS = computed<{ value: PackEnvironment | typeof ANY_ENVIRONMENT, label: string }[]>(() => [
+  { value: ANY_ENVIRONMENT, label: t('search.filters.env_any') },
   { value: 'client', label: t('search.filters.env_client') },
   { value: 'server', label: t('search.filters.env_server') },
 ])
+
+const environmentChoice = computed({
+  get: () => environment.value ?? ANY_ENVIRONMENT,
+  set: (value: PackEnvironment | typeof ANY_ENVIRONMENT) => {
+    environment.value = value === ANY_ENVIRONMENT ? null : value
+  },
+})
 
 const groups = computed(() => {
   const byHeader = new Map<string, PackCategory[]>()
@@ -55,21 +64,6 @@ const selectedCount = computed(() =>
   loaders.value.length + gameVersions.value.length + categories.value.length + (environment.value ? 1 : 0),
 )
 
-const toggled = (list: string[], value: string) =>
-  list.includes(value) ? list.filter(item => item !== value) : [...list, value]
-
-const toggleLoader = (value: string) => {
-  loaders.value = toggled(loaders.value, value)
-}
-
-const toggleCategory = (value: string) => {
-  categories.value = toggled(categories.value, value)
-}
-
-const selectEnvironment = (value: PackEnvironment | null) => {
-  environment.value = value
-}
-
 const reset = () => {
   loaders.value = []
   gameVersions.value = []
@@ -87,127 +81,111 @@ const HEADER_KEYS: Record<string, string> = {
 <template>
   <aside class="flex flex-col gap-7">
     <div class="flex items-center gap-3">
-      <span class="font-mono text-[10px] uppercase tracking-[0.28em] text-acid">{{ $t('search.filters.title') }}</span>
-      <span class="h-px flex-1 bg-line" />
-      <UButton
+      <span class="font-mono text-label uppercase tracking-caps-wide text-acid">{{ $t('search.filters.title') }}</span>
+      <Separator class="flex-1" />
+      <Button
         v-if="selectedCount"
-        color="neutral"
-        variant="ghost"
-        class="px-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint hover:bg-transparent hover:text-acid"
+        variant="quiet"
+        class="py-0 text-micro"
         @click="reset"
       >
         {{ $t('search.filters.reset', { count: selectedCount }) }}
-      </UButton>
+      </Button>
     </div>
 
     <div
       v-if="loading"
       class="space-y-3"
     >
-      <span
+      <Skeleton
         v-for="row in 4"
         :key="row"
-        class="block h-7 w-full animate-pulse bg-ink-700"
+        class="h-7"
       />
     </div>
 
     <template v-else-if="filters">
       <section v-if="filters.loaders.length">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+        <Label class="mb-3 text-micro">
           {{ $t('search.filters.loader') }}
-        </p>
-        <div class="flex flex-wrap gap-2">
-          <button
+        </Label>
+        <ToggleGroup
+          v-model="loaders"
+          type="multiple"
+        >
+          <ToggleGroupItem
             v-for="loader in filters.loaders"
             :key="loader"
-            type="button"
-            :aria-pressed="loaders.includes(loader)"
-            class="border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors duration-300"
-            :class="loaders.includes(loader)
-              ? 'border-acid text-acid'
-              : 'border-line text-fg-faint hover:border-line-strong hover:text-fg-muted'"
-            @click="toggleLoader(loader)"
+            :value="loader"
           >
             {{ loader }}
-          </button>
-        </div>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </section>
 
       <section v-if="filters.gameVersions.length">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+        <Label class="mb-3 text-micro">
           {{ $t('search.filters.game_version') }}
-        </p>
-        <USelectMenu
+        </Label>
+        <KitSelectMenu
           v-if="can.multipleGameVersions"
           v-model="gameVersions"
           :items="filters.gameVersions"
           multiple
           :placeholder="$t('search.filters.any_version')"
-          class="w-full"
         />
         <template v-else>
-          <USelectMenu
+          <KitSelectMenu
             v-model="singleGameVersion"
             :items="gameVersionItems"
-            value-key="value"
-            class="w-full"
           />
-          <p class="mt-2 text-[11px] leading-relaxed text-fg-faint">
+          <p class="mt-2 text-caption leading-relaxed text-fg-faint">
             {{ $t('search.filters.single_version') }}
           </p>
         </template>
       </section>
 
       <section v-if="can.environment">
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+        <Label class="mb-3 text-micro">
           {{ $t('search.filters.environment') }}
-        </p>
-        <div class="grid grid-cols-3 border border-line">
-          <button
-            v-for="(option, i) in ENVIRONMENTS"
-            :key="option.label"
-            type="button"
-            :aria-pressed="environment === option.value"
-            class="py-2 font-mono text-[9px] uppercase tracking-[0.12em] transition-colors duration-300"
-            :class="[
-              i > 0 ? 'border-l border-line' : '',
-              environment === option.value ? 'bg-ink-700 text-acid' : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted',
-            ]"
-            @click="selectEnvironment(option.value)"
+        </Label>
+        <RadioGroup v-model="environmentChoice">
+          <RadioGroupItem
+            v-for="option in ENVIRONMENTS"
+            :key="option.value"
+            :value="option.value"
+            class="py-2 font-mono text-micro uppercase tracking-caps data-[state=checked]:text-acid"
           >
             {{ option.label }}
-          </button>
-        </div>
+          </RadioGroupItem>
+        </RadioGroup>
       </section>
 
       <section
         v-for="group in groups"
         :key="group.header"
       >
-        <p class="mb-3 font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+        <Label class="mb-3 text-micro">
           {{ HEADER_KEYS[group.header] ? $t(HEADER_KEYS[group.header]!) : group.header }}
-        </p>
-        <div class="flex flex-wrap gap-2">
-          <button
+        </Label>
+        <ToggleGroup
+          v-model="categories"
+          type="multiple"
+        >
+          <ToggleGroupItem
             v-for="category in group.items"
             :key="category.id"
-            type="button"
-            :aria-pressed="categories.includes(category.id)"
-            class="border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors duration-300"
-            :class="categories.includes(category.id)
-              ? 'border-acid text-acid'
-              : 'border-line text-fg-faint hover:border-line-strong hover:text-fg-muted'"
-            @click="toggleCategory(category.id)"
+            :value="category.id"
           >
             {{ categoryLabel(category) }}
-          </button>
-        </div>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </section>
     </template>
 
     <p
       v-else
-      class="text-[12px] leading-relaxed text-fg-muted"
+      class="text-body leading-relaxed text-fg-muted"
     >
       {{ $t('search.filters.failed') }}
     </p>

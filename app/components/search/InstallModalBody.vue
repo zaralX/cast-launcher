@@ -127,76 +127,36 @@ const install = async () => {
 <template>
   <div>
     <div class="flex items-start gap-4 border-b border-line pb-5">
-      <span class="grid size-12 shrink-0 place-items-center overflow-hidden border border-line bg-ink-900">
-        <img
-          v-if="hit.iconUrl"
-          :src="hit.iconUrl"
-          :alt="hit.title"
-          class="size-full object-cover"
-        >
-        <UIcon
-          v-else
-          name="i-lucide-package"
-          class="size-5 text-fg-faint"
-        />
-      </span>
+      <KitThumb
+        :src="hit.iconUrl"
+        :alt="hit.title"
+      />
 
       <div class="min-w-0">
-        <p class="font-mono text-[9px] uppercase tracking-[0.24em] text-acid">
+        <p class="font-mono text-micro uppercase tracking-caps text-acid">
           {{ PACK_PROVIDER_LABELS[hit.provider] }}
         </p>
-        <h3 class="mt-1.5 truncate font-unbounded text-[15px] font-semibold tracking-[-0.04em] text-fg">
+        <h3 class="mt-1.5 truncate font-unbounded text-heading font-semibold tracking-heading text-fg">
           {{ hit.title }}
         </h3>
       </div>
     </div>
 
-    <div
+    <KitLoading
       v-if="loading"
-      class="flex flex-col items-center gap-4 py-14"
-    >
-      <span class="relative block h-px w-40 overflow-hidden bg-line">
-        <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep" />
-      </span>
-      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-        {{ $t('search.install.loading') }}
-      </p>
-    </div>
+      :label="$t('search.install.loading')"
+    />
 
-    <div
+    <KitLoadError
       v-else-if="loadError"
-      class="mt-6 border border-red-400/30 bg-ink-900 p-5"
-    >
-      <div class="flex items-start gap-3">
-        <UIcon
-          name="i-lucide-wifi-off"
-          class="mt-0.5 size-4 shrink-0 text-red-400"
-        />
-        <div class="min-w-0">
-          <p class="text-[13px] font-medium text-fg">
-            {{ loadError.title }}
-          </p>
-          <p
-            v-if="loadError.reason ?? loadError.hint"
-            class="mt-2 text-[12px] leading-relaxed text-fg-muted"
-          >
-            {{ loadError.reason ?? loadError.hint }}
-          </p>
-          <AppButton
-            tone="quiet"
-            class="mt-4 text-[10px] tracking-[0.18em]"
-            icon="i-lucide-rotate-cw"
-            @click="loadVersions"
-          >
-            {{ $t('search.install.retry') }}
-          </AppButton>
-        </div>
-      </div>
-    </div>
+      :error="loadError"
+      class="mt-6"
+      @retry="loadVersions"
+    />
 
     <p
       v-else-if="!versions.length"
-      class="mt-6 text-[12px] leading-relaxed text-fg-muted"
+      class="mt-6 text-body leading-relaxed text-fg-muted"
     >
       {{ $t('search.install.no_versions') }}
     </p>
@@ -207,116 +167,84 @@ const install = async () => {
       @submit.prevent="install"
     >
       <div class="space-y-5">
-        <div>
-          <label
-            for="pack-name"
-            class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
-          >
-            {{ $t('search.install.name') }}
-          </label>
-          <UInput
+        <KitField
+          :label="$t('search.install.name')"
+          for="pack-name"
+        >
+          <Input
             id="pack-name"
             v-model="name"
             size="lg"
-            class="w-full"
-            :ui="{ base: 'font-unbounded text-[15px] tracking-[-0.03em]' }"
+            font="display"
           />
-        </div>
+        </KitField>
 
-        <div>
-          <label
-            for="pack-description"
-            class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
-          >
-            {{ $t('search.install.description') }}
-          </label>
-          <UInput
+        <KitField
+          :label="$t('search.install.description')"
+          for="pack-description"
+        >
+          <Input
             id="pack-description"
             v-model="description"
             :placeholder="$t('search.install.description_placeholder')"
-            class="w-full"
           />
-        </div>
+        </KitField>
 
-        <div>
-          <label class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('search.install.version') }}</label>
-          <USelectMenu
+        <KitField :label="$t('search.install.version')">
+          <KitSelectMenu
             v-model="versionId"
             :items="versionItems"
-            value-key="value"
-            :search-input="{ placeholder: $t('search.install.version_search') }"
-            class="w-full"
+            :search-placeholder="$t('search.install.version_search')"
           />
-        </div>
+        </KitField>
       </div>
 
-      <div class="grid grid-cols-2 border border-line">
-        <div class="px-4 py-3">
-          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-            Minecraft
-          </p>
-          <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
-            {{ selected?.minecraftVersion ?? "-" }}
-          </p>
-        </div>
-        <div class="border-l border-line px-4 py-3">
-          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-            {{ $t('search.install.loader') }}
-          </p>
-          <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
-            {{ loaderLabel }}
-          </p>
-        </div>
-      </div>
+      <KitStatGrid>
+        <KitStat
+          label="Minecraft"
+          :value="selected?.minecraftVersion ?? '-'"
+        />
+        <KitStat
+          :label="$t('search.install.loader')"
+          :value="loaderLabel"
+        />
+      </KitStatGrid>
 
-      <p
+      <KitNote
         v-if="selected && !selected.supported"
-        class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+        icon="i-lucide-triangle-alert"
       >
-        <UIcon
-          name="i-lucide-triangle-alert"
-          class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-        />
         {{ $t('search.install.unsupported', { reason: unsupportedReason(selected) }) }}
-      </p>
+      </KitNote>
 
-      <p
+      <KitNote
         v-else-if="selected?.blocked"
-        class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+        icon="i-lucide-hand"
       >
-        <UIcon
-          name="i-lucide-hand"
-          class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-        />
         {{ $t('search.install.blocked_pack') }}
-      </p>
+      </KitNote>
 
-      <p
+      <KitNote
         v-else-if="!hit.distributionAllowed"
-        class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+        icon="i-lucide-triangle-alert"
       >
-        <UIcon
-          name="i-lucide-triangle-alert"
-          class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-        />
         {{ $t('search.install.blocked_files') }}
-      </p>
+      </KitNote>
 
-      <AppButton
-        block
+      <Button
         type="submit"
-        class="group/act h-11 tracking-[0.2em]"
+        size="xl"
+        class="group/act w-full"
         :loading="creating"
         :disabled="!canInstall"
       >
-        <template #leading>
-          <UIcon
-            name="i-lucide-download"
-            class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
-          />
-        </template>
+        <Icon
+          v-if="!creating"
+          name="i-lucide-download"
+          class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
+        />
         {{ creating ? $t('search.install.creating') : $t('search.install.install') }}
-      </AppButton>
+      </Button>
     </form>
   </div>
 </template>
