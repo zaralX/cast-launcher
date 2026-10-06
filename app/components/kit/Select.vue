@@ -16,6 +16,8 @@ const model = defineModel<T>()
 const options = computed<SelectOption<T>[]>(() => props.items.map(item =>
   typeof item === 'object' ? item : { label: String(item), value: item },
 ))
+
+const current = computed(() => options.value.find(option => option.value === model.value) ?? null)
 </script>
 
 <template>
@@ -27,7 +29,23 @@ const options = computed<SelectOption<T>[]>(() => props.items.map(item =>
       :size="size"
       :class="props.class"
     >
-      <SelectValue :placeholder="placeholder" />
+      <SelectValue :placeholder="placeholder">
+        <span
+          v-if="current"
+          class="flex min-w-0 items-center gap-1.5"
+        >
+          <Icon
+            v-if="current.icon"
+            :name="current.icon"
+            mode="svg"
+            class="size-4 shrink-0"
+          />
+          <span class="truncate">{{ current.label }}</span>
+        </span>
+        <template v-else>
+          {{ placeholder }}
+        </template>
+      </SelectValue>
     </SelectTrigger>
 
     <SelectContent>
