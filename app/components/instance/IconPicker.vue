@@ -11,6 +11,11 @@ const ALL_CATEGORIES = 'all'
 
 type Tab = 'library' | 'catalog'
 
+const TABS: { key: Tab, labelKey: string }[] = [
+  { key: 'library', labelKey: 'icon.tab.library' },
+  { key: 'catalog', labelKey: 'icon.tab.catalog' },
+]
+
 const tab = ref<Tab>('library')
 const importing = ref(false)
 const saving = ref('')
@@ -100,58 +105,47 @@ onMounted(async () => {
 <template>
   <div class="space-y-5">
     <div class="flex flex-wrap items-center justify-between gap-4">
-      <div class="flex border border-line">
-        <button
-          v-for="(item, i) in [{ key: 'library', label: $t('icon.tab.library') }, { key: 'catalog', label: $t('icon.tab.catalog') }]"
+      <RadioGroup v-model="tab">
+        <RadioGroupItem
+          v-for="item in TABS"
           :key="item.key"
-          type="button"
-          class="relative px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors duration-300"
-          :class="[
-            i > 0 ? 'border-l border-line' : '',
-            tab === item.key ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:text-fg-muted',
-          ]"
-          @click="tab = item.key as Tab"
+          :value="item.key"
+          class="flex-none px-4 py-2 font-mono text-label uppercase tracking-caps"
         >
-          <span
-            class="absolute inset-x-0 top-0 h-px origin-center bg-acid transition-transform duration-500 ease-deck"
-            :class="tab === item.key ? 'scale-x-100' : 'scale-x-0'"
-          />
-          {{ item.label }}
-        </button>
-      </div>
+          {{ $t(item.labelKey) }}
+        </RadioGroupItem>
+      </RadioGroup>
 
       <div class="flex items-center gap-3">
-        <AppButton
-          class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+        <Button
           icon="i-lucide-image-plus"
           :loading="importing"
           @click="importFile"
         >
           {{ $t('icon.upload') }}
-        </AppButton>
+        </Button>
 
-        <AppButton
-          tone="quiet"
-          class="text-[10px] tracking-[0.18em]"
+        <Button
+          variant="quiet"
           icon="i-lucide-x"
           :disabled="!icon"
           @click="icon = ''"
         >
           {{ $t('icon.none') }}
-        </AppButton>
+        </Button>
       </div>
     </div>
 
     <div v-if="tab === 'library'">
       <div
         v-if="library.length"
-        class="grid max-h-[22rem] grid-cols-6 gap-2 overflow-y-auto pr-1 sm:grid-cols-8"
+        class="grid max-h-[22rem] grid-cols-8 gap-2 overflow-y-auto pr-1"
       >
         <button
           v-for="file in library"
           :key="file.name"
           type="button"
-          class="group relative grid aspect-square place-items-center border transition-colors duration-300"
+          class="group relative grid aspect-square cursor-pointer place-items-center border outline-none transition-colors duration-300 focus-visible:border-line-strong"
           :class="icon === file.name ? 'border-acid bg-ink-700' : 'border-line hover:border-line-strong hover:bg-ink-700'"
           :title="file.name"
           @click="icon = file.name"
@@ -163,25 +157,26 @@ onMounted(async () => {
           />
 
           <span
-            class="absolute -right-px -top-px hidden size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-red-400/50 hover:text-red-400 group-hover:grid"
+            class="absolute -top-px -right-px hidden size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 group-hover:grid hover:border-danger/50 hover:text-danger"
             :title="$t('icon.remove', { name: file.name })"
             @click.stop="removeIcon(file.name)"
           >
-            <UIcon
-              :name="removing === file.name ? 'i-lucide-loader-circle' : 'i-lucide-x'"
+            <Spinner
+              v-if="removing === file.name"
               class="size-3"
-              :class="removing === file.name ? 'animate-spin' : ''"
+            />
+            <Icon
+              v-else
+              name="i-lucide-x"
+              class="size-3"
             />
           </span>
         </button>
       </div>
 
-      <p
-        v-else
-        class="border border-dashed border-line py-12 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
-      >
+      <KitEmpty v-else>
         {{ $t('icon.library_empty') }}
-      </p>
+      </KitEmpty>
     </div>
 
     <div
@@ -189,65 +184,49 @@ onMounted(async () => {
       class="space-y-4"
     >
       <div class="flex flex-wrap items-end gap-4">
-        <SettingsField
+        <KitField
           :label="$t('icon.category')"
-          class="min-w-[13rem] flex-1"
+          class="min-w-52 flex-1"
         >
-          <USelect
+          <KitSelect
             v-model="category"
             :items="categoryItems"
-            class="w-full"
           />
-        </SettingsField>
+        </KitField>
 
-        <SettingsField
+        <KitField
           :label="$t('icon.search')"
-          class="min-w-[11rem] flex-1"
+          class="min-w-44 flex-1"
         >
-          <UInput
+          <KitSearchInput
             v-model="search"
             :placeholder="$t('icon.search_placeholder')"
-            class="w-full"
-          >
-            <template #trailing>
-              <UIcon
-                name="i-lucide-search"
-                class="size-3.5 text-fg-faint"
-              />
-            </template>
-          </UInput>
-        </SettingsField>
+          />
+        </KitField>
       </div>
 
-      <div
+      <KitLoading
         v-if="catalogLoading && !catalog"
-        class="flex flex-col items-center gap-4 py-12"
-      >
-        <span class="relative block h-px w-40 overflow-hidden bg-line">
-          <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep" />
-        </span>
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-          {{ $t('icon.catalog_loading') }}
-        </p>
-      </div>
+        :label="$t('icon.catalog_loading')"
+        class="py-12"
+      />
 
       <template v-else>
         <div
           v-if="visibleItems.length"
-          class="grid max-h-[19rem] grid-cols-6 gap-2 overflow-y-auto pr-1 sm:grid-cols-8"
+          class="grid max-h-[19rem] grid-cols-8 gap-2 overflow-y-auto pr-1"
         >
           <button
             v-for="item in visibleItems"
             :key="item"
             type="button"
-            class="grid aspect-square place-items-center border border-line transition-colors duration-300 hover:border-acid/50 hover:bg-ink-700"
+            class="grid aspect-square cursor-pointer place-items-center border border-line outline-none transition-colors duration-300 hover:border-acid/50 hover:bg-ink-700 focus-visible:border-acid/50"
             :title="itemName(item)"
             @click="useItem(item)"
           >
-            <UIcon
+            <Spinner
               v-if="saving === item"
-              name="i-lucide-loader-circle"
-              class="size-4 animate-spin text-acid"
+              class="text-acid"
             />
             <img
               v-else-if="iconStore.itemUrlOf(item)"
@@ -262,27 +241,23 @@ onMounted(async () => {
           </button>
         </div>
 
-        <p
-          v-else
-          class="border border-dashed border-line py-12 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
-        >
+        <KitEmpty v-else>
           {{ $t('icon.nothing_found') }}
-        </p>
+        </KitEmpty>
 
         <div class="flex items-center justify-between gap-4">
-          <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
+          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
             {{ $t('icon.shown', { shown: visibleItems.length, total: catalogItems.length }) }}
           </p>
 
-          <AppButton
+          <Button
             v-if="visibleItems.length < catalogItems.length"
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
+            variant="quiet"
             icon="i-lucide-chevron-down"
             @click="limit += PAGE"
           >
             {{ $t('icon.show_more') }}
-          </AppButton>
+          </Button>
         </div>
       </template>
     </div>

@@ -39,7 +39,7 @@ const status = computed(() => {
   if (installing.value) return { text: t('instance.general.status.installing'), tone: 'text-fg-muted' }
   return props.instance.installed
     ? { text: t('instance.general.status.installed'), tone: 'text-fg-muted' }
-    : { text: t('instance.general.status.absent'), tone: 'text-amber-400' }
+    : { text: t('instance.general.status.absent'), tone: 'text-warning' }
 })
 
 const DIRS: { target: InstanceDir, labelKey: string, icon: string }[] = [
@@ -82,7 +82,7 @@ async function remove() {
 
 <template>
   <div class="space-y-6">
-    <SettingsPanel
+    <KitPanel
       index="01"
       :title="$t('instance.general.title')"
       icon="i-lucide-box"
@@ -96,202 +96,155 @@ async function remove() {
           />
 
           <div class="min-w-0 flex-1">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ $t('instance.general.icon') }}
-            </p>
+            <Label>{{ $t('instance.general.icon') }}</Label>
             <p
-              class="mt-2 truncate font-mono text-[11px] text-fg-muted"
+              class="mt-2 truncate font-mono text-caption text-fg-muted"
               :title="icon"
             >
               {{ icon || $t('instance.general.icon_default') }}
             </p>
 
             <div class="mt-3 flex items-center gap-3">
-              <AppButton
-                class="h-8 px-3.5 text-[10px] tracking-[0.18em]"
+              <Button
+                size="sm"
                 icon="i-lucide-image"
                 @click="pickerOpen = true"
               >
                 {{ $t('instance.general.pick_icon') }}
-              </AppButton>
+              </Button>
 
-              <AppButton
+              <Button
                 v-if="icon"
-                tone="quiet"
-                class="text-[10px] tracking-[0.18em]"
+                variant="quiet"
                 icon="i-lucide-x"
                 @click="icon = ''"
               >
                 {{ $t('instance.general.clear_icon') }}
-              </AppButton>
+              </Button>
             </div>
           </div>
         </div>
 
-        <SettingsField :label="$t('instance.general.name')">
-          <UInput
+        <KitField
+          :label="$t('instance.general.name')"
+          for="instance-general-name"
+        >
+          <Input
+            id="instance-general-name"
             v-model="name"
             :placeholder="$t('instance.general.name_placeholder')"
-            class="w-full"
           />
-        </SettingsField>
+        </KitField>
 
-        <dl class="grid gap-x-6 gap-y-4 border-t border-line pt-6 sm:grid-cols-2">
-          <div
+        <KitDetails class="border-t border-line pt-6">
+          <KitDetail
             v-for="fact in facts"
             :key="fact.label"
-            class="min-w-0"
+            :label="fact.label"
+            :title="fact.value"
+            mono
           >
-            <dt class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ fact.label }}
-            </dt>
-            <dd
-              class="mt-1.5 truncate font-mono text-[12px] text-fg-muted"
-              :title="fact.value"
-            >
-              {{ fact.value }}
-            </dd>
-          </div>
+            {{ fact.value }}
+          </KitDetail>
 
-          <div class="min-w-0">
-            <dt class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ $t('instance.general.status') }}
-            </dt>
-            <dd
-              class="mt-1.5 font-mono text-[12px]"
-              :class="status.tone"
-            >
-              {{ status.text }}
-            </dd>
-          </div>
-        </dl>
+          <KitDetail
+            :label="$t('instance.general.status')"
+            mono
+          >
+            <span :class="status.tone">{{ status.text }}</span>
+          </KitDetail>
+        </KitDetails>
       </div>
-    </SettingsPanel>
+    </KitPanel>
 
-    <SettingsPanel
+    <KitPanel
       index="02"
       :title="$t('instance.general.files_title')"
       icon="i-lucide-hard-drive"
     >
       <div class="space-y-7">
         <div class="flex flex-wrap gap-3">
-          <AppButton
+          <Button
             v-for="dir in DIRS"
             :key="dir.target"
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
             :icon="dir.icon"
             @click="openDir(dir.target)"
           >
             {{ $t(dir.labelKey) }}
-          </AppButton>
+          </Button>
         </div>
 
-        <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
-          <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ instance.installed ? $t('instance.general.reinstall_title') : $t('instance.general.install_title') }}
-            </p>
-            <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              {{ $t('instance.general.reinstall_hint') }}
-              <template v-if="instance.pack">
-                {{ $t('instance.general.reinstall_pack_hint') }}
-              </template>
-              <template v-else-if="instance.localPack">
-                {{ $t('instance.general.reinstall_local_hint') }}
-              </template>
-            </p>
-          </div>
+        <KitRow :label="instance.installed ? $t('instance.general.reinstall_title') : $t('instance.general.install_title')">
+          <template #description>
+            {{ $t('instance.general.reinstall_hint') }}
+            <template v-if="instance.pack">
+              {{ $t('instance.general.reinstall_pack_hint') }}
+            </template>
+            <template v-else-if="instance.localPack">
+              {{ $t('instance.general.reinstall_local_hint') }}
+            </template>
+          </template>
 
-          <AppButton
-            class="h-9 shrink-0 px-3.5 text-[10px] tracking-[0.18em]"
+          <Button
             :icon="instance.installed ? 'i-lucide-refresh-cw' : 'i-lucide-arrow-down-to-line'"
             :disabled="installing || running"
             @click="reinstall"
           >
             {{ installing ? $t('instance.general.installing') : instance.installed ? $t('instance.general.reinstall') : $t('instance.general.install') }}
-          </AppButton>
-        </div>
+          </Button>
+        </KitRow>
 
-        <div class="flex items-center justify-between gap-6 border-t border-red-400/20 pt-6">
-          <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-red-400/80">
-              {{ $t('instance.general.remove_section') }}
-            </p>
-            <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              {{ $t('instance.general.remove_hint') }}
-            </p>
-          </div>
-
-          <UButton
-            color="neutral"
-            variant="ghost"
-            class="h-9 shrink-0 justify-center border border-red-400/30 px-3.5 text-[10px] tracking-[0.18em] text-red-400 transition-colors duration-300 hover:bg-red-500 hover:text-white"
+        <KitRow
+          tone="danger"
+          :label="$t('instance.general.remove_section')"
+          :description="$t('instance.general.remove_hint')"
+        >
+          <Button
+            variant="danger"
             icon="i-lucide-trash-2"
             :disabled="running"
-            @click="() => { removeOpen = true }"
+            @click="removeOpen = true"
           >
             {{ $t('common.delete') }}
-          </UButton>
-        </div>
+          </Button>
+        </KitRow>
 
-        <p
+        <KitStatus
           v-if="running"
-          class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+          dot="static"
         >
           {{ $t('instance.general.running_hint') }}
-        </p>
+        </KitStatus>
       </div>
-    </SettingsPanel>
+    </KitPanel>
 
-    <UModal
-      v-model:open="pickerOpen"
-      :title="$t('instance.general.icon_modal')"
-      :ui="{ content: 'max-w-3xl' }"
-    >
-      <template #body>
-        <InstanceIconPicker v-model="icon" />
-      </template>
-    </UModal>
+    <Dialog v-model:open="pickerOpen">
+      <DialogContent class="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{{ $t('instance.general.icon_modal') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <InstanceIconPicker v-model="icon" />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
 
-    <UModal
+    <KitConfirmDialog
       v-model:open="removeOpen"
       :title="$t('instance.general.remove_title')"
+      :confirm-label="removing ? $t('instance.general.removing') : $t('instance.general.remove_forever')"
+      :loading="removing"
+      @confirm="remove"
     >
-      <template #body>
-        <div class="space-y-6">
-          <i18n-t
-            keypath="instance.general.remove_text"
-            tag="p"
-            class="text-[13px] leading-relaxed text-fg-muted"
-          >
-            <template #name>
-              <span class="text-fg">{{ instance.name }}</span>
-            </template>
-          </i18n-t>
-
-          <div class="flex justify-end gap-3">
-            <AppButton
-              tone="quiet"
-              class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
-              :disabled="removing"
-              @click="removeOpen = false"
-            >
-              {{ $t('common.cancel') }}
-            </AppButton>
-
-            <UButton
-              color="neutral"
-              variant="ghost"
-              class="h-9 justify-center border border-red-400/30 px-3.5 text-[10px] tracking-[0.18em] text-red-400 transition-colors duration-300 hover:bg-red-500 hover:text-white"
-              icon="i-lucide-trash-2"
-              :loading="removing"
-              @click="remove"
-            >
-              {{ removing ? $t('instance.general.removing') : $t('instance.general.remove_forever') }}
-            </UButton>
-          </div>
-        </div>
-      </template>
-    </UModal>
+      <i18n-t
+        keypath="instance.general.remove_text"
+        tag="p"
+        class="text-title leading-relaxed text-fg-muted"
+      >
+        <template #name>
+          <span class="text-fg">{{ instance.name }}</span>
+        </template>
+      </i18n-t>
+    </KitConfirmDialog>
   </div>
 </template>

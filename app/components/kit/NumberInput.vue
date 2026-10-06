@@ -10,7 +10,7 @@ const props = defineProps<{
   class?: HTMLAttributes['class']
 }>()
 
-const model = defineModel<number | string | null>()
+const model = defineModel<number | string>()
 </script>
 
 <template>

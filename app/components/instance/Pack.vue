@@ -154,177 +154,116 @@ async function apply() {
 
 <template>
   <div class="space-y-6">
-    <SettingsPanel
+    <KitPanel
       index="01"
       :title="local ? $t('instance.pack.title_local') : $t('instance.pack.title_remote')"
       icon="i-lucide-package"
     >
-      <div
-        v-if="local"
-        class="grid grid-cols-2 border border-line"
-      >
-        <div class="px-4 py-3">
-          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-            Minecraft
-          </p>
-          <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
-            {{ instance.minecraftVersion }}
-          </p>
-        </div>
-        <div class="border-l border-line px-4 py-3">
-          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-            {{ $t('instance.pack.loader') }}
-          </p>
-          <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
-            {{ INSTANCE_TYPE_LABELS[instance.type] }}
-          </p>
-        </div>
-      </div>
+      <KitStatGrid v-if="local">
+        <KitStat
+          label="Minecraft"
+          :value="instance.minecraftVersion"
+        />
+        <KitStat
+          :label="$t('instance.pack.loader')"
+          :value="INSTANCE_TYPE_LABELS[instance.type]"
+        />
+      </KitStatGrid>
 
-      <div
+      <p
         v-else-if="!pack"
-        class="text-[12px] leading-relaxed text-fg-muted"
+        class="text-body leading-relaxed text-fg-muted"
       >
         {{ $t('instance.pack.manual_instance') }}
-      </div>
+      </p>
 
-      <div
+      <KitLoading
         v-else-if="loading"
-        class="flex flex-col items-center gap-4 py-10"
-      >
-        <span class="relative block h-px w-40 overflow-hidden bg-line">
-          <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep" />
-        </span>
-        <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-          {{ $t('instance.pack.loading') }}
-        </p>
-      </div>
+        :label="$t('instance.pack.loading')"
+        class="py-10"
+      />
 
-      <div
+      <KitLoadError
         v-else-if="loadError"
-        class="border border-red-400/30 bg-ink-900 p-5"
-      >
-        <div class="flex items-start gap-3">
-          <UIcon
-            name="i-lucide-wifi-off"
-            class="mt-0.5 size-4 shrink-0 text-red-400"
-          />
-          <div class="min-w-0">
-            <p class="text-[13px] font-medium text-fg">
-              {{ loadError.title }}
-            </p>
-            <p
-              v-if="loadError.reason ?? loadError.hint"
-              class="mt-2 text-[12px] leading-relaxed text-fg-muted"
-            >
-              {{ loadError.reason ?? loadError.hint }}
-            </p>
-            <AppButton
-              tone="quiet"
-              class="mt-4 text-[10px] tracking-[0.18em]"
-              icon="i-lucide-rotate-cw"
-              @click="loadVersions"
-            >
-              {{ $t('instance.pack.retry') }}
-            </AppButton>
-          </div>
-        </div>
-      </div>
+        :error="loadError"
+        @retry="loadVersions"
+      />
 
       <div
         v-else
         class="space-y-7"
       >
-        <div
+        <Alert
           v-if="updateAvailable"
-          class="flex items-center justify-between gap-4 border border-acid/30 bg-acid/[0.04] px-4 py-3"
+          variant="accent"
+          class="items-center"
         >
-          <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            {{ $t('instance.pack.update_available') }}
-            <span class="text-fg">{{ latest?.versionNumber || latest?.name }}</span>
-          </p>
+          {{ $t('instance.pack.update_available') }}
+          <span class="text-fg">{{ latest?.versionNumber || latest?.name }}</span>
 
-          <AppButton
-            tone="quiet"
-            class="shrink-0 text-[10px] tracking-[0.18em]"
-            @click="selectLatest"
-          >
-            {{ $t('instance.pack.select_latest') }}
-          </AppButton>
-        </div>
+          <template #action>
+            <Button
+              variant="quiet"
+              @click="selectLatest"
+            >
+              {{ $t('instance.pack.select_latest') }}
+            </Button>
+          </template>
+        </Alert>
 
-        <SettingsField :label="$t('instance.pack.version')">
-          <USelectMenu
+        <KitField :label="$t('instance.pack.version')">
+          <KitSelectMenu
             v-model="versionId"
             :items="versionItems"
-            value-key="value"
-            :search-input="{ placeholder: $t('instance.pack.version_search') }"
-            class="w-full"
+            :search-placeholder="$t('instance.pack.version_search')"
           />
-        </SettingsField>
+        </KitField>
 
-        <div class="grid grid-cols-2 border border-line">
-          <div class="px-4 py-3">
-            <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              Minecraft
-            </p>
-            <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
-              {{ selected?.minecraftVersion ?? instance.minecraftVersion }}
-            </p>
-          </div>
-          <div class="border-l border-line px-4 py-3">
-            <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              {{ $t('instance.pack.loader') }}
-            </p>
-            <p class="mt-1.5 font-unbounded text-[13px] tracking-[-0.03em] text-fg">
-              {{ selected?.loader ? INSTANCE_TYPE_LABELS[selected.loader] : INSTANCE_TYPE_LABELS[instance.type] }}
-            </p>
-          </div>
-        </div>
+        <KitStatGrid>
+          <KitStat
+            label="Minecraft"
+            :value="selected?.minecraftVersion ?? instance.minecraftVersion"
+          />
+          <KitStat
+            :label="$t('instance.pack.loader')"
+            :value="selected?.loader ? INSTANCE_TYPE_LABELS[selected.loader] : INSTANCE_TYPE_LABELS[instance.type]"
+          />
+        </KitStatGrid>
 
-        <p
+        <KitNote
           v-if="selected && !selected.supported"
-          class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+          icon="i-lucide-triangle-alert"
         >
-          <UIcon
-            name="i-lucide-triangle-alert"
-            class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-          />
           {{ $t('instance.pack.unsupported', { reason: unsupportedReason(selected) }) }}
-        </p>
+        </KitNote>
 
-        <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
-          <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            {{ $t('instance.pack.apply_hint') }}
-          </p>
-
-          <AppButton
-            class="h-9 shrink-0 px-3.5 text-[10px] tracking-[0.18em]"
+        <KitRow :description="$t('instance.pack.apply_hint')">
+          <Button
             icon="i-lucide-refresh-cw"
             :loading="updating"
             :disabled="!canApply || !changed"
             @click="apply"
           >
             {{ updating ? $t('instance.pack.updating') : $t('instance.pack.update') }}
-          </AppButton>
-        </div>
+          </Button>
+        </KitRow>
 
-        <p
+        <KitStatus
           v-if="blocked"
-          class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+          dot="static"
         >
           {{ blocked }}
-        </p>
+        </KitStatus>
       </div>
-    </SettingsPanel>
+    </KitPanel>
 
-    <SettingsPanel
+    <KitPanel
       v-if="blockedFiles.length"
       index="02"
       :title="$t('instance.pack.manual_title')"
       icon="i-lucide-hand"
     >
-      <p class="text-[12px] leading-relaxed text-fg-muted">
+      <p class="text-body leading-relaxed text-fg-muted">
         {{ $t('instance.pack.manual_hint') }}
       </p>
 
@@ -336,63 +275,56 @@ async function apply() {
         >
           <div class="min-w-0 flex-1">
             <p
-              class="truncate text-[12px] text-fg"
+              class="truncate text-body text-fg"
               :title="file.fileName"
             >
               {{ file.fileName }}
             </p>
             <p
-              class="mt-1 truncate font-mono text-[10px] text-fg-faint"
+              class="mt-1 truncate font-mono text-label text-fg-faint"
               :title="file.targetPath"
             >
               {{ file.targetPath }}
             </p>
           </div>
 
-          <AppButton
+          <Button
             v-if="file.websiteUrl"
-            tone="quiet"
-            class="shrink-0 text-[10px] tracking-[0.16em]"
+            variant="quiet"
             icon="i-lucide-external-link"
             @click="openPage(file.websiteUrl)"
           >
             {{ $t('instance.pack.open') }}
-          </AppButton>
+          </Button>
         </li>
       </ul>
 
-      <AppButton
-        tone="quiet"
-        class="mt-5 text-[10px] tracking-[0.16em]"
+      <Button
+        variant="quiet"
         icon="i-lucide-folder-open"
+        class="mt-3"
         @click="openMods"
       >
         {{ $t('instance.pack.open_game_folder') }}
-      </AppButton>
-    </SettingsPanel>
+      </Button>
+    </KitPanel>
 
-    <SettingsPanel
+    <KitPanel
       :index="blockedFiles.length ? '03' : '02'"
       :title="$t('instance.pack.content_title')"
       icon="i-lucide-list"
     >
-      <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-        <div
+      <KitDetails>
+        <KitDetail
           v-for="fact in facts"
           :key="fact.label"
-          class="min-w-0"
+          :label="fact.label"
+          :title="fact.value"
+          mono
         >
-          <dt class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            {{ fact.label }}
-          </dt>
-          <dd
-            class="mt-1.5 truncate font-mono text-[12px] text-fg-muted"
-            :title="fact.value"
-          >
-            {{ fact.value }}
-          </dd>
-        </div>
-      </dl>
-    </SettingsPanel>
+          {{ fact.value }}
+        </KitDetail>
+      </KitDetails>
+    </KitPanel>
   </div>
 </template>

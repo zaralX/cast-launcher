@@ -12,7 +12,7 @@ defineProps<{
       {{ label }}
     </dt>
     <dd
-      class="truncate text-fg-muted"
+      class="mt-1 truncate text-fg-muted"
       :class="mono ? 'font-mono text-caption' : 'text-body'"
       :title="title"
     >

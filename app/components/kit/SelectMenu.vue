@@ -65,6 +65,7 @@ const display = computed(() => selected.value.map(option => option.label).join('
           v-for="option in options"
           :key="option.value"
           :value="option.value"
+          :disabled="option.disabled"
         >
           <span class="truncate">{{ option.label }}</span>
           <ComboboxItemIndicator>

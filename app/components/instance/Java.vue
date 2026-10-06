@@ -7,16 +7,14 @@ const { config } = storeToRefs(useAppStore())
 
 const globalJava = computed(() => config.value?.java ?? null)
 
-const gb = (mb?: number) => ((mb ?? 0) / 1024).toFixed(1).replace('.', ',')
-
 const minRam = computed({
   get: () => settings.value.overrideMemory ? settings.value.minRam : globalJava.value?.min_ram ?? 0,
-  set: (value: number) => settings.value.minRam = Number(value) || 0,
+  set: (value: number) => settings.value.minRam = value,
 })
 
 const maxRam = computed({
   get: () => settings.value.overrideMemory ? settings.value.maxRam : globalJava.value?.max_ram ?? 0,
-  set: (value: number) => settings.value.maxRam = Number(value) || 0,
+  set: (value: number) => settings.value.maxRam = value,
 })
 
 const javaMode = computed({
@@ -46,91 +44,50 @@ watch(() => settings.value.overrideJava, (enabled) => {
 
 <template>
   <div class="space-y-6">
-    <SettingsPanel
+    <KitPanel
       index="01"
       :title="$t('instance.java.memory_title')"
       icon="i-lucide-memory-stick"
     >
       <div class="space-y-7">
-        <div class="flex items-center justify-between gap-6">
-          <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ $t('instance.java.override_memory') }}
-            </p>
-            <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              {{ $t('instance.java.override_memory_hint') }}
-            </p>
-          </div>
-          <USwitch
+        <KitRow
+          :bordered="false"
+          :label="$t('instance.java.override_memory')"
+          :description="$t('instance.java.override_memory_hint')"
+        >
+          <Switch
             v-model="settings.overrideMemory"
             size="lg"
           />
-        </div>
+        </KitRow>
 
-        <div
-          class="grid gap-6 border-t border-line pt-6 transition-opacity duration-300 sm:grid-cols-2"
+        <SettingsMemory
+          v-model:min="minRam"
+          v-model:max="maxRam"
+          :disabled="!settings.overrideMemory"
+          class="border-t border-line pt-6 transition-opacity duration-300"
           :class="settings.overrideMemory ? '' : 'opacity-45'"
-        >
-          <SettingsField
-            :label="$t('settings.java.min_ram')"
-            :hint="$t('settings.java.ram_hint', { value: gb(minRam) })"
-          >
-            <UInput
-              v-model="minRam"
-              type="number"
-              :min="1"
-              :disabled="!settings.overrideMemory"
-              class="w-full"
-              :ui="{ base: 'font-mono tabular-nums' }"
-            >
-              <template #trailing>
-                <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">MB</span>
-              </template>
-            </UInput>
-          </SettingsField>
-
-          <SettingsField
-            :label="$t('settings.java.max_ram')"
-            :hint="$t('settings.java.ram_hint', { value: gb(maxRam) })"
-          >
-            <UInput
-              v-model="maxRam"
-              type="number"
-              :min="minRam || 1"
-              :disabled="!settings.overrideMemory"
-              class="w-full"
-              :ui="{ base: 'font-mono tabular-nums' }"
-            >
-              <template #trailing>
-                <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">MB</span>
-              </template>
-            </UInput>
-          </SettingsField>
-        </div>
+        />
       </div>
-    </SettingsPanel>
+    </KitPanel>
 
-    <SettingsPanel
+    <KitPanel
       index="02"
       :title="$t('instance.java.title')"
       :description="$t('instance.java.description')"
       icon="i-lucide-cpu"
     >
       <div class="space-y-7">
-        <div class="flex items-center justify-between gap-6">
-          <div class="min-w-0">
-            <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-              {{ $t('instance.java.override_java') }}
-            </p>
-            <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-              {{ $t('instance.java.override_java_hint') }}
-            </p>
-          </div>
-          <USwitch
+        <KitRow
+          :bordered="false"
+          :label="$t('instance.java.override_java')"
+          :description="$t('instance.java.override_java_hint')"
+        >
+          <Switch
             v-model="settings.overrideJava"
             size="lg"
           />
-        </div>
+        </KitRow>
 
         <div
           class="border-t border-line pt-6 transition-opacity duration-300"
@@ -142,6 +99,6 @@ watch(() => settings.value.overrideJava, (enabled) => {
           />
         </div>
       </div>
-    </SettingsPanel>
+    </KitPanel>
   </div>
 </template>

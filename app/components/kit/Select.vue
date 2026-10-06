@@ -35,6 +35,7 @@ const options = computed<SelectOption<T>[]>(() => props.items.map(item =>
         v-for="option in options"
         :key="option.value"
         :value="option.value"
+        :disabled="option.disabled"
       >
         <span class="flex items-center gap-1.5">
           <Icon

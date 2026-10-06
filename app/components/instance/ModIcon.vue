@@ -9,8 +9,8 @@ const props = withDefaults(defineProps<{
 const modsStore = useModsStore()
 
 const SIZES = {
-  sm: 'size-9 text-[10px]',
-  md: 'size-12 text-[12px]',
+  sm: 'size-9 text-label',
+  md: 'size-12 text-body',
 }
 
 const url = computed(() => modsStore.iconOf(props.iconKey) || props.fallbackUrl || null)
