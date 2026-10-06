@@ -384,7 +384,7 @@ where
         .collect::<Vec<_>>()
         .join(separator);
 
-    let mut child = new_command(java)
+    let mut child = Command::from(crate::process::command(java))
         .arg("-cp")
         .arg(classpath)
         .arg(main_class)
@@ -485,19 +485,6 @@ fn short_name(coordinate: &str) -> String {
 
 fn display(path: &Path) -> String {
     path.display().to_string()
-}
-
-fn new_command(program: &str) -> Command {
-    #[allow(unused_mut)]
-    let mut command = Command::new(program);
-
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-
-    command
 }
 
 #[cfg(test)]
