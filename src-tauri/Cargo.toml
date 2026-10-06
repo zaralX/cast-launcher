@@ -9,6 +9,9 @@ todo = "warn"
 unimplemented = "warn"
 unwrap_used = "warn"
 
+[profile.dev.package."*"]
+debug = false
+
 [package]
 name = "cast-launcher"
 version = "1.6.0"
@@ -25,7 +28,6 @@ workspace = true
 [lib]
 # https://github.com/rust-lang/cargo/issues/8519
 name = "cast_launcher_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
 test = false
 
 [build-dependencies]
@@ -46,8 +48,6 @@ log = "0.4"
 tauri-plugin-aptabase = "1"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 url = "2"
-
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
 

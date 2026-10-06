@@ -2,14 +2,22 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@pinia/nuxt', '@nuxt/ui', '@nuxtjs/i18n'],
+  modules: ['@nuxt/eslint', '@nuxt/icon', '@nuxt/fonts', '@nuxtjs/color-mode', '@pinia/nuxt', '@nuxtjs/i18n'],
   ssr: false,
+  components: [
+    { path: '~/components/ui', pathPrefix: false, extensions: ['vue'] },
+    { path: '~/components', pathPrefix: true, ignore: ['**/ui/**'] },
+  ],
   devtools: { enabled: true },
   app: {
     layoutTransition: { name: 'layout', mode: 'out-in' },
     pageTransition: { name: 'page', mode: 'out-in' },
   },
   css: ['~/assets/css/main.css'],
+  colorMode: {
+    classSuffix: '',
+    disableTransition: true,
+  },
   ignore: ['**/src-tauri/**'],
   compatibilityDate: '2025-07-15',
   vite: {
@@ -46,15 +54,15 @@ export default defineNuxtConfig({
     defaultLocale: 'ru',
     detectBrowserLanguage: false,
     locales: [
-      { code: 'ru', file: 'ru.json' },
-      { code: 'en', file: 'en.json' },
+      { code: 'ru', name: 'Русский', file: 'ru.json' },
+      { code: 'en', name: 'English', file: 'en.json' },
     ],
   },
   icon: {
     provider: 'none',
     clientBundle: {
       scan: {
-        globInclude: ['app/**/*.{vue,ts}', 'node_modules/@nuxt/ui/dist/**/*.mjs'],
+        globInclude: ['app/**/*.{vue,ts}'],
         globExclude: [],
       },
       sizeLimitKb: 0,

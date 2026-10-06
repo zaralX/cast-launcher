@@ -32,7 +32,7 @@ const project = computed<Entry[]>(() => [
 ])
 
 const stack = [
-  'Rust', 'Tauri 2', 'Nuxt 4', 'Vue 3', 'TypeScript', 'Tailwind CSS', 'Nuxt UI', 'Pinia',
+  'Rust', 'Tauri 2', 'Nuxt 4', 'Vue 3', 'TypeScript', 'Tailwind CSS', 'shadcn-vue', 'Reka UI', 'Pinia',
 ]
 
 const thanks = computed(() => [
@@ -42,7 +42,7 @@ const thanks = computed(() => [
   { name: t('credits.thanks.testers_name'), note: t('credits.thanks.testers') },
 ])
 
-const toast = useToast()
+const toast = useAppToast()
 
 const version = ref('')
 const tauriVersion = ref('')
@@ -85,15 +85,15 @@ async function activate(entry: Entry) {
 </script>
 
 <template>
-  <div class="relative min-h-full w-full overflow-hidden px-6 pb-16 pt-14 xl:px-10">
+  <div class="relative min-h-full w-full overflow-hidden px-6 pt-14 pb-16 xl:px-10">
     <div
-      class="pointer-events-none absolute left-1/2 top-0 -z-0 h-80 w-80 -translate-x-1/2 -translate-y-1/3 rounded-full bg-acid/[0.07] blur-[120px]"
+      class="pointer-events-none absolute top-0 left-1/2 size-80 -translate-x-1/2 -translate-y-1/3 rounded-full bg-acid/[0.07] blur-[120px]"
       aria-hidden="true"
     />
 
     <div class="relative mx-auto flex w-full max-w-3xl flex-col items-center">
       <header class="animate-rise flex flex-col items-center text-center">
-        <div class="relative grid size-20 place-items-center border border-line bg-ink-800 cut-16">
+        <div class="cut-16 relative grid size-20 place-items-center border border-line bg-ink-800">
           <img
             src="/logo.svg"
             class="size-11"
@@ -102,7 +102,7 @@ async function activate(entry: Entry) {
           <span class="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-acid to-transparent" />
         </div>
 
-        <p class="mt-7 font-mono text-[10px] uppercase tracking-[0.4em] text-fg-faint">
+        <p class="mt-7 font-mono text-label uppercase tracking-caps-wide text-fg-faint">
           {{ $t('credits.eyebrow') }}
         </p>
 
@@ -110,124 +110,99 @@ async function activate(entry: Entry) {
           CAST<span class="text-acid">.</span>LAUNCHER
         </h1>
 
-        <p class="mt-5 max-w-md text-[12px] leading-relaxed text-fg-muted">
+        <p class="mt-5 max-w-md text-body leading-relaxed text-fg-muted">
           {{ $t('credits.intro') }}
         </p>
 
         <div class="mt-7 flex flex-wrap items-center justify-center gap-2">
-          <span
+          <Badge
             v-if="version"
-            class="border border-line bg-ink-800 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted"
+            variant="surface"
+            size="md"
           >
             v{{ version }}
-          </span>
-          <span class="border border-line bg-ink-800 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted">
+          </Badge>
+          <Badge
+            variant="surface"
+            size="md"
+          >
             Apache-2.0
-          </span>
-          <span
+          </Badge>
+          <Badge
             v-if="tauriVersion"
-            class="border border-line bg-ink-800 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted"
+            variant="surface"
+            size="md"
           >
             Tauri {{ tauriVersion }}
-          </span>
+          </Badge>
         </div>
       </header>
 
       <section class="animate-rise mt-14 w-full [animation-delay:80ms]">
-        <AppSectionHeading
+        <KitSectionHeading
           index="01"
           :title="$t('credits.developer')"
           meta="zaralX"
         />
 
-        <div class="mt-5 grid gap-3 sm:grid-cols-2">
-          <button
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <CreditsLink
             v-for="entry in contacts"
             :key="entry.label"
-            type="button"
-            class="group relative flex items-center gap-4 border border-line bg-ink-800 px-5 py-4 text-left transition-colors duration-500 hover:border-acid/50"
+            :label="entry.label"
+            :value="entry.value"
+            :icon="entry.icon"
+            :copy="!entry.url"
             @click="activate(entry)"
-          >
-            <UIcon
-              :name="entry.icon"
-              class="size-[18px] shrink-0 text-fg-faint transition-colors duration-300 group-hover:text-acid"
-            />
-
-            <span class="min-w-0 flex-1">
-              <span class="block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-                {{ entry.label }}
-              </span>
-              <span class="mt-1.5 block truncate text-[13px] leading-none text-fg">{{ entry.value }}</span>
-            </span>
-
-            <UIcon
-              :name="entry.url ? 'i-lucide-arrow-up-right' : 'i-lucide-copy'"
-              class="size-3.5 shrink-0 text-fg-faint opacity-0 transition-all duration-300 ease-deck group-hover:opacity-100"
-              :class="entry.url ? '-translate-x-1 group-hover:translate-x-0' : 'group-hover:text-fg-muted'"
-            />
-          </button>
+          />
         </div>
       </section>
 
       <section class="animate-rise mt-12 w-full [animation-delay:160ms]">
-        <AppSectionHeading
+        <KitSectionHeading
           index="02"
           :title="$t('credits.project_title')"
           meta="Cast Launcher"
         />
 
-        <div class="mt-5 grid gap-3 sm:grid-cols-2">
-          <button
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <CreditsLink
             v-for="entry in project"
             :key="entry.label"
-            type="button"
-            class="group flex items-center gap-4 border border-line bg-ink-800 px-5 py-4 text-left transition-colors duration-500 hover:border-line-strong"
+            :label="entry.label"
+            :value="entry.value"
+            :icon="entry.icon"
             @click="activate(entry)"
-          >
-            <UIcon
-              :name="entry.icon"
-              class="size-[18px] shrink-0 text-fg-faint transition-colors duration-300 group-hover:text-acid"
-            />
-
-            <span class="min-w-0 flex-1">
-              <span class="block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-                {{ entry.label }}
-              </span>
-              <span class="mt-1.5 block truncate text-[13px] leading-none text-fg">{{ entry.value }}</span>
-            </span>
-
-            <UIcon
-              name="i-lucide-arrow-up-right"
-              class="size-3.5 shrink-0 -translate-x-1 text-fg-faint opacity-0 transition-all duration-300 ease-deck group-hover:translate-x-0 group-hover:opacity-100"
-            />
-          </button>
+          />
         </div>
 
-        <p class="mt-4 text-center text-[12px] leading-relaxed text-fg-muted">
+        <p class="mt-4 text-center text-body leading-relaxed text-fg-muted">
           {{ $t('credits.pull_requests') }}
         </p>
       </section>
 
       <section class="animate-rise mt-12 w-full [animation-delay:240ms]">
-        <AppSectionHeading
+        <KitSectionHeading
           index="03"
           :title="$t('credits.stack')"
           :meta="$t('credits.stack_meta', { count: stack.length })"
         />
 
         <div class="mt-5 flex flex-wrap justify-center gap-2">
-          <span
+          <Badge
             v-for="item in stack"
             :key="item"
-            class="border border-line bg-ink-800 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-muted transition-colors duration-300 hover:border-line-strong hover:text-fg"
+            variant="surface"
+            size="md"
+            class="transition-colors duration-300 hover:border-line-strong hover:text-fg"
           >
             {{ item }}
-          </span>
+          </Badge>
         </div>
       </section>
 
       <section class="animate-rise mt-12 w-full [animation-delay:320ms]">
-        <AppSectionHeading
+        <KitSectionHeading
           index="04"
           :title="$t('credits.thanks_title')"
         />
@@ -236,20 +211,20 @@ async function activate(entry: Entry) {
           <li
             v-for="item in thanks"
             :key="item.name"
-            class="flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6"
+            class="flex items-baseline justify-between gap-6 px-5 py-3.5"
           >
-            <span class="text-[13px] leading-none text-fg">{{ item.name }}</span>
-            <span class="text-[12px] leading-none text-fg-faint sm:text-right">{{ item.note }}</span>
+            <span class="text-title leading-none text-fg">{{ item.name }}</span>
+            <span class="text-right text-body leading-none text-fg-faint">{{ item.note }}</span>
           </li>
         </ul>
       </section>
 
       <footer class="animate-rise mt-14 flex flex-col items-center gap-3 text-center [animation-delay:400ms]">
-        <span class="h-px w-24 bg-line" />
-        <p class="max-w-md font-mono text-[10px] uppercase leading-relaxed tracking-[0.18em] text-fg-faint">
+        <Separator class="w-24" />
+        <p class="max-w-md font-mono text-label uppercase leading-relaxed tracking-caps text-fg-faint">
           {{ $t('credits.disclaimer') }}
         </p>
-        <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
+        <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
           {{ $t('credits.made_by') }}
         </p>
       </footer>

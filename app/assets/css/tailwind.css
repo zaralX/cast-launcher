@@ -20,6 +20,25 @@
     --color-acid: var(--cast-acid);
     --color-on-acid: var(--cast-on-acid);
 
+    --color-success: var(--cast-success);
+    --color-warning: var(--cast-warning);
+    --color-danger: var(--cast-danger);
+    --color-danger-strong: var(--cast-danger-strong);
+    --color-on-danger: var(--cast-on-danger);
+
+    --text-micro: 9px;
+    --text-label: 10px;
+    --text-caption: 11px;
+    --text-body: 12px;
+    --text-title: 13px;
+    --text-lead: 14px;
+    --text-heading: 15px;
+
+    --tracking-caps: 0.2em;
+    --tracking-caps-wide: 0.3em;
+    --tracking-heading: -0.03em;
+    --tracking-display: -0.055em;
+
     --ease-deck: cubic-bezier(0.16, 1, 0.3, 1);
 
     --animate-rise: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -65,5 +84,14 @@
     50% {
         opacity: 0.35;
         transform: scale(1.6);
+    }
+}
+
+@keyframes toast-timer {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
     }
 }

@@ -6,7 +6,7 @@ definePageMeta({
   layout: 'main',
 })
 
-const toast = useToast()
+const toast = useAppToast()
 
 const { t } = useI18n()
 const skinStore = useSkinStore()
@@ -193,8 +193,6 @@ async function save() {
     icon: 'i-lucide-check',
     actions: [{
       label: t('skins.undo'),
-      color: 'neutral',
-      variant: 'outline',
       onClick: () => undo(),
     }],
   })
@@ -245,8 +243,8 @@ watch(activeUuid, uuid => reload(uuid))
 
 <template>
   <div class="min-h-full w-full px-8 pb-8 xl:px-14">
-    <div class="grid gap-10 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)] lg:gap-12">
-      <aside class="pt-10 lg:sticky lg:top-0 lg:self-start space-y-2 lg:space-y-4">
+    <div class="grid grid-cols-[18rem_minmax(0,1fr)] gap-12 xl:grid-cols-[22rem_minmax(0,1fr)]">
+      <aside class="sticky top-0 space-y-4 self-start pt-10">
         <div class="flex items-center gap-3 border border-line bg-ink-800 px-4 py-3">
           <img
             v-if="account"
@@ -259,61 +257,52 @@ watch(activeUuid, uuid => reload(uuid))
             v-else
             class="grid size-7 shrink-0 place-items-center border border-line text-fg-faint"
           >
-            <UIcon
+            <Icon
               name="i-lucide-user-round"
               class="size-3.5"
             />
           </span>
 
           <div class="min-w-0 flex-1">
-            <USelect
+            <KitSelect
               v-if="accountItems.length > 1"
               v-model="activeUuid"
               :items="accountItems"
-              value-key="value"
-              class="w-full"
             />
             <template v-else>
-              <p class="truncate text-[13px] text-fg">
+              <p class="truncate text-title text-fg">
                 {{ account?.name ?? $t('skins.no_license') }}
               </p>
-              <p class="mt-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
+              <p class="mt-0.5 font-mono text-micro uppercase tracking-caps text-fg-faint">
                 {{ account ? 'Microsoft' : $t('skins.library_only') }}
               </p>
             </template>
           </div>
         </div>
 
-        <div
+        <Alert
           v-if="demo"
-          class="flex items-start gap-2.5 border border-amber-400/30 bg-amber-400/6 px-4 py-3"
+          variant="warning"
+          class="text-caption"
         >
-          <span class="mt-1 size-1.5 shrink-0 bg-amber-400 animate-blink" />
-          <p class="text-[11px] leading-relaxed text-amber-200/80">
-            {{ $t('skins.demo_hint_before') }}
-            <NuxtLink
-              to="/settings"
-              class="text-amber-300 underline underline-offset-2"
-            >{{ $t('skins.demo_hint_link') }}</NuxtLink>
-            {{ $t('skins.demo_hint_after') }}
-          </p>
-        </div>
+          {{ $t('skins.demo_hint_before') }}
+          <NuxtLink
+            to="/settings"
+            class="text-warning underline underline-offset-2"
+          >{{ $t('skins.demo_hint_link') }}</NuxtLink>
+          {{ $t('skins.demo_hint_after') }}
+        </Alert>
 
-        <div
+        <Alert
           v-else-if="stale"
-          class="flex items-start gap-2.5 border border-line bg-ink-800 px-4 py-3"
+          icon="i-lucide-cloud-off"
+          class="bg-ink-800 text-caption"
         >
-          <UIcon
-            name="i-lucide-cloud-off"
-            class="mt-0.5 size-3.5 shrink-0 text-fg-faint"
-          />
-          <p class="text-[11px] leading-relaxed text-fg-muted">
-            {{ $t('skins.stale') }}
-          </p>
-        </div>
+          {{ $t('skins.stale') }}
+        </Alert>
 
         <div
-          class="relative h-72 xl:h-92 border border-line cut-16 transition-colors duration-500"
+          class="cut-16 relative h-72 border border-line transition-colors duration-500 xl:h-92"
           :class="{
             'bg-ink-800': background === 'ink',
             'bg-ink-900': background === 'grid',
@@ -331,9 +320,10 @@ watch(activeUuid, uuid => reload(uuid))
             v-if="loading"
             class="grid h-full place-items-center"
           >
-            <span class="relative block h-px w-32 overflow-hidden bg-line">
-              <span class="absolute inset-y-0 left-0 w-1/4 bg-acid animate-sweep" />
-            </span>
+            <Progress
+              :model-value="null"
+              class="w-32"
+            />
           </div>
 
           <SkinModel
@@ -350,100 +340,92 @@ watch(activeUuid, uuid => reload(uuid))
 
           <p
             v-else
-            class="grid h-full place-items-center px-8 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+            class="grid h-full place-items-center px-8 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
           >
             {{ $t('skins.no_set') }}
           </p>
 
-          <div class="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-line bg-ink-900/70 px-2 py-2 backdrop-blur">
+          <div class="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-line bg-ink-900/70 p-2 backdrop-blur">
             <div class="flex items-center gap-0.5">
-              <UButton
+              <Button
                 v-for="item in POSES"
                 :key="item.key"
-                color="neutral"
-                variant="ghost"
+                variant="toolbar"
+                size="icon-sm"
                 :icon="item.icon"
                 :title="$t(item.labelKey)"
                 :aria-label="$t(item.labelKey)"
-                class="size-8 justify-center transition-colors duration-300"
-                :class="pose === item.key ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
-                @click="() => { pose = item.key }"
+                :aria-pressed="pose === item.key"
+                @click="pose = item.key"
               />
 
-              <span class="mx-1 h-4 w-px bg-line" />
+              <Separator
+                orientation="vertical"
+                class="mx-1 h-4"
+              />
 
-              <UButton
-                color="neutral"
-                variant="ghost"
+              <Button
+                variant="toolbar"
+                size="icon-sm"
                 icon="i-lucide-rotate-3d"
                 :title="$t('skins.preview.rotate')"
                 :aria-label="$t('skins.preview.rotate')"
-                class="size-8 justify-center transition-colors duration-300"
-                :class="spinning ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
-                @click="() => { spinning = !spinning }"
+                :aria-pressed="spinning"
+                @click="spinning = !spinning"
               />
 
-              <UButton
-                color="neutral"
-                variant="ghost"
+              <Button
+                variant="toolbar"
+                size="icon-sm"
                 icon="i-lucide-layers"
                 :title="$t('skins.preview.second_layer')"
                 :aria-label="$t('skins.preview.second_layer')"
-                class="size-8 justify-center transition-colors duration-300"
-                :class="layers ? 'text-acid hover:bg-transparent' : 'text-fg-faint hover:bg-transparent hover:text-fg'"
-                @click="() => { layers = !layers }"
+                :aria-pressed="layers"
+                @click="layers = !layers"
               />
             </div>
 
             <div class="flex items-center gap-0.5">
-              <UButton
-                color="neutral"
-                variant="ghost"
+              <Button
+                variant="toolbar"
+                size="icon-sm"
                 icon="i-lucide-sun-moon"
                 :title="$t('skins.preview.background')"
                 :aria-label="$t('skins.preview.background')"
-                class="size-8 justify-center text-fg-faint hover:bg-transparent hover:text-fg"
                 @click="cycleBackground"
               />
 
-              <UButton
-                color="neutral"
-                variant="ghost"
+              <Button
+                variant="toolbar"
+                size="icon-sm"
                 icon="i-lucide-crosshair"
                 :title="$t('skins.preview.reset')"
                 :aria-label="$t('skins.preview.reset')"
-                class="size-8 justify-center text-fg-faint hover:bg-transparent hover:text-fg"
                 @click="model?.reset()"
               />
             </div>
           </div>
         </div>
 
-        <div class="flex border border-line">
-          <button
-            v-for="(variant, i) in VARIANTS"
+        <RadioGroup
+          :model-value="draft.variant"
+          @update:model-value="value => setVariant(value as SkinVariant)"
+        >
+          <RadioGroupItem
+            v-for="variant in VARIANTS"
             :key="variant"
-            type="button"
-            class="relative flex-1 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors duration-300"
-            :class="[
-              i > 0 ? 'border-l border-line' : '',
-              draft.variant === variant ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:text-fg-muted',
-            ]"
+            :value="variant"
             :title="$t(VARIANT_HINT_KEYS[variant])"
-            @click="setVariant(variant)"
+            class="px-4 py-2.5 font-mono text-label uppercase tracking-caps"
           >
-            <span
-              class="absolute inset-x-0 top-0 h-px origin-center bg-acid transition-transform duration-500 ease-deck"
-              :class="draft.variant === variant ? 'scale-x-100' : 'scale-x-0'"
-            />
             {{ VARIANT_LABELS[variant] }}
-          </button>
-        </div>
+          </RadioGroupItem>
+        </RadioGroup>
 
-        <AppButton
-          block
-          class="h-11 tracking-[0.2em]"
+        <Button
+          size="xl"
           icon="i-lucide-check"
+          class="w-full"
           :loading="saving"
           :disabled="!canSave"
           @click="save"
@@ -457,89 +439,77 @@ watch(activeUuid, uuid => reload(uuid))
           <template v-else>
             {{ $t('skins.apply') }}
           </template>
-        </AppButton>
+        </Button>
 
         <div
           v-if="!demo"
           class="flex items-center justify-between gap-3"
         >
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
+          <Button
+            variant="quiet"
             icon="i-lucide-copy"
             :disabled="!draftSkin"
             @click="draftSkin && duplicate(draftSkin)"
           >
             {{ $t('skins.duplicate') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em] hover:text-red-400"
+          <Button
+            variant="quiet-danger"
             icon="i-lucide-rotate-ccw"
             @click="resetOpen = true"
           >
             {{ $t('skins.default') }}
-          </AppButton>
+          </Button>
         </div>
+
         <div
           v-if="skinStore.dirty"
-          class="flex items-center justify-between gap-3"
+          class="flex justify-end"
         >
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em] ml-auto mr-0"
+          <Button
+            variant="quiet"
             @click="skinStore.reset()"
           >
             {{ $t('skins.revert') }}
-          </AppButton>
+          </Button>
         </div>
       </aside>
 
       <div class="space-y-6 pt-10">
-        <SettingsPanel
+        <KitPanel
           index="01"
           :title="$t('skins.library_title')"
           icon="i-lucide-shirt"
           class="animate-rise"
         >
           <div class="space-y-5">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div class="flex items-center gap-2">
-                <UInput
-                  v-model="nickname"
-                  :placeholder="$t('skins.nickname_placeholder')"
-                  class="w-36"
-                  @keyup.enter="importPlayer"
-                >
-                  <template #trailing>
-                    <UIcon
-                      :name="importingPlayer ? 'i-lucide-loader-circle' : 'i-lucide-user-round-search'"
-                      class="size-3.5 text-fg-faint"
-                      :class="importingPlayer ? 'animate-spin' : ''"
-                    />
-                  </template>
-                </UInput>
+            <div class="flex items-center gap-2">
+              <KitSearchInput
+                v-model="nickname"
+                :placeholder="$t('skins.nickname_placeholder')"
+                icon="i-lucide-user-round-search"
+                :loading="importingPlayer"
+                size="lg"
+                class="w-44"
+                @keyup.enter="importPlayer"
+              />
 
-                <AppButton
-                  class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
-                  icon="i-lucide-upload"
-                  :loading="importing"
-                  @click="importFile()"
-                >
-                  {{ $t('skins.file') }}
-                </AppButton>
-              </div>
+              <Button
+                icon="i-lucide-upload"
+                :loading="importing"
+                @click="importFile()"
+              >
+                {{ $t('skins.file') }}
+              </Button>
             </div>
-            <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-              <button
+
+            <div class="grid grid-cols-3 gap-2.5 xl:grid-cols-4 2xl:grid-cols-6">
+              <KitTile
                 v-for="entry in library.skins"
                 :key="entry.id"
-                type="button"
-                class="group/card relative flex aspect-3/4 flex-col overflow-hidden border transition-colors duration-300"
-                :class="draft.skinId === entry.id
-                  ? 'border-acid bg-ink-700'
-                  : 'border-line hover:border-line-strong hover:bg-ink-700'"
+                :selected="draft.skinId === entry.id"
+                class="group/card flex aspect-3/4 flex-col overflow-hidden"
                 @click="skinStore.pickSkin(entry.id)"
                 @mouseenter="hovered = entry.id"
                 @mouseleave="hovered = null"
@@ -565,33 +535,34 @@ watch(activeUuid, uuid => reload(uuid))
                     v-if="skinStore.capeById(entry.capeId ?? null)?.texture"
                     :cape="skinStore.capeById(entry.capeId ?? null)!.texture!"
                     :scale="1.5"
-                    class="absolute bottom-1 right-1 border border-line/60"
+                    class="absolute right-1 bottom-1 border border-line/60"
                   />
                 </div>
 
                 <div class="w-full border-t border-line px-2 py-1.5 text-left">
-                  <p class="truncate text-[10px] leading-tight text-fg">
+                  <p class="truncate text-label leading-tight text-fg">
                     {{ entry.name }}
                   </p>
-                  <p class="mt-0.5 truncate font-mono text-[8px] uppercase tracking-[0.14em] text-fg-faint">
+                  <p class="mt-0.5 truncate font-mono text-[8px] uppercase tracking-caps text-fg-faint">
                     {{ VARIANT_LABELS[entry.variant] }} · {{ $t(SOURCE_KEYS[entry.source]) }}
                   </p>
                 </div>
 
-                <span
+                <Badge
                   v-if="skinStore.applied.skinId === entry.id"
-                  class="absolute left-0 top-0 bg-acid px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-[0.18em] text-on-acid"
+                  variant="solid"
+                  class="absolute top-0 left-0 text-[7px]"
                 >
                   {{ $t('skins.active') }}
-                </span>
+                </Badge>
 
-                <div class="absolute right-1 top-1 hidden gap-0.5 group-hover/card:flex">
+                <div class="absolute top-1 right-1 hidden gap-0.5 group-hover/card:flex">
                   <span
                     class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-acid/50 hover:text-acid"
                     :title="$t('skins.duplicate_with_cape')"
                     @click.stop="duplicate(entry)"
                   >
-                    <UIcon
+                    <Icon
                       name="i-lucide-copy"
                       class="size-2.5"
                     />
@@ -602,39 +573,39 @@ watch(activeUuid, uuid => reload(uuid))
                     :title="$t('skins.rename')"
                     @click.stop="startRename(entry)"
                   >
-                    <UIcon
+                    <Icon
                       name="i-lucide-pencil"
                       class="size-2.5"
                     />
                   </span>
 
                   <span
-                    class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-red-400/50 hover:text-red-400"
+                    class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-danger/50 hover:text-danger"
                     :title="$t('skins.remove')"
                     @click.stop="removeTarget = entry"
                   >
-                    <UIcon
+                    <Icon
                       name="i-lucide-trash-2"
                       class="size-2.5"
                     />
                   </span>
                 </div>
-              </button>
+              </KitTile>
 
               <button
                 type="button"
-                class="group/drop flex aspect-3/4 flex-col items-center justify-center gap-2 border border-dashed transition-colors duration-300"
+                class="group/drop flex aspect-3/4 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed outline-none transition-colors duration-300 focus-visible:border-line-strong"
                 :class="dropping ? 'border-acid bg-acid/6' : 'border-line hover:border-line-strong hover:bg-ink-700'"
                 @click="importFile()"
               >
-                <UIcon
+                <Icon
                   name="i-lucide-image-plus"
                   class="size-4 text-fg-faint transition-colors duration-300 group-hover/drop:text-acid"
                 />
                 <i18n-t
                   keypath="skins.drop_hint"
                   tag="span"
-                  class="px-2 text-center font-mono text-[8px] uppercase leading-relaxed tracking-[0.16em] text-fg-faint"
+                  class="px-2 text-center font-mono text-[8px] uppercase leading-relaxed tracking-caps text-fg-faint"
                 >
                   <template #br>
                     <br>
@@ -643,174 +614,123 @@ watch(activeUuid, uuid => reload(uuid))
               </button>
             </div>
 
-            <p
+            <KitEmpty
               v-if="!library.skins.length && !loading"
-              class="border border-dashed border-line py-10 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+              class="py-10"
             >
               {{ $t('skins.library_empty') }}
-            </p>
+            </KitEmpty>
           </div>
-        </SettingsPanel>
+        </KitPanel>
 
-        <SettingsPanel
+        <KitPanel
           index="02"
           :title="draftSkin ? $t('skins.cape_title_named', { name: draftSkin.name }) : $t('skins.cape_title')"
           icon="i-lucide-flag"
           class="animate-rise [animation-delay:80ms]"
         >
-          <div
+          <KitEmpty
             v-if="!draftSkin"
-            class="border border-dashed border-line py-8 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+            class="py-8"
           >
             {{ $t('skins.pick_set_first') }}
-          </div>
+          </KitEmpty>
 
           <div
             v-else-if="capes.length"
-            class="space-y-4"
+            class="flex flex-wrap gap-3"
           >
-            <div class="flex flex-wrap gap-3">
-              <button
-                type="button"
-                class="flex h-26 w-18 flex-col items-center justify-center gap-2 border transition-colors duration-300"
-                :class="draft.capeId === null
-                  ? 'border-acid bg-ink-700'
-                  : 'border-line hover:border-line-strong hover:bg-ink-700'"
-                @click="pickCape(null)"
-              >
-                <UIcon
-                  name="i-lucide-ban"
-                  class="size-4 text-fg-faint"
-                />
-                <span class="font-mono text-[8px] uppercase tracking-[0.18em] text-fg-faint">{{ $t('skins.no_cape') }}</span>
-              </button>
+            <KitTile
+              :selected="draft.capeId === null"
+              class="flex h-26 w-18 flex-col items-center justify-center gap-2"
+              @click="pickCape(null)"
+            >
+              <Icon
+                name="i-lucide-ban"
+                class="size-4 text-fg-faint"
+              />
+              <span class="font-mono text-[8px] uppercase tracking-caps text-fg-faint">{{ $t('skins.no_cape') }}</span>
+            </KitTile>
 
-              <button
-                v-for="cape in capes"
-                :key="cape.id"
-                type="button"
-                class="group/cape flex h-26 w-18 flex-col items-center justify-center gap-2 border transition-colors duration-300 cursor-pointer"
-                :class="draft.capeId === cape.id
-                  ? 'border-acid bg-ink-700'
-                  : 'border-line hover:border-line-strong hover:bg-ink-700'"
-                :title="cape.alias"
-                @click="pickCape(cape.id)"
-              >
-                <SkinCapeThumb
-                  v-if="cape.texture"
-                  :cape="cape.texture"
-                  :scale="5"
-                  class="transition-transform duration-500 ease-deck"
-                />
-              </button>
-            </div>
+            <KitTile
+              v-for="cape in capes"
+              :key="cape.id"
+              :selected="draft.capeId === cape.id"
+              class="flex h-26 w-18 flex-col items-center justify-center gap-2"
+              :title="cape.alias"
+              @click="pickCape(cape.id)"
+            >
+              <SkinCapeThumb
+                v-if="cape.texture"
+                :cape="cape.texture"
+                :scale="5"
+                class="transition-transform duration-500 ease-deck"
+              />
+            </KitTile>
           </div>
 
-          <p
+          <KitEmpty
             v-else
-            class="border border-dashed border-line py-8 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+            class="py-8"
           >
             {{ demo ? $t('skins.need_microsoft') : $t('skins.no_capes') }}
-          </p>
-        </SettingsPanel>
+          </KitEmpty>
+        </KitPanel>
       </div>
     </div>
 
-    <UModal
+    <Dialog
       :open="!!renameTarget"
-      :title="$t('skins.rename_title')"
       @update:open="value => { if (!value) renameTarget = null }"
     >
-      <template #body>
-        <UInput
-          v-model="renameValue"
-          class="w-full"
-          autofocus
-          @keyup.enter="commitRename"
-        />
-      </template>
-
-      <template #footer>
-        <div class="flex w-full items-center justify-end gap-3">
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('skins.rename_title') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <Input
+            v-model="renameValue"
+            autofocus
+            @keyup.enter="commitRename"
+          />
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            variant="quiet"
             @click="renameTarget = null"
           >
             {{ $t('common.cancel') }}
-          </AppButton>
-          <AppButton
-            class="h-8 text-[10px] tracking-[0.18em]"
+          </Button>
+          <Button
+            size="sm"
             icon="i-lucide-check"
             @click="commitRename"
           >
             {{ $t('common.save') }}
-          </AppButton>
-        </div>
-      </template>
-    </UModal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
-    <UModal
+    <KitConfirmDialog
       :open="!!removeTarget"
       :title="$t('skins.remove_title')"
+      :description="$t('skins.remove_text', { name: removeTarget?.name })"
+      :confirm-label="$t('common.delete')"
       @update:open="value => { if (!value) removeTarget = null }"
-    >
-      <template #body>
-        <p class="text-[12px] leading-relaxed text-fg-muted">
-          {{ $t('skins.remove_text', { name: removeTarget?.name }) }}
-        </p>
-      </template>
+      @confirm="confirmRemove"
+    />
 
-      <template #footer>
-        <div class="flex w-full items-center justify-end gap-3">
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            @click="removeTarget = null"
-          >
-            {{ $t('common.cancel') }}
-          </AppButton>
-          <AppButton
-            class="h-8 text-[10px] tracking-[0.18em] hover:border-red-500 hover:text-white hover:before:bg-red-500"
-            icon="i-lucide-trash-2"
-            @click="confirmRemove"
-          >
-            {{ $t('common.delete') }}
-          </AppButton>
-        </div>
-      </template>
-    </UModal>
-
-    <UModal
+    <KitConfirmDialog
       v-model:open="resetOpen"
+      tone="default"
       :title="$t('skins.reset_title')"
-    >
-      <template #body>
-        <p class="text-[12px] leading-relaxed text-fg-muted">
-          {{ $t('skins.reset_text') }}
-        </p>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full items-center justify-end gap-3">
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            @click="resetOpen = false"
-          >
-            {{ $t('common.cancel') }}
-          </AppButton>
-          <AppButton
-            class="h-8 text-[10px] tracking-[0.18em]"
-            icon="i-lucide-rotate-ccw"
-            :loading="saving"
-            @click="resetSkin"
-          >
-            {{ $t('skins.reset') }}
-          </AppButton>
-        </div>
-      </template>
-    </UModal>
+      :description="$t('skins.reset_text')"
+      :confirm-label="$t('skins.reset')"
+      confirm-icon="i-lucide-rotate-ccw"
+      :loading="saving"
+      @confirm="resetSkin"
+    />
 
     <AppUnsavedChangesModal
       :guard="guard"

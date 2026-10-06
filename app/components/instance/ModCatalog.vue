@@ -3,6 +3,7 @@ import type { Instance } from '~/types/instance'
 import type { PackHit, PackProviderInfo } from '~/types/catalog'
 import type { CatalogVersion, InstallPlan } from '~/types/mods'
 import { RELEASE_KEYS } from '~/types/mods'
+import type { SelectOption } from '~/types/ui'
 
 const props = defineProps<{ instance: Instance, open: boolean }>()
 const emit = defineEmits<{ 'update:open': [boolean], 'installed': [] }>()
@@ -11,6 +12,11 @@ type Provider = 'modrinth' | 'curseforge'
 
 const PAGE = 20
 const DEBOUNCE = 350
+
+const PROVIDERS: SelectOption<Provider>[] = [
+  { label: 'Modrinth', value: 'modrinth' },
+  { label: 'CurseForge', value: 'curseforge' },
+]
 
 const { t, locale } = useI18n()
 
@@ -21,7 +27,7 @@ const SORTS = computed(() => [
 ])
 
 const modsStore = useModsStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const instanceId = computed(() => props.instance.id)
 
@@ -217,79 +223,68 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UModal
+  <Dialog
     :open="open"
-    :title="title"
-    :ui="{ content: 'max-w-3xl' }"
     @update:open="value => emit('update:open', value)"
   >
-    <template #body>
-      <div class="space-y-5">
-        <div
+    <DialogContent class="max-w-3xl">
+      <DialogHeader>
+        <DialogTitle>{{ title }}</DialogTitle>
+      </DialogHeader>
+
+      <DialogBody class="space-y-5">
+        <Alert
           v-if="instance.type === 'vanilla'"
-          class="flex items-center gap-2.5 border border-amber-400/40 px-4 py-3"
+          variant="warning"
+          class="bg-transparent"
         >
-          <span class="size-1.5 shrink-0 bg-amber-400 animate-blink" />
-          <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
+          <KitStatus tone="warning">
             {{ $t('mod_catalog.no_loader') }}
-          </p>
-        </div>
+          </KitStatus>
+        </Alert>
 
         <template v-if="stage === 'search'">
           <div class="flex flex-wrap items-end gap-4">
-            <SettingsField
+            <KitField
               :label="$t('mod_catalog.search')"
-              class="min-w-[14rem] flex-1"
+              class="min-w-56 flex-1"
             >
-              <UInput
+              <KitSearchInput
                 v-model="query"
+                :loading="searching"
                 :placeholder="$t('mod_catalog.search_placeholder')"
-                class="w-full"
                 @update:model-value="searchLater"
                 @keydown.enter="search()"
-              >
-                <template #trailing>
-                  <UIcon
-                    name="i-lucide-search"
-                    class="size-3.5 text-fg-faint"
-                  />
-                </template>
-              </UInput>
-            </SettingsField>
-
-            <SettingsField
-              :label="$t('mod_catalog.provider')"
-              class="min-w-[9rem]"
-            >
-              <USelect
-                v-model="provider"
-                :items="[
-                  { label: 'Modrinth', value: 'modrinth' },
-                  { label: 'CurseForge', value: 'curseforge' },
-                ]"
-                class="w-full"
               />
-            </SettingsField>
+            </KitField>
 
-            <SettingsField
-              :label="$t('mod_catalog.sort')"
-              class="min-w-[10rem]"
+            <KitField
+              :label="$t('mod_catalog.provider')"
+              class="min-w-36"
             >
-              <USelect
+              <KitSelect
+                v-model="provider"
+                :items="PROVIDERS"
+              />
+            </KitField>
+
+            <KitField
+              :label="$t('mod_catalog.sort')"
+              class="min-w-40"
+            >
+              <KitSelect
                 v-model="sort"
                 :items="SORTS"
-                class="w-full"
               />
-            </SettingsField>
+            </KitField>
           </div>
 
-          <p
+          <KitStatus
             v-if="!providerReady"
-            class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400"
+            tone="warning"
           >
-            <span class="size-1.5 bg-amber-400 animate-blink" />
             {{ providerInfo?.reason ?? $t('mod_catalog.unavailable') }}
-          </p>
+          </KitStatus>
 
           <div
             v-else
@@ -299,49 +294,43 @@ onBeforeUnmount(() => {
               v-for="hit in hits"
               :key="hit.projectId"
               type="button"
-              class="flex w-full items-center gap-4 border-b border-line px-1 py-3 text-left transition-colors duration-300 hover:bg-ink-700"
+              class="flex w-full cursor-pointer items-center gap-4 border-b border-line px-1 py-3 text-left outline-none transition-colors duration-300 hover:bg-ink-700 focus-visible:bg-ink-700"
               @click="choose(hit)"
             >
-              <span class="grid size-10 shrink-0 place-items-center overflow-hidden border border-line bg-ink-900">
-                <img
-                  v-if="hit.iconUrl"
-                  :src="hit.iconUrl"
-                  alt=""
-                  class="size-full object-cover"
-                >
-                <span
-                  v-else
-                  class="font-mono text-[10px] text-fg-faint"
-                >{{ hit.title.slice(0, 2).toUpperCase() }}</span>
-              </span>
+              <KitThumb
+                :src="hit.iconUrl"
+                size="sm"
+              >
+                <span class="font-mono text-label text-fg-faint">{{ hit.title.slice(0, 2).toUpperCase() }}</span>
+              </KitThumb>
 
               <span class="min-w-0 flex-1">
                 <span class="flex items-center gap-2.5">
-                  <span class="truncate text-[13px] font-medium text-fg">{{ hit.title }}</span>
+                  <span class="truncate text-title font-medium text-fg">{{ hit.title }}</span>
 
-                  <span
+                  <Badge
                     v-if="installed.has(hit.projectId)"
-                    class="shrink-0 border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint"
+                    class="text-fg-faint"
                   >
                     {{ $t('mod_catalog.installed') }}
-                  </span>
+                  </Badge>
                 </span>
 
-                <span class="mt-1 block truncate text-[12px] text-fg-muted">{{ hit.description }}</span>
+                <span class="mt-1 block truncate text-body text-fg-muted">{{ hit.description }}</span>
               </span>
 
-              <span class="hidden shrink-0 flex-col items-end gap-1 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint sm:flex">
+              <span class="flex shrink-0 flex-col items-end gap-1 font-mono text-micro uppercase tracking-caps text-fg-faint">
                 <span>{{ downloads(hit.downloads) }}</span>
                 <span
                   v-if="hit.author"
-                  class="max-w-[8rem] truncate"
+                  class="max-w-32 truncate"
                 >{{ hit.author }}</span>
               </span>
             </button>
 
             <p
               v-if="!hits.length && !searching"
-              class="py-10 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-fg-faint"
+              class="py-10 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
             >
               {{ $t('mod_catalog.nothing_found') }}
             </p>
@@ -350,20 +339,19 @@ onBeforeUnmount(() => {
               v-if="hits.length < total"
               class="py-4 text-center"
             >
-              <AppButton
-                tone="quiet"
-                class="text-[10px] tracking-[0.18em]"
+              <Button
+                variant="quiet"
                 :loading="searching"
                 @click="search(hits.length)"
               >
                 {{ $t('mod_catalog.show_more') }}
-              </AppButton>
+              </Button>
             </div>
           </div>
         </template>
 
         <template v-else-if="stage === 'versions'">
-          <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
+          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
             {{ $t('mod_catalog.compatible', { version: instance.minecraftVersion }) }}<template v-if="instance.type !== 'vanilla'">
               · {{ instance.type }}
             </template>
@@ -376,154 +364,151 @@ onBeforeUnmount(() => {
               class="flex items-center gap-4 border-b border-line px-1 py-3"
             >
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-[13px] text-fg">{{ version.versionNumber }}</span>
-                <span class="mt-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
+                <span class="block truncate text-title text-fg">{{ version.versionNumber }}</span>
+                <span class="mt-1 block font-mono text-label uppercase tracking-caps text-fg-faint">
                   {{ RELEASE_KEYS[version.release] ? $t(RELEASE_KEYS[version.release]!) : version.release }}
                   <template v-if="version.size"> · {{ modSize(version.size) }}</template>
                   <template v-if="version.date"> · {{ new Date(version.date).toLocaleDateString(locale) }}</template>
                 </span>
               </span>
 
-              <span
+              <Badge
                 v-if="version.blocked"
-                class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-amber-400"
+                variant="warning"
+                class="border-transparent"
               >
                 {{ $t('mod_catalog.blocked_version') }}
-              </span>
+              </Badge>
 
-              <AppButton
+              <Button
                 v-else
-                class="h-8 px-3 text-[10px] tracking-[0.18em]"
+                size="sm"
                 icon="i-lucide-download"
                 :loading="planning"
                 @click="pickVersion(version)"
               >
                 {{ $t('mod_catalog.choose') }}
-              </AppButton>
+              </Button>
             </div>
 
             <p
               v-if="!versions.length && !loadingVersions"
-              class="py-10 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-fg-faint"
+              class="py-10 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
             >
               {{ $t('mod_catalog.no_versions') }}
             </p>
           </div>
         </template>
 
-        <template v-else-if="plan">
-          <div class="space-y-4 border-t border-line pt-4">
-            <div class="flex items-center gap-3">
-              <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('mod_catalog.installing_label') }}</span>
-              <span class="text-[13px] text-fg">{{ plan.target.title }}</span>
-              <span class="font-mono text-[10px] text-fg-faint">{{ plan.target.versionNumber }}</span>
-            </div>
+        <div
+          v-else-if="plan"
+          class="space-y-4 border-t border-line pt-4"
+        >
+          <div class="flex items-center gap-3">
+            <Label>{{ $t('mod_catalog.installing_label') }}</Label>
+            <span class="text-title text-fg">{{ plan.target.title }}</span>
+            <span class="font-mono text-label text-fg-faint">{{ plan.target.versionNumber }}</span>
+          </div>
 
-            <div
-              v-if="plan.required.length"
-              class="space-y-2"
-            >
-              <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-                {{ $t('mod_catalog.required') }}
-              </p>
-              <p
-                v-for="item in plan.required"
-                :key="item.projectId"
-                class="text-[12px] text-fg-muted"
-              >
-                {{ item.title }} · {{ item.versionNumber }}
-              </p>
-            </div>
-
-            <div
-              v-if="plan.optional.length"
-              class="space-y-2"
-            >
-              <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
-                {{ $t('mod_catalog.optional') }}
-              </p>
-              <label
-                v-for="item in plan.optional"
-                :key="item.projectId"
-                class="flex cursor-pointer items-center gap-2.5"
-              >
-                <UCheckbox
-                  :model-value="optional.includes(item.projectId)"
-                  @update:model-value="toggleOptional(item.projectId)"
-                />
-                <span class="text-[12px] text-fg-muted">{{ item.title }} · {{ item.versionNumber }}</span>
-              </label>
-            </div>
-
+          <div
+            v-if="plan.required.length"
+            class="space-y-2"
+          >
+            <Label>{{ $t('mod_catalog.required') }}</Label>
             <p
-              v-if="plan.installed.length"
-              class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+              v-for="item in plan.required"
+              :key="item.projectId"
+              class="text-body text-fg-muted"
             >
-              {{ $t('mod_catalog.already', { count: plan.installed.length }) }}
+              {{ item.title }} · {{ item.versionNumber }}
+            </p>
+          </div>
+
+          <div
+            v-if="plan.optional.length"
+            class="space-y-2"
+          >
+            <Label>{{ $t('mod_catalog.optional') }}</Label>
+            <label
+              v-for="item in plan.optional"
+              :key="item.projectId"
+              class="flex cursor-pointer items-center gap-2.5"
+            >
+              <Checkbox
+                :model-value="optional.includes(item.projectId)"
+                @update:model-value="toggleOptional(item.projectId)"
+              />
+              <span class="text-body text-fg-muted">{{ item.title }} · {{ item.versionNumber }}</span>
+            </label>
+          </div>
+
+          <p
+            v-if="plan.installed.length"
+            class="font-mono text-label uppercase tracking-caps text-fg-faint"
+          >
+            {{ $t('mod_catalog.already', { count: plan.installed.length }) }}
+          </p>
+
+          <Alert
+            v-if="plan.target.blocked"
+            variant="warning"
+            class="bg-transparent"
+          >
+            <p class="font-mono text-label uppercase leading-relaxed tracking-caps text-warning">
+              {{ $t('mod_catalog.blocked_hint') }}
             </p>
 
-            <div
-              v-if="plan.target.blocked"
-              class="space-y-3 border border-amber-400/40 px-4 py-3"
+            <Button
+              variant="quiet"
+              icon="i-lucide-external-link"
+              class="mt-1"
+              @click="openPage(plan.target.pageUrl)"
             >
-              <p class="font-mono text-[10px] uppercase leading-relaxed tracking-[0.2em] text-amber-400">
-                {{ $t('mod_catalog.blocked_hint') }}
-              </p>
-
-              <AppButton
-                tone="quiet"
-                class="text-[10px] tracking-[0.18em]"
-                icon="i-lucide-external-link"
-                @click="openPage(plan.target.pageUrl)"
-              >
-                {{ $t('mod_catalog.open_page') }}
-              </AppButton>
-            </div>
-          </div>
-        </template>
-
-        <div class="flex items-center justify-between gap-4 border-t border-line pt-5">
-          <AppButton
-            v-if="stage !== 'search'"
-            tone="quiet"
-            class="text-[10px] tracking-[0.16em]"
-            icon="i-lucide-arrow-left"
-            :disabled="installing"
-            @click="back"
-          >
-            {{ $t('mod_catalog.back') }}
-          </AppButton>
-
-          <span
-            v-else
-            class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
-          >
-            <template v-if="searching">{{ $t('mod_catalog.searching') }}</template>
-            <template v-else-if="total">{{ $t('mod_catalog.found', { count: total }) }}</template>
-          </span>
-
-          <div class="flex items-center gap-4">
-            <AppButton
-              tone="quiet"
-              class="text-[10px] tracking-[0.16em]"
-              :disabled="installing"
-              @click="close"
-            >
-              {{ $t('mod_catalog.close') }}
-            </AppButton>
-
-            <AppButton
-              v-if="stage === 'plan' && plan && !plan.target.blocked"
-              class="h-10 px-6 tracking-[0.18em]"
-              icon="i-lucide-package-plus"
-              :loading="installing"
-              @click="install"
-            >
-              {{ $t('mod_catalog.install') }}
-            </AppButton>
-          </div>
+              {{ $t('mod_catalog.open_page') }}
+            </Button>
+          </Alert>
         </div>
-      </div>
-    </template>
-  </UModal>
+      </DialogBody>
+
+      <DialogFooter class="justify-between">
+        <Button
+          v-if="stage !== 'search'"
+          variant="quiet"
+          icon="i-lucide-arrow-left"
+          :disabled="installing"
+          @click="back"
+        >
+          {{ $t('mod_catalog.back') }}
+        </Button>
+
+        <span
+          v-else
+          class="font-mono text-label uppercase tracking-caps text-fg-faint"
+        >
+          <template v-if="searching">{{ $t('mod_catalog.searching') }}</template>
+          <template v-else-if="total">{{ $t('mod_catalog.found', { count: total }) }}</template>
+        </span>
+
+        <div class="flex items-center gap-4">
+          <Button
+            variant="quiet"
+            :disabled="installing"
+            @click="close"
+          >
+            {{ $t('mod_catalog.close') }}
+          </Button>
+
+          <Button
+            v-if="stage === 'plan' && plan && !plan.target.blocked"
+            size="lg"
+            icon="i-lucide-package-plus"
+            :loading="installing"
+            @click="install"
+          >
+            {{ $t('mod_catalog.install') }}
+          </Button>
+        </div>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

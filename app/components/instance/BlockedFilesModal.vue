@@ -92,23 +92,25 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
 </script>
 
 <template>
-  <UModal
-    :open="true"
-    :dismissible="false"
-    :close="false"
-    :title="$t('blocked.title')"
-    :ui="{ content: 'max-w-2xl' }"
-  >
-    <template #body>
-      <div class="space-y-6">
-        <p class="text-[12px] leading-relaxed text-fg-muted">
+  <Dialog :open="true">
+    <DialogContent
+      :dismissible="false"
+      :show-close-button="false"
+      class="max-w-2xl"
+    >
+      <DialogHeader>
+        <DialogTitle>{{ $t('blocked.title') }}</DialogTitle>
+      </DialogHeader>
+
+      <DialogBody class="space-y-6">
+        <DialogDescription>
           {{ $t('blocked.description') }}
-        </p>
+        </DialogDescription>
 
         <div>
-          <label
+          <Label
             for="blocked-folder"
-            class="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+            class="mb-2 flex items-center gap-2"
           >
             <span>{{ $t('blocked.where') }}</span>
             <span
@@ -118,54 +120,51 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
               <span class="size-1 animate-pulse rounded-full bg-acid" />
               {{ $t('blocked.auto') }}
             </span>
-          </label>
+          </Label>
 
-          <div class="flex gap-2">
-            <UInput
+          <div class="flex gap-4">
+            <Input
               id="blocked-folder"
               v-model="folder"
               :placeholder="$t('blocked.folder_placeholder')"
-              class="min-w-0 flex-1"
+              class="flex-1"
               @keydown.enter.prevent="scan"
             />
-            <AppButton
-              tone="quiet"
-              class="shrink-0 text-[10px] tracking-[0.16em]"
+            <Button
+              variant="quiet"
               icon="i-lucide-folder-open"
               @click="pickFolder"
             >
               {{ $t('blocked.browse') }}
-            </AppButton>
-            <AppButton
-              tone="quiet"
-              class="shrink-0 text-[10px] tracking-[0.16em]"
+            </Button>
+            <Button
+              variant="quiet"
               icon="i-lucide-refresh-cw"
               :loading="scanning"
               :disabled="!folder.trim()"
               @click="scan"
             >
               {{ $t('blocked.scan') }}
-            </AppButton>
+            </Button>
           </div>
         </div>
 
         <div class="flex items-center gap-4">
           <span
-            class="font-mono text-[10px] uppercase tracking-[0.2em]"
+            class="font-mono text-label uppercase tracking-caps"
             :class="allFound ? 'text-acid' : 'text-fg-faint'"
           >
             {{ $t('blocked.found', { found: found.length, total: files.length }) }}
           </span>
-          <span class="h-px flex-1 bg-line" />
-          <AppButton
+          <Separator class="flex-1" />
+          <Button
             v-if="missing.length"
-            tone="quiet"
-            class="shrink-0 text-[10px] tracking-[0.16em]"
+            variant="quiet"
             icon="i-lucide-external-link"
             @click="openMissing"
           >
             {{ $t('blocked.open_missing') }}
-          </AppButton>
+          </Button>
         </div>
 
         <ul class="max-h-72 divide-y divide-line overflow-y-auto border border-line">
@@ -174,72 +173,70 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
             :key="file.targetPath"
             class="flex items-center gap-3 px-4 py-3"
           >
-            <UIcon
+            <Icon
               :name="file.localPath ? 'i-lucide-check' : 'i-lucide-x'"
               class="size-3.5 shrink-0"
-              :class="file.localPath ? 'text-acid' : 'text-red-400'"
+              :class="file.localPath ? 'text-acid' : 'text-danger'"
             />
 
             <div class="min-w-0 flex-1">
               <p
-                class="truncate text-[12px] text-fg"
+                class="truncate text-body text-fg"
                 :title="file.fileName"
               >
                 {{ file.fileName }}
               </p>
               <p
-                class="mt-1 truncate font-mono text-[10px] text-fg-faint"
+                class="mt-1 truncate font-mono text-label text-fg-faint"
                 :title="file.localPath ?? file.targetPath"
               >
                 {{ file.localPath ?? file.targetPath }}
               </p>
             </div>
 
-            <AppButton
+            <Button
               v-if="file.websiteUrl && !file.localPath"
-              tone="quiet"
-              class="shrink-0 text-[10px] tracking-[0.16em]"
+              variant="quiet"
               icon="i-lucide-download"
               @click="openFile(file)"
             >
               {{ $t('blocked.download') }}
-            </AppButton>
+            </Button>
           </li>
         </ul>
 
         <p
           v-if="missing.length"
-          class="text-[12px] leading-relaxed text-fg-muted"
+          class="text-body leading-relaxed text-fg-muted"
         >
           {{ $t('blocked.missing_hint') }}
         </p>
 
         <p
           v-else-if="allFound"
-          class="text-[12px] leading-relaxed text-fg-muted"
+          class="text-body leading-relaxed text-fg-muted"
         >
           {{ $t('blocked.all_found_hint') }}
         </p>
+      </DialogBody>
 
-        <div class="flex items-center justify-between gap-4 border-t border-line pt-5">
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.16em] text-fg-faint hover:text-red-400"
-            icon="i-lucide-circle-stop"
-            @click="cancel"
-          >
-            {{ $t('blocked.cancel') }}
-          </AppButton>
+      <DialogFooter class="justify-between">
+        <Button
+          variant="quiet-danger"
+          icon="i-lucide-circle-stop"
+          @click="cancel"
+        >
+          {{ $t('blocked.cancel') }}
+        </Button>
 
-          <AppButton
-            class="h-10 px-6 tracking-[0.18em]"
-            :loading="finishing"
-            @click="finish"
-          >
-            {{ allFound ? $t('blocked.continue') : $t('blocked.continue_without') }}
-          </AppButton>
-        </div>
-      </div>
-    </template>
-  </UModal>
+        <Button
+          size="lg"
+          :loading="finishing"
+          @click="finish"
+        >
+          {{ allFound ? $t('blocked.continue') : $t('blocked.continue_without') }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

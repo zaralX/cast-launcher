@@ -1,5 +1,6 @@
 @import "./tailwind.css";
-@import "@nuxt/ui";
+@import "tw-animate-css";
+@import "vue-sonner/style.css";
 
 :root {
     --cast-ink-900: #07080a;
@@ -14,8 +15,16 @@
     --cast-fg-muted: #9ba1a8;
     --cast-fg-faint: #5f666e;
 
-    --cast-acid: var(--ui-color-primary-400, #3ec8ff);
+    --cast-accent-400: var(--color-sky-400);
+    --cast-accent-700: var(--color-sky-700);
+    --cast-acid: var(--cast-accent-400);
     --cast-on-acid: #0a0b0c;
+
+    --cast-success: var(--color-green-400);
+    --cast-warning: var(--color-amber-400);
+    --cast-danger: var(--color-red-400);
+    --cast-danger-strong: var(--color-red-500);
+    --cast-on-danger: #ffffff;
 
     color-scheme: dark;
 }
@@ -33,10 +42,74 @@ html.light {
     --cast-fg-muted: #565d64;
     --cast-fg-faint: #8b9299;
 
-    --cast-acid: var(--ui-color-primary-700, #0a6770);
+    --cast-acid: var(--cast-accent-700);
     --cast-on-acid: #ffffff;
 
+    --cast-success: var(--color-green-600);
+    --cast-warning: var(--color-amber-600);
+    --cast-danger: var(--color-red-600);
+    --cast-danger-strong: var(--color-red-600);
+
     color-scheme: light;
+}
+
+html[data-accent="blue"] {
+    --cast-accent-400: var(--color-blue-400);
+    --cast-accent-700: var(--color-blue-700);
+}
+
+html[data-accent="indigo"] {
+    --cast-accent-400: var(--color-indigo-400);
+    --cast-accent-700: var(--color-indigo-700);
+}
+
+html[data-accent="violet"] {
+    --cast-accent-400: var(--color-violet-400);
+    --cast-accent-700: var(--color-violet-700);
+}
+
+html[data-accent="fuchsia"] {
+    --cast-accent-400: var(--color-fuchsia-400);
+    --cast-accent-700: var(--color-fuchsia-700);
+}
+
+html[data-accent="rose"] {
+    --cast-accent-400: var(--color-rose-400);
+    --cast-accent-700: var(--color-rose-700);
+}
+
+html[data-accent="orange"] {
+    --cast-accent-400: var(--color-orange-400);
+    --cast-accent-700: var(--color-orange-700);
+}
+
+html[data-accent="amber"] {
+    --cast-accent-400: var(--color-amber-400);
+    --cast-accent-700: var(--color-amber-700);
+}
+
+html[data-accent="lime"] {
+    --cast-accent-400: var(--color-lime-400);
+    --cast-accent-700: var(--color-lime-700);
+}
+
+html[data-accent="emerald"] {
+    --cast-accent-400: var(--color-emerald-400);
+    --cast-accent-700: var(--color-emerald-700);
+}
+
+html[data-accent="teal"] {
+    --cast-accent-400: var(--color-teal-400);
+    --cast-accent-700: var(--color-teal-700);
+}
+
+html[data-accent="cyan"] {
+    --cast-accent-400: var(--color-cyan-400);
+    --cast-accent-700: var(--color-cyan-700);
+}
+
+#__nuxt {
+    isolation: isolate;
 }
 
 body {

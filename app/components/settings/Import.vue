@@ -1,12 +1,9 @@
-<script setup lang="ts">
-</script>
-
 <template>
-  <SettingsPanel
+  <KitPanel
     index="04"
     :title="$t('settings.import.title')"
     icon="i-lucide-import"
   >
     <ImportWizard />
-  </SettingsPanel>
+  </KitPanel>
 </template>

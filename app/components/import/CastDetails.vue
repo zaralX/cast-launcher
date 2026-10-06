@@ -16,6 +16,7 @@ const props = defineProps<{
 const mode = defineModel<'create' | 'update'>('mode', { required: true })
 
 const SHOWN_CODE = 6
+const MODES = ['update', 'create'] as const
 
 const { t } = useI18n()
 
@@ -49,19 +50,16 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
 
 <template>
   <div class="space-y-5">
-    <div class="space-y-2 text-[12px] leading-relaxed text-fg-muted">
-      <p
+    <div class="space-y-2">
+      <KitNote
         v-if="base"
-        class="flex items-start gap-2.5"
+        icon="i-lucide-layers"
+        tone="muted"
       >
-        <UIcon
-          name="i-lucide-layers"
-          class="mt-0.5 size-3.5 shrink-0 text-fg-faint"
-        />
         {{ $t('import_pack.cast.base', base) }}
-      </p>
+      </KitNote>
 
-      <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
+      <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
         {{ $t('import_pack.cast.sources', {
           modrinth: preview.modrinthMods,
           curseforge: preview.curseforgeMods,
@@ -71,7 +69,7 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
 
       <p
         v-if="pack.author || preview.exportedBy"
-        class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint"
+        class="font-mono text-label uppercase tracking-caps text-fg-faint"
       >
         <span v-if="pack.author">{{ $t('import_pack.cast.author', { author: pack.author }) }}</span>
         <span v-if="pack.author && preview.exportedBy"> · </span>
@@ -79,21 +77,18 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
       </p>
     </div>
 
-    <div
+    <Alert
       v-if="preview.embeddedCode.length"
-      class="border border-amber-400/30 bg-ink-900 px-4 py-3 text-[12px] leading-relaxed text-fg-muted"
+      variant="warning"
+      icon="i-lucide-shield-alert"
     >
-      <p class="flex items-start gap-2.5 text-fg">
-        <UIcon
-          name="i-lucide-shield-alert"
-          class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-        />
+      <AlertTitle class="text-body font-normal">
         {{ $t('import_pack.cast.code_title', { count: preview.embeddedCode.length }) }}
-      </p>
-      <p class="mt-1.5 pl-6">
+      </AlertTitle>
+      <AlertDescription class="not-first:mt-1.5">
         {{ $t('import_pack.cast.code_hint') }}
-      </p>
-      <ul class="mt-2 space-y-0.5 pl-6 font-mono text-[10px] text-fg-faint">
+      </AlertDescription>
+      <ul class="mt-2 space-y-0.5 font-mono text-label text-fg-faint">
         <li
           v-for="file in shownCode"
           :key="file"
@@ -106,71 +101,55 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
           {{ $t('import_pack.cast.code_more', { count: hiddenCode }) }}
         </li>
       </ul>
-    </div>
+    </Alert>
 
-    <div v-if="choosable && existing">
-      <span class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('import_pack.cast.mode') }}</span>
-      <div
-        role="radiogroup"
+    <KitField
+      v-if="choosable && existing"
+      :label="$t('import_pack.cast.mode')"
+    >
+      <RadioGroup
+        v-model="mode"
         :aria-label="$t('import_pack.cast.mode')"
-        class="grid grid-cols-2 border border-line"
       >
-        <button
-          v-for="(option, i) in (['update', 'create'] as const)"
+        <RadioGroupItem
+          v-for="option in MODES"
           :key="option"
-          type="button"
-          role="radio"
-          :aria-checked="mode === option"
-          class="group relative flex flex-col items-start gap-1 px-4 py-3 text-left transition-colors duration-300"
-          :class="[
-            i > 0 ? 'border-l border-line' : '',
-            mode === option ? 'bg-ink-700 text-fg' : 'text-fg-faint hover:bg-ink-700/50 hover:text-fg-muted',
-          ]"
-          @click="mode = option"
+          :value="option"
+          class="min-w-0 flex-col items-start gap-1 px-4 py-3 text-left"
         >
-          <span
-            class="absolute inset-x-0 top-0 h-px origin-center scale-x-0 bg-acid transition-transform duration-500 ease-deck"
-            :class="mode === option ? 'scale-x-100' : ''"
-          />
-          <span class="w-full truncate font-unbounded text-[12px] tracking-[-0.02em]">
+          <span class="w-full truncate font-unbounded text-body tracking-[-0.02em]">
             {{ option === 'update' ? $t('import_pack.cast.mode_update', { name: existing.name }) : $t('import_pack.cast.mode_create') }}
           </span>
-          <span class="font-mono text-[10px] tracking-[0.06em] text-fg-faint">
+          <span class="font-mono text-label tracking-[0.06em] text-fg-faint">
             {{ option === 'update'
               ? $t('import_pack.cast.mode_update_hint', { from: versionOf(existing.version), to: versionOf(pack.version) })
               : $t('import_pack.cast.mode_create_hint') }}
           </span>
-        </button>
-      </div>
-    </div>
+        </RadioGroupItem>
+      </RadioGroup>
+    </KitField>
 
-    <p
+    <KitNote
       v-if="target && otherPack"
-      class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+      icon="i-lucide-shuffle"
     >
-      <UIcon
-        name="i-lucide-shuffle"
-        class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-      />
       {{ $t('import_pack.cast.other_pack', { name: target.name }) }}
-    </p>
+    </KitNote>
 
-    <p
+    <KitNote
       v-if="target && minecraftChange"
-      class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+      icon="i-lucide-triangle-alert"
     >
-      <UIcon
-        name="i-lucide-triangle-alert"
-        class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-      />
       {{ $t('import_pack.cast.minecraft_changes', minecraftChange) }}
-    </p>
+    </KitNote>
 
-    <div v-if="preview.changelog">
-      <span class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">{{ $t('import_pack.cast.changelog') }}</span>
-      <p class="max-h-32 overflow-y-auto whitespace-pre-line border border-line px-4 py-3 text-[12px] leading-relaxed text-fg-muted">
+    <KitField
+      v-if="preview.changelog"
+      :label="$t('import_pack.cast.changelog')"
+    >
+      <p class="max-h-32 overflow-y-auto border border-line px-4 py-3 text-body leading-relaxed whitespace-pre-line text-fg-muted">
         {{ preview.changelog }}
       </p>
-    </div>
+    </KitField>
   </div>
 </template>

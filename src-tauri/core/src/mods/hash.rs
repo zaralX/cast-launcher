@@ -8,7 +8,7 @@ const MAX_IN_MEMORY: u64 = 64 * 1024 * 1024;
 
 const CHUNK: usize = 128 * 1024;
 
-const SKIPPED: [u8; 4] = [b'\t', b'\n', b'\r', b' '];
+const SKIPPED: [u8; 4] = *b"\t\n\r ";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -41,10 +41,10 @@ pub fn murmur2(bytes: &[u8]) -> u32 {
     const R: u32 = 24;
 
     let mut hash = 1_u32 ^ (bytes.len() as u32);
-    let mut chunks = bytes.chunks_exact(4);
+    let (chunks, tail) = bytes.as_chunks::<4>();
 
-    for chunk in &mut chunks {
-        let mut key = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+    for chunk in chunks {
+        let mut key = u32::from_le_bytes(*chunk);
 
         key = key.wrapping_mul(M);
         key ^= key >> R;
@@ -53,8 +53,6 @@ pub fn murmur2(bytes: &[u8]) -> u32 {
         hash = hash.wrapping_mul(M);
         hash ^= key;
     }
-
-    let tail = chunks.remainder();
 
     if tail.len() == 3 {
         hash ^= (tail[2] as u32) << 16;

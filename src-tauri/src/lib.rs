@@ -31,20 +31,16 @@ fn log_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = tauri::async_runtime::handle();
     let _runtime_guard = runtime.inner().enter();
 
-    let builder = tauri::Builder::default().plugin(log_plugin());
-
-    #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
-        window::focus_or_create(app);
-        opened::from_second_start(app, &args, &cwd);
-    }));
-
-    builder
+    tauri::Builder::default()
+        .plugin(log_plugin())
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            window::focus_or_create(app);
+            opened::from_second_start(app, &args, &cwd);
+        }))
         .plugin(telemetry::plugin())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())

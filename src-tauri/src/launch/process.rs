@@ -172,7 +172,7 @@ impl ProcessRegistry {
         command: LaunchCommand,
         options: SpawnOptions,
     ) -> CommandResult<RunningGame> {
-        let mut child = new_command(&command.java_path)
+        let mut child = Command::from(cast_core::process::command(&command.java_path))
             .args(&command.args)
             .current_dir(&command.working_dir)
             .stdout(Stdio::piped())
@@ -446,18 +446,6 @@ async fn open_log(path: Option<PathBuf>) -> Option<tokio::fs::File> {
             None
         }
     }
-}
-
-fn new_command(program: &str) -> Command {
-    let mut command = Command::new(program);
-
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-
-    command
 }
 
 fn now_millis() -> u64 {

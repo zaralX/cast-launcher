@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { ImportReport } from '~/types/import'
 
 definePageMeta({
@@ -15,8 +14,6 @@ const { t } = useI18n()
 const appStore = useAppStore()
 const accountStore = useAccountStore()
 const { accountConfig } = storeToRefs(accountStore)
-
-const appWindow = getCurrentWindow()
 
 const index = ref(0)
 const finishing = ref(false)
@@ -70,59 +67,16 @@ async function finish() {
 <template>
   <div class="relative flex h-screen w-full flex-col overflow-hidden bg-ink-900 text-fg">
     <div
-      class="pointer-events-none absolute -left-40 -top-40 h-[26rem] w-[26rem] rounded-full bg-acid/[0.07] blur-[120px]"
+      class="pointer-events-none absolute -top-40 -left-40 size-[26rem] rounded-full bg-acid/[0.07] blur-[120px]"
       aria-hidden="true"
     />
 
     <header
       data-tauri-drag-region
-      class="relative z-30 flex h-11 shrink-0 items-stretch border-b border-line bg-ink-800/70"
+      class="relative z-30 flex h-11 shrink-0 items-stretch justify-between border-b border-line bg-ink-800/70"
     >
-      <div class="pointer-events-none flex select-none items-center gap-3 pl-3 pr-6">
-        <img
-          src="/logo.svg"
-          class="h-8 w-8"
-          alt=""
-        >
-        <p class="font-unbounded text-[13px] font-semibold leading-none tracking-[-0.05em]">
-          CAST<span class="text-acid">.</span>
-        </p>
-      </div>
-
-      <div class="ml-auto mr-0 flex items-stretch">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('layout.window.minimize')"
-          class="group h-11 w-11 justify-center text-fg-faint hover:bg-ink-600 hover:text-fg"
-          @click="appWindow?.minimize()"
-        >
-          <span class="h-px w-3.5 bg-current transition-transform duration-300 group-hover:scale-x-75" />
-        </UButton>
-
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('layout.window.maximize')"
-          class="group h-11 w-11 justify-center text-fg-faint hover:bg-ink-600 hover:text-fg"
-          @click="appWindow?.toggleMaximize()"
-        >
-          <span class="size-2.5 border border-current transition-all duration-300 group-hover:size-3" />
-        </UButton>
-
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :aria-label="$t('layout.window.close')"
-          class="group h-11 w-11 justify-center text-fg-faint hover:bg-red-500 hover:text-white"
-          @click="appWindow?.close()"
-        >
-          <UIcon
-            name="i-lucide-x"
-            class="size-3.5 transition-transform duration-300 group-hover:rotate-90"
-          />
-        </UButton>
-      </div>
+      <AppLogo />
+      <AppWindowControls />
     </header>
 
     <main class="relative z-20 min-h-0 min-w-0 flex-1">
@@ -154,35 +108,36 @@ async function finish() {
         />
       </div>
 
-      <p
+      <KitStatus
         v-if="blocked"
-        class="min-w-0 flex-1 truncate font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400"
+        tone="warning"
+        dot="static"
+        class="min-w-0 flex-1"
       >
         {{ $t('onboarding.account.required') }}
-      </p>
+      </KitStatus>
       <span
         v-else
         class="flex-1"
       />
 
-      <AppButton
+      <Button
         v-if="index > 0"
-        tone="quiet"
-        class="shrink-0 text-[10px] tracking-[0.18em]"
+        variant="quiet"
         :disabled="finishing"
         @click="back"
       >
         {{ $t('onboarding.back') }}
-      </AppButton>
+      </Button>
 
-      <AppButton
-        class="h-10 shrink-0 px-6 tracking-[0.2em]"
+      <Button
+        size="lg"
         :loading="finishing"
         :disabled="blocked || finishing"
         @click="next"
       >
         {{ nextLabel }}
-      </AppButton>
+      </Button>
     </footer>
   </div>
 </template>

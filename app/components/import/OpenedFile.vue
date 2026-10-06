@@ -16,17 +16,20 @@ function onImported(instanceId: string, updated: boolean) {
 </script>
 
 <template>
-  <UModal
-    v-model:open="open"
-    :title="$t('import_pack.opened_title')"
-  >
-    <template #body>
-      <ImportPackModalBody
-        v-if="castStore.current"
-        :key="castStore.current"
-        :path="castStore.current"
-        @imported="onImported"
-      />
-    </template>
-  </UModal>
+  <Dialog v-model:open="open">
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{{ $t('import_pack.opened_title') }}</DialogTitle>
+      </DialogHeader>
+
+      <DialogBody>
+        <ImportPackModalBody
+          v-if="castStore.current"
+          :key="castStore.current"
+          :path="castStore.current"
+          @imported="onImported"
+        />
+      </DialogBody>
+    </DialogContent>
+  </Dialog>
 </template>

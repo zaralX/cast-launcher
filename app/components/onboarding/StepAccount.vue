@@ -33,82 +33,71 @@ const select = (index: number) => safeRun(() => accountStore.selectAccount(index
     width="narrow"
   >
     <div class="space-y-6">
-      <AppButton
-        block
-        class="h-12 tracking-[0.2em]"
+      <Button
+        size="xl"
         icon="simple-icons:microsoft"
+        class="h-12 w-full"
         :loading="loggingIn"
         @click="loginMicrosoft"
       >
         Microsoft
-      </AppButton>
+      </Button>
 
       <div class="flex items-center gap-4">
-        <span class="h-px flex-1 bg-line" />
-        <span class="font-mono text-[9px] uppercase tracking-[0.24em] text-fg-faint">
+        <Separator class="flex-1" />
+        <span class="font-mono text-micro uppercase tracking-caps text-fg-faint">
           {{ $t('settings.accounts.offline') }}
         </span>
-        <span class="h-px flex-1 bg-line" />
+        <Separator class="flex-1" />
       </div>
 
       <div class="flex gap-2">
-        <UInput
+        <Input
           v-model="nickname"
           placeholder="nickname"
-          class="w-full"
-          :ui="{ base: 'font-mono text-[12px]' }"
+          size="lg"
+          font="mono"
           @keydown.enter="addOffline"
         />
 
-        <AppButton
-          class="h-9 shrink-0 px-4 text-[10px] tracking-[0.18em]"
+        <Button
           icon="i-lucide-plus"
           :loading="adding"
           :disabled="!nickname.trim()"
           @click="addOffline"
         >
           {{ $t('common.add') }}
-        </AppButton>
+        </Button>
       </div>
 
       <ul
         v-if="accounts.length"
         class="border-t border-line"
       >
-        <li
+        <KitListItem
           v-for="(account, i) in accounts"
           :key="`${account.type}-${account.name}-${i}`"
-          class="group relative flex cursor-pointer items-center gap-4 border-b border-line px-4 py-3.5 transition-colors duration-300 hover:bg-ink-700"
-          @click="select(i)"
+          :active="accountConfig?.selected === i"
+          :active-label="$t('settings.accounts.active')"
+          class="pr-4"
+          @select="select(i)"
         >
-          <span
-            class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-            :class="accountConfig?.selected === i ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
-          />
+          <template #leading>
+            <img
+              :src="faceOf(account.name)"
+              class="size-8 shrink-0"
+              :alt="account.name"
+              @error="fallbackFace"
+            >
+          </template>
 
-          <img
-            :src="faceOf(account.name)"
-            class="size-8 shrink-0"
-            :alt="account.name"
-            @error="fallbackFace"
-          >
-
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-[13px] text-fg">
-              {{ account.name }}
-            </p>
-            <p class="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              {{ account.type === 'microsoft' ? 'Microsoft' : $t('settings.accounts.offline') }}
-            </p>
-          </div>
-
-          <span
-            v-if="accountConfig?.selected === i"
-            class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
-          >
-            {{ $t('settings.accounts.active') }}
-          </span>
-        </li>
+          <p class="truncate text-title text-fg">
+            {{ account.name }}
+          </p>
+          <p class="mt-1 font-mono text-micro uppercase tracking-caps text-fg-faint">
+            {{ account.type === 'microsoft' ? 'Microsoft' : $t('settings.accounts.offline') }}
+          </p>
+        </KitListItem>
       </ul>
     </div>
   </OnboardingPane>

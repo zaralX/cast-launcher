@@ -12,8 +12,42 @@ permissions:
   contents: read
 
 jobs:
+  # A pull request that touches only one side skips the other side's jobs. Skipped jobs pass
+  # required checks, and a manual run checks everything.
+  changes:
+    name: changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: filter
+        id: filter
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "$BASE" ]; then
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          files=$(git diff --name-only "$BASE"...HEAD)
+          touches() { echo "$files" | grep -qE "$1" && echo true || echo false; }
+
+          # i18n is on both sides: cargo test checks that every key Rust sends exists in the locales.
+          echo "rust=$(touches '^(src-tauri/|i18n/|\.github/workflows/ci\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "frontend=$(touches '^(app/|i18n/|public/|package(-lock)?\.json$|nuxt\.config\.ts$|eslint\.config\.mjs$|tsconfig\.json$|\.github/workflows/ci\.yml$)')" >> "$GITHUB_OUTPUT"
+
   test:
     name: test (${{ matrix.platform }})
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -21,7 +55,7 @@ jobs:
         platform: ['ubuntu-22.04', 'windows-latest', 'macos-latest']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # cast-core doesn't depend on tauri, so no webkit/appindicator deps needed here.
       - name: install Rust stable
@@ -39,6 +73,8 @@ jobs:
 
   build:
     name: build (${{ matrix.platform }})
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -46,7 +82,7 @@ jobs:
         platform: ['ubuntu-22.04', 'windows-latest', 'macos-latest']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -55,7 +91,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: lts/*
           cache: 'npm'
@@ -85,14 +121,16 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   frontend:
-    name: frontend (eslint, typecheck)
+    name: frontend (eslint, typecheck, generate)
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: lts/*
           cache: 'npm'
@@ -107,12 +145,18 @@ jobs:
       - name: typecheck
         run: npm run typecheck
 
+      # The build jobs skip a frontend-only pull request, so the static build is checked here.
+      - name: generate
+        run: npm run generate
+
   fmt:
     name: rustfmt
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable

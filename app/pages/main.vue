@@ -7,7 +7,7 @@ definePageMeta({
 
 const { t } = useI18n()
 const instanceStore = useInstanceStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const { installInstance, playInstance } = instanceStore
 const { instances, installs } = storeToRefs(instanceStore)
@@ -78,46 +78,44 @@ const run = (id: string) => safeRun(
   <div
     :data-compact="compact"
     class="min-h-full w-full"
-    :class="compact ? 'flex items-stretch' : 'px-6 pb-10 pt-6 xl:px-10'"
+    :class="compact ? 'flex items-stretch' : 'px-6 pt-6 pb-10 xl:px-10'"
   >
     <div
       class="min-w-0"
-      :class="compact ? 'flex-1 px-6 pb-10 pt-6 xl:px-10' : ''"
+      :class="compact ? 'flex-1 px-6 pt-6 pb-10 xl:px-10' : ''"
     >
       <section>
-        <AppSectionHeading
+        <KitSectionHeading
           index="01"
           :title="$t('home.title')"
         >
           <template #action>
-            <AppButton
-              class="group/imp ml-2 h-7 px-3 text-[10px]"
-              tone="quiet"
+            <Button
+              variant="quiet"
+              size="xs"
+              class="group/imp ml-2"
               @click="importModalOpen = true"
             >
-              <template #leading>
-                <UIcon
-                  name="i-lucide-file-archive"
-                  class="size-3 transition-transform duration-500 group-hover/imp:-translate-y-0.5"
-                />
-              </template>
+              <Icon
+                name="i-lucide-file-archive"
+                class="size-3 transition-transform duration-500 group-hover/imp:-translate-y-0.5"
+              />
               {{ $t('home.from_file') }}
-            </AppButton>
+            </Button>
 
-            <AppButton
-              class="group/new ml-2 h-7 px-3 text-[10px]"
+            <Button
+              size="xs"
+              class="group/new ml-2"
               @click="openCreateModal"
             >
-              <template #leading>
-                <UIcon
-                  name="i-lucide-plus"
-                  class="size-3 transition-transform duration-500 group-hover/new:rotate-90"
-                />
-              </template>
+              <Icon
+                name="i-lucide-plus"
+                class="size-3 transition-transform duration-500 group-hover/new:rotate-90"
+              />
               {{ $t('home.create') }}
-            </AppButton>
+            </Button>
           </template>
-        </AppSectionHeading>
+        </KitSectionHeading>
 
         <div
           v-if="compact"
@@ -132,22 +130,22 @@ const run = (id: string) => safeRun(
             @remove="askRemove"
           />
 
-          <button
-            type="button"
-            class="group flex cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-line p-2.5 text-fg-faint transition-colors duration-300 hover:border-acid/50 hover:text-acid"
+          <Button
+            variant="dashed"
+            class="group h-auto flex-col gap-2 p-2.5 normal-case tracking-normal"
             @click="openCreateModal"
           >
-            <UIcon
+            <Icon
               name="i-lucide-plus"
               class="size-4 transition-transform duration-500 ease-deck group-hover:rotate-90"
             />
-            <span class="text-[11px] leading-tight">{{ $t('home.new') }}</span>
-          </button>
+            <span class="font-sans text-caption leading-tight">{{ $t('home.new') }}</span>
+          </Button>
         </div>
 
         <div
           v-else
-          class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+          class="mt-4 grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5"
         >
           <InstanceCard
             v-for="(instance, i) in instances"
@@ -163,20 +161,17 @@ const run = (id: string) => safeRun(
             @run="run"
           />
 
-          <UButton
-            color="neutral"
-            variant="ghost"
-            class="group min-h-[7rem] justify-center border border-dashed border-line text-fg-faint transition-all duration-500 ease-deck hover:-translate-y-0.5 hover:border-acid/50 hover:bg-transparent hover:text-acid"
+          <Button
+            variant="dashed"
+            class="group h-auto min-h-28 flex-col gap-2 duration-500 ease-deck hover:-translate-y-0.5"
             @click="openCreateModal"
           >
-            <span class="flex flex-col items-center gap-2">
-              <UIcon
-                name="i-lucide-plus"
-                class="size-4 transition-transform duration-500 ease-deck group-hover:rotate-90"
-              />
-              <span class="text-[10px] tracking-[0.2em]">{{ $t('home.new_instance') }}</span>
-            </span>
-          </UButton>
+            <Icon
+              name="i-lucide-plus"
+              class="size-4 transition-transform duration-500 ease-deck group-hover:rotate-90"
+            />
+            {{ $t('home.new_instance') }}
+          </Button>
         </div>
       </section>
     </div>
@@ -188,55 +183,36 @@ const run = (id: string) => safeRun(
       @remove="askRemove"
     />
 
-    <UModal
-      v-model:open="createModalOpen"
-      :title="$t('home.create_title')"
-    >
-      <template #body>
-        <InstanceCreateModalBody @created="createModalOpen = false" />
-      </template>
-    </UModal>
+    <Dialog v-model:open="createModalOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('home.create_title') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <InstanceCreateModalBody @created="createModalOpen = false" />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
 
-    <UModal
-      v-model:open="importModalOpen"
-      :title="$t('home.import_title')"
-    >
-      <template #body>
-        <ImportPackModalBody @imported="onImported" />
-      </template>
-    </UModal>
+    <Dialog v-model:open="importModalOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('home.import_title') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <ImportPackModalBody @imported="onImported" />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
 
-    <UModal
+    <KitConfirmDialog
       :open="!!removeTarget"
       :title="$t('home.remove_title')"
+      :description="$t('home.remove_text', { name: removeTarget?.name })"
+      :confirm-label="$t('common.delete')"
+      :loading="removing"
       @update:open="value => { if (!value) removeTarget = null }"
-    >
-      <template #body>
-        <p class="text-[12px] leading-relaxed text-fg-muted">
-          {{ $t('home.remove_text', { name: removeTarget?.name }) }}
-        </p>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full items-center justify-end gap-3">
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            @click="removeTarget = null"
-          >
-            {{ $t('common.cancel') }}
-          </AppButton>
-
-          <AppButton
-            class="h-8 text-[10px] tracking-[0.18em] hover:border-red-500 hover:before:bg-red-500 hover:text-white"
-            icon="i-lucide-trash-2"
-            :loading="removing"
-            @click="confirmRemove"
-          >
-            {{ $t('common.delete') }}
-          </AppButton>
-        </div>
-      </template>
-    </UModal>
+      @confirm="confirmRemove"
+    />
   </div>
 </template>

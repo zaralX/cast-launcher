@@ -47,8 +47,8 @@ function toggleExpanded(key: string) {
 const SOURCE_TONE: Record<SourceKind, string> = {
   modrinth: 'text-acid',
   curseforge: 'text-acid',
-  embedded: 'text-amber-400',
-  unchecked: 'text-amber-400',
+  embedded: 'text-warning',
+  unchecked: 'text-warning',
 }
 
 function sources(entry: TreeEntry) {
@@ -86,12 +86,12 @@ const sizeOf = (entry: TreeEntry) => entry.dir
         <button
           v-if="entry.children?.length"
           type="button"
-          class="grid size-5 shrink-0 place-items-center text-fg-faint transition-colors duration-300 hover:text-fg"
+          class="grid size-5 shrink-0 cursor-pointer place-items-center text-fg-faint outline-none transition-colors duration-300 hover:text-fg focus-visible:text-fg"
           :aria-label="$t('cast_export.expand')"
           :aria-expanded="expanded.has(entry.key)"
           @click="toggleExpanded(entry.key)"
         >
-          <UIcon
+          <Icon
             name="i-lucide-chevron-right"
             class="size-3.5 transition-transform duration-300"
             :class="expanded.has(entry.key) ? 'rotate-90' : ''"
@@ -102,27 +102,27 @@ const sizeOf = (entry: TreeEntry) => entry.dir
           class="size-5 shrink-0"
         />
 
-        <UCheckbox
+        <Checkbox
           :model-value="state(entry)"
           :disabled="!leaves(entry).length"
           @update:model-value="value => toggle(entry, value)"
         />
 
-        <UIcon
+        <Icon
           :name="entry.dir ? 'i-lucide-folder' : 'i-lucide-file'"
           class="size-3.5 shrink-0 text-fg-faint"
         />
 
         <div class="min-w-0 flex-1">
           <p
-            class="truncate text-[12px] text-fg"
+            class="truncate text-body text-fg"
             :title="entry.key"
           >
             {{ entry.name }}
           </p>
           <p
             v-if="sources(entry).length"
-            class="mt-0.5 truncate font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+            class="mt-0.5 truncate font-mono text-micro uppercase tracking-caps text-fg-faint"
           >
             <template
               v-for="(source, i) in sources(entry)"
@@ -136,19 +136,19 @@ const sizeOf = (entry: TreeEntry) => entry.dir
 
         <span
           v-if="entry.inBase"
-          class="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+          class="shrink-0 font-mono text-micro uppercase tracking-caps text-fg-faint"
         >
           {{ $t('cast_export.in_base') }}
         </span>
 
-        <span
+        <Badge
           v-if="entry.note"
-          class="shrink-0 border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+          class="text-fg-faint"
         >
           {{ $t(EXPORT_NOTE_KEYS[entry.note]) }}
-        </span>
+        </Badge>
 
-        <span class="w-36 shrink-0 text-right font-mono text-[10px] tabular-nums text-fg-faint">
+        <span class="w-36 shrink-0 text-right font-mono text-label tabular-nums text-fg-faint">
           {{ sizeOf(entry) }}
         </span>
       </div>
@@ -160,16 +160,16 @@ const sizeOf = (entry: TreeEntry) => entry.dir
         <li
           v-for="child in entry.children"
           :key="child.key"
-          class="flex items-center gap-3 py-1.5 pl-14 pr-3"
+          class="flex items-center gap-3 py-1.5 pr-3 pl-14"
         >
-          <UCheckbox
+          <Checkbox
             :model-value="selected.has(child.key)"
             :disabled="!choosable(child)"
             @update:model-value="value => toggle(child, value)"
           />
 
           <span
-            class="min-w-0 flex-1 truncate text-[12px] text-fg-muted"
+            class="min-w-0 flex-1 truncate text-body text-fg-muted"
             :title="child.key"
           >
             {{ child.name }}
@@ -177,14 +177,14 @@ const sizeOf = (entry: TreeEntry) => entry.dir
 
           <span
             v-if="child.inBase"
-            class="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+            class="shrink-0 font-mono text-micro uppercase tracking-caps text-fg-faint"
           >
             {{ $t('cast_export.in_base') }}
           </span>
 
           <span
             v-if="child.source"
-            class="max-w-48 shrink-0 truncate font-mono text-[9px] uppercase tracking-[0.16em]"
+            class="max-w-48 shrink-0 truncate font-mono text-micro uppercase tracking-caps"
             :class="SOURCE_TONE[child.source.kind]"
             :title="child.source.title"
           >
@@ -193,12 +193,12 @@ const sizeOf = (entry: TreeEntry) => entry.dir
 
           <span
             v-if="child.note"
-            class="shrink-0 font-mono text-[9px] uppercase tracking-[0.16em] text-fg-faint"
+            class="shrink-0 font-mono text-micro uppercase tracking-caps text-fg-faint"
           >
             {{ $t(EXPORT_NOTE_KEYS[child.note]) }}
           </span>
 
-          <span class="w-36 shrink-0 text-right font-mono text-[10px] tabular-nums text-fg-faint">
+          <span class="w-36 shrink-0 text-right font-mono text-label tabular-nums text-fg-faint">
             {{ sizeOf(child) }}
           </span>
         </li>

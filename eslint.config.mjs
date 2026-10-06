@@ -22,6 +22,14 @@ export default withNuxt(
     },
   },
   {
+    // shadcn-vue primitives come from the CLI, a later `add` would undo hand fixes of its `any`s
+    files: ['app/components/ui/**'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'vue/require-default-prop': 'off',
+    },
+  },
+  {
     // telemetry calls the aptabase plugin command, which is not in Commands
     files: ['app/utils/backend.ts', 'app/utils/telemetry.ts'],
     rules: {

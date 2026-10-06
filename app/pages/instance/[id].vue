@@ -9,7 +9,7 @@ definePageMeta({
 type Tab = 'general' | 'mods' | 'castpack' | 'pack' | 'java' | 'logs'
 
 const route = useRoute()
-const toast = useToast()
+const toast = useAppToast()
 
 const instanceStore = useInstanceStore()
 
@@ -138,140 +138,105 @@ const guard = useUnsavedChanges({
 
 <template>
   <div class="min-h-full w-full px-8 pb-16 xl:px-14">
-    <div
+    <Tabs
       v-if="instance"
-      class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-14"
+      v-model="tab"
+      orientation="vertical"
+      class="grid grid-cols-[15rem_minmax(0,1fr)] gap-14"
     >
-      <aside class="lg:sticky pt-10 lg:top-0 lg:self-start">
-        <NuxtLink
+      <aside class="sticky top-0 self-start pt-10">
+        <Button
           to="/main"
-          class="group inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint transition-colors duration-300 hover:text-acid"
+          variant="quiet"
+          class="group/back"
         >
-          <UIcon
+          <Icon
             name="i-lucide-arrow-left"
-            class="size-3.5 transition-transform duration-500 ease-deck group-hover:-translate-x-0.5"
+            class="size-3.5 transition-transform duration-500 ease-deck group-hover/back:-translate-x-0.5"
           />
           {{ $t('instance.back') }}
-        </NuxtLink>
+        </Button>
 
-        <div class="mt-4 flex lg:block lg:space-y-4 items-start gap-4">
-          <InstanceIcon
-            :icon="draft.icon"
-            :type="instance.type"
-            size="md"
-            class="lg:hidden"
-          />
+        <div class="mt-2 space-y-4">
           <InstanceIcon
             :icon="draft.icon"
             :type="instance.type"
             size="lg"
-            class="hidden lg:block"
           />
 
           <div class="min-w-0">
-            <h1
-              class="break-words font-unbounded text-[clamp(18px,2vw,24px)] font-bold leading-[1] tracking-[-0.055em] text-fg"
+            <KitTitle
+              size="sm"
+              class="break-words"
               :title="instance.name"
             >
-              {{ instance.name }}<span class="text-acid">.</span>
-            </h1>
+              {{ instance.name }}
+            </KitTitle>
 
-            <p class="mt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
+            <p class="mt-2 font-mono text-label uppercase tracking-caps text-fg-faint">
               {{ INSTANCE_TYPE_LABELS[instance.type] ?? instance.type }} · {{ instance.minecraftVersion }}
             </p>
           </div>
         </div>
 
-        <nav class="mt-7 border-t border-line">
-          <button
+        <TabsList class="mt-7">
+          <TabsTrigger
             v-for="item in TABS"
             :key="item.key"
-            type="button"
-            class="group relative flex w-full items-center gap-3 border-b border-line py-3 pl-4 pr-2 text-left transition-colors duration-300 hover:bg-ink-700"
-            :class="tab === item.key ? 'text-fg' : 'text-fg-faint'"
-            @click="tab = item.key"
+            :value="item.key"
+            :icon="item.icon"
+            :meta="item.index"
           >
-            <span
-              class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-              :class="tab === item.key ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
-            />
+            {{ item.label }}
+          </TabsTrigger>
+        </TabsList>
 
-            <UIcon
-              :name="item.icon"
-              class="size-4 shrink-0"
-              :class="tab === item.key ? 'text-acid' : ''"
-            />
-            <span class="flex-1 font-mono text-[11px] uppercase tracking-[0.2em]">{{ item.label }}</span>
-            <span class="font-mono text-[9px] tracking-[0.2em] text-fg-faint/60">{{ item.index }}</span>
-          </button>
-        </nav>
-
-        <AppButton
-          block
-          class="mt-8 h-11 tracking-[0.2em]"
-          icon="i-lucide-save"
-          :loading="saving"
+        <KitSaveBar
+          class="mt-8"
+          :saving="saving"
           :disabled="!canSave"
-          @click="save"
+          :dirty="dirty"
+          :dirty-label="$t('instance.unsaved')"
+          @save="save"
+          @reset="reset"
         >
-          {{ saving ? $t('common.saving') : $t('common.save') }}
-        </AppButton>
-
-        <AppButton
-          v-if="running"
-          block
-          class="mt-3 h-9 text-[10px] tracking-[0.18em]"
-          icon="i-lucide-square"
-          @click="stop"
-        >
-          {{ $t('instance.stop_game') }}
-        </AppButton>
-
-        <AppButton
-          v-else-if="instance.installed"
-          block
-          class="mt-3 h-9 text-[10px] tracking-[0.18em]"
-          icon="i-lucide-play"
-          :disabled="installing"
-          @click="run"
-        >
-          {{ $t('instance.action.play') }}
-        </AppButton>
-
-        <AppButton
-          tone="quiet"
-          class="mt-4 text-[10px] tracking-[0.18em]"
-          icon="i-lucide-file-down"
-          :disabled="installing"
-          @click="exportOpen = true"
-        >
-          {{ $t('instance.export_cast') }}
-        </AppButton>
-
-        <div
-          v-if="dirty"
-          class="mt-4 flex items-center justify-between gap-3"
-        >
-          <span class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400">
-            <span class="size-1.5 bg-amber-400 animate-blink" />
-            {{ $t('instance.unsaved') }}
-          </span>
-
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            @click="reset"
+          <Button
+            v-if="running"
+            icon="i-lucide-square"
+            class="mt-3 w-full"
+            @click="stop"
           >
-            {{ $t('common.reset') }}
-          </AppButton>
-        </div>
+            {{ $t('instance.stop_game') }}
+          </Button>
 
-        <p
+          <Button
+            v-else-if="instance.installed"
+            icon="i-lucide-play"
+            class="mt-3 w-full"
+            :disabled="installing"
+            @click="run"
+          >
+            {{ $t('instance.action.play') }}
+          </Button>
+
+          <Button
+            variant="quiet"
+            icon="i-lucide-file-down"
+            class="mt-2"
+            :disabled="installing"
+            @click="exportOpen = true"
+          >
+            {{ $t('instance.export_cast') }}
+          </Button>
+        </KitSaveBar>
+
+        <KitStatus
           v-if="!draft.name.trim()"
-          class="mt-4 font-mono text-[10px] uppercase tracking-[0.2em] text-amber-400"
+          tone="warning"
+          class="mt-4"
         >
           {{ $t('instance.name_required') }}
-        </p>
+        </KitStatus>
       </aside>
 
       <div class="min-w-0 pt-10">
@@ -313,17 +278,14 @@ const guard = useUnsavedChanges({
           class="animate-rise"
         />
       </div>
-    </div>
+    </Tabs>
 
-    <div
+    <KitStatus
       v-else
-      class="flex items-center gap-3 py-14"
+      class="py-14"
     >
-      <span class="size-1.5 bg-fg-faint animate-blink" />
-      <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-        {{ $t('instance.not_found') }}
-      </p>
-    </div>
+      {{ $t('instance.not_found') }}
+    </KitStatus>
 
     <CastExportModal
       v-if="instance"

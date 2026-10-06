@@ -522,7 +522,7 @@ pub async fn filters(meta: &MetaCache) -> CommandResult<PackFilters> {
         })
         .collect();
 
-    categories.sort_by(|a, b| a.label.to_lowercase().cmp(&b.label.to_lowercase()));
+    categories.sort_by_key(|category| category.label.to_lowercase());
 
     Ok(PackFilters {
         categories,

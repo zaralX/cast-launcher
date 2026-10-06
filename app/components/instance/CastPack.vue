@@ -6,7 +6,7 @@ const props = defineProps<{ instance: Instance }>()
 
 const instanceStore = useInstanceStore()
 const castpackStore = useCastPackStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const checking = ref(false)
 const update = ref<CastPackUpdate | null>(null)
@@ -121,224 +121,194 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
 
 <template>
   <div class="space-y-6">
-    <SettingsPanel
+    <KitPanel
       index="01"
       :title="$t('instance.castpack.title')"
       icon="i-lucide-layers"
     >
-      <div
+      <p
         v-if="!source"
-        class="text-[12px] leading-relaxed text-fg-muted"
+        class="text-body leading-relaxed text-fg-muted"
       >
         {{ $t('instance.castpack.not_castpack') }}
-      </div>
+      </p>
 
       <div
         v-else-if="fromFile"
         class="space-y-7"
       >
-        <p class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted">
-          <UIcon
-            name="i-lucide-file-archive"
-            class="mt-0.5 size-3.5 shrink-0 text-acid"
-          />
+        <KitNote
+          icon="i-lucide-file-archive"
+          tone="accent"
+        >
           {{ $t('instance.castpack.file_hint') }}
-        </p>
+        </KitNote>
 
-        <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
-          <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            {{ $t('instance.castpack.files_hint') }}
-          </p>
+        <KitRow :description="$t('instance.castpack.files_hint')">
+          <Button
+            variant="quiet"
+            icon="i-lucide-wrench"
+            :disabled="!!blocked"
+            @click="reinstall"
+          >
+            {{ $t('instance.castpack.repair') }}
+          </Button>
 
-          <div class="flex shrink-0 gap-2">
-            <AppButton
-              tone="quiet"
-              class="h-9 text-[10px] tracking-[0.18em]"
-              icon="i-lucide-wrench"
-              :disabled="!!blocked"
-              @click="reinstall"
-            >
-              {{ $t('instance.castpack.repair') }}
-            </AppButton>
+          <Button
+            icon="i-lucide-file-up"
+            :disabled="!!blocked"
+            @click="updateFromFile = true"
+          >
+            {{ $t('instance.castpack.update_from_file') }}
+          </Button>
+        </KitRow>
 
-            <AppButton
-              class="h-9 text-[10px] tracking-[0.18em]"
-              icon="i-lucide-file-up"
-              :disabled="!!blocked"
-              @click="updateFromFile = true"
-            >
-              {{ $t('instance.castpack.update_from_file') }}
-            </AppButton>
-          </div>
-        </div>
-
-        <p
+        <KitStatus
           v-if="blocked"
-          class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+          dot="static"
         >
           {{ blocked }}
-        </p>
+        </KitStatus>
       </div>
 
       <div
         v-else
         class="space-y-7"
       >
-        <div
+        <Alert
           v-if="update?.available"
-          class="flex items-start justify-between gap-4 border border-acid/30 bg-acid/[0.04] px-4 py-3"
+          variant="accent"
         >
-          <div class="min-w-0">
-            <p class="text-[12px] leading-relaxed text-fg-muted">
-              <i18n-t
-                keypath="instance.castpack.update_available"
-                tag="span"
-              >
-                <template #version>
-                  <span class="text-fg">{{ update.version }}</span>
-                </template>
-              </i18n-t>
-              {{ $t('instance.castpack.update_auto') }}
-            </p>
-            <p
-              v-if="update.changelog"
-              class="mt-2 whitespace-pre-line text-[12px] leading-relaxed text-fg-muted"
-            >
-              {{ update.changelog }}
-            </p>
-          </div>
-
-          <AppButton
-            tone="quiet"
-            class="shrink-0 text-[10px] tracking-[0.18em]"
-            icon="i-lucide-arrow-down-to-line"
-            :disabled="!!blocked"
-            @click="reinstall"
+          <i18n-t
+            keypath="instance.castpack.update_available"
+            tag="span"
           >
-            {{ $t('instance.castpack.update') }}
-          </AppButton>
-        </div>
+            <template #version>
+              <span class="text-fg">{{ update.version }}</span>
+            </template>
+          </i18n-t>
+          {{ $t('instance.castpack.update_auto') }}
 
-        <p
-          v-else-if="update?.error"
-          class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
-        >
-          <UIcon
-            name="i-lucide-wifi-off"
-            class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-          />
-          {{ $t('instance.castpack.check_failed', { error: uiText(update.error.text) }) }}
-        </p>
-
-        <p
-          v-else-if="update"
-          class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
-        >
-          <UIcon
-            name="i-lucide-check"
-            class="mt-0.5 size-3.5 shrink-0 text-acid"
-          />
-          {{ $t('instance.castpack.up_to_date') }}
-        </p>
-
-        <SettingsField
-          :label="$t('instance.castpack.autoupdate')"
-          :hint="$t('instance.castpack.autoupdate_hint')"
-        >
-          <USwitch v-model="autoupdate" />
-        </SettingsField>
-
-        <div class="flex items-center justify-between gap-6 border-t border-line pt-6">
-          <p class="min-w-0 text-[12px] leading-relaxed text-fg-muted">
-            {{ $t('instance.castpack.files_hint') }}
+          <p
+            v-if="update.changelog"
+            class="mt-2 whitespace-pre-line"
+          >
+            {{ update.changelog }}
           </p>
 
-          <div class="flex shrink-0 gap-2">
-            <AppButton
-              tone="quiet"
-              class="h-9 text-[10px] tracking-[0.18em]"
-              icon="i-lucide-rotate-cw"
-              :loading="checking"
-              @click="check"
-            >
-              {{ $t('instance.castpack.check') }}
-            </AppButton>
-
-            <AppButton
-              class="h-9 text-[10px] tracking-[0.18em]"
-              icon="i-lucide-wrench"
+          <template #action>
+            <Button
+              variant="quiet"
+              icon="i-lucide-arrow-down-to-line"
               :disabled="!!blocked"
               @click="reinstall"
             >
-              {{ $t('instance.castpack.repair') }}
-            </AppButton>
-          </div>
-        </div>
+              {{ $t('instance.castpack.update') }}
+            </Button>
+          </template>
+        </Alert>
 
-        <p
+        <KitNote
+          v-else-if="update?.error"
+          icon="i-lucide-wifi-off"
+        >
+          {{ $t('instance.castpack.check_failed', { error: uiText(update.error.text) }) }}
+        </KitNote>
+
+        <KitNote
+          v-else-if="update"
+          icon="i-lucide-check"
+          tone="accent"
+        >
+          {{ $t('instance.castpack.up_to_date') }}
+        </KitNote>
+
+        <KitField
+          :label="$t('instance.castpack.autoupdate')"
+          :hint="$t('instance.castpack.autoupdate_hint')"
+        >
+          <Switch v-model="autoupdate" />
+        </KitField>
+
+        <KitRow :description="$t('instance.castpack.files_hint')">
+          <Button
+            variant="quiet"
+            icon="i-lucide-rotate-cw"
+            :loading="checking"
+            @click="check"
+          >
+            {{ $t('instance.castpack.check') }}
+          </Button>
+
+          <Button
+            icon="i-lucide-wrench"
+            :disabled="!!blocked"
+            @click="reinstall"
+          >
+            {{ $t('instance.castpack.repair') }}
+          </Button>
+        </KitRow>
+
+        <KitStatus
           v-if="blocked"
-          class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+          dot="static"
         >
           {{ blocked }}
-        </p>
+        </KitStatus>
       </div>
-    </SettingsPanel>
+    </KitPanel>
 
-    <SettingsPanel
+    <KitPanel
       v-if="source?.changelog"
       index="02"
       :title="$t('instance.castpack.changelog_title')"
       icon="i-lucide-scroll-text"
     >
-      <p class="whitespace-pre-line text-[12px] leading-relaxed text-fg-muted">
+      <p class="text-body leading-relaxed whitespace-pre-line text-fg-muted">
         {{ source.changelog }}
       </p>
-    </SettingsPanel>
+    </KitPanel>
 
-    <SettingsPanel
+    <KitPanel
       :index="source?.changelog ? '03' : '02'"
       :title="$t('instance.castpack.source_title')"
       icon="i-lucide-link"
     >
-      <dl class="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-        <div
+      <KitDetails>
+        <KitDetail
           v-for="fact in facts"
           :key="fact.label"
-          class="min-w-0"
+          :label="fact.label"
+          :title="fact.value"
+          mono
         >
-          <dt class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            {{ fact.label }}
-          </dt>
-          <dd
-            class="mt-1.5 truncate font-mono text-[12px] text-fg-muted"
-            :title="fact.value"
-          >
-            {{ fact.value }}
-          </dd>
-        </div>
-      </dl>
+          {{ fact.value }}
+        </KitDetail>
+      </KitDetails>
 
-      <AppButton
+      <Button
         v-if="source?.manifestUrl && !fromFile"
-        tone="quiet"
-        class="mt-5 text-[10px] tracking-[0.16em]"
+        variant="quiet"
         icon="i-lucide-external-link"
+        class="mt-3"
         @click="openSite(source.manifestUrl)"
       >
         {{ $t('instance.castpack.open_manifest') }}
-      </AppButton>
-    </SettingsPanel>
+      </Button>
+    </KitPanel>
 
-    <UModal
-      v-model:open="updateFromFile"
-      :title="$t('instance.castpack.update_from_file_title', { name: instance.name })"
-    >
-      <template #body>
-        <ImportPackModalBody
-          :update-target="instance.id"
-          @imported="onUpdated"
-        />
-      </template>
-    </UModal>
+    <Dialog v-model:open="updateFromFile">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{{ $t('instance.castpack.update_from_file_title', { name: instance.name }) }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <ImportPackModalBody
+            :update-target="instance.id"
+            @imported="onUpdated"
+          />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

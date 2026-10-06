@@ -10,7 +10,7 @@ const ICON_BATCH = 10
 type Filter = 'all' | 'enabled' | 'disabled' | 'outdated'
 
 const modsStore = useModsStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const instanceId = computed(() => props.instance.id)
 
@@ -320,106 +320,92 @@ watch(instanceId, () => {
 </script>
 
 <template>
-  <SettingsPanel
+  <KitPanel
     index="01"
     :title="$t('instance.mods.title')"
     icon="i-lucide-blocks"
   >
     <div
       class="space-y-5"
-      :class="dragging ? 'outline outline-1 outline-acid outline-offset-8' : ''"
+      :class="dragging ? 'outline outline-1 outline-offset-8 outline-acid' : ''"
     >
       <div class="flex flex-wrap items-end gap-4">
-        <SettingsField
+        <KitField
           :label="$t('instance.mods.search')"
-          class="min-w-[14rem] flex-1"
+          class="min-w-56 flex-1"
         >
-          <UInput
+          <KitSearchInput
             v-model="query"
             :placeholder="$t('instance.mods.search_placeholder')"
-            class="w-full"
-          >
-            <template #trailing>
-              <UIcon
-                name="i-lucide-search"
-                class="size-3.5 text-fg-faint"
-              />
-            </template>
-          </UInput>
-        </SettingsField>
+          />
+        </KitField>
 
-        <SettingsField
+        <KitField
           :label="$t('instance.mods.show')"
-          class="min-w-[10rem]"
+          class="min-w-40"
         >
-          <USelect
+          <KitSelect
             v-model="filter"
             :items="FILTERS"
-            class="w-full"
           />
-        </SettingsField>
+        </KitField>
 
-        <div class="flex items-center gap-3 pb-1">
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+        <div class="flex items-center gap-3">
+          <Button
             icon="i-lucide-search"
             @click="catalogOpen = true"
           >
             {{ $t('instance.mods.find') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+          <Button
             icon="i-lucide-package-plus"
             :loading="working"
             @click="pickFiles"
           >
             {{ $t('instance.mods.add_files') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+          <Button
             icon="i-lucide-arrow-up-circle"
             :loading="checking"
             :disabled="!mods.length"
             @click="checkUpdates"
           >
             {{ $t('instance.mods.check_updates') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+          <Button
             icon="i-lucide-refresh-cw"
             :loading="loading"
             @click="load(true)"
           >
             {{ $t('instance.mods.reload') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+          <Button
             icon="i-lucide-folder-open"
             @click="openFolder"
           >
             {{ $t('instance.mods.folder') }}
-          </AppButton>
+          </Button>
         </div>
       </div>
 
       <div class="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
         <div class="flex items-center gap-4">
-          <label
+          <Label
             v-if="visible.length"
             class="flex cursor-pointer items-center gap-2.5"
           >
-            <UCheckbox
+            <Checkbox
               :model-value="allVisiblePicked"
               @update:model-value="toggleAllVisible"
             />
-            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.mods.select_all') }}</span>
-          </label>
+            {{ $t('instance.mods.select_all') }}
+          </Label>
 
-          <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
+          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
             <template v-if="visible.length !== mods.length">
               {{ $t('instance.mods.count_of', { visible: visible.length, total: mods.length }) }}
             </template>
@@ -432,15 +418,10 @@ watch(instanceId, () => {
           </p>
         </div>
 
-        <p
+        <KitStatus
           v-if="loading || dragging || identifying || checking"
-          class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em]"
-          :class="dragging ? 'text-acid' : 'text-fg-faint'"
+          :tone="dragging ? 'accent' : 'muted'"
         >
-          <span
-            class="size-1.5 animate-blink"
-            :class="dragging ? 'bg-acid' : 'bg-fg-faint'"
-          />
           <template v-if="dragging">
             {{ $t('instance.mods.drop_here') }}
           </template>
@@ -453,76 +434,76 @@ watch(instanceId, () => {
           <template v-else>
             {{ $t('instance.mods.identifying') }}
           </template>
-        </p>
+        </KitStatus>
       </div>
 
-      <div
+      <Alert
         v-if="updates.length"
-        class="flex flex-wrap items-center justify-between gap-4 border border-acid/40 bg-ink-900 px-4 py-3"
+        variant="accent"
+        class="items-center"
       >
-        <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-muted">
+        <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
           {{ $t('instance.mods.updates_count', { count: updates.length }) }}
         </p>
 
-        <AppButton
-          class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
-          icon="i-lucide-arrow-up-circle"
-          :loading="working"
-          @click="applyUpdates(updates.map(update => update.path))"
-        >
-          {{ $t('instance.mods.update_all') }}
-        </AppButton>
-      </div>
+        <template #action>
+          <Button
+            icon="i-lucide-arrow-up-circle"
+            :loading="working"
+            @click="applyUpdates(updates.map(update => update.path))"
+          >
+            {{ $t('instance.mods.update_all') }}
+          </Button>
+        </template>
+      </Alert>
 
-      <div
+      <Alert
         v-if="picked.length"
-        class="flex flex-wrap items-center justify-between gap-4 border border-line bg-ink-900 px-4 py-3"
+        class="items-center"
       >
-        <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-muted">
+        <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
           {{ $t('instance.mods.picked', { count: picked.length }) }}
         </p>
 
-        <div class="flex items-center gap-4">
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            icon="i-lucide-toggle-right"
-            :disabled="working"
-            @click="setPickedEnabled(true)"
-          >
-            {{ $t('instance.mods.enable') }}
-          </AppButton>
+        <template #action>
+          <div class="flex items-center gap-4">
+            <Button
+              variant="quiet"
+              icon="i-lucide-toggle-right"
+              :disabled="working"
+              @click="setPickedEnabled(true)"
+            >
+              {{ $t('instance.mods.enable') }}
+            </Button>
 
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            icon="i-lucide-toggle-left"
-            :disabled="working"
-            @click="setPickedEnabled(false)"
-          >
-            {{ $t('instance.mods.disable') }}
-          </AppButton>
+            <Button
+              variant="quiet"
+              icon="i-lucide-toggle-left"
+              :disabled="working"
+              @click="setPickedEnabled(false)"
+            >
+              {{ $t('instance.mods.disable') }}
+            </Button>
 
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em] hover:text-red-400"
-            icon="i-lucide-trash-2"
-            :disabled="working"
-            @click="confirming = true"
-          >
-            {{ $t('common.delete') }}
-          </AppButton>
+            <Button
+              variant="quiet-danger"
+              icon="i-lucide-trash-2"
+              :disabled="working"
+              @click="confirming = true"
+            >
+              {{ $t('common.delete') }}
+            </Button>
 
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            icon="i-lucide-x"
-            @click="selected = []"
-          >
-            {{ $t('instance.mods.unpick') }}
-          </AppButton>
-        </div>
-      </div>
+            <Button
+              variant="quiet"
+              icon="i-lucide-x"
+              @click="selected = []"
+            >
+              {{ $t('instance.mods.unpick') }}
+            </Button>
+          </div>
+        </template>
+      </Alert>
 
       <div
         v-if="visible.length"
@@ -537,12 +518,12 @@ watch(instanceId, () => {
             class="group flex items-center gap-4 px-1 py-3 transition-colors duration-300 hover:bg-ink-700"
             :class="mod.enabled ? '' : 'opacity-55'"
           >
-            <UCheckbox
+            <Checkbox
               :model-value="selected.includes(modKey(mod))"
               @update:model-value="togglePicked(modKey(mod))"
             />
 
-            <USwitch
+            <Switch
               :model-value="mod.enabled"
               :disabled="busy.includes(mod.path) || working"
               @update:model-value="value => setEnabled(mod, value)"
@@ -550,7 +531,7 @@ watch(instanceId, () => {
 
             <button
               type="button"
-              class="flex min-w-0 flex-1 items-center gap-4 text-left"
+              class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left outline-none"
               @click="toggle(modKey(mod))"
             >
               <InstanceModIcon
@@ -562,20 +543,20 @@ watch(instanceId, () => {
               <span class="min-w-0 flex-1">
                 <span class="flex items-center gap-2.5">
                   <span
-                    class="truncate text-[13px] font-medium text-fg"
+                    class="truncate text-title font-medium text-fg"
                     :title="mod.fileName"
                   >
                     {{ modName(mod, matchOf(mod.path)) }}
                   </span>
 
-                  <span
+                  <Badge
                     v-if="updateOf(mod.path)"
-                    class="shrink-0 border border-acid px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
+                    variant="accent"
                   >
                     {{ updateOf(mod.path)?.to }}
-                  </span>
+                  </Badge>
 
-                  <UIcon
+                  <Icon
                     v-if="mod.managed"
                     name="i-lucide-package"
                     class="size-3.5 shrink-0 text-fg-faint"
@@ -583,22 +564,21 @@ watch(instanceId, () => {
                   />
                 </span>
 
-                <span class="mt-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-faint">
-                  <span class="truncate">{{ subtitle(mod) || mod.fileName }}</span>
+                <span class="mt-1 block truncate font-mono text-label uppercase tracking-caps text-fg-faint">
+                  {{ subtitle(mod) || mod.fileName }}
                 </span>
               </span>
 
-              <span class="hidden shrink-0 items-center gap-2 sm:flex">
-                <span
+              <span class="flex shrink-0 items-center gap-2">
+                <Badge
                   v-for="loader in loaders(mod)"
                   :key="loader"
-                  class="border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-muted"
                 >
                   {{ loader }}
-                </span>
+                </Badge>
               </span>
 
-              <UIcon
+              <Icon
                 name="i-lucide-chevron-down"
                 class="size-4 shrink-0 text-fg-faint transition-transform duration-300"
                 :class="expanded === modKey(mod) ? 'rotate-180 text-acid' : ''"
@@ -612,131 +592,98 @@ watch(instanceId, () => {
           >
             <p
               v-if="mod.details.description"
-              class="text-[12px] leading-relaxed text-fg-muted"
+              class="text-body leading-relaxed text-fg-muted"
             >
               {{ mod.details.description }}
             </p>
 
-            <dl class="grid gap-x-8 gap-y-2 sm:grid-cols-2">
-              <div
+            <KitDetails>
+              <KitDetail
                 v-if="modAuthors(mod)"
-                class="min-w-0"
+                :label="$t('instance.mods.authors')"
               >
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-                  {{ $t('instance.mods.authors') }}
-                </dt>
-                <dd class="truncate text-[12px] text-fg-muted">
-                  {{ modAuthors(mod) }}
-                </dd>
-              </div>
+                {{ modAuthors(mod) }}
+              </KitDetail>
 
-              <div
+              <KitDetail
                 v-if="mod.details.license"
-                class="min-w-0"
+                :label="$t('instance.mods.license')"
               >
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-                  {{ $t('instance.mods.license') }}
-                </dt>
-                <dd class="truncate text-[12px] text-fg-muted">
-                  {{ mod.details.license }}
-                </dd>
-              </div>
+                {{ mod.details.license }}
+              </KitDetail>
 
-              <div class="min-w-0">
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-                  {{ $t('instance.mods.file') }}
-                </dt>
-                <dd
-                  class="truncate font-mono text-[11px] text-fg-muted"
-                  :title="mod.fileName"
-                >
-                  {{ mod.fileName }}<template v-if="modSize(mod.size)">
-                    · {{ modSize(mod.size) }}
-                  </template>
-                </dd>
-              </div>
+              <KitDetail
+                :label="$t('instance.mods.file')"
+                :title="mod.fileName"
+                mono
+              >
+                {{ mod.fileName }}<template v-if="modSize(mod.size)">
+                  · {{ modSize(mod.size) }}
+                </template>
+              </KitDetail>
 
-              <div
+              <KitDetail
                 v-if="mod.details.homepage"
-                class="min-w-0"
+                :label="$t('instance.mods.page')"
               >
-                <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-                  {{ $t('instance.mods.page') }}
-                </dt>
-                <dd>
-                  <button
-                    type="button"
-                    class="truncate text-[12px] text-acid transition-opacity duration-300 hover:opacity-70"
-                    @click="openHomepage(mod.details.homepage)"
-                  >
-                    {{ mod.details.homepage }}
-                  </button>
-                </dd>
-              </div>
-            </dl>
+                <KitLink @click="openHomepage(mod.details.homepage)">
+                  {{ mod.details.homepage }}
+                </KitLink>
+              </KitDetail>
+            </KitDetails>
 
             <div
               v-if="matchOf(mod.path)"
               class="flex flex-wrap items-center gap-4"
             >
-              <button
+              <Button
                 v-if="matchOf(mod.path)?.pageUrl"
-                type="button"
-                class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-acid transition-opacity duration-300 hover:opacity-70"
+                variant="link"
+                icon="i-lucide-external-link"
                 @click="openHomepage(matchOf(mod.path)!.pageUrl)"
               >
-                <UIcon
-                  name="i-lucide-external-link"
-                  class="size-3.5"
-                />
                 {{ CATALOG_LABELS[matchOf(mod.path)!.provider] }}
-              </button>
+              </Button>
 
-              <AppButton
+              <Button
                 v-if="updateOf(mod.path) && !mod.managed"
-                class="h-8 px-3 text-[10px] tracking-[0.18em]"
+                size="sm"
                 icon="i-lucide-arrow-up-circle"
                 :loading="working"
                 @click="applyUpdates([mod.path])"
               >
                 {{ $t('instance.mods.update_to', { version: updateOf(mod.path)?.to }) }}
-              </AppButton>
+              </Button>
             </div>
 
-            <p
+            <KitNote
               v-if="mod.managed"
-              class="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint"
+              icon="i-lucide-package"
+              tone="muted"
             >
-              <UIcon
-                name="i-lucide-package"
-                class="size-3.5"
-              />
               {{ $t('instance.mods.managed_hint') }}
-            </p>
+            </KitNote>
           </div>
         </div>
       </div>
 
-      <div
+      <KitStatus
         v-else
-        class="flex items-center gap-3 border-t border-line py-10"
+        class="border-t border-line py-10"
       >
-        <span class="size-1.5 bg-fg-faint animate-blink" />
-        <p class="font-mono text-[10px] uppercase tracking-[0.22em] text-fg-faint">
-          <template v-if="loading || !loaded">
-            {{ $t('instance.mods.reading_folder') }}
-          </template>
-          <template v-else-if="mods.length">
-            {{ $t('instance.mods.nothing_found') }}
-          </template>
-          <template v-else-if="instance.type === 'vanilla'">
-            {{ $t('instance.mods.no_loader') }}
-          </template>
-          <template v-else>
-            {{ $t('instance.mods.empty') }}
-          </template>
-        </p>
-      </div>
+        <template v-if="loading || !loaded">
+          {{ $t('instance.mods.reading_folder') }}
+        </template>
+        <template v-else-if="mods.length">
+          {{ $t('instance.mods.nothing_found') }}
+        </template>
+        <template v-else-if="instance.type === 'vanilla'">
+          {{ $t('instance.mods.no_loader') }}
+        </template>
+        <template v-else>
+          {{ $t('instance.mods.empty') }}
+        </template>
+      </KitStatus>
     </div>
 
     <InstanceModCatalog
@@ -745,57 +692,30 @@ watch(instanceId, () => {
       @installed="afterCatalogInstall"
     />
 
-    <UModal
-      :open="confirming"
+    <KitConfirmDialog
+      v-model:open="confirming"
       :title="$t('instance.mods.remove_title')"
-      :ui="{ content: 'max-w-lg' }"
-      @update:open="value => confirming = value"
+      :description="$t('instance.mods.remove_hint')"
+      :confirm-label="$t('instance.mods.remove_confirm', { count: picked.length })"
+      :loading="working"
+      @confirm="removePicked"
     >
-      <template #body>
-        <div class="space-y-5">
-          <p class="text-[12px] leading-relaxed text-fg-muted">
-            {{ $t('instance.mods.remove_hint') }}
-          </p>
+      <ul class="max-h-52 space-y-1.5 overflow-auto border border-line bg-ink-900 p-4">
+        <li
+          v-for="mod in picked"
+          :key="mod.path"
+          class="truncate font-mono text-caption text-fg-muted"
+        >
+          {{ mod.fileName }}
+        </li>
+      </ul>
 
-          <ul class="max-h-52 space-y-1.5 overflow-auto border border-line bg-ink-900 p-4">
-            <li
-              v-for="mod in picked"
-              :key="mod.path"
-              class="truncate font-mono text-[11px] text-fg-muted"
-            >
-              {{ mod.fileName }}
-            </li>
-          </ul>
-
-          <p
-            v-if="pickedManaged.length"
-            class="flex items-start gap-2 font-mono text-[10px] uppercase leading-relaxed tracking-[0.2em] text-amber-400"
-          >
-            <span class="mt-1 size-1.5 shrink-0 bg-amber-400 animate-blink" />
-            {{ $t('instance.mods.remove_managed', { count: pickedManaged.length }) }}
-          </p>
-
-          <div class="flex items-center justify-end gap-4 border-t border-line pt-5">
-            <AppButton
-              tone="quiet"
-              class="text-[10px] tracking-[0.16em]"
-              :disabled="working"
-              @click="confirming = false"
-            >
-              {{ $t('common.cancel') }}
-            </AppButton>
-
-            <AppButton
-              class="h-10 px-6 tracking-[0.18em] hover:border-red-400 hover:bg-red-400"
-              icon="i-lucide-trash-2"
-              :loading="working"
-              @click="removePicked"
-            >
-              {{ $t('instance.mods.remove_confirm', { count: picked.length }) }}
-            </AppButton>
-          </div>
-        </div>
-      </template>
-    </UModal>
-  </SettingsPanel>
+      <KitStatus
+        v-if="pickedManaged.length"
+        tone="warning"
+      >
+        {{ $t('instance.mods.remove_managed', { count: pickedManaged.length }) }}
+      </KitStatus>
+    </KitConfirmDialog>
+  </KitPanel>
 </template>

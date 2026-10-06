@@ -191,7 +191,7 @@ impl Source {
             Self::Modrinth(root) => modrinth::scan(root).await,
         };
 
-        found.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        found.sort_by_key(|instance| instance.name.to_lowercase());
 
         Ok(found)
     }

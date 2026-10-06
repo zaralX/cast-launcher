@@ -9,12 +9,11 @@ export function useCompact() {
 }
 
 export function useAppearance() {
-  const appConfig = useAppConfig()
   const accent = useAccent()
   const compact = useCompact()
 
   watchEffect(() => {
-    appConfig.ui.colors.primary = accent.value
+    document.documentElement.dataset.accent = accent.value
   })
 
   watchEffect(() => {

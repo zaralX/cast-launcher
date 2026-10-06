@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    process::Command,
     thread,
 };
 
@@ -342,7 +341,7 @@ fn scan_macos_dirs(found: &mut Found) {
         }
     }
 
-    if let Ok(output) = new_command(Path::new("/usr/libexec/java_home"))
+    if let Ok(output) = crate::process::command("/usr/libexec/java_home")
         .arg("-V")
         .output()
     {
@@ -459,7 +458,7 @@ fn probe_all(candidates: Vec<Candidate>) -> Vec<JavaRuntime> {
 }
 
 fn probe_candidate(candidate: Candidate) -> Option<JavaRuntime> {
-    let output = new_command(&candidate.probe)
+    let output = crate::process::command(&candidate.probe)
         .arg("-XshowSettings:properties")
         .arg("-version")
         .output()
@@ -506,19 +505,6 @@ fn probe_candidate(candidate: Candidate) -> Option<JavaRuntime> {
         is_64bit,
         source: candidate.source,
     })
-}
-
-fn new_command(program: &Path) -> Command {
-    let mut command = Command::new(program);
-
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-
-    command
 }
 
 fn parse_properties(text: &str) -> HashMap<String, String> {

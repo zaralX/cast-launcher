@@ -83,7 +83,7 @@ pub async fn check(
         }
     }
 
-    updates.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+    updates.sort_by_key(|update| update.title.to_lowercase());
 
     updates
 }

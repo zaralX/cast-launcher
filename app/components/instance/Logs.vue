@@ -8,7 +8,7 @@ const LIVE = 'live'
 const { t, locale } = useI18n()
 const instanceStore = useInstanceStore()
 const { logs } = storeToRefs(instanceStore)
-const toast = useToast()
+const toast = useAppToast()
 
 const files = ref<InstanceLogFile[]>([])
 const source = ref<string>(LIVE)
@@ -167,96 +167,82 @@ onMounted(async () => {
 </script>
 
 <template>
-  <SettingsPanel
+  <KitPanel
     index="01"
     :title="$t('instance.logs.title')"
     icon="i-lucide-scroll-text"
   >
     <div class="space-y-5">
       <div class="flex flex-wrap items-end gap-4">
-        <SettingsField
+        <KitField
           :label="$t('instance.logs.source')"
-          class="min-w-[16rem] flex-1"
+          class="min-w-64 flex-1"
         >
-          <USelect
+          <KitSelect
             v-model="source"
             :items="sources"
-            class="w-full"
           />
-        </SettingsField>
+        </KitField>
 
-        <SettingsField
+        <KitField
           :label="$t('instance.logs.search')"
-          class="min-w-[12rem] flex-1"
+          class="min-w-48 flex-1"
         >
-          <UInput
+          <KitSearchInput
             v-model="filter"
             :placeholder="$t('instance.logs.search_placeholder')"
-            class="w-full"
-            :ui="{ base: 'font-mono text-[12px]' }"
-          >
-            <template #trailing>
-              <UIcon
-                name="i-lucide-search"
-                class="size-3.5 text-fg-faint"
-              />
-            </template>
-          </UInput>
-        </SettingsField>
+            font="mono"
+          />
+        </KitField>
 
-        <div class="flex items-center gap-3 pb-1">
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+        <div class="flex items-center gap-3">
+          <Button
             icon="i-lucide-refresh-cw"
             :loading="loading"
             @click="refresh"
           >
             {{ $t('instance.logs.refresh') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+          <Button
             icon="i-lucide-copy"
             :disabled="!lines.length"
             @click="copy"
           >
             {{ $t('instance.logs.copy') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
-            class="h-9 px-3.5 text-[10px] tracking-[0.18em]"
+          <Button
             icon="i-lucide-folder-clock"
             @click="openFolder"
           >
             {{ $t('instance.logs.folder') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
+          <Button
             v-if="isLive"
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
+            variant="quiet"
             icon="i-lucide-eraser"
             :disabled="!live.length"
             @click="instanceStore.clearLogs(props.instanceId)"
           >
             {{ $t('instance.logs.clear') }}
-          </AppButton>
+          </Button>
 
-          <AppButton
+          <Button
             v-else
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em] hover:text-red-400"
+            variant="quiet-danger"
             icon="i-lucide-trash-2"
             :loading="removing"
             @click="removeFile"
           >
             {{ $t('instance.logs.delete_file') }}
-          </AppButton>
+          </Button>
         </div>
       </div>
 
       <div class="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
-        <p class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">
+        <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
           {{ $t('instance.logs.lines', { count: lines.length }) }}<template v-if="filter.trim()">
             {{ $t('instance.logs.lines_of', { total: all.length }) }}
           </template>
@@ -266,15 +252,15 @@ onMounted(async () => {
         </p>
 
         <div class="flex items-center gap-6">
-          <div class="flex items-center gap-2.5">
-            <USwitch v-model="autoscroll" />
-            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.logs.autoscroll') }}</span>
-          </div>
+          <Label class="flex cursor-pointer items-center gap-2.5">
+            <Switch v-model="autoscroll" />
+            {{ $t('instance.logs.autoscroll') }}
+          </Label>
 
-          <div class="flex items-center gap-2.5">
-            <USwitch v-model="wrap" />
-            <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-fg-faint">{{ $t('instance.logs.wrap') }}</span>
-          </div>
+          <Label class="flex cursor-pointer items-center gap-2.5">
+            <Switch v-model="wrap" />
+            {{ $t('instance.logs.wrap') }}
+          </Label>
         </div>
       </div>
 
@@ -286,10 +272,10 @@ onMounted(async () => {
         <p
           v-for="(line, i) in lines"
           :key="i"
-          class="font-mono text-[11px] leading-[1.55]"
+          class="font-mono text-caption leading-[1.55]"
           :class="[
-            wrap ? 'whitespace-pre-wrap break-words' : 'whitespace-pre',
-            line.tone === 'error' ? 'text-red-400' : line.tone === 'warn' ? 'text-amber-400' : 'text-fg-muted',
+            wrap ? 'break-words whitespace-pre-wrap' : 'whitespace-pre',
+            line.tone === 'error' ? 'text-danger' : line.tone === 'warn' ? 'text-warning' : 'text-fg-muted',
           ]"
         >
           {{ line.text || " " }}
@@ -297,7 +283,7 @@ onMounted(async () => {
 
         <p
           v-if="!lines.length"
-          class="flex justify-center items-center h-full font-mono text-xs uppercase tracking-[0.24em] text-fg-faint"
+          class="flex h-full items-center justify-center font-mono text-label uppercase tracking-caps text-fg-faint"
         >
           <template v-if="loading">
             {{ $t('instance.logs.loading') }}
@@ -314,5 +300,5 @@ onMounted(async () => {
         </p>
       </div>
     </div>
-  </SettingsPanel>
+  </KitPanel>
 </template>

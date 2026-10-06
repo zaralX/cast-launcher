@@ -18,8 +18,8 @@ const TYPE_MARK: Record<InstanceType, string> = {
 }
 
 const SIZES = {
-  sm: 'size-8 text-[10px]',
-  md: 'size-12 text-[12px]',
+  sm: 'size-8 text-label',
+  md: 'size-12 text-body',
   lg: 'size-20 text-[16px]',
 }
 

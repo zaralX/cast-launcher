@@ -163,62 +163,55 @@ async function run() {
   <div>
     <button
       type="button"
-      class="group flex w-full flex-col items-center gap-3 border border-dashed px-6 py-10 transition-colors duration-300"
+      class="group flex w-full cursor-pointer flex-col items-center gap-3 border border-dashed px-6 py-10 outline-none transition-colors duration-300 focus-visible:border-acid/50 disabled:cursor-not-allowed"
       :class="dragging && !busy ? 'border-acid/60 bg-acid/[0.04] text-acid' : 'border-line text-fg-faint hover:border-acid/50 hover:text-acid'"
       :disabled="busy"
       @click="choose"
     >
-      <UIcon
-        :name="reading ? 'i-lucide-loader' : 'i-lucide-file-archive'"
-        class="size-5 transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
-        :class="reading ? 'animate-spin' : ''"
+      <Spinner
+        v-if="reading"
+        class="size-5"
       />
-      <span class="font-mono text-[10px] uppercase tracking-[0.24em]">
+      <Icon
+        v-else
+        name="i-lucide-file-archive"
+        class="size-5 transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
+      />
+      <span class="font-mono text-label uppercase tracking-caps">
         {{ reading ? $t('import_pack.reading') : pack ? $t('import_pack.pick_another') : $t('import_pack.pick') }}
       </span>
-      <span
-        v-if="updateTarget"
-        class="text-[12px] leading-relaxed text-fg-muted"
-      >
-        {{ $t('import_pack.hint_before') }} <span class="text-fg">{{ CAST_EXTENSION }}</span> {{ $t('import_pack.cast.update_hint') }}
-      </span>
-      <span
-        v-else
-        class="text-[12px] leading-relaxed text-fg-muted"
-      >
-        {{ $t('import_pack.hint_before') }} <span class="text-fg">.mrpack</span> {{ $t('import_pack.hint_after') }}
+      <span class="text-body leading-relaxed text-fg-muted">
+        {{ $t('import_pack.hint_before') }}
+        <span class="text-fg">{{ updateTarget ? CAST_EXTENSION : '.mrpack' }}</span>
+        {{ updateTarget ? $t('import_pack.cast.update_hint') : $t('import_pack.hint_after') }}
       </span>
     </button>
 
     <p
       v-if="pack"
-      class="mt-3 truncate font-mono text-[10px] text-fg-faint"
+      class="mt-3 truncate font-mono text-label text-fg-faint"
       :title="pack.path"
     >
       {{ pack.fileName }}
     </p>
 
-    <div
+    <Alert
       v-if="pack?.blocked"
-      class="mt-6 flex items-start gap-2.5 border border-amber-400/30 bg-ink-900 px-4 py-3 text-[12px] leading-relaxed text-fg-muted"
+      variant="warning"
+      icon="i-lucide-triangle-alert"
+      class="mt-6"
     >
-      <UIcon
-        name="i-lucide-triangle-alert"
-        class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-      />
       {{ $t('import_pack.blocked', { reason: uiText(pack.blocked) }) }}
-    </div>
+    </Alert>
 
-    <div
+    <Alert
       v-else-if="wrongFile"
-      class="mt-6 flex items-start gap-2.5 border border-amber-400/30 bg-ink-900 px-4 py-3 text-[12px] leading-relaxed text-fg-muted"
+      variant="warning"
+      icon="i-lucide-triangle-alert"
+      class="mt-6"
     >
-      <UIcon
-        name="i-lucide-triangle-alert"
-        class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-      />
       {{ $t('import_pack.cast.not_cast') }}
-    </div>
+    </Alert>
 
     <form
       v-if="pack"
@@ -229,56 +222,38 @@ async function run() {
         v-if="!updating"
         class="space-y-5"
       >
-        <div>
-          <label
-            for="file-pack-name"
-            class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
-          >
-            {{ $t('import_pack.name') }}
-          </label>
-          <UInput
+        <KitField
+          :label="$t('import_pack.name')"
+          for="file-pack-name"
+        >
+          <Input
             id="file-pack-name"
             v-model="name"
             size="lg"
-            class="w-full"
-            :ui="{ base: 'font-unbounded text-[15px] tracking-[-0.03em]' }"
+            font="display"
           />
-        </div>
+        </KitField>
 
-        <div>
-          <label
-            for="file-pack-description"
-            class="mb-2 block font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
-          >
-            {{ $t('import_pack.description') }}
-          </label>
-          <UInput
+        <KitField
+          :label="$t('import_pack.description')"
+          for="file-pack-description"
+        >
+          <Input
             id="file-pack-description"
             v-model="description"
             :placeholder="$t('import_pack.description_placeholder')"
-            class="w-full"
           />
-        </div>
+        </KitField>
       </div>
 
-      <dl class="grid grid-cols-2 border border-line sm:grid-cols-3">
-        <div
-          v-for="(fact, i) in facts"
+      <KitStatGrid :columns="3">
+        <KitStat
+          v-for="fact in facts"
           :key="fact.label"
-          class="px-4 py-3"
-          :class="i % 3 === 0 ? '' : 'sm:border-l sm:border-line'"
-        >
-          <dt class="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-            {{ fact.label }}
-          </dt>
-          <dd
-            class="mt-1.5 truncate font-unbounded text-[13px] tracking-[-0.03em] text-fg"
-            :title="fact.value"
-          >
-            {{ fact.value }}
-          </dd>
-        </div>
-      </dl>
+          :label="fact.label"
+          :value="fact.value"
+        />
+      </KitStatGrid>
 
       <ImportCastDetails
         v-if="pack.cast"
@@ -289,48 +264,40 @@ async function run() {
         :choosable="!updateTarget"
       />
 
-      <p
+      <KitNote
         v-if="pack.kind === 'curseforge' || (pack.cast?.curseforgeMods ?? 0) > 0"
-        class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+        icon="i-lucide-hand"
       >
-        <UIcon
-          name="i-lucide-hand"
-          class="mt-0.5 size-3.5 shrink-0 text-amber-400"
-        />
         {{ $t('import_pack.curseforge_hint') }}
-      </p>
+      </KitNote>
 
-      <p
+      <KitNote
         v-else-if="pack.kind === 'multimc'"
-        class="flex items-start gap-2.5 text-[12px] leading-relaxed text-fg-muted"
+        icon="i-lucide-info"
+        tone="muted"
       >
-        <UIcon
-          name="i-lucide-info"
-          class="mt-0.5 size-3.5 shrink-0 text-fg-faint"
-        />
         {{ $t('import_pack.multimc_hint') }}
-      </p>
+      </KitNote>
 
-      <AppButton
-        block
+      <Button
         type="submit"
-        class="group/act h-11 tracking-[0.2em]"
+        size="xl"
+        class="group/act w-full"
         :loading="importing"
         :disabled="!canImport"
       >
-        <template #leading>
-          <UIcon
-            name="i-lucide-download"
-            class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
-          />
-        </template>
+        <Icon
+          v-if="!importing"
+          name="i-lucide-download"
+          class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
+        />
         <template v-if="updating">
           {{ importing ? $t('import_pack.cast.updating') : $t('import_pack.cast.update') }}
         </template>
         <template v-else>
           {{ importing ? $t('import_pack.creating') : $t('import_pack.import') }}
         </template>
-      </AppButton>
+      </Button>
     </form>
   </div>
 </template>
