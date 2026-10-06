@@ -505,14 +505,11 @@ watch(activeUuid, uuid => reload(uuid))
             </div>
 
             <div class="grid grid-cols-3 gap-2.5 xl:grid-cols-4 2xl:grid-cols-6">
-              <button
+              <KitTile
                 v-for="entry in library.skins"
                 :key="entry.id"
-                type="button"
-                class="group/card relative flex aspect-3/4 cursor-pointer flex-col overflow-hidden border outline-none transition-colors duration-300 focus-visible:border-line-strong"
-                :class="draft.skinId === entry.id
-                  ? 'border-acid bg-ink-700'
-                  : 'border-line hover:border-line-strong hover:bg-ink-700'"
+                :selected="draft.skinId === entry.id"
+                class="group/card flex aspect-3/4 flex-col overflow-hidden"
                 @click="skinStore.pickSkin(entry.id)"
                 @mouseenter="hovered = entry.id"
                 @mouseleave="hovered = null"
@@ -593,7 +590,7 @@ watch(activeUuid, uuid => reload(uuid))
                     />
                   </span>
                 </div>
-              </button>
+              </KitTile>
 
               <button
                 type="button"
@@ -643,12 +640,9 @@ watch(activeUuid, uuid => reload(uuid))
             v-else-if="capes.length"
             class="flex flex-wrap gap-3"
           >
-            <button
-              type="button"
-              class="flex h-26 w-18 cursor-pointer flex-col items-center justify-center gap-2 border outline-none transition-colors duration-300 focus-visible:border-line-strong"
-              :class="draft.capeId === null
-                ? 'border-acid bg-ink-700'
-                : 'border-line hover:border-line-strong hover:bg-ink-700'"
+            <KitTile
+              :selected="draft.capeId === null"
+              class="flex h-26 w-18 flex-col items-center justify-center gap-2"
               @click="pickCape(null)"
             >
               <Icon
@@ -656,16 +650,13 @@ watch(activeUuid, uuid => reload(uuid))
                 class="size-4 text-fg-faint"
               />
               <span class="font-mono text-[8px] uppercase tracking-caps text-fg-faint">{{ $t('skins.no_cape') }}</span>
-            </button>
+            </KitTile>
 
-            <button
+            <KitTile
               v-for="cape in capes"
               :key="cape.id"
-              type="button"
-              class="group/cape flex h-26 w-18 cursor-pointer flex-col items-center justify-center gap-2 border outline-none transition-colors duration-300 focus-visible:border-line-strong"
-              :class="draft.capeId === cape.id
-                ? 'border-acid bg-ink-700'
-                : 'border-line hover:border-line-strong hover:bg-ink-700'"
+              :selected="draft.capeId === cape.id"
+              class="flex h-26 w-18 flex-col items-center justify-center gap-2"
               :title="cape.alias"
               @click="pickCape(cape.id)"
             >
@@ -675,7 +666,7 @@ watch(activeUuid, uuid => reload(uuid))
                 :scale="5"
                 class="transition-transform duration-500 ease-deck"
               />
-            </button>
+            </KitTile>
           </div>
 
           <KitEmpty

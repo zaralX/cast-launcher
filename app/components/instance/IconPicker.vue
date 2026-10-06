@@ -141,12 +141,11 @@ onMounted(async () => {
         v-if="library.length"
         class="grid max-h-[22rem] grid-cols-8 gap-2 overflow-y-auto pr-1"
       >
-        <button
+        <KitTile
           v-for="file in library"
           :key="file.name"
-          type="button"
-          class="group relative grid aspect-square cursor-pointer place-items-center border outline-none transition-colors duration-300 focus-visible:border-line-strong"
-          :class="icon === file.name ? 'border-acid bg-ink-700' : 'border-line hover:border-line-strong hover:bg-ink-700'"
+          :selected="icon === file.name"
+          class="grid aspect-square place-items-center"
           :title="file.name"
           @click="icon = file.name"
         >
@@ -171,7 +170,7 @@ onMounted(async () => {
               class="size-3"
             />
           </span>
-        </button>
+        </KitTile>
       </div>
 
       <KitEmpty v-else>
