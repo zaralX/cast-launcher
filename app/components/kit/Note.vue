@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 import type { StatusTone } from '~/types/ui'
+import { STATUS_TONE } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<{
@@ -11,13 +12,6 @@ const props = withDefaults(defineProps<{
   tone: 'warning',
   class: undefined,
 })
-
-const TONE: Record<StatusTone, string> = {
-  muted: 'text-fg-faint',
-  accent: 'text-acid',
-  warning: 'text-warning',
-  danger: 'text-danger',
-}
 </script>
 
 <template>
@@ -25,7 +19,7 @@ const TONE: Record<StatusTone, string> = {
     <Icon
       :name="icon"
       class="mt-0.5 size-3.5 shrink-0"
-      :class="TONE[tone]"
+      :class="STATUS_TONE[tone]"
     />
     <span class="min-w-0">
       <slot />

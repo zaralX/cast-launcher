@@ -178,15 +178,17 @@ never a hardcoded one.
   then rewritten for the launcher, as in vilbux-panel: our tokens instead of shadcn's, icons
   through `<Icon>`, `cva` variants for every look. Add one with
   `npx shadcn-vue@latest add <name>` and `npm run lint:fix`, then restyle it (under a proxy
-  the CLI needs `HTTPS_PROXY` unset). Looks shared by several primitives (a field, a floating
-  panel, a menu row) live in `lib/styles.ts`.
+  the CLI needs `HTTPS_PROXY` unset). Looks shared by several components (a field, a floating
+  panel, a menu row, a status tone) live in `lib/styles.ts`.
 - `components/kit/` holds launcher blocks: panel, field, row, status line, alert-like note,
-  confirm dialog, selects, search and number inputs, stat grid, list item, tile, page header.
+  confirm dialog, selects, search and number inputs, stat grid, list item, tile, text link,
+  page header.
 - Screens use only these two. A screen with its own button, field, label, badge or status
   color is a missing variant or a missing kit block: add it there instead.
 
-`<Button>` variants: `fill` (default, the accent sweep), `danger`, `outline`, `dashed`,
-`ghost`, `toolbar` (active state through `aria-pressed`), `quiet`, `quiet-danger`, `link`;
+`<Button>` variants: `fill` (default, the accent sweep), `fill-accent` (the same, accent at
+rest), `danger`, `outline`, `outline-accent` (accent on hover), `dashed`, `ghost`, `toolbar`
+(active state through `aria-pressed`), `quiet`, `quiet-danger`, `link`;
 sizes `xs…xl` and `icon-sm` / `icon` / `icon-lg`. It takes `icon`, `loading` and `to`.
 Toasts go through `useAppToast().add({ title, description, icon, color, actions })`, which
 renders `ui/sonner/Toast.vue` in vue-sonner.

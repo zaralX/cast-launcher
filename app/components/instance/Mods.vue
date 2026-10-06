@@ -626,13 +626,9 @@ watch(instanceId, () => {
                 v-if="mod.details.homepage"
                 :label="$t('instance.mods.page')"
               >
-                <button
-                  type="button"
-                  class="max-w-full cursor-pointer truncate text-acid transition-opacity duration-300 hover:opacity-70"
-                  @click="openHomepage(mod.details.homepage)"
-                >
+                <KitLink @click="openHomepage(mod.details.homepage)">
                   {{ mod.details.homepage }}
-                </button>
+                </KitLink>
               </KitDetail>
             </KitDetails>
 

@@ -7,14 +7,13 @@ const props = withDefaults(defineProps<{
   description?: string
   icon?: string
   color?: ToastColor
-  duration?: number
+  duration: number
   actions?: ToastAction[]
   isPaused?: boolean
 }>(), {
   description: undefined,
   icon: undefined,
   color: 'neutral',
-  duration: 5000,
   actions: () => [],
   isPaused: false,
 })

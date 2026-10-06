@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 import type { StatusTone } from '~/types/ui'
+import { STATUS_TONE } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<{
@@ -12,17 +13,10 @@ const props = withDefaults(defineProps<{
   dot: 'blink',
   class: undefined,
 })
-
-const TONE: Record<StatusTone, string> = {
-  muted: 'text-fg-faint',
-  accent: 'text-acid',
-  warning: 'text-warning',
-  danger: 'text-danger',
-}
 </script>
 
 <template>
-  <p :class="cn('flex items-start gap-2.5 font-mono text-label uppercase leading-relaxed tracking-caps', TONE[tone], props.class)">
+  <p :class="cn('flex items-start gap-2.5 font-mono text-label uppercase leading-relaxed tracking-caps', STATUS_TONE[tone], props.class)">
     <span class="flex h-[1.625em] shrink-0 items-center">
       <KitLiveDot
         v-if="dot === 'live'"

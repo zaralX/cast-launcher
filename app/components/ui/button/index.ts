@@ -12,8 +12,10 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         'fill': `${SWEEP} border border-line text-fg before:bg-acid hover:border-acid hover:text-on-acid`,
+        'fill-accent': `${SWEEP} border border-acid/40 text-acid before:bg-acid hover:border-acid hover:text-on-acid`,
         'danger': `${SWEEP} border border-danger/30 text-danger before:bg-danger-strong hover:border-danger-strong hover:text-on-danger`,
         'outline': 'border border-line text-fg-muted hover:border-line-strong hover:text-fg',
+        'outline-accent': 'border border-line text-fg-faint hover:border-acid hover:text-acid',
         'dashed': 'border border-dashed border-line text-fg-faint hover:border-acid/50 hover:text-acid',
         'ghost': 'text-fg-faint hover:bg-ink-600 hover:text-fg',
         'toolbar': 'text-fg-faint hover:text-fg aria-pressed:text-acid',

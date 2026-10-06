@@ -88,9 +88,10 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
 
           <Button
             v-if="state === 'running'"
+            variant="fill-accent"
             size="sm"
             icon="i-lucide-square"
-            class="w-full border-acid/40 text-acid"
+            class="w-full"
             @click="actions.stop(instance.id)"
           >
             {{ $t('instance.panel.stop') }}
@@ -130,12 +131,11 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
             <Button
               v-for="target in INSTANCE_DIRS"
               :key="target"
-              variant="outline"
+              variant="outline-accent"
               size="sm"
               :icon="DIR_ICONS[target]"
               :title="$t(INSTANCE_DIR_KEYS[target])"
               :aria-label="$t(INSTANCE_DIR_KEYS[target])"
-              class="text-fg-faint hover:border-acid hover:text-acid"
               @click="actions.openDir(instance.id, target)"
             />
           </div>

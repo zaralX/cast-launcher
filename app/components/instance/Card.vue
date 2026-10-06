@@ -116,11 +116,11 @@ const playtime = computed(() => formatPlaytime(total.value) || t('instance.playt
 
       <Button
         :to="`/instance/${instance.id}`"
-        variant="outline"
+        variant="outline-accent"
         size="icon-sm"
         :aria-label="$t('instance.settings_title', { name: instance.name })"
         :title="$t('instance.settings_title', { name: instance.name })"
-        class="group/cfg shrink-0 text-fg-faint hover:border-acid hover:text-acid"
+        class="group/cfg shrink-0"
       >
         <Icon
           name="i-lucide-settings"

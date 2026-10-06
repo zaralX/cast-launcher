@@ -25,9 +25,9 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const NuxtLink = resolveComponent('NuxtLink')
-const resolvedAs = computed(() => (props.to != null ? NuxtLink : props.as))
 
 const isLink = computed(() => props.to != null)
+const resolvedAs = computed(() => (isLink.value ? NuxtLink : props.as))
 const isDisabled = computed(() => props.disabled || props.loading)
 const iconClass = computed(() => (props.size === 'xs' ? 'size-3' : 'size-3.5'))
 </script>

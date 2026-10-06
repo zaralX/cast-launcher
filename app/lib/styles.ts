@@ -1,4 +1,6 @@
-// Shared looks of the primitives in components/ui: a field, a floating panel, a menu row.
+// Looks shared by several components in ui/ and kit/: a field, a floating panel, a menu row, a status tone.
+
+import type { StatusTone } from '~/types/ui'
 
 export const FIELD = 'rounded-none bg-ink-900 text-lead text-fg ring ring-inset ring-line outline-none transition-colors '
   + 'placeholder:text-fg-faint focus-visible:ring-2 focus-visible:ring-acid/60 '
@@ -11,3 +13,10 @@ export const FLOATING = 'z-50 border border-line bg-ink-800 text-fg shadow-lg ou
 export const MENU_ITEM = 'relative flex w-full cursor-pointer items-center gap-1.5 p-1.5 text-fg-muted outline-none select-none transition-colors '
   + 'data-[highlighted]:bg-ink-700 data-[highlighted]:text-fg '
   + 'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-75'
+
+export const STATUS_TONE: Record<StatusTone, string> = {
+  muted: 'text-fg-faint',
+  accent: 'text-acid',
+  warning: 'text-warning',
+  danger: 'text-danger',
+}
