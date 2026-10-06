@@ -30,8 +30,12 @@ Package manager is **npm** (`package-lock.json`). Cargo commands run from `src-t
 | `cargo fmt --all`                                      | rustfmt                                                |
 
 `nuxt dev` alone in a browser hangs on start: `bootstrap` has no Rust to answer it. The
-frontend has no tests, so `lint` + `typecheck` is its gate. CI runs all of the above:
-rustfmt and clippy block merges, clippy runs on all three platforms.
+frontend has no tests, so `lint` + `typecheck` is its gate. CI runs all of the above on a
+pull request: rustfmt, `cargo test` and clippy on all three platforms when `src-tauri/` or
+`i18n/` changes, eslint + typecheck + generate when the frontend changes. CI takes the latest
+stable Rust, so a new release can bring new clippy lints: keep the local toolchain current
+(`rustup update stable`). Code under `cfg(windows)` / `cfg(target_os = …)` is only checked
+on its own platform, so CI is the first to see it compile elsewhere.
 
 On a `*-windows-gnu` toolchain cargo needs a working MinGW gcc for bundled SQLite; under
 Git Bash it fails, so run cargo from PowerShell.
