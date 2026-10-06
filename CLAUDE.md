@@ -235,6 +235,8 @@ hand. The bulk-format commits are in `.git-blame-ignore-revs`
 
 - Version: `node scripts/set-version.mjs X.Y.Z`. Strictly X.Y.Z: the NSIS installer and
   the updater's version comparison break on suffixes.
+- `@tauri-apps/api` is pinned to the minor of the `tauri` crate (`~2.9.1` for 2.9.x):
+  `tauri build` refuses mismatched major/minor versions, so bump both together.
 - `bundle.targets` in `src-tauri/tauri.conf.json` stays an explicit list without `msi`:
   with `"all"` the updater's `windows-x86_64` entry points at the MSI and NSIS installs
   get a second, separate install.
