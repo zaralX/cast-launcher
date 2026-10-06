@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import type { HTMLAttributes } from 'vue'
 import type { StatusTone } from '~/types/ui'
+import { cn } from '@/lib/utils'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   icon: string
   tone?: StatusTone
+  class?: HTMLAttributes['class']
 }>(), {
   tone: 'warning',
+  class: undefined,
 })
 
 const TONE: Record<StatusTone, string> = {
@@ -17,7 +21,7 @@ const TONE: Record<StatusTone, string> = {
 </script>
 
 <template>
-  <p class="flex items-start gap-2.5 text-body leading-relaxed text-fg-muted">
+  <p :class="cn('flex items-start gap-2.5 text-body leading-relaxed text-fg-muted', props.class)">
     <Icon
       :name="icon"
       class="mt-0.5 size-3.5 shrink-0"

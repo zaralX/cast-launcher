@@ -16,6 +16,7 @@ export const buttonVariants = cva(
         'outline': 'border border-line text-fg-muted hover:border-line-strong hover:text-fg',
         'dashed': 'border border-dashed border-line text-fg-faint hover:border-acid/50 hover:text-acid',
         'ghost': 'text-fg-faint hover:bg-ink-600 hover:text-fg',
+        'toolbar': 'text-fg-faint hover:text-fg aria-pressed:text-acid',
         'quiet': 'text-fg-muted hover:text-acid',
         'quiet-danger': 'text-fg-muted hover:text-danger',
         'link': 'text-acid hover:opacity-70',

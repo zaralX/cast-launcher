@@ -43,7 +43,7 @@ async function confirmRemove() {
 </script>
 
 <template>
-  <SettingsPanel
+  <KitPanel
     index="02"
     :title="$t('settings.accounts.title')"
     icon="i-lucide-user-round"
@@ -53,135 +53,106 @@ async function confirmRemove() {
         v-if="accountConfig?.accounts?.length"
         class="border-t border-line"
       >
-        <li
+        <KitListItem
           v-for="(account, i) in accountConfig!.accounts"
           :key="`${account.type}-${account.name}-${i}`"
-          class="group relative flex cursor-pointer items-center gap-4 border-b border-line py-3.5 pl-4 px-4 transition-colors duration-300 hover:bg-ink-700"
-          @click="selectAccount(i)"
+          :active="accountConfig?.selected === i"
+          :active-label="$t('settings.accounts.active')"
+          class="pr-4"
+          @select="selectAccount(i)"
         >
-          <span
-            class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-            :class="accountConfig?.selected === i ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
-          />
+          <template #leading>
+            <img
+              :src="`https://assets.zaralx.ru/api/v2/minecraft/players/${account.name}/face`"
+              class="size-8 shrink-0 transition-transform duration-500 ease-deck group-hover:scale-105"
+              :alt="account.name"
+              @error="fallbackFace"
+            >
+          </template>
 
-          <img
-            :src="`https://assets.zaralx.ru/api/v2/minecraft/players/${account.name}/face`"
-            class="size-8 shrink-0 transition-transform duration-500 ease-deck group-hover:scale-105"
-            :alt="account.name"
-            @error="fallbackFace"
-          >
+          <p class="truncate text-title text-fg">
+            {{ account.name }}
+          </p>
+          <p class="mt-1 font-mono text-micro uppercase tracking-caps text-fg-faint">
+            {{ account.type === 'microsoft' ? 'Microsoft' : $t('settings.accounts.offline') }}
+          </p>
 
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-[13px] text-fg">
-              {{ account.name }}
-            </p>
-            <p class="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              {{ account.type === 'microsoft' ? 'Microsoft' : $t('settings.accounts.offline') }}
-            </p>
-          </div>
-
-          <span
-            v-if="accountConfig?.selected === i"
-            class="shrink-0 font-mono text-[9px] uppercase tracking-[0.2em] text-acid"
-          >
-            {{ $t('settings.accounts.active') }}
-          </span>
-
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-trash-2"
-            :aria-label="$t('settings.accounts.remove')"
-            class="shrink-0 p-1 text-fg-faint transition-colors duration-300 hover:bg-transparent hover:text-red-400"
-            :disabled="!account.uuid"
-            @click.stop="() => { removeTarget = account }"
-          />
-        </li>
+          <template #trailing>
+            <Button
+              variant="quiet-danger"
+              size="icon-sm"
+              icon="i-lucide-trash-2"
+              :aria-label="$t('settings.accounts.remove')"
+              class="text-fg-faint"
+              :disabled="!account.uuid"
+              @click.stop="removeTarget = account"
+            />
+          </template>
+        </KitListItem>
       </ul>
 
       <p
         v-else
-        class="border-y border-line py-6 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+        class="border-y border-line py-6 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
       >
         {{ $t('settings.accounts.empty') }}
       </p>
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        <AppButton
-          block
-          class="h-10 text-[10px] tracking-[0.18em]"
+      <div class="grid grid-cols-2 gap-4">
+        <Button
+          size="lg"
           icon="simple-icons:microsoft"
+          class="w-full text-label"
           :loading="loggingIn"
           @click="createMicrosoftAccount"
         >
           Microsoft
-        </AppButton>
+        </Button>
 
-        <UPopover mode="hover">
-          <UButton
-            block
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-globe"
-            class="h-10 justify-center border border-line text-[10px] tracking-[0.18em] text-fg-muted hover:border-line-strong hover:bg-transparent hover:text-fg"
-          >
-            {{ $t('settings.accounts.offline') }}
-          </UButton>
+        <HoverCard>
+          <HoverCardTrigger as-child>
+            <Button
+              variant="outline"
+              size="lg"
+              icon="i-lucide-globe"
+              class="w-full text-label"
+            >
+              {{ $t('settings.accounts.offline') }}
+            </Button>
+          </HoverCardTrigger>
 
-          <template #content>
-            <div class="w-64 space-y-4 p-5">
-              <SettingsField :label="$t('settings.accounts.nickname')">
-                <UInput
-                  v-model="offlineNickname"
-                  placeholder="nickname"
-                  class="w-full"
-                />
-              </SettingsField>
-              <AppButton
-                block
-                class="h-9 text-[10px] tracking-[0.18em]"
-                :disabled="!offlineNickname.trim()"
-                @click="createOfflineAccount"
-              >
-                {{ $t('common.add') }}
-              </AppButton>
-            </div>
-          </template>
-        </UPopover>
+          <HoverCardContent class="w-64 space-y-4 p-5">
+            <KitField
+              :label="$t('settings.accounts.nickname')"
+              for="offline-nickname"
+            >
+              <Input
+                id="offline-nickname"
+                v-model="offlineNickname"
+                placeholder="nickname"
+                @keydown.enter="createOfflineAccount"
+              />
+            </KitField>
+            <Button
+              class="w-full"
+              :disabled="!offlineNickname.trim()"
+              @click="createOfflineAccount"
+            >
+              {{ $t('common.add') }}
+            </Button>
+          </HoverCardContent>
+        </HoverCard>
       </div>
     </div>
 
-    <UModal
+    <KitConfirmDialog
       :open="!!removeTarget"
       :title="$t('settings.accounts.remove_title')"
+      :description="$t('settings.accounts.remove_text', { name: removeTarget?.name })"
+      :confirm-label="$t('common.delete')"
+      :loading="removing"
       @update:open="value => { if (!value) removeTarget = null }"
-    >
-      <template #body>
-        <p class="text-[12px] leading-relaxed text-fg-muted">
-          {{ $t('settings.accounts.remove_text', { name: removeTarget?.name }) }}
-        </p>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full items-center justify-end gap-3">
-          <AppButton
-            tone="quiet"
-            class="text-[10px] tracking-[0.18em]"
-            @click="removeTarget = null"
-          >
-            {{ $t('common.cancel') }}
-          </AppButton>
-
-          <AppButton
-            class="h-8 text-[10px] tracking-[0.18em] hover:border-red-500 hover:before:bg-red-500 hover:text-white"
-            icon="i-lucide-trash-2"
-            :loading="removing"
-            @click="confirmRemove"
-          >
-            {{ $t('common.delete') }}
-          </AppButton>
-        </div>
-      </template>
-    </UModal>
-  </SettingsPanel>
+      @confirm="confirmRemove"
+    />
+  </KitPanel>
 </template>

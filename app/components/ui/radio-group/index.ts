@@ -10,6 +10,7 @@ export const radioGroupVariants = cva('', {
     variant: {
       segmented: 'flex border border-line',
       tiles: 'flex flex-wrap gap-2',
+      cards: 'grid gap-3',
     },
   },
   defaultVariants: {
@@ -24,6 +25,7 @@ export const radioGroupItemVariants = cva(
       variant: {
         segmented: 'flex-1 border-l border-line text-fg-faint first:border-l-0 hover:bg-ink-700/50 hover:text-fg-muted data-[state=checked]:bg-ink-700 data-[state=checked]:text-fg',
         tiles: 'border border-line text-fg-muted hover:border-line-strong hover:text-fg data-[state=checked]:border-fg data-[state=checked]:text-fg',
+        cards: 'justify-start gap-4 border border-line p-4 text-left hover:border-line-strong hover:bg-ink-700 data-[state=checked]:border-acid/60 data-[state=checked]:bg-ink-700',
       },
     },
     defaultVariants: {

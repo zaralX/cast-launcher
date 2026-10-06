@@ -174,138 +174,132 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-7">
-    <div class="grid gap-3 sm:grid-cols-2">
-      <button
+    <RadioGroup
+      v-model="source"
+      variant="cards"
+      :disabled="running"
+      class="grid-cols-2"
+    >
+      <RadioGroupItem
         v-for="option in SOURCES"
         :key="option.kind"
-        type="button"
-        class="group relative flex items-center gap-4 border border-line px-4 py-4 text-left transition-colors duration-300 hover:border-line-strong hover:bg-ink-700"
-        :class="source === option.kind ? 'border-acid/60 bg-ink-700' : ''"
-        :disabled="running"
-        @click="source = option.kind"
+        :value="option.kind"
       >
-        <UIcon
+        <Icon
           :name="option.icon"
-          class="size-5 shrink-0"
-          :class="source === option.kind ? 'text-acid' : 'text-fg-faint'"
+          class="size-5 shrink-0 text-fg-faint group-data-[state=checked]:text-acid"
         />
 
         <div class="min-w-0 flex-1">
-          <p class="truncate text-[13px] text-fg">
+          <p class="truncate text-title text-fg">
             {{ option.label }}
           </p>
-          <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
+          <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
             {{ $t(option.hintKey) }}
           </p>
         </div>
-      </button>
-    </div>
+      </RadioGroupItem>
+    </RadioGroup>
 
-    <SettingsField
+    <KitField
       :label="$t('settings.import.dir', { launcher: current.label })"
       :hint="detected
         ? $t('settings.import.detected', { count: detected.instances })
         : $t('settings.import.not_detected', { launcher: current.label })"
+      for="import-launcher-path"
     >
       <div class="flex gap-2">
-        <UInput
+        <Input
+          id="import-launcher-path"
           v-model="path"
           :placeholder="current.placeholder"
-          class="w-full"
+          size="lg"
+          font="mono"
           :disabled="running"
-          :ui="{ base: 'font-mono text-[12px]' }"
         />
 
-        <AppButton
-          class="h-9 shrink-0 px-4 text-[10px] tracking-[0.18em]"
+        <Button
           icon="i-lucide-folder-open"
           :disabled="running"
           @click="browse"
         >
           {{ $t('common.browse') }}
-        </AppButton>
+        </Button>
 
-        <AppButton
-          class="h-9 shrink-0 px-4 text-[10px] tracking-[0.18em]"
+        <Button
           icon="i-lucide-search"
           :loading="scanning"
           :disabled="!canScan"
           @click="scan"
         >
           {{ scanning ? $t('settings.java.searching') : $t('settings.import.scan') }}
-        </AppButton>
+        </Button>
       </div>
-    </SettingsField>
+    </KitField>
 
     <div v-if="scanned">
       <div class="mb-2 flex items-center justify-between gap-4">
-        <span class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
+        <Label>
           {{ $t('settings.import.selected', { selected: selected.length, total: importable.length }) }}
-        </span>
+        </Label>
 
-        <AppButton
-          tone="quiet"
-          class="text-[10px] tracking-[0.18em]"
+        <Button
+          variant="quiet"
           :icon="allSelected ? 'i-lucide-square' : 'i-lucide-check-square'"
           :disabled="running || !importable.length"
           @click="toggleAll"
         >
           {{ allSelected ? $t('settings.import.unselect_all') : $t('settings.import.select_all') }}
-        </AppButton>
+        </Button>
       </div>
 
       <ul class="border-t border-line">
-        <li
+        <KitListItem
           v-for="instance in scanned"
           :key="instance.folder"
-          class="group relative flex items-center gap-4 border-b border-line py-3.5 pl-4 pr-1 transition-colors duration-300"
-          :class="instance.blocked ? 'opacity-45' : 'cursor-pointer hover:bg-ink-700'"
-          @click="toggle(instance)"
+          :active="isSelected(instance.folder)"
+          :disabled="!!instance.blocked"
+          @select="toggle(instance)"
         >
-          <span
-            class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-            :class="isSelected(instance.folder) ? 'scale-y-100' : 'scale-y-0'"
-          />
+          <template #leading>
+            <Icon
+              :name="instance.blocked ? 'i-lucide-ban' : isSelected(instance.folder) ? 'i-lucide-check' : 'i-lucide-minus'"
+              class="size-4 shrink-0"
+              :class="isSelected(instance.folder) ? 'text-acid' : 'text-fg-faint'"
+            />
+          </template>
 
-          <UIcon
-            :name="instance.blocked ? 'i-lucide-ban' : isSelected(instance.folder) ? 'i-lucide-check' : 'i-lucide-minus'"
-            class="size-4 shrink-0"
-            :class="isSelected(instance.folder) ? 'text-acid' : 'text-fg-faint'"
-          />
-
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-[13px] text-fg">
-              {{ instance.name }}
-            </p>
-            <p class="mt-1 truncate font-mono text-[9px] uppercase tracking-[0.2em] text-fg-faint">
-              {{ instance.minecraftVersion || '-' }} · {{ instance.loaderLabel }}
-              <template v-if="instance.pack">
-                · {{ instance.pack.provider }}
-              </template>
-              <template v-if="formatPlaytime(instance.playtime?.totalSeconds ?? 0)">
-                · {{ $t('settings.import.playtime', { playtime: formatPlaytime(instance.playtime.totalSeconds) }) }}
-              </template>
-            </p>
-            <p
-              v-if="instance.blocked"
-              class="mt-1 truncate font-mono text-[10px] text-amber-400"
-            >
-              {{ uiText(instance.blocked) }}
-            </p>
-          </div>
-        </li>
+          <p class="truncate text-title text-fg">
+            {{ instance.name }}
+          </p>
+          <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
+            {{ instance.minecraftVersion || '-' }} · {{ instance.loaderLabel }}
+            <template v-if="instance.pack">
+              · {{ instance.pack.provider }}
+            </template>
+            <template v-if="formatPlaytime(instance.playtime?.totalSeconds ?? 0)">
+              · {{ $t('settings.import.playtime', { playtime: formatPlaytime(instance.playtime.totalSeconds) }) }}
+            </template>
+          </p>
+          <p
+            v-if="instance.blocked"
+            class="mt-1 truncate font-mono text-label text-warning"
+          >
+            {{ uiText(instance.blocked) }}
+          </p>
+        </KitListItem>
       </ul>
 
       <p
         v-if="!scanned.length"
-        class="border-b border-line py-6 text-center font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint"
+        class="border-b border-line py-6 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
       >
         {{ $t('settings.import.empty') }}
       </p>
 
       <p
         v-else-if="blocked.length"
-        class="mt-3 font-mono text-[10px] leading-relaxed text-fg-faint/70"
+        class="mt-3 font-mono text-label leading-relaxed text-fg-faint/70"
       >
         {{ $t('settings.import.blocked', { count: blocked.length, launcher: current.label }) }}
       </p>
@@ -315,34 +309,27 @@ onMounted(async () => {
       v-if="scanned?.length"
       class="space-y-4 border-t border-line pt-6"
     >
-      <div
+      <KitRow
         v-for="row in rows"
         :key="row.key"
-        class="flex items-center justify-between gap-6"
+        :bordered="false"
+        :label="row.title"
+        :description="row.hint"
       >
-        <div class="min-w-0">
-          <p class="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-faint">
-            {{ row.title }}
-          </p>
-          <p class="mt-2 text-[12px] leading-relaxed text-fg-muted">
-            {{ row.hint }}
-          </p>
-        </div>
-
-        <USwitch
+        <Switch
           v-model="options[row.key]"
           size="lg"
           :disabled="running"
         />
-      </div>
+      </KitRow>
     </div>
 
-    <div
+    <Alert
       v-if="running"
-      class="border border-line bg-ink-700 px-5 py-4"
+      class="block bg-ink-700 px-5 py-4"
     >
       <div class="flex items-center justify-between gap-4">
-        <p class="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.24em] text-acid">
+        <p class="min-w-0 truncate font-mono text-label uppercase tracking-caps text-acid">
           {{ progress ? $t(STAGE_KEYS[progress.stage]) : $t('settings.import.preparing') }}
           <span
             v-if="progress?.step"
@@ -350,17 +337,16 @@ onMounted(async () => {
           > · {{ uiText(progress.step) }}</span>
         </p>
 
-        <AppButton
-          tone="quiet"
-          class="shrink-0 text-[10px] tracking-[0.18em]"
+        <Button
+          variant="quiet"
           icon="i-lucide-x"
           @click="cancel"
         >
           {{ $t('settings.import.cancel') }}
-        </AppButton>
+        </Button>
       </div>
 
-      <p class="mt-3 font-mono text-[10px] text-fg-faint">
+      <p class="mt-3 font-mono text-label text-fg-faint">
         <template v-if="progress">
           {{ $t('settings.import.files', { files: progress.stats.files, bytes: formatBytes(progress.stats.bytes) }) }}
           <template v-if="progress.stats.skipped">
@@ -374,20 +360,20 @@ onMounted(async () => {
           {{ $t('settings.import.reading', { launcher: current.label }) }}
         </template>
       </p>
-    </div>
+    </Alert>
 
-    <div
+    <Alert
       v-else-if="report"
-      class="border border-line bg-ink-700 px-5 py-4"
+      class="block bg-ink-700 px-5 py-4"
     >
       <p
-        class="font-mono text-[10px] uppercase tracking-[0.24em]"
-        :class="report.cancelled ? 'text-amber-400' : 'text-acid'"
+        class="font-mono text-label uppercase tracking-caps"
+        :class="report.cancelled ? 'text-warning' : 'text-acid'"
       >
         {{ report.cancelled ? $t('settings.import.cancelled') : $t('settings.import.finished') }}
       </p>
 
-      <p class="mt-3 text-[12px] leading-relaxed text-fg-muted">
+      <p class="mt-3">
         {{ $t('settings.import.report', {
           imported: report.imported.length,
           files: report.stats.files,
@@ -402,23 +388,23 @@ onMounted(async () => {
         <li
           v-for="skipped in report.skipped"
           :key="skipped.name"
-          class="font-mono text-[10px] leading-relaxed text-amber-400"
+          class="font-mono text-label leading-relaxed text-warning"
         >
           {{ skipped.name }} - {{ uiText(skipped.reason) }}
         </li>
       </ul>
-    </div>
+    </Alert>
 
-    <AppButton
+    <Button
       v-if="scanned?.length"
-      block
-      class="h-11 tracking-[0.2em]"
+      size="xl"
       icon="i-lucide-download"
+      class="w-full"
       :loading="running"
       :disabled="!canImport"
       @click="start"
     >
       {{ running ? $t('settings.import.running') : $t('settings.import.start', { count: selected.length }) }}
-    </AppButton>
+    </Button>
   </div>
 </template>
