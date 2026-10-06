@@ -6,7 +6,7 @@ definePageMeta({
   layout: 'main',
 })
 
-const toast = useToast()
+const toast = useAppToast()
 
 const { t } = useI18n()
 const skinStore = useSkinStore()
@@ -193,8 +193,6 @@ async function save() {
     icon: 'i-lucide-check',
     actions: [{
       label: t('skins.undo'),
-      color: 'neutral',
-      variant: 'outline',
       onClick: () => undo(),
     }],
   })

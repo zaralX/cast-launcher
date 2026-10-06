@@ -6,7 +6,7 @@ const props = defineProps<{ instance: Instance }>()
 
 const instanceStore = useInstanceStore()
 const castpackStore = useCastPackStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const checking = ref(false)
 const update = ref<CastPackUpdate | null>(null)

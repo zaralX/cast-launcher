@@ -9,7 +9,7 @@ definePageMeta({
 type Tab = 'general' | 'mods' | 'castpack' | 'pack' | 'java' | 'logs'
 
 const route = useRoute()
-const toast = useToast()
+const toast = useAppToast()
 
 const instanceStore = useInstanceStore()
 

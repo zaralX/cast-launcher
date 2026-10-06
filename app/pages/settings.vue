@@ -7,7 +7,7 @@ const store = useAppStore()
 const { config } = storeToRefs(store)
 
 const { t } = useI18n()
-const toast = useToast()
+const toast = useAppToast()
 const saving = ref(false)
 
 const saved = ref<string | null>(null)

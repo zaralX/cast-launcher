@@ -42,7 +42,7 @@ const thanks = computed(() => [
   { name: t('credits.thanks.testers_name'), note: t('credits.thanks.testers') },
 ])
 
-const toast = useToast()
+const toast = useAppToast()
 
 const version = ref('')
 const tauriVersion = ref('')

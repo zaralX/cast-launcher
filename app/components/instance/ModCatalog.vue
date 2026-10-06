@@ -21,7 +21,7 @@ const SORTS = computed(() => [
 ])
 
 const modsStore = useModsStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const instanceId = computed(() => props.instance.id)
 

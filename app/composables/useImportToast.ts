@@ -1,6 +1,6 @@
 export function useImportToast() {
   const { t } = useI18n()
-  const toast = useToast()
+  const toast = useAppToast()
   const instanceStore = useInstanceStore()
 
   return (instanceId: string, updated: boolean) => {

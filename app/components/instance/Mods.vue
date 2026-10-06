@@ -10,7 +10,7 @@ const ICON_BATCH = 10
 type Filter = 'all' | 'enabled' | 'disabled' | 'outdated'
 
 const modsStore = useModsStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const instanceId = computed(() => props.instance.id)
 

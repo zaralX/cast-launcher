@@ -7,7 +7,7 @@ definePageMeta({
 
 const { t } = useI18n()
 const instanceStore = useInstanceStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const { installInstance, playInstance } = instanceStore
 const { instances, installs } = storeToRefs(instanceStore)

@@ -8,7 +8,7 @@ const LIVE = 'live'
 const { t, locale } = useI18n()
 const instanceStore = useInstanceStore()
 const { logs } = storeToRefs(instanceStore)
-const toast = useToast()
+const toast = useAppToast()
 
 const files = ref<InstanceLogFile[]>([])
 const source = ref<string>(LIVE)

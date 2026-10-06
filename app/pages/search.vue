@@ -179,7 +179,7 @@ const onInstalled = () => {
 
 const castpackStore = useCastPackStore()
 const instanceStore = useInstanceStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const { catalog, loading: catalogLoading, loaded: catalogLoaded } = storeToRefs(castpackStore)
 

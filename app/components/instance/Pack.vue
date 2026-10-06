@@ -7,7 +7,7 @@ import type { LauncherError } from '~/utils/error'
 const props = defineProps<{ instance: Instance }>()
 
 const instanceStore = useInstanceStore()
-const toast = useToast()
+const toast = useAppToast()
 
 const loading = ref(true)
 const loadError = ref<LauncherError | null>(null)

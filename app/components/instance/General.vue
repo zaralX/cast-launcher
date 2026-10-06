@@ -12,7 +12,7 @@ const pickerOpen = ref(false)
 
 const instanceStore = useInstanceStore()
 const router = useRouter()
-const toast = useToast()
+const toast = useAppToast()
 
 const running = computed(() => instanceStore.isRunning(props.instance.id))
 const installing = computed(() => !!instanceStore.getInstall(props.instance.id))

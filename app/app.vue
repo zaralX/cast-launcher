@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { ErrorSeverity } from '~/types/error'
 
-const toaster = { position: 'bottom-right' } as const
-
 const TOAST_COLOR: Record<ErrorSeverity, 'error' | 'warning' | 'info'> = {
   error: 'error',
   warning: 'warning',
@@ -10,13 +8,11 @@ const TOAST_COLOR: Record<ErrorSeverity, 'error' | 'warning' | 'info'> = {
 }
 
 const { t } = useI18n()
-const toast = useToast()
+const toast = useAppToast()
 const errorCenterOpen = useErrorCenterOpen()
 
 useAppearance()
 useLanguage()
-
-const uiLocale = useUiLocale()
 
 const unregister = registerErrorSink((entry) => {
   toast.add({
@@ -27,8 +23,6 @@ const unregister = registerErrorSink((entry) => {
     duration: entry.severity === 'info' ? 4000 : 8000,
     actions: [{
       label: t('common.details'),
-      color: 'neutral',
-      variant: 'outline',
       onClick: () => {
         errorCenterOpen.value = true
       },
@@ -41,14 +35,12 @@ onUnmounted(unregister)
 
 <template>
   <div class="grain relative max-w-screen max-h-screen overflow-hidden bg-ink-900 text-fg antialiased">
-    <UApp
-      :toaster="toaster"
-      :locale="uiLocale"
-    >
+    <TooltipProvider :delay-duration="0">
       <NuxtLayout>
         <NuxtPage />
       </NuxtLayout>
-    </UApp>
+      <Sonner />
+    </TooltipProvider>
   </div>
 </template>
 

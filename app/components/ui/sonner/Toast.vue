@@ -1,20 +1,25 @@
 <script setup lang="ts">
 import type { ToastAction, ToastColor } from '.'
-import { toast } from 'vue-sonner'
 import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<{
-  toastId: string | number
   title: string
   description?: string
   icon?: string
   color?: ToastColor
   duration?: number
   actions?: ToastAction[]
+  isPaused?: boolean
 }>(), {
+  description: undefined,
+  icon: undefined,
   color: 'neutral',
   duration: 5000,
+  actions: () => [],
+  isPaused: false,
 })
+
+const emit = defineEmits<{ closeToast: [] }>()
 
 const TONE: Record<ToastColor, { icon: string, bar: string }> = {
   neutral: { icon: 'text-fg', bar: 'bg-fg-muted' },
@@ -26,7 +31,7 @@ const TONE: Record<ToastColor, { icon: string, bar: string }> = {
 
 function run(action: ToastAction, event: MouseEvent) {
   action.onClick(event)
-  toast.dismiss(props.toastId)
+  emit('closeToast')
 }
 </script>
 
@@ -52,7 +57,7 @@ function run(action: ToastAction, event: MouseEvent) {
         {{ description }}
       </p>
       <div
-        v-if="actions?.length"
+        v-if="actions.length"
         class="mt-2.5 flex items-start gap-1.5"
       >
         <Button
@@ -73,13 +78,16 @@ function run(action: ToastAction, event: MouseEvent) {
       icon="i-lucide-x"
       :aria-label="$t('common.close')"
       class="-mt-1.5 -mr-1.5 shrink-0"
-      @click="toast.dismiss(toastId)"
+      @click="emit('closeToast')"
     />
 
     <span
-      v-if="duration !== Infinity"
-      :class="cn('absolute inset-x-0 bottom-0 h-0.5 origin-left group-hover/toaster:[animation-play-state:paused]', TONE[color].bar)"
-      :style="{ animation: `toast-timer ${duration}ms linear forwards` }"
+      v-if="Number.isFinite(props.duration)"
+      :class="cn('absolute inset-x-0 bottom-0 h-0.5 origin-left', TONE[color].bar)"
+      :style="{
+        animation: `toast-timer ${props.duration}ms linear forwards`,
+        animationPlayState: isPaused ? 'paused' : 'running',
+      }"
     />
   </div>
 </template>

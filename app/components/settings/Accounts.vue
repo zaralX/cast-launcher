@@ -4,7 +4,7 @@ import type { Account } from '~/types/account'
 const { t } = useI18n()
 const accountStore = useAccountStore()
 const { accountConfig, loggingIn } = storeToRefs(accountStore)
-const toast = useToast()
+const toast = useAppToast()
 
 const offlineNickname = ref('')
 const removeTarget = ref<Account | null>(null)
