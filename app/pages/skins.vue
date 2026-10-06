@@ -250,7 +250,7 @@ watch(activeUuid, uuid => reload(uuid))
         <div class="flex items-center gap-3 border border-line bg-ink-800 px-4 py-3">
           <img
             v-if="account"
-            :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${account.name}/full`"
+            :src="`https://assets.zaralx.ru/api/v2/minecraft/players/${account.name}/face`"
             class="size-7 shrink-0"
             :alt="account.name"
             @error="fallbackFace"

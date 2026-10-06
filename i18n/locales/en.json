@@ -563,6 +563,7 @@
   "item.category.ingredients": "Ingredients",
   "item.category.spawn_eggs": "Spawn eggs",
   "item.category.op_blocks": "Operator blocks",
+  "item.category.uncategorized": "Uncategorized",
   "instance.java.memory_title": "Memory",
   "instance.java.override_memory": "Custom values",
   "instance.java.override_memory_hint": "Without an override the values from the launcher settings are used.",

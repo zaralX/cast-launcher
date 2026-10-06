@@ -177,7 +177,7 @@ onMounted(async () => {
             class="group relative grid size-10 place-items-center border border-line bg-ink-700 transition-colors duration-300 hover:border-acid/50"
           >
             <img
-              :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${currentAccount.name}/full`"
+              :src="`https://assets.zaralx.ru/api/v2/minecraft/players/${currentAccount.name}/face`"
               class="size-6 transition-transform duration-300 group-hover:scale-110"
               :alt="currentAccount.name"
               @error="fallbackFace"

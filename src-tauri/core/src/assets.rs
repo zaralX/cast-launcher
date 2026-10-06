@@ -3,12 +3,12 @@ use std::collections::BTreeMap;
 use crate::error::{CommandError, CommandResult};
 use crate::net::meta_cache::MetaCache;
 
-pub const BASE: &str = "https://assets.zaralx.ru/api/v1/minecraft/vanilla";
+pub const BASE: &str = "https://assets.zaralx.ru/api/v2/minecraft/latest";
 
 pub type ItemCategories = BTreeMap<String, Vec<String>>;
 
 pub async fn item_categories(meta: &MetaCache) -> CommandResult<ItemCategories> {
-    let categories: ItemCategories = meta.fetch_json(&format!("{BASE}/item/categories")).await?;
+    let categories: ItemCategories = meta.fetch_json(&format!("{BASE}/creative-tabs")).await?;
 
     Ok(categories
         .into_iter()
@@ -54,7 +54,7 @@ pub fn item_icon_url(item: &str) -> CommandResult<String> {
         return Err(CommandError::unknown("error.reason.assets.invalid_item").param("item", item));
     }
 
-    Ok(format!("{BASE}/item/{item}/icon"))
+    Ok(format!("{BASE}/items/{item}/icon"))
 }
 
 pub fn item_icon_file(item: &str) -> String {
@@ -94,7 +94,7 @@ mod tests {
 
         assert_eq!(
             item_icon_url("grass_block").unwrap(),
-            "https://assets.zaralx.ru/api/v1/minecraft/vanilla/item/grass_block/icon"
+            "https://assets.zaralx.ru/api/v2/minecraft/latest/items/grass_block/icon"
         );
         assert!(item_icon_url("a/b").is_err());
     }

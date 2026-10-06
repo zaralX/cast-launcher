@@ -65,7 +65,7 @@ async function confirmRemove() {
           />
 
           <img
-            :src="`https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${account.name}/full`"
+            :src="`https://assets.zaralx.ru/api/v2/minecraft/players/${account.name}/face`"
             class="size-8 shrink-0 transition-transform duration-500 ease-deck group-hover:scale-105"
             :alt="account.name"
             @error="fallbackFace"

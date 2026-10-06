@@ -563,6 +563,7 @@
   "item.category.ingredients": "Ресурсы",
   "item.category.spawn_eggs": "Яйца призыва",
   "item.category.op_blocks": "Операторские блоки",
+  "item.category.uncategorized": "Без категории",
   "instance.java.memory_title": "Память",
   "instance.java.override_memory": "Свои значения",
   "instance.java.override_memory_hint": "Без переопределения используются значения из настроек лаунчера.",

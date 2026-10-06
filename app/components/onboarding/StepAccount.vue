@@ -8,7 +8,7 @@ const adding = ref(false)
 const accounts = computed(() => accountConfig.value?.accounts ?? [])
 
 const faceOf = (name: string) =>
-  `https://assets.zaralx.ru/api/v1/minecraft/vanilla/player/face/${encodeURIComponent(name)}/full`
+  `https://assets.zaralx.ru/api/v2/minecraft/players/${encodeURIComponent(name)}/face`
 
 async function addOffline() {
   const name = nickname.value.trim()
