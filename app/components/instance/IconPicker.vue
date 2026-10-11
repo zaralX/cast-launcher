@@ -152,7 +152,6 @@ onMounted(async () => {
           <InstanceIcon
             :icon="file.name"
             size="md"
-            :bordered="false"
           />
 
           <span

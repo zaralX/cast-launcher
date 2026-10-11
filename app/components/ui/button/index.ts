@@ -21,6 +21,7 @@ export const buttonVariants = cva(
         'danger-ghost': 'text-danger hover:bg-danger/12',
         'dashed': 'border border-dashed border-line-strong text-fg-muted hover:border-accent hover:text-accent',
         'link': 'text-accent underline-offset-2 hover:underline',
+        'play': 'bg-control text-fg hover:bg-accent hover:text-on-accent group-hover/card:bg-accent group-hover/card:text-on-accent',
       },
       size: {
         'sm': 'h-7 gap-1.5 px-2.5 text-caption',
@@ -29,6 +30,7 @@ export const buttonVariants = cva(
         'icon-sm': 'size-7',
         'icon': 'size-8',
         'icon-lg': 'size-10',
+        'round': 'size-9 rounded-pill',
       },
     },
     compoundVariants: [

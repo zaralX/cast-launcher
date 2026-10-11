@@ -4,9 +4,14 @@ import type { InstanceType } from '~/types/instance'
 const props = withDefaults(defineProps<{
   icon?: string
   type?: InstanceType
-  size?: 'sm' | 'md' | 'lg'
-  bordered?: boolean
-}>(), { icon: '', size: 'sm', bordered: true })
+  version?: string
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+}>(), {
+  icon: '',
+  type: undefined,
+  version: undefined,
+  size: 'sm',
+})
 
 const iconStore = useIconStore()
 
@@ -18,14 +23,16 @@ const TYPE_MARK: Record<InstanceType, string> = {
 }
 
 const SIZES = {
-  sm: 'size-8 text-caption',
-  md: 'size-12 text-body',
-  lg: 'size-20 text-[16px]',
+  sm: 'size-8 rounded-xs text-micro',
+  md: 'size-12 rounded-sm text-micro',
+  lg: 'size-13 rounded-sm text-caption',
+  xl: 'size-16 rounded-md text-body',
 }
 
-const mark = computed(() => (props.type && TYPE_MARK[props.type]) || '??')
+const mark = computed(() => (props.size !== 'sm' && props.version) || (props.type && TYPE_MARK[props.type]) || '??')
 const url = computed(() => iconStore.urlOf(props.icon))
 
+// Minecraft item icons are 16px sprites: they sit smaller in the middle and stay pixelated.
 const pixelated = computed(() => props.icon.startsWith('mc-'))
 
 watch(() => props.icon, (name) => {
@@ -35,19 +42,19 @@ watch(() => props.icon, (name) => {
 
 <template>
   <span
-    class="grid shrink-0 place-items-center overflow-hidden"
-    :class="[SIZES[size], bordered ? 'border border-line' : '']"
+    class="grid shrink-0 place-items-center overflow-hidden bg-control text-fg-muted"
+    :class="SIZES[size]"
   >
     <img
       v-if="url"
       :src="url"
       alt=""
-      class="size-full object-contain p-[3px]"
-      :class="pixelated ? '[image-rendering:pixelated]' : ''"
+      class="size-full"
+      :class="pixelated ? 'object-contain p-[23%] [image-rendering:pixelated]' : 'object-cover'"
     >
     <span
       v-else
-      class="font-mono tracking-[0.08em]"
+      class="truncate px-0.5 font-unbounded font-semibold tracking-heading"
     >{{ mark }}</span>
   </span>
 </template>

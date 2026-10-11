@@ -91,7 +91,8 @@ async function remove() {
           <InstanceIcon
             :icon="icon"
             :type="instance.type"
-            size="lg"
+            :version="instance.minecraftVersion"
+            size="xl"
           />
 
           <div class="min-w-0 flex-1">

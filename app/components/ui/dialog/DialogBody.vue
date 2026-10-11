@@ -10,7 +10,7 @@ const props = defineProps<{
 <template>
   <div
     data-slot="dialog-body"
-    :class="cn('min-h-0 flex-1 overflow-y-auto px-5 pt-4', props.class)"
+    :class="cn('min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-5', props.class)"
   >
     <slot />
   </div>

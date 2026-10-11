@@ -7,17 +7,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  export: [id: string]
   remove: [id: string]
 }>()
 
 const actions = useInstanceActions()
-
-const exportOpen = ref(false)
-
-// The panel stays mounted while the selection moves: a dialog of the previous instance closes.
-watch(() => props.instance?.id, () => {
-  exportOpen.value = false
-})
+const appStore = useAppStore()
 
 const state = computed(() => props.instance ? actions.stateOf(props.instance) : null)
 const install = computed(() => props.instance ? actions.installOf(props.instance.id) : undefined)
@@ -29,11 +24,11 @@ const { t } = useI18n()
 const playtime = computed(() => formatPlaytime(total.value) || t('instance.playtime.never'))
 const lastPlayed = computed(() => formatLastPlayed(props.instance?.playtime?.lastPlayedAt ?? 0))
 
-const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
-  root: 'i-lucide-folder-open',
-  minecraft: 'i-lucide-box',
-  logs: 'i-lucide-scroll-text',
-}
+const memory = computed(() => {
+  const settings = props.instance?.settings
+  const megabytes = settings?.overrideMemory ? settings.maxRam : appStore.config?.java.max_ram
+  return megabytes ? formatBytes(megabytes * 1024 * 1024) : ''
+})
 </script>
 
 <template>
@@ -41,159 +36,161 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
     <div
       v-if="instance"
       :key="instance.id"
-      class="flex min-h-0 flex-1 flex-col"
+      class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-7 pb-5.5"
     >
-      <div class="min-h-0 flex-1 overflow-y-auto">
-        <header class="flex flex-col items-center gap-3 border-b border-line px-5 py-6 text-center">
-          <InstanceIcon
-            :icon="instance.icon"
-            :type="instance.type"
-            size="lg"
-            class="text-fg-faint"
-          />
+      <header class="flex items-center gap-3.5">
+        <InstanceIcon
+          :icon="instance.icon"
+          :type="instance.type"
+          :version="instance.minecraftVersion"
+          size="xl"
+        />
 
-          <div class="w-full min-w-0">
-            <h3
-              class="font-unbounded text-lead font-semibold leading-tight break-words tracking-heading text-fg"
-              :title="instance.name"
-            >
-              {{ instance.name }}
-            </h3>
-            <p class="mt-2 font-mono text-micro uppercase tracking-caps text-fg-faint">
-              {{ INSTANCE_TYPE_LABELS[instance.type] ?? instance.type }} · {{ instance.minecraftVersion }}
-            </p>
-          </div>
-        </header>
-
-        <div class="space-y-3 px-5 py-5">
-          <InstanceInstallProgress
-            v-if="state === 'installing'"
-            :phase="install?.phase"
-            :progress="install?.progress"
-            class="h-9"
-          />
-
-          <Button
-            v-else-if="state !== 'running'"
-            variant="primary"
-            class="group/act w-full"
-            @click="actions.primary(instance)"
-          >
-            <Icon
-              :name="state === 'ready' ? 'i-lucide-play' : 'i-lucide-arrow-down-to-line'"
-              class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-0.5"
-            />
-            {{ state === 'ready' ? $t('instance.action.play') : $t('instance.action.install') }}
-          </Button>
-
-          <Button
-            v-if="state === 'running'"
-            variant="primary"
-            icon="i-lucide-square"
-            class="w-full"
-            @click="actions.stop(instance.id)"
-          >
-            {{ $t('instance.panel.stop') }}
-          </Button>
-
-          <Button
-            v-if="state === 'installing'"
-            icon="i-lucide-x"
-            class="w-full"
-            :disabled="install?.aborting"
-            @click="actions.cancelInstall(instance.id)"
-          >
-            {{ install?.aborting ? $t('instance.panel.aborting') : $t('instance.panel.cancel') }}
-          </Button>
-
-          <Button
+        <div class="min-w-0">
+          <NuxtLink
             :to="`/instance/${instance.id}`"
-            icon="i-lucide-settings"
-            class="w-full"
+            class="line-clamp-2 font-unbounded text-heading font-semibold tracking-heading break-words text-fg hover:underline classic:uppercase"
+            :title="instance.name"
           >
-            {{ $t('instance.action.settings') }}
-          </Button>
-
-          <Button
-            icon="i-lucide-file-down"
-            class="w-full"
-            :disabled="state === 'installing'"
-            @click="exportOpen = true"
-          >
-            {{ $t('instance.export_cast') }}
-          </Button>
-
-          <div class="grid grid-cols-3 gap-2">
-            <Button
-              v-for="target in INSTANCE_DIRS"
-              :key="target"
-              :icon="DIR_ICONS[target]"
-              :title="$t(INSTANCE_DIR_KEYS[target])"
-              :aria-label="$t(INSTANCE_DIR_KEYS[target])"
-              @click="actions.openDir(instance.id, target)"
-            />
-          </div>
-        </div>
-
-        <dl class="space-y-2 border-t border-line px-5 py-4 font-mono text-caption uppercase tracking-caps">
-          <div>
-            <dt class="text-fg-faint">
-              {{ $t('instance.panel.playtime') }}
-            </dt>
-            <dd class="min-w-0 truncate text-fg-muted">
-              {{ playtime }}
-            </dd>
-          </div>
-          <div v-if="lastPlayed">
-            <dt class="text-fg-faint">
-              {{ $t('instance.panel.last_played') }}
-            </dt>
-            <dd class="min-w-0 truncate text-fg-muted">
-              {{ lastPlayed }}
-            </dd>
-          </div>
-          <div
+            {{ instance.name }}
+          </NuxtLink>
+          <p
             v-if="instance.castpack"
-            class="flex items-baseline justify-between gap-3"
+            class="mt-1.5 truncate text-caption text-fg-muted"
           >
-            <dt class="text-fg-faint">
-              {{ instance.castpack.origin === 'file' ? '.cast' : 'CastPack' }}
-            </dt>
-            <dd class="min-w-0 truncate text-fg-muted">
-              {{ instance.castpack.version || '—' }}
-            </dd>
-          </div>
-        </dl>
-      </div>
+            {{ instance.castpack.origin === 'file' ? '.cast' : 'CastPack' }} {{ instance.castpack.version }}
+          </p>
+          <p class="truncate text-caption text-fg-faint">
+            {{ INSTANCE_TYPE_LABELS[instance.type] ?? instance.type }}
+            <template v-if="instance.loaderVersion">
+              {{ instance.loaderVersion }}
+            </template>
+            · {{ instance.minecraftVersion }}
+          </p>
+        </div>
+      </header>
 
-      <div class="border-t border-line px-5 py-4">
+      <div class="mt-5">
+        <InstanceInstallProgress
+          v-if="state === 'installing'"
+          :phase="install?.phase"
+          :progress="install?.progress"
+          class="h-10"
+        />
         <Button
-          variant="danger-ghost"
-          icon="i-lucide-trash-2"
-          @click="emit('remove', instance.id)"
+          v-else-if="state === 'running'"
+          size="lg"
+          icon="i-lucide-square"
+          class="w-full"
+          @click="actions.stop(instance.id)"
         >
-          {{ $t('instance.panel.remove') }}
+          {{ $t('instance.panel.stop') }}
+        </Button>
+        <Button
+          v-else
+          variant="primary"
+          size="lg"
+          :icon="state === 'ready' ? 'i-lucide-play' : 'i-lucide-arrow-down-to-line'"
+          class="w-full"
+          @click="actions.primary(instance)"
+        >
+          {{ state === 'ready' ? $t('instance.action.play') : $t('instance.action.install') }}
         </Button>
       </div>
 
-      <CastExportModal
-        v-model:open="exportOpen"
-        :instance="instance"
-      />
+      <div class="mt-2 flex gap-1.5">
+        <Button
+          v-if="state === 'installing'"
+          icon="i-lucide-x"
+          class="flex-1"
+          :disabled="install?.aborting"
+          @click="actions.cancelInstall(instance.id)"
+        >
+          {{ install?.aborting ? $t('instance.panel.aborting') : $t('instance.panel.cancel') }}
+        </Button>
+        <Button
+          v-else
+          :to="`/instance/${instance.id}`"
+          icon="i-lucide-settings"
+          class="flex-1"
+        >
+          {{ $t('instance.action.settings') }}
+        </Button>
+
+        <Button
+          size="icon"
+          icon="i-lucide-folder-open"
+          :aria-label="$t(INSTANCE_DIR_KEYS.root)"
+          :title="$t(INSTANCE_DIR_KEYS.root)"
+          @click="actions.openDir(instance.id, 'root')"
+        />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button
+              size="icon"
+              icon="i-lucide-ellipsis"
+              :aria-label="$t('instance.panel.more')"
+              :title="$t('instance.panel.more')"
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              v-for="target in INSTANCE_DIRS.filter(dir => dir !== 'root')"
+              :key="target"
+              icon="i-lucide-folder-open"
+              @select="actions.openDir(instance.id, target)"
+            >
+              {{ $t(INSTANCE_DIR_KEYS[target]) }}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              icon="i-lucide-file-down"
+              :disabled="state === 'installing'"
+              @select="emit('export', instance.id)"
+            >
+              {{ $t('instance.export_short') }}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              icon="i-lucide-trash-2"
+              variant="danger"
+              @select="emit('remove', instance.id)"
+            >
+              {{ $t('instance.panel.remove') }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <dl class="mt-5 border-t border-line pt-2">
+        <KitFact
+          :label="$t('instance.panel.playtime')"
+          :value="playtime"
+        />
+        <KitFact
+          v-if="lastPlayed"
+          :label="$t('instance.panel.last_played')"
+          :value="lastPlayed"
+        />
+        <KitFact
+          v-if="memory"
+          :label="$t('instance.panel.memory')"
+          :value="memory"
+        />
+      </dl>
     </div>
 
     <div
       v-else
-      class="flex flex-1 flex-col items-center justify-center gap-3 px-5 py-14 text-center"
+      class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center text-body text-fg-faint"
     >
       <Icon
         name="i-lucide-mouse-pointer-click"
-        class="size-5 text-fg-faint"
+        class="size-5"
       />
       <i18n-t
         keypath="instance.panel.empty"
         tag="p"
-        class="font-mono text-caption uppercase leading-relaxed tracking-caps text-fg-faint"
       >
         <template #br>
           <br>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Instance } from '~/types/instance'
-import { INSTANCE_DIR_KEYS, INSTANCE_DIRS } from '~/types/instance'
 
 const props = defineProps<{
   instance: Instance
@@ -9,6 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [id: string]
+  export: [id: string]
   remove: [id: string]
 }>()
 
@@ -23,113 +23,46 @@ function select() {
 </script>
 
 <template>
-  <ContextMenu>
-    <ContextMenuTrigger as-child>
-      <button
-        type="button"
-        :aria-pressed="!!selected"
-        :title="instance.name"
-        class="group relative flex w-full cursor-pointer flex-col items-center gap-2 border p-2.5 text-center outline-none transition-colors duration-300 focus-visible:border-line-strong"
-        :class="selected
-          ? 'border-accent bg-control'
-          : 'border-transparent hover:border-line-strong hover:bg-panel'"
-        @click="select"
-        @dblclick="actions.primary(instance)"
-        @contextmenu="select"
-      >
-        <span class="relative">
-          <InstanceIcon
-            :icon="instance.icon"
-            :type="instance.type"
-            size="md"
-            :bordered="false"
-            class="text-fg-faint transition-colors duration-300"
-            :class="selected ? 'text-accent' : 'group-hover:text-fg-muted'"
-          />
-
-          <KitLiveDot
-            v-if="state === 'running'"
-            class="absolute -top-1 -right-1 text-accent"
-            :title="$t('instance.state.running')"
-          />
-
-          <span
-            v-else-if="state === 'absent'"
-            class="absolute -top-1 -right-1 size-2 bg-fg-faint"
-            :title="$t('instance.state.absent')"
-          />
-        </span>
-
-        <span
-          class="line-clamp-2 w-full break-words text-caption leading-tight transition-colors duration-300"
-          :class="selected ? 'text-fg' : 'text-fg-muted group-hover:text-fg'"
-        >
-          {{ instance.name }}
-        </span>
-
-        <Progress
-          v-if="state === 'installing'"
-          :model-value="install?.progress == null ? null : install.progress * 100"
+  <InstanceActionsMenu
+    :instance="instance"
+    @export="emit('export', $event)"
+    @remove="emit('remove', $event)"
+  >
+    <KitTile
+      variant="ghost"
+      :selected="selected"
+      :title="instance.name"
+      class="flex w-full flex-col items-center gap-1.75 px-1 pt-2.5 pb-2.25 text-center"
+      @click="select"
+      @dblclick="actions.primary(instance)"
+      @contextmenu="select"
+    >
+      <span class="relative">
+        <InstanceIcon
+          :icon="instance.icon"
+          :type="instance.type"
+          :version="instance.minecraftVersion"
+          size="md"
         />
-      </button>
-    </ContextMenuTrigger>
+        <span
+          v-if="state === 'running'"
+          class="absolute -top-1 -right-1 size-3 rounded-pill bg-success ring-3 ring-sheet"
+          :title="$t('instance.state.running')"
+        />
+      </span>
 
-    <ContextMenuContent>
-      <ContextMenuItem
-        v-if="state === 'running'"
-        icon="i-lucide-square"
-        @select="actions.stop(instance.id)"
-      >
-        {{ $t('instance.action.stop') }}
-      </ContextMenuItem>
-      <ContextMenuItem
-        v-else-if="state === 'installing'"
-        icon="i-lucide-x"
-        @select="actions.cancelInstall(instance.id)"
-      >
-        {{ $t('instance.action.cancel_install') }}
-      </ContextMenuItem>
-      <ContextMenuItem
-        v-else-if="state === 'ready'"
-        icon="i-lucide-play"
-        @select="actions.play(instance.id)"
-      >
-        {{ $t('instance.action.play') }}
-      </ContextMenuItem>
-      <ContextMenuItem
-        v-else
-        icon="i-lucide-arrow-down-to-line"
-        @select="actions.install(instance.id)"
-      >
-        {{ $t('instance.action.install') }}
-      </ContextMenuItem>
+      <Progress
+        v-if="state === 'installing'"
+        :model-value="install?.progress == null ? null : install.progress * 100"
+        class="-mt-0.75 h-0.75 w-12"
+      />
 
-      <ContextMenuSeparator />
-
-      <ContextMenuItem
-        icon="i-lucide-settings"
-        @select="navigateTo(`/instance/${instance.id}`)"
+      <span
+        class="line-clamp-2 max-w-full text-caption leading-tight break-words"
+        :class="state === 'absent' ? 'text-fg-faint' : 'text-fg'"
       >
-        {{ $t('instance.action.settings') }}
-      </ContextMenuItem>
-      <ContextMenuItem
-        v-for="target in INSTANCE_DIRS"
-        :key="target"
-        icon="i-lucide-folder-open"
-        @select="actions.openDir(instance.id, target)"
-      >
-        {{ $t(INSTANCE_DIR_KEYS[target]) }}
-      </ContextMenuItem>
-
-      <ContextMenuSeparator />
-
-      <ContextMenuItem
-        icon="i-lucide-trash-2"
-        variant="danger"
-        @select="emit('remove', instance.id)"
-      >
-        {{ $t('instance.action.remove') }}
-      </ContextMenuItem>
-    </ContextMenuContent>
-  </ContextMenu>
+        {{ instance.name }}
+      </span>
+    </KitTile>
+  </InstanceActionsMenu>
 </template>
