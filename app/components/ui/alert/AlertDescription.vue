@@ -10,7 +10,7 @@ const props = defineProps<{
 <template>
   <div
     data-slot="alert-description"
-    :class="cn('text-body leading-relaxed text-fg-muted not-first:mt-2', props.class)"
+    :class="cn('text-body text-fg-muted not-first:mt-1', props.class)"
   >
     <slot />
   </div>

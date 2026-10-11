@@ -64,13 +64,11 @@ const guard = useUnsavedChanges({
     <div class="grid grid-cols-[15rem_minmax(0,1fr)] gap-14">
       <aside class="sticky top-0 self-start pt-10">
         <KitPageHeader
-          :eyebrow="$t('settings.eyebrow')"
           :title="$t('settings.title')"
           :description="$t('settings.subtitle')"
         />
 
         <KitSaveBar
-          class="mt-8"
           :saving="saving"
           :disabled="!config || !dirty"
           :dirty="dirty"

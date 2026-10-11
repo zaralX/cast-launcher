@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import type { InputGroupVariants } from '.'
+import type { InputGroupAddonVariants } from '.'
 import { cn } from '@/lib/utils'
 import { inputGroupAddonVariants } from '.'
 
 const props = withDefaults(defineProps<{
-  align?: InputGroupVariants['align']
+  align?: InputGroupAddonVariants['align']
   class?: HTMLAttributes['class']
 }>(), {
   align: 'inline-start',
+  class: undefined,
 })
 
 function focusInput(e: MouseEvent) {

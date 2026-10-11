@@ -21,11 +21,6 @@ const forwardedProps = useForwardProps(delegatedProps)
     v-bind="forwardedProps"
     :class="cn(radioGroupItemVariants({ variant }), props.class)"
   >
-    <span
-      v-if="variant === 'segmented'"
-      class="absolute inset-x-0 top-0 h-px origin-center scale-x-0 bg-acid transition-transform duration-500 ease-deck group-data-[state=checked]:scale-x-100"
-      aria-hidden="true"
-    />
     <slot />
   </RadioGroupItem>
 </template>

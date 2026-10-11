@@ -25,29 +25,32 @@ const open = defineModel<boolean>('open', { default: false })
     <DialogContent
       :dismissible="!loading"
       :show-close-button="!loading"
+      class="max-w-md"
     >
       <DialogHeader>
         <DialogTitle>{{ title }}</DialogTitle>
-      </DialogHeader>
-
-      <DialogBody class="space-y-5">
         <DialogDescription v-if="description">
           {{ description }}
         </DialogDescription>
+      </DialogHeader>
+
+      <DialogBody
+        v-if="$slots.default"
+        class="space-y-4"
+      >
         <slot />
       </DialogBody>
 
       <DialogFooter>
         <Button
-          variant="quiet"
+          variant="ghost"
           :disabled="loading"
           @click="open = false"
         >
           {{ cancelLabel ?? $t('common.cancel') }}
         </Button>
         <Button
-          :variant="tone === 'danger' ? 'danger' : 'fill'"
-          size="sm"
+          :variant="tone === 'danger' ? 'danger' : 'primary'"
           :icon="confirmIcon"
           :loading="loading"
           @click="emit('confirm')"

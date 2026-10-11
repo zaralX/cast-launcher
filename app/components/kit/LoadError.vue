@@ -12,19 +12,19 @@ const emit = defineEmits<{ retry: [] }>()
   <Alert
     variant="danger"
     :icon="error.icon"
-    class="gap-3 p-5"
   >
     <AlertTitle>{{ error.title }}</AlertTitle>
     <AlertDescription v-if="error.reason ?? error.hint">
       {{ error.reason ?? error.hint }}
     </AlertDescription>
-    <Button
-      variant="quiet"
-      icon="i-lucide-rotate-cw"
-      class="mt-2"
-      @click="emit('retry')"
-    >
-      {{ $t('common.retry') }}
-    </Button>
+    <template #action>
+      <Button
+        size="sm"
+        icon="i-lucide-rotate-cw"
+        @click="emit('retry')"
+      >
+        {{ $t('common.retry') }}
+      </Button>
+    </template>
   </Alert>
 </template>

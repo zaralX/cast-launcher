@@ -86,13 +86,12 @@ const run = (id: string) => safeRun(
     >
       <section>
         <KitSectionHeading
-          index="01"
           :title="$t('home.title')"
         >
           <template #action>
             <Button
-              variant="quiet"
-              size="xs"
+              variant="ghost"
+              size="sm"
               class="group/imp ml-2"
               @click="importModalOpen = true"
             >
@@ -104,7 +103,7 @@ const run = (id: string) => safeRun(
             </Button>
 
             <Button
-              size="xs"
+              size="sm"
               class="group/new ml-2"
               @click="openCreateModal"
             >
@@ -179,7 +178,7 @@ const run = (id: string) => safeRun(
     <InstanceSidePanel
       v-if="compact"
       :instance="selected"
-      class="sticky top-0 h-[calc(100vh-2.75rem)] w-64 shrink-0"
+      class="sticky top-0 h-[calc(100vh-2.5rem)] w-64 shrink-0"
       @remove="askRemove"
     />
 

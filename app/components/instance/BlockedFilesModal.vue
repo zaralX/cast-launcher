@@ -115,9 +115,9 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
             <span>{{ $t('blocked.where') }}</span>
             <span
               v-if="!allFound"
-              class="flex items-center gap-1.5 text-acid/70"
+              class="flex items-center gap-1.5 text-accent/70"
             >
-              <span class="size-1 animate-pulse rounded-full bg-acid" />
+              <span class="size-1 animate-pulse rounded-full bg-accent" />
               {{ $t('blocked.auto') }}
             </span>
           </Label>
@@ -131,14 +131,14 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
               @keydown.enter.prevent="scan"
             />
             <Button
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-folder-open"
               @click="pickFolder"
             >
               {{ $t('blocked.browse') }}
             </Button>
             <Button
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-refresh-cw"
               :loading="scanning"
               :disabled="!folder.trim()"
@@ -151,15 +151,15 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
 
         <div class="flex items-center gap-4">
           <span
-            class="font-mono text-label uppercase tracking-caps"
-            :class="allFound ? 'text-acid' : 'text-fg-faint'"
+            class="font-mono text-caption uppercase tracking-caps"
+            :class="allFound ? 'text-accent' : 'text-fg-faint'"
           >
             {{ $t('blocked.found', { found: found.length, total: files.length }) }}
           </span>
           <Separator class="flex-1" />
           <Button
             v-if="missing.length"
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-external-link"
             @click="openMissing"
           >
@@ -176,7 +176,7 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
             <Icon
               :name="file.localPath ? 'i-lucide-check' : 'i-lucide-x'"
               class="size-3.5 shrink-0"
-              :class="file.localPath ? 'text-acid' : 'text-danger'"
+              :class="file.localPath ? 'text-accent' : 'text-danger'"
             />
 
             <div class="min-w-0 flex-1">
@@ -187,7 +187,7 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
                 {{ file.fileName }}
               </p>
               <p
-                class="mt-1 truncate font-mono text-label text-fg-faint"
+                class="mt-1 truncate font-mono text-caption text-fg-faint"
                 :title="file.localPath ?? file.targetPath"
               >
                 {{ file.localPath ?? file.targetPath }}
@@ -196,7 +196,7 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
 
             <Button
               v-if="file.websiteUrl && !file.localPath"
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-download"
               @click="openFile(file)"
             >
@@ -222,7 +222,7 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
 
       <DialogFooter class="justify-between">
         <Button
-          variant="quiet-danger"
+          variant="danger-ghost"
           icon="i-lucide-circle-stop"
           @click="cancel"
         >
@@ -230,6 +230,7 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
         </Button>
 
         <Button
+          variant="primary"
           size="lg"
           :loading="finishing"
           @click="finish"

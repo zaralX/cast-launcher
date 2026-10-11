@@ -14,7 +14,12 @@ const delegatedProps = reactiveOmit(props, 'class')
   <TabsList
     data-slot="tabs-list"
     v-bind="delegatedProps"
-    :class="cn('flex data-[orientation=vertical]:flex-col data-[orientation=vertical]:border-t data-[orientation=vertical]:border-line', props.class)"
+    :class="cn(
+      'flex',
+      'data-[orientation=horizontal]:gap-5.5 data-[orientation=horizontal]:border-b data-[orientation=horizontal]:border-line',
+      'data-[orientation=vertical]:flex-col data-[orientation=vertical]:gap-0.5',
+      props.class,
+    )"
   >
     <slot />
   </TabsList>

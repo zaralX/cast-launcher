@@ -49,7 +49,7 @@ src-tauri/
 └─ capabilities/    # what the webview may do
 app/
 ├─ app.vue          # tooltip provider, toaster, appearance + language, error toasts
-├─ assets/css/      # tailwind.css: @theme tokens · main.css: --cast-* palette, accents, :root dark / html.light
+├─ assets/css/      # tailwind.css: @theme tokens, `classic:` variant · main.css: --cast-* themes and accents
 ├─ components/
 │  ├─ ui/           # shadcn-vue primitives, rewritten for the launcher: <Button>, <Dialog>, <Select>, …
 │  ├─ kit/          # launcher blocks built from ui/: <KitPanel>, <KitField>, <KitConfirmDialog>, …
@@ -179,30 +179,46 @@ never a hardcoded one.
   through `<Icon>`, `cva` variants for every look. Add one with
   `npx shadcn-vue@latest add <name>` and `npm run lint:fix`, then restyle it (under a proxy
   the CLI needs `HTTPS_PROXY` unset). Looks shared by several components (a field, a floating
-  panel, a menu row, a status tone) live in `lib/styles.ts`.
-- `components/kit/` holds launcher blocks: panel, field, row, status line, alert-like note,
-  confirm dialog, selects, search and number inputs, stat grid, list item, tile, text link,
-  page header.
+  panel, a menu row, a status tone, the focus ring) live in `lib/styles.ts`. Primitives are
+  built from each other, as in vilbux-panel: a button inside a primitive is the base
+  `Button`, a field is `Input`, a divider is `Separator` (through `as-child`), imported
+  explicitly from `@/components/ui/<name>`. A missing look is a new variant of the base.
+- `components/kit/` holds launcher blocks: panel, rows and row, field, "custom" switch and
+  inherited value, status line, note, empty state, confirm dialog, save bar, selects, search
+  and number inputs, split button, stat grid, list item, tile, text link, page and section
+  headings, theme and accent pickers.
 - Screens use only these two. A screen with its own button, field, label, badge or status
   color is a missing variant or a missing kit block: add it there instead.
 
-`<Button>` variants: `fill` (default, the accent sweep), `fill-accent` (the same, accent at
-rest), `danger`, `outline`, `outline-accent` (accent on hover), `dashed`, `ghost`, `toolbar`
-(active state through `aria-pressed`), `quiet`, `quiet-danger`, `link`;
-sizes `xs…xl` and `icon-sm` / `icon` / `icon-lg`. It takes `icon`, `loading` and `to`.
+`<Button>` variants: `secondary` (default), `primary` (the accent, one per screen),
+`ghost`, `strong` (light on dark, the save bar), `danger`, `danger-ghost`, `dashed`, `link`;
+sizes `sm` 28px, `md` 32px, `lg` 40px and `icon-sm` / `icon` / `icon-lg`. It takes `icon`,
+`trailingIcon`, `loading` and `to`. `ghost` shows a pressed state through `aria-pressed`.
 Toasts go through `useAppToast().add({ title, description, icon, color, actions })`, which
 renders `ui/sonner/Toast.vue` in vue-sonner.
 
-Colors come only from tokens: `bg-ink-900…600`, `text-fg` / `fg-muted` / `fg-faint`,
-`border-line`, `acid` (the accent the user picks, set as `data-accent` on `<html>`),
-`success`, `warning`, `danger` / `danger-strong`. No hex and no Tailwind palette colors in
-components. Type sizes are tokens too: `text-micro` 9px, `text-label` 10px, `text-caption`
-11px, `text-body` 12px, `text-title` 13px, `text-lead` 14px, `text-heading` 15px; uppercase
-mono labels use `tracking-caps` (`tracking-caps-wide` for eyebrows), Unbounded headings
-`tracking-heading` / `tracking-display`. A one-off `text-[Npx]` is for display sizes only.
-A new size or tracking token also goes into the `extendTailwindMerge` list in
-`lib/utils.ts`, otherwise `cn()` drops it next to a color class. Fonts: Golos Text (body),
-`font-unbounded` (headings), `font-mono` (labels).
+**Themes.** A theme is a set of `--cast-*` variables in `main.css` under
+`:root[data-theme="…"]`; `useAppearance()` sets `data-theme` from `config.launcher.theme`
+(`system` follows the OS between `light` and `depth`) and the accent from
+`config.launcher.accent`: `theme` keeps the theme's own, a preset sets `data-accent`, a hex
+goes inline with a computed `--cast-on-accent`. The list and preview colors are in
+`utils/appearance.ts`, mirroring `main.css`. `classic` has square corners and mono uppercase
+labels: anything that changes there uses the `classic:` variant.
+
+Colors come only from tokens. Surfaces go `bg-frame` (window) < `sheet` (content) <
+`panel` < `control` < `hover`, with `raise` for menus, dialogs and toasts; text is `fg` /
+`fg-muted` / `fg-faint`; lines are `line` / `line-strong`, and `ring-card-line` outlines a
+panel only where the theme wants it. `accent` / `on-accent`, `success`, `warning`, `danger` /
+`on-danger`. Radii are `rounded-xs` 4px, `sm` 6px, `md` 10px, `lg` 14px and `rounded-pill`,
+all zero in `classic`; shadows `shadow-float`, `shadow-dialog`, `shadow-focus` (fields),
+`shadow-invalid`, `shadow-sheet`. No hex and no Tailwind palette colors in components.
+Type sizes are tokens too: `text-micro` 11px, `text-caption` 12px, `text-body` 13px,
+`text-title` 14px, `text-lead` 15px, `text-heading` 16px, `text-page` 22px, `text-display`
+28px; `tracking-caps` for mono uppercase labels, `tracking-heading` / `tracking-display` for
+Unbounded. A one-off `text-[Npx]` is for display sizes only. A new size, tracking, radius or
+shadow token also goes into the `extendTailwindMerge` list in `lib/utils.ts`, otherwise
+`cn()` drops it next to a color class. Fonts: Golos Text (interface), `font-unbounded`
+(page titles), `font-mono` (data only: versions, paths, sizes, arguments).
 
 The window is at least 1080px wide, so `sm:`, `md:` and `lg:` always apply; only `xl:` and
 `2xl:` are real breakpoints. Scrollbars are native and styled in `main.css`; there is no

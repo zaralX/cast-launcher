@@ -59,7 +59,7 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
         {{ $t('import_pack.cast.base', base) }}
       </KitNote>
 
-      <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+      <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
         {{ $t('import_pack.cast.sources', {
           modrinth: preview.modrinthMods,
           curseforge: preview.curseforgeMods,
@@ -69,7 +69,7 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
 
       <p
         v-if="pack.author || preview.exportedBy"
-        class="font-mono text-label uppercase tracking-caps text-fg-faint"
+        class="font-mono text-caption uppercase tracking-caps text-fg-faint"
       >
         <span v-if="pack.author">{{ $t('import_pack.cast.author', { author: pack.author }) }}</span>
         <span v-if="pack.author && preview.exportedBy"> · </span>
@@ -88,7 +88,7 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
       <AlertDescription class="not-first:mt-1.5">
         {{ $t('import_pack.cast.code_hint') }}
       </AlertDescription>
-      <ul class="mt-2 space-y-0.5 font-mono text-label text-fg-faint">
+      <ul class="mt-2 space-y-0.5 font-mono text-caption text-fg-faint">
         <li
           v-for="file in shownCode"
           :key="file"
@@ -120,7 +120,7 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
           <span class="w-full truncate font-unbounded text-body tracking-[-0.02em]">
             {{ option === 'update' ? $t('import_pack.cast.mode_update', { name: existing.name }) : $t('import_pack.cast.mode_create') }}
           </span>
-          <span class="font-mono text-label tracking-[0.06em] text-fg-faint">
+          <span class="font-mono text-caption tracking-[0.06em] text-fg-faint">
             {{ option === 'update'
               ? $t('import_pack.cast.mode_update_hint', { from: versionOf(existing.version), to: versionOf(pack.version) })
               : $t('import_pack.cast.mode_create_hint') }}

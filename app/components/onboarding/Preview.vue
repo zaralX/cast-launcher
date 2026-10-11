@@ -13,9 +13,9 @@ const ROWS = [
 </script>
 
 <template>
-  <div class="relative select-none overflow-hidden border border-line bg-ink-900">
-    <div class="flex h-6 items-center gap-2 border-b border-line bg-ink-800 px-2.5">
-      <span class="size-1.5 bg-acid" />
+  <div class="relative select-none overflow-hidden border border-line bg-sheet">
+    <div class="flex h-6 items-center gap-2 border-b border-line bg-panel px-2.5">
+      <span class="size-1.5 bg-accent" />
       <span class="h-1 w-10 bg-line-strong" />
       <span class="ml-auto flex items-center gap-1.5">
         <span class="h-px w-2 bg-fg-faint/60" />
@@ -25,10 +25,10 @@ const ROWS = [
     </div>
 
     <div class="flex h-[9.5rem]">
-      <div class="flex w-7 shrink-0 flex-col items-center gap-2 border-r border-line bg-ink-800/60 py-2.5">
+      <div class="flex w-7 shrink-0 flex-col items-center gap-2 border-r border-line bg-panel/60 py-2.5">
         <span class="relative grid size-4 place-items-center">
-          <span class="absolute -left-2.5 h-3 w-px bg-acid" />
-          <span class="size-2.5 border border-acid" />
+          <span class="absolute -left-2.5 h-3 w-px bg-accent" />
+          <span class="size-2.5 border border-accent" />
         </span>
         <span
           v-for="i in 3"
@@ -50,16 +50,16 @@ const ROWS = [
             <div
               v-for="(row, i) in ROWS"
               :key="row.name"
-              class="relative flex items-center gap-2 border border-line/70 bg-ink-800/60 px-2 py-[5px]"
-              :class="i === 0 ? 'border-acid/40' : ''"
+              class="relative flex items-center gap-2 border border-line/70 bg-panel/60 px-2 py-[5px]"
+              :class="i === 0 ? 'border-accent/40' : ''"
             >
               <span
                 v-if="i === 0"
-                class="absolute inset-y-0 left-0 w-[2px] bg-acid"
+                class="absolute inset-y-0 left-0 w-[2px] bg-accent"
               />
               <span
                 class="size-2.5 shrink-0"
-                :class="i === 0 ? 'bg-acid' : 'bg-line-strong'"
+                :class="i === 0 ? 'bg-accent' : 'bg-line-strong'"
               />
               <span class="font-mono text-[6px] uppercase tracking-[0.18em] text-fg-muted">{{ row.name }}</span>
               <span class="ml-auto font-mono text-[6px] text-fg-faint">{{ row.meta }}</span>
@@ -74,12 +74,12 @@ const ROWS = [
             <div
               v-for="(row, i) in ROWS.slice(0, 4)"
               :key="row.name"
-              class="border border-line/70 bg-ink-800/60 p-2"
-              :class="i === 0 ? 'border-acid/40' : ''"
+              class="border border-line/70 bg-panel/60 p-2"
+              :class="i === 0 ? 'border-accent/40' : ''"
             >
               <span
                 class="block size-6"
-                :class="i === 0 ? 'bg-acid' : 'bg-line-strong'"
+                :class="i === 0 ? 'bg-accent' : 'bg-line-strong'"
               />
               <span class="mt-2 block font-mono text-[6px] uppercase tracking-[0.18em] text-fg-muted">
                 {{ row.name }}
@@ -90,7 +90,7 @@ const ROWS = [
               />
               <span
                 class="mt-2 block h-2 w-full"
-                :class="i === 0 ? 'bg-acid/70' : 'bg-line'"
+                :class="i === 0 ? 'bg-accent/70' : 'bg-line'"
               />
             </div>
           </div>

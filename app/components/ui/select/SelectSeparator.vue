@@ -3,7 +3,9 @@ import type { SelectSeparatorProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { SelectSeparator } from 'reka-ui'
+import { MENU_SEPARATOR } from '@/lib/styles'
 import { cn } from '@/lib/utils'
+import { Separator } from '@/components/ui/separator'
 
 const props = defineProps<SelectSeparatorProps & { class?: HTMLAttributes['class'] }>()
 
@@ -12,8 +14,12 @@ const delegatedProps = reactiveOmit(props, 'class')
 
 <template>
   <SelectSeparator
-    data-slot="select-separator"
     v-bind="delegatedProps"
-    :class="cn('pointer-events-none -mx-1 my-1 h-px bg-line', props.class)"
-  />
+    as-child
+  >
+    <Separator
+      data-slot="select-separator"
+      :class="cn(MENU_SEPARATOR, props.class)"
+    />
+  </SelectSeparator>
 </template>

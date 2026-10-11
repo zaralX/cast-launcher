@@ -40,16 +40,16 @@ function activate() {
 </script>
 
 <template>
-  <article class="group relative flex flex-col justify-between overflow-hidden border border-line bg-ink-800 transition-all duration-500 ease-deck hover:border-acid/40 hover:bg-ink-700">
+  <article class="group relative flex flex-col justify-between overflow-hidden border border-line bg-panel transition-all duration-500 ease-deck hover:border-accent/40 hover:bg-control">
     <span
-      class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-acid transition-transform duration-700 ease-deck group-hover:scale-y-100"
+      class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-accent transition-transform duration-700 ease-deck group-hover:scale-y-100"
       aria-hidden="true"
     />
 
     <div class="p-4 pl-5">
       <div class="flex items-center gap-3">
-        <span class="font-mono text-micro uppercase tracking-caps-wide text-acid">CastPack</span>
-        <span class="h-px w-6 bg-acid/40" />
+        <span class="font-mono text-micro uppercase tracking-caps-wide text-accent">CastPack</span>
+        <span class="h-px w-6 bg-accent/40" />
         <span class="truncate font-mono text-micro uppercase tracking-caps text-fg-faint">{{ pack.id }}</span>
 
         <Badge
@@ -66,12 +66,12 @@ function activate() {
           v-if="icon"
           :icon="icon"
           :type="pack.loader ?? 'vanilla'"
-          class="shrink-0 text-fg-faint transition-colors duration-500 group-hover:border-acid/40 group-hover:text-acid"
+          class="shrink-0 text-fg-faint transition-colors duration-500 group-hover:border-accent/40 group-hover:text-accent"
         />
 
         <span
           v-else-if="pack.icon"
-          class="grid size-8 shrink-0 place-items-center overflow-hidden border border-line transition-colors duration-500 group-hover:border-acid/40"
+          class="grid size-8 shrink-0 place-items-center overflow-hidden border border-line transition-colors duration-500 group-hover:border-accent/40"
         >
           <img
             :src="pack.icon"
@@ -114,7 +114,7 @@ function activate() {
           {{ phase ? uiText(phase) : $t('castpack.action.installing') }}
           <span
             v-if="progress != null"
-            class="text-acid"
+            class="text-accent"
           >{{ Math.round(progress * 100) }}%</span>
         </span>
 
@@ -126,7 +126,7 @@ function activate() {
 
       <Button
         v-else
-        variant="quiet"
+        variant="ghost"
         class="group/act shrink-0"
         :disabled="state === 'running'"
         @click="activate"

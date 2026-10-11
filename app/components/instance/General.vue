@@ -35,7 +35,7 @@ const facts = computed(() => [
 ])
 
 const status = computed(() => {
-  if (running.value) return { text: t('instance.general.status.running'), tone: 'text-acid' }
+  if (running.value) return { text: t('instance.general.status.running'), tone: 'text-accent' }
   if (installing.value) return { text: t('instance.general.status.installing'), tone: 'text-fg-muted' }
   return props.instance.installed
     ? { text: t('instance.general.status.installed'), tone: 'text-fg-muted' }
@@ -83,7 +83,6 @@ async function remove() {
 <template>
   <div class="space-y-6">
     <KitPanel
-      index="01"
       :title="$t('instance.general.title')"
       icon="i-lucide-box"
     >
@@ -106,7 +105,6 @@ async function remove() {
 
             <div class="mt-3 flex items-center gap-3">
               <Button
-                size="sm"
                 icon="i-lucide-image"
                 @click="pickerOpen = true"
               >
@@ -115,7 +113,7 @@ async function remove() {
 
               <Button
                 v-if="icon"
-                variant="quiet"
+                variant="ghost"
                 icon="i-lucide-x"
                 @click="icon = ''"
               >
@@ -158,7 +156,6 @@ async function remove() {
     </KitPanel>
 
     <KitPanel
-      index="02"
       :title="$t('instance.general.files_title')"
       icon="i-lucide-hard-drive"
     >

@@ -294,14 +294,14 @@ onBeforeUnmount(() => {
               v-for="hit in hits"
               :key="hit.projectId"
               type="button"
-              class="flex w-full cursor-pointer items-center gap-4 border-b border-line px-1 py-3 text-left outline-none transition-colors duration-300 hover:bg-ink-700 focus-visible:bg-ink-700"
+              class="flex w-full cursor-pointer items-center gap-4 border-b border-line px-1 py-3 text-left outline-none transition-colors duration-300 hover:bg-control focus-visible:bg-control"
               @click="choose(hit)"
             >
               <KitThumb
                 :src="hit.iconUrl"
                 size="sm"
               >
-                <span class="font-mono text-label text-fg-faint">{{ hit.title.slice(0, 2).toUpperCase() }}</span>
+                <span class="font-mono text-caption text-fg-faint">{{ hit.title.slice(0, 2).toUpperCase() }}</span>
               </KitThumb>
 
               <span class="min-w-0 flex-1">
@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
 
             <p
               v-if="!hits.length && !searching"
-              class="py-10 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
+              class="py-10 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
             >
               {{ $t('mod_catalog.nothing_found') }}
             </p>
@@ -340,7 +340,7 @@ onBeforeUnmount(() => {
               class="py-4 text-center"
             >
               <Button
-                variant="quiet"
+                variant="ghost"
                 :loading="searching"
                 @click="search(hits.length)"
               >
@@ -351,7 +351,7 @@ onBeforeUnmount(() => {
         </template>
 
         <template v-else-if="stage === 'versions'">
-          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+          <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
             {{ $t('mod_catalog.compatible', { version: instance.minecraftVersion }) }}<template v-if="instance.type !== 'vanilla'">
               · {{ instance.type }}
             </template>
@@ -365,7 +365,7 @@ onBeforeUnmount(() => {
             >
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-title text-fg">{{ version.versionNumber }}</span>
-                <span class="mt-1 block font-mono text-label uppercase tracking-caps text-fg-faint">
+                <span class="mt-1 block font-mono text-caption uppercase tracking-caps text-fg-faint">
                   {{ RELEASE_KEYS[version.release] ? $t(RELEASE_KEYS[version.release]!) : version.release }}
                   <template v-if="version.size"> · {{ modSize(version.size) }}</template>
                   <template v-if="version.date"> · {{ new Date(version.date).toLocaleDateString(locale) }}</template>
@@ -382,7 +382,6 @@ onBeforeUnmount(() => {
 
               <Button
                 v-else
-                size="sm"
                 icon="i-lucide-download"
                 :loading="planning"
                 @click="pickVersion(version)"
@@ -393,7 +392,7 @@ onBeforeUnmount(() => {
 
             <p
               v-if="!versions.length && !loadingVersions"
-              class="py-10 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
+              class="py-10 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
             >
               {{ $t('mod_catalog.no_versions') }}
             </p>
@@ -407,7 +406,7 @@ onBeforeUnmount(() => {
           <div class="flex items-center gap-3">
             <Label>{{ $t('mod_catalog.installing_label') }}</Label>
             <span class="text-title text-fg">{{ plan.target.title }}</span>
-            <span class="font-mono text-label text-fg-faint">{{ plan.target.versionNumber }}</span>
+            <span class="font-mono text-caption text-fg-faint">{{ plan.target.versionNumber }}</span>
           </div>
 
           <div
@@ -444,7 +443,7 @@ onBeforeUnmount(() => {
 
           <p
             v-if="plan.installed.length"
-            class="font-mono text-label uppercase tracking-caps text-fg-faint"
+            class="font-mono text-caption uppercase tracking-caps text-fg-faint"
           >
             {{ $t('mod_catalog.already', { count: plan.installed.length }) }}
           </p>
@@ -454,12 +453,12 @@ onBeforeUnmount(() => {
             variant="warning"
             class="bg-transparent"
           >
-            <p class="font-mono text-label uppercase leading-relaxed tracking-caps text-warning">
+            <p class="font-mono text-caption uppercase leading-relaxed tracking-caps text-warning">
               {{ $t('mod_catalog.blocked_hint') }}
             </p>
 
             <Button
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-external-link"
               class="mt-1"
               @click="openPage(plan.target.pageUrl)"
@@ -473,7 +472,7 @@ onBeforeUnmount(() => {
       <DialogFooter class="justify-between">
         <Button
           v-if="stage !== 'search'"
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-arrow-left"
           :disabled="installing"
           @click="back"
@@ -483,7 +482,7 @@ onBeforeUnmount(() => {
 
         <span
           v-else
-          class="font-mono text-label uppercase tracking-caps text-fg-faint"
+          class="font-mono text-caption uppercase tracking-caps text-fg-faint"
         >
           <template v-if="searching">{{ $t('mod_catalog.searching') }}</template>
           <template v-else-if="total">{{ $t('mod_catalog.found', { count: total }) }}</template>
@@ -491,7 +490,7 @@ onBeforeUnmount(() => {
 
         <div class="flex items-center gap-4">
           <Button
-            variant="quiet"
+            variant="ghost"
             :disabled="installing"
             @click="close"
           >
@@ -500,6 +499,7 @@ onBeforeUnmount(() => {
 
           <Button
             v-if="stage === 'plan' && plan && !plan.target.blocked"
+            variant="primary"
             size="lg"
             icon="i-lucide-package-plus"
             :loading="installing"

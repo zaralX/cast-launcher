@@ -253,8 +253,8 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             v-if="scanning && !scan"
             class="flex items-center gap-3 py-10"
           >
-            <Spinner class="text-acid" />
-            <span class="font-mono text-label uppercase tracking-caps text-fg-faint">{{ $t('cast_export.scanning') }}</span>
+            <Spinner class="text-accent" />
+            <span class="font-mono text-caption uppercase tracking-caps text-fg-faint">{{ $t('cast_export.scanning') }}</span>
           </div>
 
           <template v-else-if="scan">
@@ -267,7 +267,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
               <template #action>
                 <Button
-                  variant="quiet"
+                  variant="ghost"
                   icon="i-lucide-rotate-cw"
                   :loading="scanning"
                   @click="load"
@@ -292,7 +292,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
           <Button
             v-else
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-rotate-cw"
             @click="load"
           >
@@ -453,14 +453,14 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           class="space-y-4 py-6"
         >
           <header class="flex items-end justify-between gap-4">
-            <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
+            <p class="font-mono text-caption uppercase tracking-caps text-fg-muted">
               {{ progress?.label ?? $t('cast_export.stage.collecting') }}
             </p>
             <span
               v-if="progress?.percent != null"
               class="font-unbounded text-[22px] font-semibold leading-none tracking-[-0.05em] text-fg"
             >
-              {{ progress.percent }}<span class="text-body text-acid">%</span>
+              {{ progress.percent }}<span class="text-body text-accent">%</span>
             </span>
           </header>
 
@@ -468,7 +468,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
           <p
             v-if="progress?.detail"
-            class="font-mono text-label tabular-nums text-fg-faint"
+            class="font-mono text-caption tabular-nums text-fg-faint"
           >
             {{ progress.detail }}
           </p>
@@ -493,7 +493,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             {{ result.path }}
           </p>
 
-          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+          <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
             {{ $t('cast_export.done_counts', { links: result.mods, embedded: result.embedded }) }}
             <template v-if="result.removed">
               · {{ $t('cast_export.done_removed', { count: result.removed }) }}
@@ -504,7 +504,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             <KitNote icon="i-lucide-ban">
               {{ $t('cast_export.skipped', { count: result.skipped.length }) }}
             </KitNote>
-            <ul class="mt-1.5 space-y-0.5 pl-6 font-mono text-label text-fg-faint">
+            <ul class="mt-1.5 space-y-0.5 pl-6 font-mono text-caption text-fg-faint">
               <li
                 v-for="file in result.skipped.slice(0, 6)"
                 :key="file"
@@ -520,7 +520,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
       <DialogFooter class="justify-between">
         <Button
           v-if="step === 'details'"
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-arrow-left"
           @click="step = 'files'"
         >
@@ -530,6 +530,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
         <Button
           v-if="step === 'files'"
+          variant="primary"
           icon="i-lucide-arrow-right"
           :disabled="!canContinue || scanning"
           @click="step = 'details'"
@@ -539,6 +540,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
         <Button
           v-else-if="step === 'details'"
+          variant="primary"
           icon="i-lucide-file-down"
           :disabled="!canExport"
           @click="run"
@@ -548,7 +550,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
         <Button
           v-else-if="step === 'exporting'"
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-square"
           @click="cancel"
         >
@@ -560,7 +562,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           class="flex gap-4"
         >
           <Button
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-folder-open"
             @click="showInFolder(result.path)"
           >

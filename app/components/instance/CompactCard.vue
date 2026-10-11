@@ -31,8 +31,8 @@ function select() {
         :title="instance.name"
         class="group relative flex w-full cursor-pointer flex-col items-center gap-2 border p-2.5 text-center outline-none transition-colors duration-300 focus-visible:border-line-strong"
         :class="selected
-          ? 'border-acid bg-ink-700'
-          : 'border-transparent hover:border-line-strong hover:bg-ink-800'"
+          ? 'border-accent bg-control'
+          : 'border-transparent hover:border-line-strong hover:bg-panel'"
         @click="select"
         @dblclick="actions.primary(instance)"
         @contextmenu="select"
@@ -44,12 +44,12 @@ function select() {
             size="md"
             :bordered="false"
             class="text-fg-faint transition-colors duration-300"
-            :class="selected ? 'text-acid' : 'group-hover:text-fg-muted'"
+            :class="selected ? 'text-accent' : 'group-hover:text-fg-muted'"
           />
 
           <KitLiveDot
             v-if="state === 'running'"
-            class="absolute -top-1 -right-1 text-acid"
+            class="absolute -top-1 -right-1 text-accent"
             :title="$t('instance.state.running')"
           />
 

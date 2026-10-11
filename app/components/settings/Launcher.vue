@@ -28,26 +28,26 @@ async function pickLauncherDir() {
 
 <template>
   <KitPanel
-    index="01"
     :title="$t('settings.launcher.title')"
     icon="i-lucide-app-window"
   >
     <div class="space-y-7">
-      <div class="grid grid-cols-2 gap-6">
-        <KitField :label="$t('settings.launcher.language')">
-          <KitLanguageSelect v-model="config!.launcher.language" />
-        </KitField>
-
-        <KitField :label="$t('settings.launcher.theme')">
-          <KitThemeSelect />
-        </KitField>
-      </div>
+      <KitField :label="$t('settings.launcher.theme')">
+        <KitThemePicker v-model="config!.launcher.theme" />
+      </KitField>
 
       <KitField
         :label="$t('settings.launcher.accent.label')"
         :hint="$t('settings.launcher.accent.hint')"
       >
         <KitAccentPicker v-model="config!.launcher.accent" />
+      </KitField>
+
+      <KitField :label="$t('settings.launcher.language')">
+        <KitLanguageSelect
+          v-model="config!.launcher.language"
+          class="w-1/2"
+        />
       </KitField>
 
       <KitField

@@ -6,9 +6,11 @@ use serde_json::Value;
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, write_json_atomic};
 
-pub const CONFIG_VERSION: u32 = 7;
+pub const CONFIG_VERSION: u32 = 8;
 
-pub const DEFAULT_ACCENT: &str = "sky";
+pub const DEFAULT_THEME: &str = "depth";
+
+pub const DEFAULT_ACCENT: &str = "theme";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -109,7 +111,7 @@ impl AppConfig {
             version: CONFIG_VERSION,
             launcher: LauncherConfig {
                 language: "ru".into(),
-                theme: "dark".into(),
+                theme: DEFAULT_THEME.into(),
                 dir: config_root.display().to_string(),
                 auto_update: true,
                 castpack_url: String::new(),
@@ -203,6 +205,11 @@ fn migrate(mut raw: Value) -> Value {
         set_in(&mut raw, "launcher", "onboarded", Value::Bool(true));
     }
 
+    if version <= 7 {
+        replace_in(&mut raw, "launcher", "theme", "dark", DEFAULT_THEME);
+        replace_in(&mut raw, "launcher", "accent", "sky", DEFAULT_ACCENT);
+    }
+
     raw["version"] = Value::from(CONFIG_VERSION);
     raw
 }
@@ -249,6 +256,16 @@ fn set_in(raw: &mut Value, section: &str, key: &str, value: Value) {
 
     if let Some(object) = entry.as_object_mut() {
         object.insert(key.to_string(), value);
+    }
+}
+
+fn replace_in(raw: &mut Value, section: &str, key: &str, from: &str, to: &str) {
+    let value = raw
+        .get_mut(section)
+        .and_then(|section| section.get_mut(key));
+
+    if let Some(value) = value.filter(|value| value.as_str() == Some(from)) {
+        *value = Value::String(to.into());
     }
 }
 
@@ -398,6 +415,29 @@ mod tests {
 
         assert_eq!(config.version, CONFIG_VERSION);
         assert!(config.launcher.onboarded);
+    }
+
+    #[test]
+    fn v7_config_moves_from_dark_and_sky_to_the_theme_defaults() {
+        let config = migrated(json!({
+            "version": 7,
+            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "accent": "sky" }
+        }));
+
+        assert_eq!(config.version, CONFIG_VERSION);
+        assert_eq!(config.launcher.theme, DEFAULT_THEME);
+        assert_eq!(config.launcher.accent, DEFAULT_ACCENT);
+    }
+
+    #[test]
+    fn v7_config_keeps_a_picked_theme_and_accent() {
+        let config = migrated(json!({
+            "version": 7,
+            "launcher": { "language": "ru", "theme": "light", "dir": "/data", "accent": "violet" }
+        }));
+
+        assert_eq!(config.launcher.theme, "light");
+        assert_eq!(config.launcher.accent, "violet");
     }
 
     #[test]

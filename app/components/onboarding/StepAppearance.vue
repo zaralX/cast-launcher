@@ -10,9 +10,16 @@ const language = computed({
 })
 
 const accent = computed({
-  get: () => store.config?.launcher.accent ?? 'sky',
+  get: () => store.config?.launcher.accent ?? DEFAULT_ACCENT,
   set: (value: string) => {
     if (store.config) store.config.launcher.accent = value
+  },
+})
+
+const theme = computed({
+  get: () => store.config?.launcher.theme ?? DEFAULT_THEME,
+  set: (value: string) => {
+    if (store.config) store.config.launcher.theme = value
   },
 })
 
@@ -48,6 +55,10 @@ const compact = computed({
               <span class="text-title">{{ locale.name }}</span>
             </RadioGroupItem>
           </RadioGroup>
+        </KitField>
+
+        <KitField :label="$t('settings.launcher.theme')">
+          <KitThemePicker v-model="theme" />
         </KitField>
 
         <KitField :label="$t('settings.launcher.accent.label')">

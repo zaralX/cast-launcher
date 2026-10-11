@@ -122,7 +122,6 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
 <template>
   <div class="space-y-6">
     <KitPanel
-      index="01"
       :title="$t('instance.castpack.title')"
       icon="i-lucide-layers"
     >
@@ -146,7 +145,7 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
 
         <KitRow :description="$t('instance.castpack.files_hint')">
           <Button
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-wrench"
             :disabled="!!blocked"
             @click="reinstall"
@@ -198,7 +197,7 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
 
           <template #action>
             <Button
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-arrow-down-to-line"
               :disabled="!!blocked"
               @click="reinstall"
@@ -232,7 +231,7 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
 
         <KitRow :description="$t('instance.castpack.files_hint')">
           <Button
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-rotate-cw"
             :loading="checking"
             @click="check"
@@ -260,7 +259,6 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
 
     <KitPanel
       v-if="source?.changelog"
-      index="02"
       :title="$t('instance.castpack.changelog_title')"
       icon="i-lucide-scroll-text"
     >
@@ -270,7 +268,6 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
     </KitPanel>
 
     <KitPanel
-      :index="source?.changelog ? '03' : '02'"
       :title="$t('instance.castpack.source_title')"
       icon="i-lucide-link"
     >
@@ -288,7 +285,7 @@ const openSite = (url: string) => safeRun(() => call('open_url', { url }))
 
       <Button
         v-if="source?.manifestUrl && !fromFile"
-        variant="quiet"
+        variant="ghost"
         icon="i-lucide-external-link"
         class="mt-3"
         @click="openSite(source.manifestUrl)"

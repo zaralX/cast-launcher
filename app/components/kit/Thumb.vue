@@ -20,7 +20,7 @@ const SIZE = {
 
 <template>
   <span
-    class="grid shrink-0 place-items-center overflow-hidden border border-line bg-ink-900"
+    class="grid shrink-0 place-items-center overflow-hidden rounded-sm bg-control"
     :class="SIZE[size]"
   >
     <img

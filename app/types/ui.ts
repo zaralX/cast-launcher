@@ -5,4 +5,4 @@ export interface SelectOption<T extends string | number = string> {
   disabled?: boolean
 }
 
-export type StatusTone = 'muted' | 'accent' | 'warning' | 'danger'
+export type StatusTone = 'muted' | 'accent' | 'success' | 'warning' | 'danger'

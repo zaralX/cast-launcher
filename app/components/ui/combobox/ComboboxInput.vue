@@ -4,6 +4,7 @@ import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { ComboboxInput, useForwardPropsEmits } from 'reka-ui'
 import { cn } from '@/lib/utils'
+import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
 
 defineOptions({
   inheritAttrs: false,
@@ -23,18 +24,22 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
 <template>
   <div
     data-slot="combobox-input-wrapper"
-    class="flex h-8 items-center gap-2 border-b border-line px-2.5"
+    class="p-1 pb-0"
   >
-    <Icon
-      name="i-lucide-search"
-      class="size-3.5 shrink-0 text-fg-faint"
-    />
-    <ComboboxInput
-      data-slot="combobox-input"
-      :class="cn('h-full w-full bg-transparent text-lead text-fg outline-none placeholder:text-fg-faint disabled:cursor-not-allowed', props.class)"
-      v-bind="{ ...$attrs, ...forwarded }"
-    >
-      <slot />
-    </ComboboxInput>
+    <InputGroup>
+      <InputGroupAddon>
+        <Icon
+          name="i-lucide-search"
+          class="size-3.5"
+        />
+      </InputGroupAddon>
+      <ComboboxInput
+        data-slot="input-group-control"
+        :class="cn('h-full min-w-0 flex-1 bg-transparent pr-2.5 pl-2 text-fg outline-none placeholder:text-fg-faint', props.class)"
+        v-bind="{ ...$attrs, ...forwarded }"
+      >
+        <slot />
+      </ComboboxInput>
+    </InputGroup>
   </div>
 </template>

@@ -9,7 +9,7 @@ defineOptions({
 const props = defineProps<{
   loading?: boolean
   icon?: string
-  size?: 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
   font?: InputVariants['font']
   class?: HTMLAttributes['class']
 }>()
@@ -38,5 +38,15 @@ const model = defineModel<string>()
       :font="font"
       v-bind="$attrs"
     />
+    <InputGroupAddon
+      v-if="model"
+      align="inline-end"
+    >
+      <InputGroupButton
+        icon="i-lucide-x"
+        :aria-label="$t('common.clear')"
+        @click="model = ''"
+      />
+    </InputGroupAddon>
   </InputGroup>
 </template>

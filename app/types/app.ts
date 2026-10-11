@@ -75,3 +75,16 @@ export interface Accent {
   labelKey: string
   preview: string
 }
+
+export interface Theme {
+  value: string
+  labelKey: string
+  square?: boolean
+  preview: {
+    frame: string
+    sheet: string
+    panel: string
+    accent: string
+    edge?: string
+  }
+}

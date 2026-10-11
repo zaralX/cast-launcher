@@ -1,56 +1,80 @@
 @import "tailwindcss" theme(static);
 
+@custom-variant classic (&:where([data-theme="classic"], [data-theme="classic"] *));
+
 @theme static {
-    --font-golos: "Golos Text", sans-serif;
-    --font-unbounded: "Unbounded", sans-serif;
+    --font-sans: "Golos Text", system-ui, sans-serif;
+    --font-unbounded: "Unbounded", "Golos Text", sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-    --color-ink-900: var(--cast-ink-900);
-    --color-ink-800: var(--cast-ink-800);
-    --color-ink-700: var(--cast-ink-700);
-    --color-ink-600: var(--cast-ink-600);
+    --color-frame: var(--cast-frame);
+    --color-sheet: var(--cast-sheet);
+    --color-panel: var(--cast-panel);
+    --color-control: var(--cast-control);
+    --color-hover: var(--cast-hover);
+    --color-raise: var(--cast-raise);
 
     --color-line: var(--cast-line);
     --color-line-strong: var(--cast-line-strong);
+    --color-card-line: var(--cast-card-line);
 
     --color-fg: var(--cast-fg);
     --color-fg-muted: var(--cast-fg-muted);
     --color-fg-faint: var(--cast-fg-faint);
 
-    --color-acid: var(--cast-acid);
-    --color-on-acid: var(--cast-on-acid);
+    --color-accent: var(--cast-accent);
+    --color-on-accent: var(--cast-on-accent);
 
     --color-success: var(--cast-success);
     --color-warning: var(--cast-warning);
     --color-danger: var(--cast-danger);
-    --color-danger-strong: var(--cast-danger-strong);
     --color-on-danger: var(--cast-on-danger);
 
-    --text-micro: 9px;
-    --text-label: 10px;
-    --text-caption: 11px;
-    --text-body: 12px;
-    --text-title: 13px;
-    --text-lead: 14px;
-    --text-heading: 15px;
+    --radius-xs: var(--cast-radius-xs);
+    --radius-sm: var(--cast-radius-sm);
+    --radius-md: var(--cast-radius-md);
+    --radius-lg: var(--cast-radius-lg);
+    --radius-pill: var(--cast-radius-pill);
 
-    --tracking-caps: 0.2em;
-    --tracking-caps-wide: 0.3em;
-    --tracking-heading: -0.03em;
-    --tracking-display: -0.055em;
+    --shadow-float: var(--cast-shadow-float);
+    --shadow-dialog: var(--cast-shadow-dialog);
+    --shadow-sheet: inset 1px 1px 0 var(--cast-sheet-edge);
+    --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--cast-accent) 18%, transparent), inset 0 0 0 1px var(--cast-accent);
+    --shadow-invalid: inset 0 0 0 1px var(--cast-danger);
+
+    --text-micro: 11px;
+    --text-micro--line-height: 1.35;
+    --text-caption: 12px;
+    --text-caption--line-height: 1.4;
+    --text-body: 13px;
+    --text-body--line-height: 1.45;
+    --text-title: 14px;
+    --text-title--line-height: 1.4;
+    --text-lead: 15px;
+    --text-lead--line-height: 1.4;
+    --text-heading: 16px;
+    --text-heading--line-height: 1.3;
+    --text-page: 22px;
+    --text-page--line-height: 1.15;
+    --text-display: 28px;
+    --text-display--line-height: 1.1;
+
+    --tracking-caps: 0.14em;
+    --tracking-caps-wide: 0.2em;
+    --tracking-heading: -0.02em;
+    --tracking-display: -0.03em;
 
     --ease-deck: cubic-bezier(0.16, 1, 0.3, 1);
 
-    --animate-rise: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+    --animate-rise: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
     --animate-sweep: sweep 1.35s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-    --animate-blink: blink 1.1s steps(1, end) infinite;
     --animate-breathe: breathe 2.4s ease-in-out infinite;
 }
 
 @keyframes rise {
     from {
         opacity: 0;
-        transform: translateY(12px);
+        transform: translateY(8px);
     }
     to {
         opacity: 1;
@@ -67,15 +91,6 @@
     }
 }
 
-@keyframes blink {
-    0%, 50% {
-        opacity: 1;
-    }
-    51%, 100% {
-        opacity: 0;
-    }
-}
-
 @keyframes breathe {
     0%, 100% {
         opacity: 1;
@@ -83,7 +98,7 @@
     }
     50% {
         opacity: 0.35;
-        transform: scale(1.6);
+        transform: scale(1.8);
     }
 }
 

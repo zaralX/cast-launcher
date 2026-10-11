@@ -45,8 +45,8 @@ function toggleExpanded(key: string) {
 }
 
 const SOURCE_TONE: Record<SourceKind, string> = {
-  modrinth: 'text-acid',
-  curseforge: 'text-acid',
+  modrinth: 'text-accent',
+  curseforge: 'text-accent',
   embedded: 'text-warning',
   unchecked: 'text-warning',
 }
@@ -148,14 +148,14 @@ const sizeOf = (entry: TreeEntry) => entry.dir
           {{ $t(EXPORT_NOTE_KEYS[entry.note]) }}
         </Badge>
 
-        <span class="w-36 shrink-0 text-right font-mono text-label tabular-nums text-fg-faint">
+        <span class="w-36 shrink-0 text-right font-mono text-caption tabular-nums text-fg-faint">
           {{ sizeOf(entry) }}
         </span>
       </div>
 
       <ul
         v-if="entry.children?.length && expanded.has(entry.key)"
-        class="max-h-72 overflow-y-auto border-t border-line bg-ink-900/40"
+        class="max-h-72 overflow-y-auto border-t border-line bg-sheet/40"
       >
         <li
           v-for="child in entry.children"
@@ -198,7 +198,7 @@ const sizeOf = (entry: TreeEntry) => entry.dir
             {{ $t(EXPORT_NOTE_KEYS[child.note]) }}
           </span>
 
-          <span class="w-36 shrink-0 text-right font-mono text-label tabular-nums text-fg-faint">
+          <span class="w-36 shrink-0 text-right font-mono text-caption tabular-nums text-fg-faint">
             {{ sizeOf(child) }}
           </span>
         </li>

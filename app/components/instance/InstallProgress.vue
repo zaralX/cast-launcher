@@ -15,7 +15,7 @@ defineProps<{
       </span>
       <span
         v-if="progress != null"
-        class="shrink-0 font-mono text-micro tabular-nums text-acid"
+        class="shrink-0 font-mono text-micro tabular-nums text-accent"
       >
         {{ Math.round(progress * 100) }}%
       </span>

@@ -34,7 +34,8 @@ const select = (index: number) => safeRun(() => accountStore.selectAccount(index
   >
     <div class="space-y-6">
       <Button
-        size="xl"
+        variant="primary"
+        size="lg"
         icon="simple-icons:microsoft"
         class="h-12 w-full"
         :loading="loggingIn"

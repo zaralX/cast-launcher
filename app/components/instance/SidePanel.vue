@@ -37,7 +37,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
 </script>
 
 <template>
-  <aside class="flex flex-col border-l border-line bg-ink-800">
+  <aside class="flex flex-col border-l border-line bg-panel">
     <div
       v-if="instance"
       :key="instance.id"
@@ -75,7 +75,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
 
           <Button
             v-else-if="state !== 'running'"
-            size="sm"
+            variant="primary"
             class="group/act w-full"
             @click="actions.primary(instance)"
           >
@@ -88,8 +88,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
 
           <Button
             v-if="state === 'running'"
-            variant="fill-accent"
-            size="sm"
+            variant="primary"
             icon="i-lucide-square"
             class="w-full"
             @click="actions.stop(instance.id)"
@@ -99,7 +98,6 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
 
           <Button
             v-if="state === 'installing'"
-            size="sm"
             icon="i-lucide-x"
             class="w-full"
             :disabled="install?.aborting"
@@ -110,7 +108,6 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
 
           <Button
             :to="`/instance/${instance.id}`"
-            size="sm"
             icon="i-lucide-settings"
             class="w-full"
           >
@@ -118,7 +115,6 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
           </Button>
 
           <Button
-            size="sm"
             icon="i-lucide-file-down"
             class="w-full"
             :disabled="state === 'installing'"
@@ -131,8 +127,6 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
             <Button
               v-for="target in INSTANCE_DIRS"
               :key="target"
-              variant="outline-accent"
-              size="sm"
               :icon="DIR_ICONS[target]"
               :title="$t(INSTANCE_DIR_KEYS[target])"
               :aria-label="$t(INSTANCE_DIR_KEYS[target])"
@@ -141,7 +135,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
           </div>
         </div>
 
-        <dl class="space-y-2 border-t border-line px-5 py-4 font-mono text-label uppercase tracking-caps">
+        <dl class="space-y-2 border-t border-line px-5 py-4 font-mono text-caption uppercase tracking-caps">
           <div>
             <dt class="text-fg-faint">
               {{ $t('instance.panel.playtime') }}
@@ -174,7 +168,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
 
       <div class="border-t border-line px-5 py-4">
         <Button
-          variant="quiet-danger"
+          variant="danger-ghost"
           icon="i-lucide-trash-2"
           @click="emit('remove', instance.id)"
         >
@@ -199,7 +193,7 @@ const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
       <i18n-t
         keypath="instance.panel.empty"
         tag="p"
-        class="font-mono text-label uppercase leading-relaxed tracking-caps text-fg-faint"
+        class="font-mono text-caption uppercase leading-relaxed tracking-caps text-fg-faint"
       >
         <template #br>
           <br>

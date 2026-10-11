@@ -9,7 +9,7 @@ const props = withDefaults(defineProps<{
 const modsStore = useModsStore()
 
 const SIZES = {
-  sm: 'size-9 text-label',
+  sm: 'size-9 text-caption',
   md: 'size-12 text-body',
 }
 
@@ -20,7 +20,7 @@ const mark = computed(() => props.name.trim().slice(0, 2).toUpperCase() || '??')
 
 <template>
   <span
-    class="grid shrink-0 place-items-center overflow-hidden border border-line bg-ink-900"
+    class="grid shrink-0 place-items-center overflow-hidden border border-line bg-sheet"
     :class="SIZES[size]"
   >
     <img

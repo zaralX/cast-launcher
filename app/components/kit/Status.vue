@@ -6,26 +6,28 @@ import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<{
   tone?: StatusTone
-  dot?: 'blink' | 'static' | 'live'
+  dot?: 'static' | 'live' | 'none'
   class?: HTMLAttributes['class']
 }>(), {
   tone: 'muted',
-  dot: 'blink',
+  dot: 'static',
   class: undefined,
 })
 </script>
 
 <template>
-  <p :class="cn('flex items-start gap-2.5 font-mono text-label uppercase leading-relaxed tracking-caps', STATUS_TONE[tone], props.class)">
-    <span class="flex h-[1.625em] shrink-0 items-center">
+  <p :class="cn('flex items-start gap-2 text-caption font-medium', STATUS_TONE[tone], props.class)">
+    <span
+      v-if="dot !== 'none'"
+      class="flex h-[1.4em] shrink-0 items-center"
+    >
       <KitLiveDot
         v-if="dot === 'live'"
         size="sm"
       />
       <span
         v-else
-        class="size-1.5 bg-current"
-        :class="dot === 'blink' && 'animate-blink'"
+        class="size-1.5 rounded-pill bg-current"
       />
     </span>
     <span class="min-w-0">

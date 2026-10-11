@@ -1,26 +1,22 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
+import type { InputGroupVariants } from '.'
 import { cn } from '@/lib/utils'
+import { INPUT_GROUP_SIZE, inputGroupVariants } from '.'
 
-const props = withDefaults(defineProps<{
-  size?: 'md' | 'lg'
+const props = defineProps<{
+  size?: InputGroupVariants['size']
   class?: HTMLAttributes['class']
-}>(), {
-  size: 'md',
-})
+}>()
+
+provide(INPUT_GROUP_SIZE, toRef(props, 'size'))
 </script>
 
 <template>
   <div
     data-slot="input-group"
     role="group"
-    :class="cn(
-      'group/input-group relative flex w-full min-w-0 items-center bg-ink-900 ring ring-inset ring-line transition-colors',
-      size === 'lg' ? 'h-9' : 'h-8',
-      'has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-acid/60',
-      'has-[[data-slot=input-group-control]:disabled]:opacity-75',
-      props.class,
-    )"
+    :class="cn(inputGroupVariants({ size }), props.class)"
   >
     <slot />
   </div>

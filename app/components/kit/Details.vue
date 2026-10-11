@@ -12,7 +12,7 @@ const props = withDefaults(defineProps<{
 </script>
 
 <template>
-  <dl :class="cn('grid gap-x-8 gap-y-3', columns === 2 && 'grid-cols-2', props.class)">
+  <dl :class="cn('grid gap-x-6 gap-y-3', columns === 2 && 'grid-cols-2', props.class)">
     <slot />
   </dl>
 </template>

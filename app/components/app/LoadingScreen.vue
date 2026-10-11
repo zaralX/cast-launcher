@@ -11,50 +11,59 @@ const percent = computed(() => Math.round((current.value / props.steps.length) *
 <template>
   <div
     data-tauri-drag-region
-    class="flex h-screen items-center justify-center px-12 xl:px-20"
+    class="flex h-screen items-center justify-center bg-frame px-12"
   >
-    <div class="w-full max-w-[26rem]">
-      <div class="flex items-baseline gap-3">
-        <p class="font-unbounded text-[20px] font-bold leading-none tracking-[-0.06em] text-fg">
-          CAST<span class="text-acid">.</span>
+    <div class="w-full max-w-sm">
+      <div class="flex items-center gap-2.5">
+        <img
+          src="/logo.svg"
+          class="size-7"
+          alt=""
+        >
+        <p class="font-unbounded text-heading font-semibold tracking-heading text-fg classic:uppercase">
+          Cast
         </p>
-        <span class="font-mono text-label uppercase tracking-caps-wide text-fg-faint">Launcher</span>
       </div>
 
-      <div class="mt-14 flex items-end justify-between">
-        <p class="font-mono text-label uppercase tracking-caps-wide text-fg-faint">
+      <div class="mt-10 flex items-end justify-between gap-4">
+        <p class="text-body text-fg-muted">
           {{ $t('boot.initialization') }}
         </p>
-        <p class="font-unbounded text-[44px] font-bold leading-[0.8] tracking-[-0.06em] text-fg">
-          {{ percent }}<span class="text-[18px] text-acid">%</span>
+        <p class="font-unbounded text-display font-semibold tracking-display text-fg tabular-nums">
+          {{ percent }}%
         </p>
       </div>
 
       <Progress
         :model-value="percent"
-        class="mt-5"
+        class="mt-3"
       />
 
-      <ol class="mt-10 space-y-2.5">
+      <ol class="mt-8 space-y-2">
         <li
           v-for="(step, i) in steps"
           :key="step"
-          class="flex items-center gap-3 font-mono text-caption transition-all duration-500 ease-deck"
+          class="flex items-center gap-2.5 text-caption transition-colors duration-300"
           :class="i + 1 === current
-            ? 'text-acid'
-            : i + 1 < current ? 'text-fg-faint' : 'text-fg-faint/35'"
+            ? 'text-fg'
+            : i + 1 < current ? 'text-fg-faint' : 'text-fg-faint/50'"
         >
-          <span class="w-5 shrink-0 tabular-nums">{{ String(i + 1).padStart(2, "0") }}</span>
-          <span class="truncate">{{ step }}</span>
-          <span
+          <Spinner
             v-if="i + 1 === current"
-            class="h-3 w-1.5 bg-acid animate-blink"
+            class="size-3.5 text-accent"
           />
           <Icon
             v-else-if="i + 1 < current"
             name="i-lucide-check"
-            class="size-3 shrink-0"
+            class="size-3.5 shrink-0 text-success"
           />
+          <span
+            v-else
+            class="grid size-3.5 shrink-0 place-items-center"
+          >
+            <span class="size-1 rounded-pill bg-current" />
+          </span>
+          <span class="truncate">{{ step }}</span>
         </li>
       </ol>
     </div>

@@ -81,11 +81,11 @@ const HEADER_KEYS: Record<string, string> = {
 <template>
   <aside class="flex flex-col gap-7">
     <div class="flex items-center gap-3">
-      <span class="font-mono text-label uppercase tracking-caps-wide text-acid">{{ $t('search.filters.title') }}</span>
+      <span class="font-mono text-caption uppercase tracking-caps-wide text-accent">{{ $t('search.filters.title') }}</span>
       <Separator class="flex-1" />
       <Button
         v-if="selectedCount"
-        variant="quiet"
+        variant="ghost"
         class="py-0 text-micro"
         @click="reset"
       >
@@ -154,7 +154,7 @@ const HEADER_KEYS: Record<string, string> = {
             v-for="option in ENVIRONMENTS"
             :key="option.value"
             :value="option.value"
-            class="py-2 font-mono text-micro uppercase tracking-caps data-[state=checked]:text-acid"
+            class="py-2 font-mono text-micro uppercase tracking-caps data-[state=checked]:text-accent"
           >
             {{ option.label }}
           </RadioGroupItem>

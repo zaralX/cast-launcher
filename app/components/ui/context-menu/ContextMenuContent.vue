@@ -27,7 +27,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     <ContextMenuContent
       data-slot="context-menu-content"
       v-bind="{ ...$attrs, ...forwarded }"
-      :class="cn(FLOATING, 'min-w-32 overflow-hidden p-1 shadow-none origin-(--reka-context-menu-content-transform-origin)', props.class)"
+      :class="cn(FLOATING, 'min-w-44 overflow-hidden p-1 origin-(--reka-context-menu-content-transform-origin)', props.class)"
     >
       <slot />
     </ContextMenuContent>

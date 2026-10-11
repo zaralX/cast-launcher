@@ -321,13 +321,12 @@ watch(instanceId, () => {
 
 <template>
   <KitPanel
-    index="01"
     :title="$t('instance.mods.title')"
     icon="i-lucide-blocks"
   >
     <div
       class="space-y-5"
-      :class="dragging ? 'outline outline-1 outline-offset-8 outline-acid' : ''"
+      :class="dragging ? 'outline outline-1 outline-offset-8 outline-accent' : ''"
     >
       <div class="flex flex-wrap items-end gap-4">
         <KitField
@@ -405,7 +404,7 @@ watch(instanceId, () => {
             {{ $t('instance.mods.select_all') }}
           </Label>
 
-          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+          <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
             <template v-if="visible.length !== mods.length">
               {{ $t('instance.mods.count_of', { visible: visible.length, total: mods.length }) }}
             </template>
@@ -442,7 +441,7 @@ watch(instanceId, () => {
         variant="accent"
         class="items-center"
       >
-        <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
+        <p class="font-mono text-caption uppercase tracking-caps text-fg-muted">
           {{ $t('instance.mods.updates_count', { count: updates.length }) }}
         </p>
 
@@ -461,14 +460,14 @@ watch(instanceId, () => {
         v-if="picked.length"
         class="items-center"
       >
-        <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
+        <p class="font-mono text-caption uppercase tracking-caps text-fg-muted">
           {{ $t('instance.mods.picked', { count: picked.length }) }}
         </p>
 
         <template #action>
           <div class="flex items-center gap-4">
             <Button
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-toggle-right"
               :disabled="working"
               @click="setPickedEnabled(true)"
@@ -477,7 +476,7 @@ watch(instanceId, () => {
             </Button>
 
             <Button
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-toggle-left"
               :disabled="working"
               @click="setPickedEnabled(false)"
@@ -486,7 +485,7 @@ watch(instanceId, () => {
             </Button>
 
             <Button
-              variant="quiet-danger"
+              variant="danger-ghost"
               icon="i-lucide-trash-2"
               :disabled="working"
               @click="confirming = true"
@@ -495,7 +494,7 @@ watch(instanceId, () => {
             </Button>
 
             <Button
-              variant="quiet"
+              variant="ghost"
               icon="i-lucide-x"
               @click="selected = []"
             >
@@ -515,7 +514,7 @@ watch(instanceId, () => {
           class="border-b border-line"
         >
           <div
-            class="group flex items-center gap-4 px-1 py-3 transition-colors duration-300 hover:bg-ink-700"
+            class="group flex items-center gap-4 px-1 py-3 transition-colors duration-300 hover:bg-control"
             :class="mod.enabled ? '' : 'opacity-55'"
           >
             <Checkbox
@@ -564,7 +563,7 @@ watch(instanceId, () => {
                   />
                 </span>
 
-                <span class="mt-1 block truncate font-mono text-label uppercase tracking-caps text-fg-faint">
+                <span class="mt-1 block truncate font-mono text-caption uppercase tracking-caps text-fg-faint">
                   {{ subtitle(mod) || mod.fileName }}
                 </span>
               </span>
@@ -581,7 +580,7 @@ watch(instanceId, () => {
               <Icon
                 name="i-lucide-chevron-down"
                 class="size-4 shrink-0 text-fg-faint transition-transform duration-300"
-                :class="expanded === modKey(mod) ? 'rotate-180 text-acid' : ''"
+                :class="expanded === modKey(mod) ? 'rotate-180 text-accent' : ''"
               />
             </button>
           </div>
@@ -647,7 +646,6 @@ watch(instanceId, () => {
 
               <Button
                 v-if="updateOf(mod.path) && !mod.managed"
-                size="sm"
                 icon="i-lucide-arrow-up-circle"
                 :loading="working"
                 @click="applyUpdates([mod.path])"
@@ -700,7 +698,7 @@ watch(instanceId, () => {
       :loading="working"
       @confirm="removePicked"
     >
-      <ul class="max-h-52 space-y-1.5 overflow-auto border border-line bg-ink-900 p-4">
+      <ul class="max-h-52 space-y-1.5 overflow-auto border border-line bg-sheet p-4">
         <li
           v-for="mod in picked"
           :key="mod.path"

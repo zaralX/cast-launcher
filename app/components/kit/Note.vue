@@ -15,10 +15,10 @@ const props = withDefaults(defineProps<{
 </script>
 
 <template>
-  <p :class="cn('flex items-start gap-2.5 text-body leading-relaxed text-fg-muted', props.class)">
+  <p :class="cn('flex items-start gap-2.5 text-body text-fg-muted', props.class)">
     <Icon
       :name="icon"
-      class="mt-0.5 size-3.5 shrink-0"
+      class="mt-0.5 size-4 shrink-0"
       :class="STATUS_TONE[tone]"
     />
     <span class="min-w-0">

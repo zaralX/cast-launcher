@@ -17,12 +17,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <header class="relative z-40 flex h-11 shrink-0 items-stretch border-b border-line bg-ink-800">
+  <header class="relative z-40 flex h-10 shrink-0 items-stretch bg-frame">
     <AppLogo>
       <span
         v-if="version"
-        class="font-mono text-label leading-none text-fg-faint"
-      >v{{ version }}</span>
+        class="text-micro text-fg-faint"
+      >{{ version }}</span>
     </AppLogo>
 
     <div

@@ -1,31 +1,34 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+import type { HTMLAttributes } from 'vue'
+import { cn } from '@/lib/utils'
+
+const props = withDefaults(defineProps<{
   label?: string
   description?: string
   tone?: 'default' | 'danger'
-  bordered?: boolean
+  class?: HTMLAttributes['class']
 }>(), {
   label: undefined,
   description: undefined,
   tone: 'default',
-  bordered: true,
+  class: undefined,
 })
 </script>
 
 <template>
-  <div
-    class="flex items-center justify-between gap-6"
-    :class="bordered && ['border-t pt-6', tone === 'danger' ? 'border-danger/20' : 'border-line']"
-  >
-    <div class="min-w-0">
+  <div :class="cn('flex items-center gap-6', props.class)">
+    <div class="min-w-0 flex-1">
       <p
         v-if="label"
-        class="mb-2 font-mono text-label uppercase tracking-caps"
-        :class="tone === 'danger' ? 'text-danger/80' : 'text-fg-faint'"
+        class="font-medium"
+        :class="tone === 'danger' ? 'text-danger' : 'text-fg'"
       >
         {{ label }}
       </p>
-      <div class="text-body leading-relaxed text-fg-muted">
+      <div
+        v-if="description || $slots.description"
+        class="mt-0.5 text-caption text-fg-faint"
+      >
         <slot name="description">
           {{ description }}
         </slot>

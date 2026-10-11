@@ -17,7 +17,7 @@ defineOptions({
 const props = withDefaults(
   defineProps<HoverCardContentProps & { class?: HTMLAttributes['class'] }>(),
   {
-    sideOffset: 8,
+    sideOffset: 6,
     collisionPadding: 8,
   },
 )

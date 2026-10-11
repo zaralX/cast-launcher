@@ -14,9 +14,9 @@ const latestVersion = computed(() => props.hit.versions.at(-1) ?? '')
 </script>
 
 <template>
-  <article class="group relative flex gap-4 overflow-hidden border border-line bg-ink-800 p-4 transition-all duration-500 ease-deck hover:border-acid/40 hover:bg-ink-700">
+  <article class="group relative flex gap-4 overflow-hidden border border-line bg-panel p-4 transition-all duration-500 ease-deck hover:border-accent/40 hover:bg-control">
     <span
-      class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-acid transition-transform duration-700 ease-deck group-hover:scale-y-100"
+      class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-accent transition-transform duration-700 ease-deck group-hover:scale-y-100"
       aria-hidden="true"
     />
 
@@ -41,7 +41,7 @@ const latestVersion = computed(() => props.hit.versions.at(-1) ?? '')
         </div>
 
         <Button
-          variant="quiet"
+          variant="ghost"
           class="group/act shrink-0"
           @click="emit('install', hit)"
         >

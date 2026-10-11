@@ -1,7 +1,6 @@
 <script setup lang="ts" generic="T extends string | number, M extends boolean = false">
 import type { HTMLAttributes } from 'vue'
 import type { SelectOption } from '~/types/ui'
-import { FIELD } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -36,10 +35,9 @@ const display = computed(() => selected.value.map(option => option.label).join('
   >
     <ComboboxAnchor>
       <ComboboxTrigger as-child>
-        <button
-          type="button"
+        <Button
           :disabled="disabled"
-          :class="cn(FIELD, 'flex h-8 w-full cursor-pointer items-center justify-between gap-1.5 pr-2 pl-2.5 text-left', props.class)"
+          :class="cn('w-full justify-between px-2.5 font-normal', props.class)"
         >
           <span
             class="truncate"
@@ -47,9 +45,9 @@ const display = computed(() => selected.value.map(option => option.label).join('
           >{{ display || placeholder }}</span>
           <Icon
             name="i-lucide-chevron-down"
-            class="size-5 shrink-0 text-fg-faint"
+            class="size-4 shrink-0 text-fg-faint"
           />
-        </button>
+        </Button>
       </ComboboxTrigger>
     </ComboboxAnchor>
 
@@ -67,11 +65,17 @@ const display = computed(() => selected.value.map(option => option.label).join('
           :value="option.value"
           :disabled="option.disabled"
         >
+          <Icon
+            v-if="option.icon"
+            :name="option.icon"
+            mode="svg"
+            class="size-4 shrink-0"
+          />
           <span class="truncate">{{ option.label }}</span>
           <ComboboxItemIndicator>
             <Icon
               name="i-lucide-check"
-              class="size-4 text-acid"
+              class="size-4"
             />
           </ComboboxItemIndicator>
         </ComboboxItem>

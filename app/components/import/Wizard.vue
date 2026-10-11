@@ -187,7 +187,7 @@ onMounted(async () => {
       >
         <Icon
           :name="option.icon"
-          class="size-5 shrink-0 text-fg-faint group-data-[state=checked]:text-acid"
+          class="size-5 shrink-0 text-fg-faint group-data-[state=checked]:text-accent"
         />
 
         <div class="min-w-0 flex-1">
@@ -244,7 +244,7 @@ onMounted(async () => {
         </Label>
 
         <Button
-          variant="quiet"
+          variant="ghost"
           :icon="allSelected ? 'i-lucide-square' : 'i-lucide-check-square'"
           :disabled="running || !importable.length"
           @click="toggleAll"
@@ -265,7 +265,7 @@ onMounted(async () => {
             <Icon
               :name="instance.blocked ? 'i-lucide-ban' : isSelected(instance.folder) ? 'i-lucide-check' : 'i-lucide-minus'"
               class="size-4 shrink-0"
-              :class="isSelected(instance.folder) ? 'text-acid' : 'text-fg-faint'"
+              :class="isSelected(instance.folder) ? 'text-accent' : 'text-fg-faint'"
             />
           </template>
 
@@ -283,7 +283,7 @@ onMounted(async () => {
           </p>
           <p
             v-if="instance.blocked"
-            class="mt-1 truncate font-mono text-label text-warning"
+            class="mt-1 truncate font-mono text-caption text-warning"
           >
             {{ uiText(instance.blocked) }}
           </p>
@@ -292,14 +292,14 @@ onMounted(async () => {
 
       <p
         v-if="!scanned.length"
-        class="border-b border-line py-6 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
+        class="border-b border-line py-6 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
       >
         {{ $t('settings.import.empty') }}
       </p>
 
       <p
         v-else-if="blocked.length"
-        class="mt-3 font-mono text-label leading-relaxed text-fg-faint/70"
+        class="mt-3 font-mono text-caption leading-relaxed text-fg-faint/70"
       >
         {{ $t('settings.import.blocked', { count: blocked.length, launcher: current.label }) }}
       </p>
@@ -312,7 +312,6 @@ onMounted(async () => {
       <KitRow
         v-for="row in rows"
         :key="row.key"
-        :bordered="false"
         :label="row.title"
         :description="row.hint"
       >
@@ -326,10 +325,10 @@ onMounted(async () => {
 
     <Alert
       v-if="running"
-      class="block bg-ink-700 px-5 py-4"
+      class="block bg-control px-5 py-4"
     >
       <div class="flex items-center justify-between gap-4">
-        <p class="min-w-0 truncate font-mono text-label uppercase tracking-caps text-acid">
+        <p class="min-w-0 truncate font-mono text-caption uppercase tracking-caps text-accent">
           {{ progress ? $t(STAGE_KEYS[progress.stage]) : $t('settings.import.preparing') }}
           <span
             v-if="progress?.step"
@@ -338,7 +337,7 @@ onMounted(async () => {
         </p>
 
         <Button
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-x"
           @click="cancel"
         >
@@ -346,7 +345,7 @@ onMounted(async () => {
         </Button>
       </div>
 
-      <p class="mt-3 font-mono text-label text-fg-faint">
+      <p class="mt-3 font-mono text-caption text-fg-faint">
         <template v-if="progress">
           {{ $t('settings.import.files', { files: progress.stats.files, bytes: formatBytes(progress.stats.bytes) }) }}
           <template v-if="progress.stats.skipped">
@@ -364,11 +363,11 @@ onMounted(async () => {
 
     <Alert
       v-else-if="report"
-      class="block bg-ink-700 px-5 py-4"
+      class="block bg-control px-5 py-4"
     >
       <p
-        class="font-mono text-label uppercase tracking-caps"
-        :class="report.cancelled ? 'text-warning' : 'text-acid'"
+        class="font-mono text-caption uppercase tracking-caps"
+        :class="report.cancelled ? 'text-warning' : 'text-accent'"
       >
         {{ report.cancelled ? $t('settings.import.cancelled') : $t('settings.import.finished') }}
       </p>
@@ -388,7 +387,7 @@ onMounted(async () => {
         <li
           v-for="skipped in report.skipped"
           :key="skipped.name"
-          class="font-mono text-label leading-relaxed text-warning"
+          class="font-mono text-caption leading-relaxed text-warning"
         >
           {{ skipped.name }} - {{ uiText(skipped.reason) }}
         </li>
@@ -397,7 +396,8 @@ onMounted(async () => {
 
     <Button
       v-if="scanned?.length"
-      size="xl"
+      variant="primary"
+      size="lg"
       icon="i-lucide-download"
       class="w-full"
       :loading="running"

@@ -45,13 +45,11 @@ watch(() => settings.value.overrideJava, (enabled) => {
 <template>
   <div class="space-y-6">
     <KitPanel
-      index="01"
       :title="$t('instance.java.memory_title')"
       icon="i-lucide-memory-stick"
     >
       <div class="space-y-7">
         <KitRow
-          :bordered="false"
           :label="$t('instance.java.override_memory')"
           :description="$t('instance.java.override_memory_hint')"
         >
@@ -72,14 +70,12 @@ watch(() => settings.value.overrideJava, (enabled) => {
     </KitPanel>
 
     <KitPanel
-      index="02"
       :title="$t('instance.java.title')"
       :description="$t('instance.java.description')"
       icon="i-lucide-cpu"
     >
       <div class="space-y-7">
         <KitRow
-          :bordered="false"
           :label="$t('instance.java.override_java')"
           :description="$t('instance.java.override_java_hint')"
         >

@@ -240,9 +240,7 @@ const playPack = (instanceId: string) => safeRun(
   <div class="min-h-full w-full px-6 pt-6 pb-10 xl:px-10">
     <header class="animate-rise flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
       <KitPageHeader
-        :eyebrow="$t('search.eyebrow')"
         :title="$t('search.title')"
-        size="xs"
       />
 
       <RadioGroup
@@ -263,7 +261,7 @@ const playPack = (instanceId: string) => safeRun(
             class="size-3.5"
             alt=""
           >
-          <span class="font-mono text-label uppercase tracking-caps">{{ item.label }}</span>
+          <span class="font-mono text-caption uppercase tracking-caps">{{ item.label }}</span>
           <span
             v-if="!item.ready"
             class="font-mono text-micro tracking-[0.12em] text-fg-faint"
@@ -279,7 +277,7 @@ const playPack = (instanceId: string) => safeRun(
             class="size-3.5"
             alt=""
           >
-          <span class="font-mono text-label uppercase tracking-caps">CastPack</span>
+          <span class="font-mono text-caption uppercase tracking-caps">CastPack</span>
         </RadioGroupItem>
       </RadioGroup>
     </header>
@@ -317,7 +315,7 @@ const playPack = (instanceId: string) => safeRun(
         </div>
 
         <div class="mt-4 flex items-center gap-4">
-          <span class="font-mono text-label uppercase tracking-caps text-fg-faint">
+          <span class="font-mono text-caption uppercase tracking-caps text-fg-faint">
             {{ searching ? $t('search.searching') : $t('search.found', { count: total }) }}
           </span>
           <Separator class="flex-1" />
@@ -337,7 +335,7 @@ const playPack = (instanceId: string) => safeRun(
           <Skeleton
             v-for="row in 6"
             :key="row"
-            class="h-30 bg-ink-800"
+            class="h-30 bg-panel"
           />
         </div>
 
@@ -391,7 +389,7 @@ const playPack = (instanceId: string) => safeRun(
         />
 
         <Button
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-rotate-cw"
           class="px-2"
           :loading="catalogLoading"
@@ -444,7 +442,7 @@ const playPack = (instanceId: string) => safeRun(
 
       <p
         v-if="catalog?.updatedAt"
-        class="mt-8 font-mono text-label uppercase tracking-caps text-fg-faint"
+        class="mt-8 font-mono text-caption uppercase tracking-caps text-fg-faint"
       >
         {{ $t('search.catalog_updated', { date: catalog.updatedAt }) }}
       </p>

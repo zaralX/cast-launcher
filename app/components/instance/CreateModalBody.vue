@@ -159,7 +159,7 @@ const createInstance = async () => {
             :value="type.value"
             class="flex-col gap-1.5 py-4"
           >
-            <span class="font-mono text-label tracking-[0.1em] transition-colors duration-300 group-data-[state=checked]:text-acid">
+            <span class="font-mono text-caption tracking-[0.1em] transition-colors duration-300 group-data-[state=checked]:text-accent">
               {{ type.mark }}
             </span>
             <span class="font-unbounded text-body tracking-[-0.02em]">{{ type.label }}</span>
@@ -219,8 +219,9 @@ const createInstance = async () => {
       </p>
 
       <Button
+        variant="primary"
         type="submit"
-        size="xl"
+        size="lg"
         class="group/act w-full"
         :loading="creating"
         :disabled="!canCreate"

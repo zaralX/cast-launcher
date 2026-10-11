@@ -1,0 +1,39 @@
+<script setup lang="ts">
+import type { DropdownMenuItemEmits, DropdownMenuItemProps } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
+import { reactiveOmit } from '@vueuse/core'
+import { DropdownMenuItem, useForwardPropsEmits } from 'reka-ui'
+import { MENU_ICON, MENU_ITEM } from '@/lib/styles'
+import { cn } from '@/lib/utils'
+
+const props = withDefaults(defineProps<DropdownMenuItemProps & {
+  class?: HTMLAttributes['class']
+  icon?: string
+  variant?: 'default' | 'danger'
+}>(), {
+  class: undefined,
+  icon: undefined,
+  variant: 'default',
+})
+const emits = defineEmits<DropdownMenuItemEmits>()
+
+const delegatedProps = reactiveOmit(props, 'class', 'icon', 'variant')
+
+const forwarded = useForwardPropsEmits(delegatedProps, emits)
+</script>
+
+<template>
+  <DropdownMenuItem
+    data-slot="dropdown-menu-item"
+    :data-variant="variant"
+    v-bind="forwarded"
+    :class="cn(MENU_ITEM, props.class)"
+  >
+    <Icon
+      v-if="icon"
+      :name="icon"
+      :class="MENU_ICON"
+    />
+    <slot />
+  </DropdownMenuItem>
+</template>

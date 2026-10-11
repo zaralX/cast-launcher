@@ -147,7 +147,7 @@ const guard = useUnsavedChanges({
       <aside class="sticky top-0 self-start pt-10">
         <Button
           to="/main"
-          variant="quiet"
+          variant="ghost"
           class="group/back"
         >
           <Icon
@@ -166,14 +166,13 @@ const guard = useUnsavedChanges({
 
           <div class="min-w-0">
             <KitTitle
-              size="sm"
               class="break-words"
               :title="instance.name"
             >
               {{ instance.name }}
             </KitTitle>
 
-            <p class="mt-2 font-mono text-label uppercase tracking-caps text-fg-faint">
+            <p class="mt-2 font-mono text-caption uppercase tracking-caps text-fg-faint">
               {{ INSTANCE_TYPE_LABELS[instance.type] ?? instance.type }} · {{ instance.minecraftVersion }}
             </p>
           </div>
@@ -185,25 +184,17 @@ const guard = useUnsavedChanges({
             :key="item.key"
             :value="item.key"
             :icon="item.icon"
-            :meta="item.index"
           >
             {{ item.label }}
           </TabsTrigger>
         </TabsList>
 
-        <KitSaveBar
-          class="mt-8"
-          :saving="saving"
-          :disabled="!canSave"
-          :dirty="dirty"
-          :dirty-label="$t('instance.unsaved')"
-          @save="save"
-          @reset="reset"
-        >
+        <div class="mt-8 flex flex-col gap-2">
           <Button
             v-if="running"
+            size="lg"
             icon="i-lucide-square"
-            class="mt-3 w-full"
+            class="w-full"
             @click="stop"
           >
             {{ $t('instance.stop_game') }}
@@ -211,8 +202,10 @@ const guard = useUnsavedChanges({
 
           <Button
             v-else-if="instance.installed"
+            variant="primary"
+            size="lg"
             icon="i-lucide-play"
-            class="mt-3 w-full"
+            class="w-full"
             :disabled="installing"
             @click="run"
           >
@@ -220,15 +213,24 @@ const guard = useUnsavedChanges({
           </Button>
 
           <Button
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-file-down"
-            class="mt-2"
+            class="justify-start"
             :disabled="installing"
             @click="exportOpen = true"
           >
             {{ $t('instance.export_cast') }}
           </Button>
-        </KitSaveBar>
+        </div>
+
+        <KitSaveBar
+          :saving="saving"
+          :disabled="!canSave"
+          :dirty="dirty"
+          :dirty-label="$t('instance.unsaved')"
+          @save="save"
+          @reset="reset"
+        />
 
         <KitStatus
           v-if="!draft.name.trim()"

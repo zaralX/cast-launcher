@@ -110,7 +110,7 @@ onMounted(async () => {
           v-for="item in TABS"
           :key="item.key"
           :value="item.key"
-          class="flex-none px-4 py-2 font-mono text-label uppercase tracking-caps"
+          class="flex-none px-4 py-2 font-mono text-caption uppercase tracking-caps"
         >
           {{ $t(item.labelKey) }}
         </RadioGroupItem>
@@ -126,7 +126,7 @@ onMounted(async () => {
         </Button>
 
         <Button
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-x"
           :disabled="!icon"
           @click="icon = ''"
@@ -156,7 +156,7 @@ onMounted(async () => {
           />
 
           <span
-            class="absolute -top-px -right-px hidden size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 group-hover:grid hover:border-danger/50 hover:text-danger"
+            class="absolute -top-px -right-px hidden size-5 place-items-center border border-line bg-panel text-fg-faint transition-colors duration-300 group-hover:grid hover:border-danger/50 hover:text-danger"
             :title="$t('icon.remove', { name: file.name })"
             @click.stop="removeIcon(file.name)"
           >
@@ -219,13 +219,13 @@ onMounted(async () => {
             v-for="item in visibleItems"
             :key="item"
             type="button"
-            class="grid aspect-square cursor-pointer place-items-center border border-line outline-none transition-colors duration-300 hover:border-acid/50 hover:bg-ink-700 focus-visible:border-acid/50"
+            class="grid aspect-square cursor-pointer place-items-center border border-line outline-none transition-colors duration-300 hover:border-accent/50 hover:bg-control focus-visible:border-accent/50"
             :title="itemName(item)"
             @click="useItem(item)"
           >
             <Spinner
               v-if="saving === item"
-              class="text-acid"
+              class="text-accent"
             />
             <img
               v-else-if="iconStore.itemUrlOf(item)"
@@ -245,13 +245,13 @@ onMounted(async () => {
         </KitEmpty>
 
         <div class="flex items-center justify-between gap-4">
-          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+          <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
             {{ $t('icon.shown', { shown: visibleItems.length, total: catalogItems.length }) }}
           </p>
 
           <Button
             v-if="visibleItems.length < catalogItems.length"
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-chevron-down"
             @click="limit += PAGE"
           >

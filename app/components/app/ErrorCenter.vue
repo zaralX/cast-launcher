@@ -16,7 +16,7 @@ watch(open, (isOpen) => {
 const SEVERITY: Record<ErrorSeverity, { icon: string, rule: string }> = {
   error: { icon: 'text-danger', rule: 'bg-danger/70' },
   warning: { icon: 'text-warning', rule: 'bg-warning/70' },
-  info: { icon: 'text-acid', rule: 'bg-acid/70' },
+  info: { icon: 'text-accent', rule: 'bg-accent/70' },
 }
 
 function formatTime(at: number) {
@@ -78,7 +78,7 @@ function copyAll() {
           <article
             v-for="entry in entries"
             :key="entry.id"
-            class="group relative border border-line bg-ink-900 p-4 pl-5 transition-colors duration-300 hover:border-line-strong"
+            class="group relative border border-line bg-sheet p-4 pl-5 transition-colors duration-300 hover:border-line-strong"
           >
             <span
               class="absolute inset-y-0 left-0 w-[2px]"
@@ -103,7 +103,7 @@ function copyAll() {
                   >
                     ×{{ entry.count }}
                   </Badge>
-                  <span class="ml-auto shrink-0 font-mono text-label tabular-nums text-fg-faint">
+                  <span class="ml-auto shrink-0 font-mono text-caption tabular-nums text-fg-faint">
                     {{ formatTime(entry.at) }}
                   </span>
                 </div>
@@ -124,30 +124,30 @@ function copyAll() {
 
                 <p
                   v-if="entry.context.instanceName"
-                  class="mt-2 font-mono text-label uppercase tracking-caps text-fg-faint"
+                  class="mt-2 font-mono text-caption uppercase tracking-caps text-fg-faint"
                 >
                   {{ $t('error.center.instance') }} · {{ entry.context.instanceName }}
                 </p>
 
                 <details class="mt-3">
-                  <summary class="cursor-pointer font-mono text-label uppercase tracking-caps text-fg-faint transition-colors select-none hover:text-acid">
+                  <summary class="cursor-pointer font-mono text-caption uppercase tracking-caps text-fg-faint transition-colors select-none hover:text-accent">
                     {{ $t('error.center.technical') }}
                   </summary>
-                  <pre class="mt-3 max-h-48 overflow-auto border border-line bg-ink-800 p-3 font-mono text-caption leading-relaxed break-all whitespace-pre-wrap text-fg-muted">{{ entry.report }}</pre>
+                  <pre class="mt-3 max-h-48 overflow-auto border border-line bg-panel p-3 font-mono text-caption leading-relaxed break-all whitespace-pre-wrap text-fg-muted">{{ entry.report }}</pre>
                 </details>
               </div>
             </div>
 
             <div class="mt-3 flex gap-5 pl-7">
               <Button
-                variant="quiet"
+                variant="ghost"
                 :icon="copiedId === entry.id ? 'i-lucide-check' : 'i-lucide-copy'"
                 @click="copy(entry.id, entry.report)"
               >
                 {{ copiedId === entry.id ? $t('common.copied') : $t('common.copy') }}
               </Button>
               <Button
-                variant="quiet"
+                variant="ghost"
                 icon="i-lucide-x"
                 @click="errorStore.dismiss(entry.id)"
               >
@@ -160,7 +160,7 @@ function copyAll() {
 
       <DialogFooter class="justify-between">
         <Button
-          variant="quiet"
+          variant="ghost"
           :icon="copiedId === 'all' ? 'i-lucide-check' : 'i-lucide-clipboard-list'"
           :disabled="!entries.length"
           @click="copyAll"
@@ -169,7 +169,7 @@ function copyAll() {
         </Button>
 
         <Button
-          variant="quiet-danger"
+          variant="danger-ghost"
           icon="i-lucide-trash-2"
           :disabled="!entries.length"
           @click="errorStore.clear()"

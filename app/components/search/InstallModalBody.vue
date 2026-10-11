@@ -133,7 +133,7 @@ const install = async () => {
       />
 
       <div class="min-w-0">
-        <p class="font-mono text-micro uppercase tracking-caps text-acid">
+        <p class="font-mono text-micro uppercase tracking-caps text-accent">
           {{ PACK_PROVIDER_LABELS[hit.provider] }}
         </p>
         <h3 class="mt-1.5 truncate font-unbounded text-heading font-semibold tracking-heading text-fg">
@@ -232,8 +232,9 @@ const install = async () => {
       </KitNote>
 
       <Button
+        variant="primary"
         type="submit"
-        size="xl"
+        size="lg"
         class="group/act w-full"
         :loading="creating"
         :disabled="!canInstall"

@@ -44,7 +44,6 @@ async function confirmRemove() {
 
 <template>
   <KitPanel
-    index="02"
     :title="$t('settings.accounts.title')"
     icon="i-lucide-user-round"
   >
@@ -79,8 +78,8 @@ async function confirmRemove() {
 
           <template #trailing>
             <Button
-              variant="quiet-danger"
-              size="icon-sm"
+              variant="danger-ghost"
+              size="icon"
               icon="i-lucide-trash-2"
               :aria-label="$t('settings.accounts.remove')"
               class="text-fg-faint"
@@ -93,7 +92,7 @@ async function confirmRemove() {
 
       <p
         v-else
-        class="border-y border-line py-6 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
+        class="border-y border-line py-6 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
       >
         {{ $t('settings.accounts.empty') }}
       </p>
@@ -102,7 +101,7 @@ async function confirmRemove() {
         <Button
           size="lg"
           icon="simple-icons:microsoft"
-          class="w-full text-label"
+          class="w-full text-caption"
           :loading="loggingIn"
           @click="createMicrosoftAccount"
         >
@@ -112,10 +111,9 @@ async function confirmRemove() {
         <HoverCard>
           <HoverCardTrigger as-child>
             <Button
-              variant="outline"
               size="lg"
               icon="i-lucide-globe"
-              class="w-full text-label"
+              class="w-full text-caption"
             >
               {{ $t('settings.accounts.offline') }}
             </Button>

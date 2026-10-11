@@ -32,11 +32,11 @@ watch(installs, (value) => {
     <DialogTrigger as-child>
       <button
         type="button"
-        class="group relative flex max-w-md min-w-64 cursor-pointer items-center gap-2.5 overflow-hidden border border-line bg-ink-700 px-3 py-1 text-left outline-none transition-colors duration-300 hover:border-acid/50 hover:bg-ink-600 focus-visible:border-acid/50"
+        class="group relative flex max-w-md min-w-64 cursor-pointer items-center gap-2.5 overflow-hidden border border-line bg-control px-3 py-1 text-left outline-none transition-colors duration-300 hover:border-accent/50 hover:bg-hover focus-visible:border-accent/50"
       >
         <KitLiveDot
           size="sm"
-          class="text-acid"
+          class="text-accent"
         />
 
         <span class="min-w-0 flex-1 truncate font-mono text-caption leading-none text-fg-muted">
@@ -48,7 +48,7 @@ watch(installs, (value) => {
           </template>
         </span>
 
-        <span class="shrink-0 font-mono text-caption leading-none tabular-nums text-acid">
+        <span class="shrink-0 font-mono text-caption leading-none tabular-nums text-accent">
           {{ percent(averageProgress) }}%
         </span>
 
@@ -74,13 +74,13 @@ watch(installs, (value) => {
               <h3 class="truncate font-unbounded text-lead font-semibold tracking-heading text-fg">
                 {{ install.instanceName }}
               </h3>
-              <p class="mt-1.5 truncate font-mono text-label uppercase tracking-caps text-fg-faint">
+              <p class="mt-1.5 truncate font-mono text-caption uppercase tracking-caps text-fg-faint">
                 {{ uiText(install.phase) }}
               </p>
             </div>
 
             <span class="shrink-0 font-unbounded text-[22px] font-semibold leading-none tracking-[-0.05em] text-fg">
-              {{ percent(install.progress) }}<span class="text-body text-acid">%</span>
+              {{ percent(install.progress) }}<span class="text-body text-accent">%</span>
             </span>
           </header>
 
@@ -98,9 +98,9 @@ watch(installs, (value) => {
               :key="file.url"
               class="flex items-center gap-3"
             >
-              <span class="min-w-0 flex-1 truncate font-mono text-label text-fg-muted">{{ file.name }}</span>
+              <span class="min-w-0 flex-1 truncate font-mono text-caption text-fg-muted">{{ file.name }}</span>
 
-              <span class="shrink-0 font-mono text-label tabular-nums text-fg-faint">
+              <span class="shrink-0 font-mono text-caption tabular-nums text-fg-faint">
                 {{ formatSize(file.total) }}
               </span>
 
@@ -114,13 +114,13 @@ watch(installs, (value) => {
 
           <p
             v-else
-            class="mt-4 truncate font-mono text-label text-fg-faint"
+            class="mt-4 truncate font-mono text-caption text-fg-faint"
           >
             {{ uiText(install.message) }}
           </p>
 
           <Button
-            variant="quiet-danger"
+            variant="danger-ghost"
             icon="i-lucide-circle-stop"
             class="mt-2"
             :loading="install.aborting"

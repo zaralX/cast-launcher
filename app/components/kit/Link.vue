@@ -1,8 +1,8 @@
 <template>
-  <button
-    type="button"
-    class="max-w-full cursor-pointer truncate text-acid transition-opacity duration-300 hover:opacity-70"
+  <Button
+    variant="link"
+    class="max-w-full justify-start font-normal"
   >
-    <slot />
-  </button>
+    <span class="truncate"><slot /></span>
+  </Button>
 </template>

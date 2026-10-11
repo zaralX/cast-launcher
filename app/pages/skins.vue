@@ -245,7 +245,7 @@ watch(activeUuid, uuid => reload(uuid))
   <div class="min-h-full w-full px-8 pb-8 xl:px-14">
     <div class="grid grid-cols-[18rem_minmax(0,1fr)] gap-12 xl:grid-cols-[22rem_minmax(0,1fr)]">
       <aside class="sticky top-0 space-y-4 self-start pt-10">
-        <div class="flex items-center gap-3 border border-line bg-ink-800 px-4 py-3">
+        <div class="flex items-center gap-3 border border-line bg-panel px-4 py-3">
           <img
             v-if="account"
             :src="`https://assets.zaralx.ru/api/v2/minecraft/players/${account.name}/face`"
@@ -296,16 +296,16 @@ watch(activeUuid, uuid => reload(uuid))
         <Alert
           v-else-if="stale"
           icon="i-lucide-cloud-off"
-          class="bg-ink-800 text-caption"
+          class="bg-panel text-caption"
         >
           {{ $t('skins.stale') }}
         </Alert>
 
         <div
-          class="cut-16 relative h-72 border border-line transition-colors duration-500 xl:h-92"
+          class="relative h-72 overflow-hidden rounded-md ring-1 ring-card-line ring-inset transition-colors duration-300 xl:h-92"
           :class="{
-            'bg-ink-800': background === 'ink',
-            'bg-ink-900': background === 'grid',
+            'bg-panel': background === 'ink',
+            'bg-sheet': background === 'grid',
             'bg-fg-muted/90': background === 'light',
           }"
         >
@@ -340,18 +340,18 @@ watch(activeUuid, uuid => reload(uuid))
 
           <p
             v-else
-            class="grid h-full place-items-center px-8 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
+            class="grid h-full place-items-center px-8 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
           >
             {{ $t('skins.no_set') }}
           </p>
 
-          <div class="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-line bg-ink-900/70 p-2 backdrop-blur">
+          <div class="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-line bg-sheet/70 p-2 backdrop-blur">
             <div class="flex items-center gap-0.5">
               <Button
                 v-for="item in POSES"
                 :key="item.key"
-                variant="toolbar"
-                size="icon-sm"
+                variant="ghost"
+                size="icon"
                 :icon="item.icon"
                 :title="$t(item.labelKey)"
                 :aria-label="$t(item.labelKey)"
@@ -365,8 +365,8 @@ watch(activeUuid, uuid => reload(uuid))
               />
 
               <Button
-                variant="toolbar"
-                size="icon-sm"
+                variant="ghost"
+                size="icon"
                 icon="i-lucide-rotate-3d"
                 :title="$t('skins.preview.rotate')"
                 :aria-label="$t('skins.preview.rotate')"
@@ -375,8 +375,8 @@ watch(activeUuid, uuid => reload(uuid))
               />
 
               <Button
-                variant="toolbar"
-                size="icon-sm"
+                variant="ghost"
+                size="icon"
                 icon="i-lucide-layers"
                 :title="$t('skins.preview.second_layer')"
                 :aria-label="$t('skins.preview.second_layer')"
@@ -387,8 +387,8 @@ watch(activeUuid, uuid => reload(uuid))
 
             <div class="flex items-center gap-0.5">
               <Button
-                variant="toolbar"
-                size="icon-sm"
+                variant="ghost"
+                size="icon"
                 icon="i-lucide-sun-moon"
                 :title="$t('skins.preview.background')"
                 :aria-label="$t('skins.preview.background')"
@@ -396,8 +396,8 @@ watch(activeUuid, uuid => reload(uuid))
               />
 
               <Button
-                variant="toolbar"
-                size="icon-sm"
+                variant="ghost"
+                size="icon"
                 icon="i-lucide-crosshair"
                 :title="$t('skins.preview.reset')"
                 :aria-label="$t('skins.preview.reset')"
@@ -416,14 +416,15 @@ watch(activeUuid, uuid => reload(uuid))
             :key="variant"
             :value="variant"
             :title="$t(VARIANT_HINT_KEYS[variant])"
-            class="px-4 py-2.5 font-mono text-label uppercase tracking-caps"
+            class="px-4 py-2.5 font-mono text-caption uppercase tracking-caps"
           >
             {{ VARIANT_LABELS[variant] }}
           </RadioGroupItem>
         </RadioGroup>
 
         <Button
-          size="xl"
+          variant="primary"
+          size="lg"
           icon="i-lucide-check"
           class="w-full"
           :loading="saving"
@@ -446,7 +447,7 @@ watch(activeUuid, uuid => reload(uuid))
           class="flex items-center justify-between gap-3"
         >
           <Button
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-copy"
             :disabled="!draftSkin"
             @click="draftSkin && duplicate(draftSkin)"
@@ -455,7 +456,7 @@ watch(activeUuid, uuid => reload(uuid))
           </Button>
 
           <Button
-            variant="quiet-danger"
+            variant="danger-ghost"
             icon="i-lucide-rotate-ccw"
             @click="resetOpen = true"
           >
@@ -468,7 +469,7 @@ watch(activeUuid, uuid => reload(uuid))
           class="flex justify-end"
         >
           <Button
-            variant="quiet"
+            variant="ghost"
             @click="skinStore.reset()"
           >
             {{ $t('skins.revert') }}
@@ -478,7 +479,6 @@ watch(activeUuid, uuid => reload(uuid))
 
       <div class="space-y-6 pt-10">
         <KitPanel
-          index="01"
           :title="$t('skins.library_title')"
           icon="i-lucide-shirt"
           class="animate-rise"
@@ -540,7 +540,7 @@ watch(activeUuid, uuid => reload(uuid))
                 </div>
 
                 <div class="w-full border-t border-line px-2 py-1.5 text-left">
-                  <p class="truncate text-label leading-tight text-fg">
+                  <p class="truncate text-caption leading-tight text-fg">
                     {{ entry.name }}
                   </p>
                   <p class="mt-0.5 truncate font-mono text-[8px] uppercase tracking-caps text-fg-faint">
@@ -558,7 +558,7 @@ watch(activeUuid, uuid => reload(uuid))
 
                 <div class="absolute top-1 right-1 hidden gap-0.5 group-hover/card:flex">
                   <span
-                    class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-acid/50 hover:text-acid"
+                    class="grid size-5 place-items-center border border-line bg-panel text-fg-faint transition-colors duration-300 hover:border-accent/50 hover:text-accent"
                     :title="$t('skins.duplicate_with_cape')"
                     @click.stop="duplicate(entry)"
                   >
@@ -569,7 +569,7 @@ watch(activeUuid, uuid => reload(uuid))
                   </span>
 
                   <span
-                    class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-acid/50 hover:text-acid"
+                    class="grid size-5 place-items-center border border-line bg-panel text-fg-faint transition-colors duration-300 hover:border-accent/50 hover:text-accent"
                     :title="$t('skins.rename')"
                     @click.stop="startRename(entry)"
                   >
@@ -580,7 +580,7 @@ watch(activeUuid, uuid => reload(uuid))
                   </span>
 
                   <span
-                    class="grid size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 hover:border-danger/50 hover:text-danger"
+                    class="grid size-5 place-items-center border border-line bg-panel text-fg-faint transition-colors duration-300 hover:border-danger/50 hover:text-danger"
                     :title="$t('skins.remove')"
                     @click.stop="removeTarget = entry"
                   >
@@ -595,12 +595,12 @@ watch(activeUuid, uuid => reload(uuid))
               <button
                 type="button"
                 class="group/drop flex aspect-3/4 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed outline-none transition-colors duration-300 focus-visible:border-line-strong"
-                :class="dropping ? 'border-acid bg-acid/6' : 'border-line hover:border-line-strong hover:bg-ink-700'"
+                :class="dropping ? 'border-accent bg-accent/6' : 'border-line hover:border-line-strong hover:bg-control'"
                 @click="importFile()"
               >
                 <Icon
                   name="i-lucide-image-plus"
-                  class="size-4 text-fg-faint transition-colors duration-300 group-hover/drop:text-acid"
+                  class="size-4 text-fg-faint transition-colors duration-300 group-hover/drop:text-accent"
                 />
                 <i18n-t
                   keypath="skins.drop_hint"
@@ -624,7 +624,6 @@ watch(activeUuid, uuid => reload(uuid))
         </KitPanel>
 
         <KitPanel
-          index="02"
           :title="draftSkin ? $t('skins.cape_title_named', { name: draftSkin.name }) : $t('skins.cape_title')"
           icon="i-lucide-flag"
           class="animate-rise [animation-delay:80ms]"
@@ -696,13 +695,12 @@ watch(activeUuid, uuid => reload(uuid))
         </DialogBody>
         <DialogFooter>
           <Button
-            variant="quiet"
+            variant="ghost"
             @click="renameTarget = null"
           >
             {{ $t('common.cancel') }}
           </Button>
           <Button
-            size="sm"
             icon="i-lucide-check"
             @click="commitRename"
           >

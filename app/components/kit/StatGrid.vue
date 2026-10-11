@@ -8,10 +8,8 @@ withDefaults(defineProps<{
 
 <template>
   <dl
-    class="grid border border-line"
-    :class="columns === 3
-      ? 'grid-cols-3 [&>*:not(:nth-child(3n+1))]:border-l'
-      : 'grid-cols-2 [&>*:nth-child(2n)]:border-l'"
+    class="grid divide-x divide-line rounded-md bg-panel ring-1 ring-card-line ring-inset"
+    :class="columns === 3 ? 'grid-cols-3' : 'grid-cols-2'"
   >
     <slot />
   </dl>

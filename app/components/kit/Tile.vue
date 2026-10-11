@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
+import { FOCUS_RING } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -13,8 +14,9 @@ const props = defineProps<{
     type="button"
     :aria-pressed="selected"
     :class="cn(
-      'group relative cursor-pointer border outline-none transition-colors duration-300 focus-visible:border-line-strong',
-      selected ? 'border-acid bg-ink-700' : 'border-line hover:border-line-strong hover:bg-ink-700',
+      FOCUS_RING,
+      'group relative cursor-pointer rounded-md bg-panel ring-inset transition-shadow duration-150',
+      selected ? 'ring-2 ring-accent' : 'ring-1 ring-card-line hover:ring-line-strong',
       props.class,
     )"
   >

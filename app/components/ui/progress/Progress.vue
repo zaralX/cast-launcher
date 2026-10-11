@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 // A null modelValue is an indeterminate bar.
 const props = withDefaults(defineProps<ProgressRootProps & {
-  tone?: 'accent' | 'muted'
+  tone?: 'accent' | 'muted' | 'success' | 'danger'
   class?: HTMLAttributes['class']
 }>(), {
   tone: 'accent',
@@ -18,6 +18,13 @@ const props = withDefaults(defineProps<ProgressRootProps & {
 })
 
 const delegatedProps = reactiveOmit(props, 'class', 'tone')
+
+const TONE = {
+  accent: 'bg-accent',
+  muted: 'bg-fg-muted',
+  success: 'bg-success',
+  danger: 'bg-danger',
+}
 
 const percent = computed(() => {
   if (props.modelValue == null) return null
@@ -30,13 +37,13 @@ const percent = computed(() => {
   <ProgressRoot
     data-slot="progress"
     v-bind="delegatedProps"
-    :class="cn('relative block h-px w-full overflow-hidden bg-line', props.class)"
+    :class="cn('relative block h-1 w-full overflow-hidden rounded-pill bg-line', props.class)"
   >
     <ProgressIndicator
       data-slot="progress-indicator"
       :class="cn(
-        'absolute inset-y-0 left-0',
-        tone === 'muted' ? 'bg-fg-muted' : 'bg-acid',
+        'absolute inset-y-0 left-0 rounded-pill',
+        TONE[tone],
         percent == null ? 'w-1/4 animate-sweep' : 'transition-[width] duration-500 ease-deck',
       )"
       :style="percent == null ? undefined : { width: `${percent}%` }"

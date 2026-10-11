@@ -168,7 +168,6 @@ onMounted(async () => {
 
 <template>
   <KitPanel
-    index="01"
     :title="$t('instance.logs.title')"
     icon="i-lucide-scroll-text"
   >
@@ -221,7 +220,7 @@ onMounted(async () => {
 
           <Button
             v-if="isLive"
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-eraser"
             :disabled="!live.length"
             @click="instanceStore.clearLogs(props.instanceId)"
@@ -231,7 +230,7 @@ onMounted(async () => {
 
           <Button
             v-else
-            variant="quiet-danger"
+            variant="danger-ghost"
             icon="i-lucide-trash-2"
             :loading="removing"
             @click="removeFile"
@@ -242,7 +241,7 @@ onMounted(async () => {
       </div>
 
       <div class="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
-        <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+        <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
           {{ $t('instance.logs.lines', { count: lines.length }) }}<template v-if="filter.trim()">
             {{ $t('instance.logs.lines_of', { total: all.length }) }}
           </template>
@@ -266,7 +265,7 @@ onMounted(async () => {
 
       <div
         ref="viewer"
-        class="h-[26rem] overflow-auto border border-line bg-ink-900 p-4"
+        class="h-[26rem] overflow-auto border border-line bg-sheet p-4"
         :class="wrap ? '' : 'whitespace-nowrap'"
       >
         <p
@@ -283,7 +282,7 @@ onMounted(async () => {
 
         <p
           v-if="!lines.length"
-          class="flex h-full items-center justify-center font-mono text-label uppercase tracking-caps text-fg-faint"
+          class="flex h-full items-center justify-center font-mono text-caption uppercase tracking-caps text-fg-faint"
         >
           <template v-if="loading">
             {{ $t('instance.logs.loading') }}

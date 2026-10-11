@@ -163,8 +163,8 @@ async function run() {
   <div>
     <button
       type="button"
-      class="group flex w-full cursor-pointer flex-col items-center gap-3 border border-dashed px-6 py-10 outline-none transition-colors duration-300 focus-visible:border-acid/50 disabled:cursor-not-allowed"
-      :class="dragging && !busy ? 'border-acid/60 bg-acid/[0.04] text-acid' : 'border-line text-fg-faint hover:border-acid/50 hover:text-acid'"
+      class="group flex w-full cursor-pointer flex-col items-center gap-3 border border-dashed px-6 py-10 outline-none transition-colors duration-300 focus-visible:border-accent/50 disabled:cursor-not-allowed"
+      :class="dragging && !busy ? 'border-accent/60 bg-accent/[0.04] text-accent' : 'border-line text-fg-faint hover:border-accent/50 hover:text-accent'"
       :disabled="busy"
       @click="choose"
     >
@@ -177,7 +177,7 @@ async function run() {
         name="i-lucide-file-archive"
         class="size-5 transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
       />
-      <span class="font-mono text-label uppercase tracking-caps">
+      <span class="font-mono text-caption uppercase tracking-caps">
         {{ reading ? $t('import_pack.reading') : pack ? $t('import_pack.pick_another') : $t('import_pack.pick') }}
       </span>
       <span class="text-body leading-relaxed text-fg-muted">
@@ -189,7 +189,7 @@ async function run() {
 
     <p
       v-if="pack"
-      class="mt-3 truncate font-mono text-label text-fg-faint"
+      class="mt-3 truncate font-mono text-caption text-fg-faint"
       :title="pack.path"
     >
       {{ pack.fileName }}
@@ -280,8 +280,9 @@ async function run() {
       </KitNote>
 
       <Button
+        variant="primary"
         type="submit"
-        size="xl"
+        size="lg"
         class="group/act w-full"
         :loading="importing"
         :disabled="!canImport"

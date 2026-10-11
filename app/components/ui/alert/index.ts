@@ -6,14 +6,14 @@ export { default as AlertDescription } from './AlertDescription.vue'
 export { default as AlertTitle } from './AlertTitle.vue'
 
 export const alertVariants = cva(
-  'relative flex w-full items-start gap-2.5 border bg-ink-900 px-4 py-3 text-body leading-relaxed text-fg-muted',
+  'relative flex w-full items-start gap-3 rounded-md px-4 py-3 text-body text-fg-muted ring-1 ring-inset',
   {
     variants: {
       variant: {
-        neutral: 'border-line',
-        accent: 'border-acid/40',
-        warning: 'border-warning/30',
-        danger: 'border-danger/30',
+        neutral: 'bg-panel ring-card-line',
+        accent: 'bg-accent/10 ring-accent/25',
+        warning: 'bg-warning/10 ring-warning/25',
+        danger: 'bg-danger/10 ring-danger/25',
       },
     },
     defaultVariants: {
@@ -22,11 +22,11 @@ export const alertVariants = cva(
   },
 )
 
-export const alertIconVariants = cva('mt-0.5 size-3.5 shrink-0', {
+export const alertIconVariants = cva('mt-0.5 size-4 shrink-0', {
   variants: {
     variant: {
       neutral: 'text-fg-faint',
-      accent: 'text-acid',
+      accent: 'text-accent',
       warning: 'text-warning',
       danger: 'text-danger',
     },

@@ -9,12 +9,12 @@ const props = defineProps<{
 </script>
 
 <template>
-  <div :class="cn('flex flex-col items-center gap-4 py-14', props.class)">
+  <div :class="cn('flex flex-col items-center gap-3 py-14', props.class)">
     <Progress
       :model-value="null"
       class="w-40"
     />
-    <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+    <p class="text-caption text-fg-faint">
       {{ label }}
     </p>
   </div>

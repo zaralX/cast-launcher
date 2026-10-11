@@ -3,11 +3,12 @@ import type { TabsTriggerProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { TabsTrigger, useForwardProps } from 'reka-ui'
+import { FOCUS_RING } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<TabsTriggerProps & {
   icon?: string
-  meta?: string
+  meta?: string | number
   class?: HTMLAttributes['class']
 }>()
 
@@ -20,27 +21,31 @@ const forwardedProps = useForwardProps(delegatedProps)
   <TabsTrigger
     data-slot="tabs-trigger"
     :class="cn(
-      'group relative flex w-full cursor-pointer items-center gap-3 border-b border-line py-3 pr-2 pl-4 text-left text-fg-faint outline-none transition-colors duration-300',
-      'hover:bg-ink-700 focus-visible:bg-ink-700 data-[state=active]:text-fg disabled:pointer-events-none disabled:opacity-75',
+      FOCUS_RING,
+      'group relative flex cursor-pointer items-center gap-2.5 font-medium whitespace-nowrap text-fg-muted transition-colors duration-150',
+      'hover:text-fg data-[state=active]:text-fg disabled:pointer-events-none disabled:opacity-45',
+      'data-[orientation=horizontal]:h-9',
+      'data-[orientation=vertical]:h-7.5 data-[orientation=vertical]:w-full data-[orientation=vertical]:rounded-sm data-[orientation=vertical]:px-2.5',
+      'data-[orientation=vertical]:hover:bg-control data-[orientation=vertical]:data-[state=active]:bg-control',
       props.class,
     )"
     v-bind="forwardedProps"
   >
-    <span
-      class="absolute inset-y-0 left-0 w-[2px] scale-y-0 bg-acid transition-transform duration-500 ease-deck group-data-[state=active]:scale-y-100 group-data-[state=inactive]:group-hover:scale-y-50 group-data-[state=inactive]:group-hover:bg-line-strong"
-      aria-hidden="true"
-    />
     <Icon
       v-if="icon"
       :name="icon"
-      class="size-4 shrink-0 group-data-[state=active]:text-acid"
+      class="size-4 shrink-0 text-fg-faint group-data-[state=active]:text-accent"
     />
-    <span class="flex-1 font-mono text-caption uppercase tracking-caps">
+    <span class="min-w-0 flex-1 truncate text-left">
       <slot />
     </span>
     <span
-      v-if="meta"
-      class="font-mono text-micro tracking-caps text-fg-faint/60"
+      v-if="meta != null"
+      class="shrink-0 text-caption font-normal text-fg-faint tabular-nums"
     >{{ meta }}</span>
+    <span
+      class="absolute inset-x-0 -bottom-px h-0.5 scale-x-0 rounded-pill bg-accent transition-transform duration-200 group-data-[orientation=vertical]:hidden group-data-[state=active]:scale-x-100"
+      aria-hidden="true"
+    />
   </TabsTrigger>
 </template>

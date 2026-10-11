@@ -3,6 +3,7 @@ import type { CheckboxRootEmits, CheckboxRootProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { CheckboxIndicator, CheckboxRoot, useForwardPropsEmits } from 'reka-ui'
+import { FOCUS_RING } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<CheckboxRootProps & { class?: HTMLAttributes['class'] }>()
@@ -19,10 +20,10 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     data-slot="checkbox"
     v-bind="forwarded"
     :class="cn(
-      'peer size-4 shrink-0 cursor-pointer overflow-hidden rounded-sm ring ring-inset ring-line-strong outline-none',
-      'data-[state=checked]:bg-acid data-[state=checked]:text-on-acid data-[state=checked]:ring-acid',
-      'data-[state=indeterminate]:bg-acid data-[state=indeterminate]:text-on-acid data-[state=indeterminate]:ring-acid',
-      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acid disabled:cursor-not-allowed disabled:opacity-75',
+      FOCUS_RING,
+      'peer grid size-4 shrink-0 cursor-pointer place-items-center rounded-xs text-on-accent ring-[1.5px] ring-line-strong ring-inset transition-colors duration-150',
+      'hover:ring-fg-faint data-[state=checked]:bg-accent data-[state=checked]:ring-0 data-[state=indeterminate]:bg-accent data-[state=indeterminate]:ring-0',
+      'disabled:cursor-not-allowed disabled:opacity-45',
       props.class,
     )"
   >
@@ -33,7 +34,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       <slot v-bind="slotProps">
         <Icon
           :name="slotProps.state === 'indeterminate' ? 'i-lucide-minus' : 'i-lucide-check'"
-          class="size-3.5"
+          class="size-3"
         />
       </slot>
     </CheckboxIndicator>

@@ -30,18 +30,13 @@ const playtime = computed(() => formatPlaytime(total.value) || t('instance.playt
 
 <template>
   <article
-    class="cut-16 group relative flex flex-col border border-line bg-ink-800 p-3.5 transition-all duration-500 ease-deck hover:-translate-y-0.5 hover:border-acid/40 hover:bg-ink-700"
+    class="group relative flex flex-col rounded-md bg-panel p-3.5 ring-1 ring-card-line ring-inset transition-shadow duration-150 hover:ring-line-strong"
   >
-    <span
-      class="pointer-events-none absolute top-0 right-0 h-[23px] w-px origin-top-right rotate-45 bg-line transition-colors duration-500 group-hover:bg-acid/40"
-      aria-hidden="true"
-    />
-
     <header class="flex min-w-0 items-center gap-3">
       <InstanceIcon
         :icon="instance.icon"
         :type="instance.type"
-        class="text-fg-faint transition-colors duration-500 group-hover:border-acid/40 group-hover:text-acid"
+        class="text-fg-faint transition-colors duration-500 group-hover:border-accent/40 group-hover:text-accent"
       />
 
       <div class="min-w-0 flex-1 pr-3">
@@ -102,7 +97,6 @@ const playtime = computed(() => formatPlaytime(total.value) || t('instance.playt
 
         <Button
           v-else
-          size="sm"
           class="group/act w-full"
           @click="state === 'ready' ? emit('run', instance.id) : emit('install', instance.id)"
         >
@@ -116,8 +110,7 @@ const playtime = computed(() => formatPlaytime(total.value) || t('instance.playt
 
       <Button
         :to="`/instance/${instance.id}`"
-        variant="outline-accent"
-        size="icon-sm"
+        size="icon"
         :aria-label="$t('instance.settings_title', { name: instance.name })"
         :title="$t('instance.settings_title', { name: instance.name })"
         class="group/cfg shrink-0"

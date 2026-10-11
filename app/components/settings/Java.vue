@@ -6,7 +6,6 @@ const config = defineModel<AppConfig | null>()
 
 <template>
   <KitPanel
-    index="03"
     :title="$t('settings.java.title')"
     icon="i-lucide-cpu"
   >

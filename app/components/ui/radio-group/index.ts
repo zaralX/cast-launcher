@@ -1,6 +1,7 @@
 import type { VariantProps } from 'class-variance-authority'
 import type { InjectionKey, Ref } from 'vue'
 import { cva } from 'class-variance-authority'
+import { FOCUS_RING } from '@/lib/styles'
 
 export { default as RadioGroup } from './RadioGroup.vue'
 export { default as RadioGroupItem } from './RadioGroupItem.vue'
@@ -8,9 +9,10 @@ export { default as RadioGroupItem } from './RadioGroupItem.vue'
 export const radioGroupVariants = cva('', {
   variants: {
     variant: {
-      segmented: 'flex border border-line',
+      segmented: 'flex gap-0.5 rounded-md bg-control p-0.75',
       tiles: 'flex flex-wrap gap-2',
       cards: 'grid gap-3',
+      bare: 'flex flex-wrap gap-3',
     },
   },
   defaultVariants: {
@@ -19,13 +21,14 @@ export const radioGroupVariants = cva('', {
 })
 
 export const radioGroupItemVariants = cva(
-  'group relative flex cursor-pointer items-center justify-center gap-2 outline-none transition-colors duration-300 focus-visible:ring-1 focus-visible:ring-acid/60 focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-40',
+  `${FOCUS_RING} group relative flex cursor-pointer items-center justify-center gap-2 transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45`,
   {
     variants: {
       variant: {
-        segmented: 'flex-1 border-l border-line text-fg-faint first:border-l-0 hover:bg-ink-700/50 hover:text-fg-muted data-[state=checked]:bg-ink-700 data-[state=checked]:text-fg',
-        tiles: 'border border-line text-fg-muted hover:border-line-strong hover:text-fg data-[state=checked]:border-fg data-[state=checked]:text-fg',
-        cards: 'justify-start gap-4 border border-line p-4 text-left hover:border-line-strong hover:bg-ink-700 data-[state=checked]:border-acid/60 data-[state=checked]:bg-ink-700',
+        segmented: 'min-h-6.5 flex-1 rounded-sm px-2.5 text-caption font-medium text-fg-muted hover:text-fg data-[state=checked]:bg-raise data-[state=checked]:text-fg',
+        tiles: 'min-h-8 rounded-sm bg-control px-3 text-fg-muted hover:bg-hover hover:text-fg data-[state=checked]:bg-accent/15 data-[state=checked]:text-accent',
+        cards: 'justify-start gap-4 rounded-md bg-panel p-4 text-left ring-1 ring-card-line ring-inset hover:ring-line-strong data-[state=checked]:ring-2 data-[state=checked]:ring-accent',
+        bare: '',
       },
     },
     defaultVariants: {

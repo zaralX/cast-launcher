@@ -87,27 +87,27 @@ async function activate(entry: Entry) {
 <template>
   <div class="relative min-h-full w-full overflow-hidden px-6 pt-14 pb-16 xl:px-10">
     <div
-      class="pointer-events-none absolute top-0 left-1/2 size-80 -translate-x-1/2 -translate-y-1/3 rounded-full bg-acid/[0.07] blur-[120px]"
+      class="pointer-events-none absolute top-0 left-1/2 size-80 -translate-x-1/2 -translate-y-1/3 rounded-full bg-accent/[0.07] blur-[120px]"
       aria-hidden="true"
     />
 
     <div class="relative mx-auto flex w-full max-w-3xl flex-col items-center">
       <header class="animate-rise flex flex-col items-center text-center">
-        <div class="cut-16 relative grid size-20 place-items-center border border-line bg-ink-800">
+        <div class="relative grid size-20 place-items-center rounded-lg bg-panel ring-1 ring-card-line ring-inset">
           <img
             src="/logo.svg"
             class="size-11"
             alt="Cast Launcher"
           >
-          <span class="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-acid to-transparent" />
+          <span class="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-accent to-transparent" />
         </div>
 
-        <p class="mt-7 font-mono text-label uppercase tracking-caps-wide text-fg-faint">
+        <p class="mt-7 font-mono text-caption uppercase tracking-caps-wide text-fg-faint">
           {{ $t('credits.eyebrow') }}
         </p>
 
         <h1 class="mt-4 font-unbounded text-[clamp(30px,6vw,52px)] font-bold leading-[0.9] tracking-[-0.06em] text-fg">
-          CAST<span class="text-acid">.</span>LAUNCHER
+          CAST<span class="text-accent">.</span>LAUNCHER
         </h1>
 
         <p class="mt-5 max-w-md text-body leading-relaxed text-fg-muted">
@@ -117,20 +117,17 @@ async function activate(entry: Entry) {
         <div class="mt-7 flex flex-wrap items-center justify-center gap-2">
           <Badge
             v-if="version"
-            variant="surface"
             size="md"
           >
             v{{ version }}
           </Badge>
           <Badge
-            variant="surface"
             size="md"
           >
             Apache-2.0
           </Badge>
           <Badge
             v-if="tauriVersion"
-            variant="surface"
             size="md"
           >
             Tauri {{ tauriVersion }}
@@ -140,7 +137,6 @@ async function activate(entry: Entry) {
 
       <section class="animate-rise mt-14 w-full [animation-delay:80ms]">
         <KitSectionHeading
-          index="01"
           :title="$t('credits.developer')"
           meta="zaralX"
         />
@@ -160,7 +156,6 @@ async function activate(entry: Entry) {
 
       <section class="animate-rise mt-12 w-full [animation-delay:160ms]">
         <KitSectionHeading
-          index="02"
           :title="$t('credits.project_title')"
           meta="Cast Launcher"
         />
@@ -183,7 +178,6 @@ async function activate(entry: Entry) {
 
       <section class="animate-rise mt-12 w-full [animation-delay:240ms]">
         <KitSectionHeading
-          index="03"
           :title="$t('credits.stack')"
           :meta="$t('credits.stack_meta', { count: stack.length })"
         />
@@ -192,7 +186,6 @@ async function activate(entry: Entry) {
           <Badge
             v-for="item in stack"
             :key="item"
-            variant="surface"
             size="md"
             class="transition-colors duration-300 hover:border-line-strong hover:text-fg"
           >
@@ -203,11 +196,10 @@ async function activate(entry: Entry) {
 
       <section class="animate-rise mt-12 w-full [animation-delay:320ms]">
         <KitSectionHeading
-          index="04"
           :title="$t('credits.thanks_title')"
         />
 
-        <ul class="mt-5 divide-y divide-line border border-line bg-ink-800">
+        <ul class="mt-5 divide-y divide-line border border-line bg-panel">
           <li
             v-for="item in thanks"
             :key="item.name"
@@ -221,10 +213,10 @@ async function activate(entry: Entry) {
 
       <footer class="animate-rise mt-14 flex flex-col items-center gap-3 text-center [animation-delay:400ms]">
         <Separator class="w-24" />
-        <p class="max-w-md font-mono text-label uppercase leading-relaxed tracking-caps text-fg-faint">
+        <p class="max-w-md font-mono text-caption uppercase leading-relaxed tracking-caps text-fg-faint">
           {{ $t('credits.disclaimer') }}
         </p>
-        <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+        <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
           {{ $t('credits.made_by') }}
         </p>
       </footer>

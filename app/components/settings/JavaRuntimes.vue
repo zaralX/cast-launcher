@@ -74,7 +74,7 @@ onBeforeUnmount(() => {
         <Label>{{ $t('settings.java.runtime') }}</Label>
 
         <Button
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-refresh-cw"
           :loading="javaScanning"
           @click="rescan"
@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
           <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
             {{ describe(runtime) }}
           </p>
-          <p class="mt-1 truncate font-mono text-label text-fg-faint/70">
+          <p class="mt-1 truncate font-mono text-caption text-fg-faint/70">
             {{ runtime.path }}
           </p>
         </KitListItem>
@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
 
       <p
         v-if="!javaRuntimes.length && !javaScanning"
-        class="border-b border-line py-6 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
+        class="border-b border-line py-6 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
       >
         {{ $t('settings.java.empty') }}
       </p>
@@ -193,7 +193,7 @@ onBeforeUnmount(() => {
 
       <p
         v-if="isManual && !isDetected"
-        class="mt-2 flex items-center gap-2 font-mono text-label tracking-[0.02em]"
+        class="mt-2 flex items-center gap-2 font-mono text-caption tracking-[0.02em]"
       >
         <template v-if="manualChecking">
           <Spinner class="size-3 text-fg-faint" />
@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
         <template v-else-if="manual">
           <Icon
             name="i-lucide-check"
-            class="size-3 shrink-0 text-acid"
+            class="size-3 shrink-0 text-accent"
           />
           <span class="text-fg-muted">Java {{ manual.version }} · {{ manual.vendor }} · {{ manual.arch }}</span>
         </template>

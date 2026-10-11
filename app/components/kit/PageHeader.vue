@@ -1,32 +1,26 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
-  eyebrow?: string
+defineProps<{
   title: string
   description?: string
-  size?: 'xs' | 'lg'
-}>(), {
-  eyebrow: undefined,
-  description: undefined,
-  size: 'lg',
-})
+}>()
 </script>
 
 <template>
-  <div>
-    <p
-      v-if="eyebrow"
-      class="mb-3 font-mono text-label uppercase tracking-caps-wide text-fg-faint"
+  <div class="flex items-end gap-4">
+    <div class="min-w-0 flex-1">
+      <KitTitle>{{ title }}</KitTitle>
+      <p
+        v-if="description"
+        class="mt-1.5 text-body text-fg-muted"
+      >
+        {{ description }}
+      </p>
+    </div>
+    <div
+      v-if="$slots.default"
+      class="flex shrink-0 items-center gap-2"
     >
-      {{ eyebrow }}
-    </p>
-    <KitTitle :size="size">
-      {{ title }}
-    </KitTitle>
-    <p
-      v-if="description"
-      class="mt-5 text-body leading-relaxed text-fg-muted"
-    >
-      {{ description }}
-    </p>
+      <slot />
+    </div>
   </div>
 </template>
