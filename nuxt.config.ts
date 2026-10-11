@@ -56,6 +56,7 @@ export default defineNuxtConfig({
   },
   icon: {
     provider: 'none',
+    cssLayer: 'base',
     clientBundle: {
       scan: {
         globInclude: ['app/**/*.{vue,ts}'],

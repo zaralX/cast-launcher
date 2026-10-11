@@ -6,7 +6,10 @@
       <AppNavRail />
 
       <main class="relative min-w-0 flex-1 overflow-hidden rounded-tl-lg bg-sheet shadow-sheet">
-        <div class="h-full w-full overflow-x-hidden overflow-y-auto">
+        <div
+          data-main-scroll
+          class="h-full w-full overflow-x-hidden overflow-y-auto"
+        >
           <div class="relative flex min-h-full flex-col">
             <slot />
           </div>

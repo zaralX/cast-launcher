@@ -68,6 +68,15 @@ const guard = useUnsavedChanges({
           :description="$t('settings.subtitle')"
         />
 
+        <Button
+          variant="ghost"
+          icon="i-lucide-info"
+          to="/credits"
+          class="mt-5 -ml-3"
+        >
+          {{ $t('layout.nav.credits') }}
+        </Button>
+
         <KitSaveBar
           :saving="saving"
           :disabled="!config || !dirty"

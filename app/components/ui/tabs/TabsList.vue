@@ -16,7 +16,7 @@ const delegatedProps = reactiveOmit(props, 'class')
     v-bind="delegatedProps"
     :class="cn(
       'flex',
-      'data-[orientation=horizontal]:gap-5.5 data-[orientation=horizontal]:border-b data-[orientation=horizontal]:border-line',
+      'data-[orientation=horizontal]:min-h-9 data-[orientation=horizontal]:gap-5.5',
       'data-[orientation=vertical]:flex-col data-[orientation=vertical]:gap-0.5',
       props.class,
     )"

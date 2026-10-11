@@ -7,3 +7,7 @@ export function fallbackFace(event: Event) {
   img.dataset.fallback = '1'
   img.src = DEFAULT_FACE
 }
+
+export function faceUrl(name: string): string {
+  return `https://assets.zaralx.ru/api/v2/minecraft/players/${encodeURIComponent(name)}/face`
+}

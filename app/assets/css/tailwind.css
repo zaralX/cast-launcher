@@ -71,6 +71,11 @@
     --animate-breathe: breathe 2.4s ease-in-out infinite;
 }
 
+/* The header of an instance takes its color from the icon, set as --tint; the accent stands in for it. */
+@utility bg-tint {
+    background-color: color-mix(in srgb, var(--tint, var(--cast-accent)) 14%, var(--cast-sheet));
+}
+
 @keyframes rise {
     from {
         opacity: 0;

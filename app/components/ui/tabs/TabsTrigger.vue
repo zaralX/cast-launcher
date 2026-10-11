@@ -24,7 +24,7 @@ const forwardedProps = useForwardProps(delegatedProps)
       FOCUS_RING,
       'group relative flex cursor-pointer items-center gap-2.5 font-medium whitespace-nowrap text-fg-muted transition-colors duration-150',
       'hover:text-fg data-[state=active]:text-fg disabled:pointer-events-none disabled:opacity-45',
-      'data-[orientation=horizontal]:h-9',
+      'data-[orientation=horizontal]:self-stretch',
       'data-[orientation=vertical]:h-7.5 data-[orientation=vertical]:w-full data-[orientation=vertical]:rounded-sm data-[orientation=vertical]:px-2.5',
       'data-[orientation=vertical]:hover:bg-control data-[orientation=vertical]:data-[state=active]:bg-control',
       props.class,

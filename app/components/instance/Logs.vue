@@ -30,17 +30,18 @@ const sources = computed(() => [
 ])
 
 interface Line {
+  no: number
   text: string
   tone: '' | 'error' | 'warn'
 }
 
 const all = computed<Line[]>(() => {
   if (isLive.value) {
-    return live.value.map(line => ({ text: line.line, tone: line.isError ? 'error' : tone(line.line) }))
+    return live.value.map((line, index) => ({ no: index + 1, text: line.line, tone: line.isError ? 'error' : tone(line.line) }))
   }
 
   const text = fileText.value.replace(/\n$/, '')
-  return text ? text.split(/\r?\n/).map(line => ({ text: line, tone: tone(line) })) : []
+  return text ? text.split(/\r?\n/).map((line, index) => ({ no: index + 1, text: line, tone: tone(line) })) : []
 })
 
 const lines = computed<Line[]>(() => {
@@ -167,137 +168,130 @@ onMounted(async () => {
 </script>
 
 <template>
-  <KitPanel
-    :title="$t('instance.logs.title')"
-    icon="i-lucide-scroll-text"
-  >
-    <div class="space-y-5">
-      <div class="flex flex-wrap items-end gap-4">
-        <KitField
-          :label="$t('instance.logs.source')"
-          class="min-w-64 flex-1"
-        >
-          <KitSelect
-            v-model="source"
-            :items="sources"
-          />
-        </KitField>
+  <div class="flex flex-col gap-3">
+    <div class="flex items-center gap-2">
+      <KitSelect
+        v-model="source"
+        :items="sources"
+        :aria-label="$t('instance.logs.source')"
+        class="w-64"
+      />
 
-        <KitField
-          :label="$t('instance.logs.search')"
-          class="min-w-48 flex-1"
-        >
-          <KitSearchInput
-            v-model="filter"
-            :placeholder="$t('instance.logs.search_placeholder')"
-            font="mono"
-          />
-        </KitField>
+      <KitSearchInput
+        v-model="filter"
+        :placeholder="$t('instance.logs.search_placeholder')"
+        :aria-label="$t('instance.logs.search')"
+        font="mono"
+        class="w-60"
+      />
 
-        <div class="flex items-center gap-3">
-          <Button
-            icon="i-lucide-refresh-cw"
-            :loading="loading"
-            @click="refresh"
-          >
-            {{ $t('instance.logs.refresh') }}
-          </Button>
+      <span class="flex-1" />
 
-          <Button
-            icon="i-lucide-copy"
-            :disabled="!lines.length"
-            @click="copy"
-          >
-            {{ $t('instance.logs.copy') }}
-          </Button>
-
-          <Button
-            icon="i-lucide-folder-clock"
-            @click="openFolder"
-          >
-            {{ $t('instance.logs.folder') }}
-          </Button>
-
-          <Button
-            v-if="isLive"
-            variant="ghost"
-            icon="i-lucide-eraser"
-            :disabled="!live.length"
-            @click="instanceStore.clearLogs(props.instanceId)"
-          >
-            {{ $t('instance.logs.clear') }}
-          </Button>
-
-          <Button
-            v-else
-            variant="danger-ghost"
-            icon="i-lucide-trash-2"
-            :loading="removing"
-            @click="removeFile"
-          >
-            {{ $t('instance.logs.delete_file') }}
-          </Button>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
-        <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
-          {{ $t('instance.logs.lines', { count: lines.length }) }}<template v-if="filter.trim()">
-            {{ $t('instance.logs.lines_of', { total: all.length }) }}
-          </template>
-          <template v-if="isLive && running">
-            · {{ $t('instance.logs.session_running') }}
-          </template>
-        </p>
-
-        <div class="flex items-center gap-6">
-          <Label class="flex cursor-pointer items-center gap-2.5">
-            <Switch v-model="autoscroll" />
-            {{ $t('instance.logs.autoscroll') }}
-          </Label>
-
-          <Label class="flex cursor-pointer items-center gap-2.5">
-            <Switch v-model="wrap" />
-            {{ $t('instance.logs.wrap') }}
-          </Label>
-        </div>
-      </div>
-
-      <div
-        ref="viewer"
-        class="h-[26rem] overflow-auto border border-line bg-sheet p-4"
-        :class="wrap ? '' : 'whitespace-nowrap'"
+      <Button
+        variant="ghost"
+        size="icon"
+        icon="i-lucide-arrow-down-to-line"
+        :aria-pressed="autoscroll"
+        :aria-label="$t('instance.logs.autoscroll')"
+        :title="$t('instance.logs.autoscroll')"
+        @click="autoscroll = !autoscroll"
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        icon="i-lucide-wrap-text"
+        :aria-pressed="wrap"
+        :aria-label="$t('instance.logs.wrap')"
+        :title="$t('instance.logs.wrap')"
+        @click="wrap = !wrap"
+      />
+      <Button
+        size="icon"
+        icon="i-lucide-refresh-cw"
+        :loading="loading"
+        :aria-label="$t('instance.logs.refresh')"
+        :title="$t('instance.logs.refresh')"
+        @click="refresh"
+      />
+      <Button
+        size="icon"
+        icon="i-lucide-copy"
+        :disabled="!lines.length"
+        :aria-label="$t('instance.logs.copy')"
+        :title="$t('instance.logs.copy')"
+        @click="copy"
+      />
+      <Button
+        icon="i-lucide-folder-clock"
+        @click="openFolder"
       >
-        <p
-          v-for="(line, i) in lines"
-          :key="i"
-          class="font-mono text-caption leading-[1.55]"
-          :class="[
-            wrap ? 'break-words whitespace-pre-wrap' : 'whitespace-pre',
-            line.tone === 'error' ? 'text-danger' : line.tone === 'warn' ? 'text-warning' : 'text-fg-muted',
-          ]"
-        >
-          {{ line.text || " " }}
-        </p>
-
-        <p
-          v-if="!lines.length"
-          class="flex h-full items-center justify-center font-mono text-caption uppercase tracking-caps text-fg-faint"
-        >
-          <template v-if="loading">
-            {{ $t('instance.logs.loading') }}
-          </template>
-          <template v-else-if="filter.trim()">
-            {{ $t('instance.logs.nothing_found') }}
-          </template>
-          <template v-else-if="isLive">
-            {{ $t('instance.logs.live_empty') }}
-          </template>
-          <template v-else>
-            {{ $t('instance.logs.file_empty') }}
-          </template>
-        </p>
-      </div>
+        {{ $t('instance.logs.folder') }}
+      </Button>
+      <Button
+        v-if="isLive"
+        variant="ghost"
+        icon="i-lucide-eraser"
+        :disabled="!live.length"
+        @click="instanceStore.clearLogs(props.instanceId)"
+      >
+        {{ $t('instance.logs.clear') }}
+      </Button>
+      <Button
+        v-else
+        variant="danger-ghost"
+        icon="i-lucide-trash-2"
+        :loading="removing"
+        @click="removeFile"
+      >
+        {{ $t('instance.logs.delete_file') }}
+      </Button>
     </div>
-  </KitPanel>
+
+    <div
+      ref="viewer"
+      role="log"
+      :aria-label="$t('instance.logs.title')"
+      class="h-[calc(100vh-14rem)] min-h-80 overflow-auto rounded-md bg-frame py-2 font-mono text-caption leading-5.5 ring-1 ring-line"
+    >
+      <div
+        v-for="line in lines"
+        :key="line.no"
+        class="flex gap-3 px-3.5"
+        :class="[
+          line.tone === 'error' ? 'bg-danger/12 text-danger' : line.tone === 'warn' ? 'text-warning' : 'text-fg-muted',
+          wrap ? '' : 'w-max min-w-full',
+        ]"
+      >
+        <span class="w-10 shrink-0 text-right text-fg-faint/70 select-none tabular-nums">{{ line.no }}</span>
+        <span :class="wrap ? 'min-w-0 break-words whitespace-pre-wrap' : 'whitespace-pre'">{{ line.text || " " }}</span>
+      </div>
+
+      <p
+        v-if="!lines.length"
+        class="flex h-full items-center justify-center font-sans text-body text-fg-faint"
+      >
+        <template v-if="loading">
+          {{ $t('instance.logs.loading') }}
+        </template>
+        <template v-else-if="filter.trim()">
+          {{ $t('instance.logs.nothing_found') }}
+        </template>
+        <template v-else-if="isLive">
+          {{ $t('instance.logs.live_empty') }}
+        </template>
+        <template v-else>
+          {{ $t('instance.logs.file_empty') }}
+        </template>
+      </p>
+    </div>
+
+    <p class="text-caption text-fg-faint">
+      {{ $t('instance.logs.lines', { count: lines.length }) }}<template v-if="filter.trim()">
+        {{ $t('instance.logs.lines_of', { total: all.length }) }}
+      </template>
+      <template v-if="isLive && running">
+        · {{ $t('instance.logs.session_running') }}
+      </template>
+    </p>
+  </div>
 </template>

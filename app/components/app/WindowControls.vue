@@ -10,35 +10,30 @@ const appWindow = getCurrentWindow()
 
     <Button
       variant="ghost"
-      size="icon-lg"
+      size="bar"
+      icon="i-lucide-minus"
       :aria-label="$t('layout.window.minimize')"
-      class="group h-10 w-11.5 rounded-none"
       @click="appWindow?.minimize()"
-    >
-      <span class="h-px w-3 bg-current" />
-    </Button>
+    />
 
     <Button
       variant="ghost"
-      size="icon-lg"
+      size="bar"
       :aria-label="$t('layout.window.maximize')"
-      class="group h-10 w-11.5 rounded-none"
       @click="appWindow?.toggleMaximize()"
     >
-      <span class="size-2.5 rounded-[2px] border border-current" />
+      <Icon
+        name="i-lucide-square"
+        class="size-3.25"
+      />
     </Button>
 
     <Button
-      variant="ghost"
-      size="icon-lg"
+      variant="close"
+      size="bar"
+      icon="i-lucide-x"
       :aria-label="$t('layout.window.close')"
-      class="group h-10 w-11.5 rounded-none hover:bg-danger hover:text-on-danger"
       @click="appWindow?.close()"
-    >
-      <Icon
-        name="i-lucide-x"
-        class="size-4"
-      />
-    </Button>
+    />
   </div>
 </template>

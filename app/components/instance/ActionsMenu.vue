@@ -56,7 +56,7 @@ const state = computed(() => actions.stateOf(props.instance))
 
       <ContextMenuItem
         icon="i-lucide-settings"
-        @select="navigateTo(`/instance/${instance.id}`)"
+        @select="navigateTo(`/instance/${instance.id}?tab=settings`)"
       >
         {{ $t('instance.action.settings') }}
       </ContextMenuItem>

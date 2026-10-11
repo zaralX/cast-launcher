@@ -5,7 +5,7 @@ const props = withDefaults(defineProps<{
   icon?: string
   type?: InstanceType
   version?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 }>(), {
   icon: '',
   type: undefined,
@@ -23,10 +23,11 @@ const TYPE_MARK: Record<InstanceType, string> = {
 }
 
 const SIZES = {
-  sm: 'size-8 rounded-xs text-micro',
-  md: 'size-12 rounded-sm text-micro',
-  lg: 'size-13 rounded-sm text-caption',
-  xl: 'size-16 rounded-md text-body',
+  'sm': 'size-8 rounded-xs text-micro',
+  'md': 'size-12 rounded-sm text-micro',
+  'lg': 'size-13 rounded-sm text-caption',
+  'xl': 'size-16 rounded-md text-body',
+  '2xl': 'size-22 rounded-md text-heading',
 }
 
 const mark = computed(() => (props.size !== 'sm' && props.version) || (props.type && TYPE_MARK[props.type]) || '??')

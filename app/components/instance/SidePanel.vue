@@ -110,7 +110,7 @@ const memory = computed(() => {
         </Button>
         <Button
           v-else
-          :to="`/instance/${instance.id}`"
+          :to="`/instance/${instance.id}?tab=settings`"
           icon="i-lucide-settings"
           class="flex-1"
         >
