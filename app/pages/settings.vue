@@ -21,7 +21,16 @@ const GROUPS: { labelKey: string, items: Entry[] }[] = [
         value: 'look',
         labelKey: 'settings.section.look',
         icon: 'i-lucide-palette',
-        keys: ['settings.launcher.theme', 'settings.launcher.accent.label', 'settings.launcher.language', 'settings.launcher.compact.label'],
+        keys: [
+          'settings.launcher.theme',
+          'theme_editor.title',
+          'theme.custom.import',
+          'settings.launcher.system_light.label',
+          'settings.launcher.system_dark.label',
+          'settings.launcher.accent.label',
+          'settings.launcher.language',
+          'settings.launcher.compact.label',
+        ],
       },
       {
         value: 'behavior',

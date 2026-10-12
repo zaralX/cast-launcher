@@ -27,6 +27,7 @@ use cast_core::mojang::version::VersionManifest;
 use cast_core::packs::{self, PackPage};
 use cast_core::paths::PathsSnapshot;
 use cast_core::skins::{self, AccountLook, SkinEntry, SkinLibrary, SkinVariant};
+use cast_core::theme::{self, CustomTheme};
 
 use crate::events::{EmitExt, LauncherEvent};
 use crate::import;
@@ -78,7 +79,7 @@ pub async fn update_config(
     config: AppConfig,
 ) -> CommandResult<AppConfig> {
     let before = state.config().await;
-    let relocated = state.update_config(config).await?;
+    let relocated = state.update_config(config.normalized()).await?;
     let updated = state.config().await;
 
     if relocated {
@@ -92,6 +93,16 @@ pub async fn update_config(
     telemetry::set_enabled(updated.launcher.telemetry);
 
     Ok(updated)
+}
+
+#[tauri::command]
+pub async fn encode_theme(theme: CustomTheme) -> CommandResult<String> {
+    Ok(theme::encode(theme))
+}
+
+#[tauri::command]
+pub async fn decode_theme(code: String) -> CommandResult<CustomTheme> {
+    theme::decode(&code)
 }
 
 #[tauri::command]

@@ -1,6 +1,6 @@
 @import "tailwindcss" theme(static);
 
-@custom-variant classic (&:where([data-theme="classic"], [data-theme="classic"] *));
+@custom-variant classic (&:where([data-classic], [data-classic] *));
 
 @theme static {
     --font-sans: "Golos Text", system-ui, sans-serif;

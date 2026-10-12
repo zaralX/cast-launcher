@@ -127,7 +127,9 @@
     --cast-warning: #fbbf24;
     --cast-danger: #f87171;
     --cast-on-danger: #1a0505;
+}
 
+:root[data-classic] {
     --cast-radius-xs: 0px;
     --cast-radius-sm: 0px;
     --cast-radius-md: 0px;

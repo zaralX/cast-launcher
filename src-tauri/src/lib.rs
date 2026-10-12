@@ -73,6 +73,8 @@ pub fn run() {
             commands::bootstrap,
             commands::get_config,
             commands::update_config,
+            commands::encode_theme,
+            commands::decode_theme,
             commands::get_paths,
             commands::open_path,
             commands::list_instances,

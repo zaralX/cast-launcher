@@ -1,5 +1,5 @@
 import type { Account, AccountConfig } from '~/types/account'
-import type { AppConfig, JavaRuntime, LauncherPaths } from '~/types/app'
+import type { AppConfig, CustomTheme, JavaRuntime, LauncherPaths } from '~/types/app'
 import type { Instance, InstanceLogFile, InstanceSettings, InstallSnapshot, PackSource, RunningGame, PackProvider } from '~/types/instance'
 import type { IconFile, ItemCatalog } from '~/types/icon'
 import type { CatalogMatch, CatalogVersion, InstallPlan, InstallReport, InstalledMods, ModFile, ModSearchQuery, ModUpdate, UpdatedModsReport } from '~/types/mods'
@@ -59,6 +59,8 @@ export interface Commands {
 
   get_config: Command<void, AppConfig>
   update_config: Command<{ config: AppConfig }, AppConfig>
+  encode_theme: Command<{ theme: CustomTheme }, string>
+  decode_theme: Command<{ code: string }, CustomTheme>
   get_paths: Command<void, LauncherPaths>
   open_path: Command<{ path: string }, void>
   open_url: Command<{ url: string }, void>
