@@ -1,7 +1,7 @@
 import type { MaybeRefOrGetter } from 'vue'
 import type { Instance } from '~/types/instance'
 
-const TICK = 15_000
+const TICK = 1000
 
 const now = ref(Date.now())
 

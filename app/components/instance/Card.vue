@@ -29,8 +29,12 @@ const playtime = computed(() => {
 })
 
 const clock = computed(() => {
-  const minutes = Math.floor(session.value / 60)
-  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`
+  const hours = Math.floor(session.value / 3600)
+  const minutes = Math.floor((session.value % 3600) / 60)
+  const seconds = String(session.value % 60).padStart(2, '0')
+
+  if (!hours) return `${minutes}:${seconds}`
+  return `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
 })
 
 const percent = computed(() => install.value?.progress == null ? null : Math.round(install.value.progress * 100))
@@ -64,7 +68,7 @@ const percent = computed(() => install.value?.progress == null ? null : Math.rou
 
         <p
           v-if="state === 'running'"
-          class="mt-1 flex items-center gap-1.5 truncate text-caption font-medium text-success"
+          class="mt-1 flex items-center gap-1.5 truncate text-caption font-medium text-success tabular-nums"
         >
           <KitLiveDot size="sm" />
           {{ $t('instance.state.running') }} · {{ clock }}
