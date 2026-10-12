@@ -65,15 +65,14 @@ const compact = computed({
           <KitAccentPicker v-model="accent" />
         </KitField>
 
-        <KitRow
-          :label="$t('settings.launcher.compact.label')"
-          :description="$t('settings.launcher.compact.hint')"
-        >
-          <Switch
-            v-model="compact"
-            size="lg"
-          />
-        </KitRow>
+        <KitRows>
+          <KitRow
+            :label="$t('settings.launcher.compact.label')"
+            :description="$t('settings.launcher.compact.hint')"
+          >
+            <Switch v-model="compact" />
+          </KitRow>
+        </KitRows>
       </div>
 
       <aside class="space-y-3">
