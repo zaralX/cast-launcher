@@ -12,16 +12,16 @@ withDefaults(defineProps<{
 })
 
 const SIZE = {
-  sm: 'size-10',
-  md: 'size-12',
-  lg: 'size-14',
-  xl: 'size-16',
+  sm: 'size-10 rounded-sm',
+  md: 'size-12 rounded-sm',
+  lg: 'size-14 rounded-sm',
+  xl: 'size-16 rounded-md',
 }
 </script>
 
 <template>
   <span
-    class="grid shrink-0 place-items-center overflow-hidden rounded-sm bg-control"
+    class="grid shrink-0 place-items-center overflow-hidden bg-control"
     :class="SIZE[size]"
   >
     <img

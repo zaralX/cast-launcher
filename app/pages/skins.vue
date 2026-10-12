@@ -266,14 +266,14 @@ watch(activeUuid, uuid => reload(uuid))
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
-            class="w-75 rounded-lg p-1.5"
+            class="w-75"
           >
             <DropdownMenuRadioGroup v-model="activeUuid">
               <DropdownMenuRadioItem
                 v-for="item in accountItems"
                 :key="item.value"
                 :value="item.value"
-                class="h-auto gap-3 rounded-md py-2"
+                class="h-auto gap-3 py-2"
               >
                 <KitAvatar :name="item.label" />
                 <span class="truncate font-medium">{{ item.label }}</span>

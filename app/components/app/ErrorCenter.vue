@@ -65,7 +65,7 @@ function copyAll() {
     <PopoverContent
       align="end"
       :side-offset="6"
-      class="flex max-h-[min(36rem,calc(100vh-4rem))] w-105 flex-col overflow-hidden rounded-lg"
+      class="flex max-h-[min(36rem,calc(100vh-4rem))] w-105 flex-col overflow-hidden"
     >
       <header class="flex shrink-0 items-center gap-1 pt-3 pr-2 pb-2.5 pl-4">
         <p class="flex-1 text-lead font-semibold text-fg">

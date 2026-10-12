@@ -44,7 +44,7 @@ async function addOffline() {
             side="right"
             align="end"
             :side-offset="10"
-            class="w-80 rounded-lg p-1.5"
+            class="w-80"
           >
             <template v-if="accounts.length">
               <DropdownMenuLabel>Minecraft</DropdownMenuLabel>
@@ -53,7 +53,7 @@ async function addOffline() {
                   v-for="(account, i) in accounts"
                   :key="`${account.type}-${account.name}-${i}`"
                   :value="String(i)"
-                  class="h-auto gap-3 rounded-md py-2"
+                  class="h-auto gap-3 py-2"
                 >
                   <KitAvatar
                     :name="account.name"
@@ -72,7 +72,7 @@ async function addOffline() {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger
                 icon="i-lucide-user-round-plus"
-                class="h-auto rounded-md py-2.5"
+                class="h-auto py-2.5"
               >
                 {{ $t('layout.account.add') }}
               </DropdownMenuSubTrigger>
@@ -105,7 +105,7 @@ async function addOffline() {
 
             <DropdownMenuItem
               icon="i-lucide-settings"
-              class="rounded-md text-fg-muted"
+              class="text-fg-muted"
               @select="navigateTo('/settings?section=accounts')"
             >
               {{ $t('layout.account.manage') }}

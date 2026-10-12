@@ -117,7 +117,7 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
               v-if="!allFound"
               class="flex items-center gap-1.5 text-accent/70"
             >
-              <span class="size-1 animate-pulse rounded-full bg-accent" />
+              <span class="size-1 animate-pulse rounded-pill bg-accent" />
               {{ $t('blocked.auto') }}
             </span>
           </Label>
