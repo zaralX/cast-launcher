@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { SkinEntry, SkinPose, SkinVariant } from '~/types/skin'
-import { SOURCE_KEYS, VARIANT_HINT_KEYS, VARIANT_LABELS } from '~/types/skin'
+import { SOURCE_KEYS, VARIANT_ARM_PIXELS, VARIANT_HINT_KEYS, VARIANT_LABELS } from '~/types/skin'
+import { FOCUS_RING } from '@/lib/styles'
+import { cn } from '@/lib/utils'
 
 definePageMeta({
   layout: 'main',
@@ -32,6 +34,8 @@ const accountItems = computed(() => licensed.value.map(item => ({
   label: item.name,
   value: item.uuid ?? item.name,
 })))
+
+const ACCOUNT_BOX = 'flex h-11 w-full items-center gap-2.5 rounded-sm bg-control pr-2.5 pl-1.5 text-left'
 
 const POSES: { key: SkinPose, icon: string, labelKey: string }[] = [
   { key: 'stand', icon: 'i-lucide-user-round', labelKey: 'skins.pose.stand' },
@@ -242,42 +246,55 @@ watch(activeUuid, uuid => reload(uuid))
 </script>
 
 <template>
-  <div class="min-h-full w-full px-8 pb-8 xl:px-14">
-    <div class="grid grid-cols-[18rem_minmax(0,1fr)] gap-12 xl:grid-cols-[22rem_minmax(0,1fr)]">
-      <aside class="sticky top-0 space-y-4 self-start pt-10">
-        <div class="flex items-center gap-3 border border-line bg-panel px-4 py-3">
-          <img
-            v-if="account"
-            :src="`https://assets.zaralx.ru/api/v2/minecraft/players/${account.name}/face`"
-            class="size-7 shrink-0"
-            :alt="account.name"
-            @error="fallbackFace"
-          >
-          <span
-            v-else
-            class="grid size-7 shrink-0 place-items-center border border-line text-fg-faint"
-          >
-            <Icon
-              name="i-lucide-user-round"
-              class="size-3.5"
-            />
-          </span>
+  <div class="min-h-full w-full px-8 pb-8">
+    <div class="flex gap-7">
+      <aside class="sticky top-0 flex w-75 shrink-0 flex-col gap-3 self-start pt-6.5">
+        <KitTitle class="pl-0.5">
+          {{ $t('layout.nav.skins') }}
+        </KitTitle>
 
-          <div class="min-w-0 flex-1">
-            <KitSelect
-              v-if="accountItems.length > 1"
-              v-model="activeUuid"
-              :items="accountItems"
+        <DropdownMenu v-if="accountItems.length > 1">
+          <DropdownMenuTrigger
+            :aria-label="$t('skins.account')"
+            :class="cn(FOCUS_RING, ACCOUNT_BOX, 'mt-1 cursor-pointer transition-colors duration-150 hover:bg-hover aria-expanded:bg-hover')"
+          >
+            <KitAvatar :name="account?.name" />
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-medium text-fg">{{ account?.name }}</span>
+              <span class="block text-caption text-fg-faint">Microsoft</span>
+            </span>
+            <Icon
+              name="i-lucide-chevrons-up-down"
+              class="size-4 text-fg-faint"
             />
-            <template v-else>
-              <p class="truncate text-title text-fg">
-                {{ account?.name ?? $t('skins.no_license') }}
-              </p>
-              <p class="mt-0.5 font-mono text-micro uppercase tracking-caps text-fg-faint">
-                {{ account ? 'Microsoft' : $t('skins.library_only') }}
-              </p>
-            </template>
-          </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            class="w-75 rounded-lg p-1.5"
+          >
+            <DropdownMenuRadioGroup v-model="activeUuid">
+              <DropdownMenuRadioItem
+                v-for="item in accountItems"
+                :key="item.value"
+                :value="item.value"
+                class="h-auto gap-3 rounded-md py-2"
+              >
+                <KitAvatar :name="item.label" />
+                <span class="truncate font-medium">{{ item.label }}</span>
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div
+          v-else
+          :class="cn(ACCOUNT_BOX, 'mt-1')"
+        >
+          <KitAvatar :name="account?.name" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate font-medium text-fg">{{ account?.name ?? $t('skins.no_license') }}</span>
+            <span class="block text-caption text-fg-faint">{{ account ? 'Microsoft' : $t('skins.library_only') }}</span>
+          </span>
         </div>
 
         <Alert
@@ -287,7 +304,7 @@ watch(activeUuid, uuid => reload(uuid))
         >
           {{ $t('skins.demo_hint_before') }}
           <NuxtLink
-            to="/settings"
+            to="/settings?section=accounts"
             class="text-warning underline underline-offset-2"
           >{{ $t('skins.demo_hint_link') }}</NuxtLink>
           {{ $t('skins.demo_hint_after') }}
@@ -302,10 +319,9 @@ watch(activeUuid, uuid => reload(uuid))
         </Alert>
 
         <div
-          class="relative h-72 overflow-hidden rounded-md ring-1 ring-card-line ring-inset transition-colors duration-300 xl:h-92"
+          class="relative h-88 overflow-hidden rounded-md ring-1 ring-card-line ring-inset transition-colors duration-300"
           :class="{
-            'bg-panel': background === 'ink',
-            'bg-sheet': background === 'grid',
+            'bg-panel': background === 'ink' || background === 'grid',
             'bg-fg-muted/90': background === 'light',
           }"
         >
@@ -340,70 +356,78 @@ watch(activeUuid, uuid => reload(uuid))
 
           <p
             v-else
-            class="grid h-full place-items-center px-8 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
+            class="grid h-full place-items-center px-8 pb-12 text-center text-body text-fg-faint"
           >
             {{ $t('skins.no_set') }}
           </p>
 
-          <div class="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-line bg-sheet/70 p-2 backdrop-blur">
-            <div class="flex items-center gap-0.5">
-              <Button
-                v-for="item in POSES"
-                :key="item.key"
-                variant="ghost"
-                size="icon"
-                :icon="item.icon"
-                :title="$t(item.labelKey)"
-                :aria-label="$t(item.labelKey)"
-                :aria-pressed="pose === item.key"
-                @click="pose = item.key"
-              />
+          <span
+            v-if="draftTexture && !loading"
+            class="pointer-events-none absolute top-2.5 left-3 text-micro text-fg-faint"
+          >
+            {{ $t('skins.preview.drag_hint') }}
+          </span>
 
-              <Separator
-                orientation="vertical"
-                class="mx-1 h-4"
-              />
+          <div class="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-raise p-0.75 shadow-float ring-1 ring-line-strong">
+            <Button
+              v-for="item in POSES"
+              :key="item.key"
+              variant="ghost"
+              size="icon-sm"
+              :icon="item.icon"
+              :title="$t(item.labelKey)"
+              :aria-label="$t(item.labelKey)"
+              :aria-pressed="pose === item.key"
+              @click="pose = item.key"
+            />
 
-              <Button
-                variant="ghost"
-                size="icon"
-                icon="i-lucide-rotate-3d"
-                :title="$t('skins.preview.rotate')"
-                :aria-label="$t('skins.preview.rotate')"
-                :aria-pressed="spinning"
-                @click="spinning = !spinning"
-              />
+            <Separator
+              orientation="vertical"
+              class="mx-1 data-[orientation=vertical]:h-4"
+            />
 
-              <Button
-                variant="ghost"
-                size="icon"
-                icon="i-lucide-layers"
-                :title="$t('skins.preview.second_layer')"
-                :aria-label="$t('skins.preview.second_layer')"
-                :aria-pressed="layers"
-                @click="layers = !layers"
-              />
-            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              icon="i-lucide-rotate-3d"
+              :title="$t('skins.preview.rotate')"
+              :aria-label="$t('skins.preview.rotate')"
+              :aria-pressed="spinning"
+              @click="spinning = !spinning"
+            />
 
-            <div class="flex items-center gap-0.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                icon="i-lucide-sun-moon"
-                :title="$t('skins.preview.background')"
-                :aria-label="$t('skins.preview.background')"
-                @click="cycleBackground"
-              />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              icon="i-lucide-layers"
+              :title="$t('skins.preview.second_layer')"
+              :aria-label="$t('skins.preview.second_layer')"
+              :aria-pressed="layers"
+              @click="layers = !layers"
+            />
 
-              <Button
-                variant="ghost"
-                size="icon"
-                icon="i-lucide-crosshair"
-                :title="$t('skins.preview.reset')"
-                :aria-label="$t('skins.preview.reset')"
-                @click="model?.reset()"
-              />
-            </div>
+            <Separator
+              orientation="vertical"
+              class="mx-1 data-[orientation=vertical]:h-4"
+            />
+
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              icon="i-lucide-sun-moon"
+              :title="$t('skins.preview.background')"
+              :aria-label="$t('skins.preview.background')"
+              @click="cycleBackground"
+            />
+
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              icon="i-lucide-crosshair"
+              :title="$t('skins.preview.reset')"
+              :aria-label="$t('skins.preview.reset')"
+              @click="model?.reset()"
+            />
           </div>
         </div>
 
@@ -416,39 +440,72 @@ watch(activeUuid, uuid => reload(uuid))
             :key="variant"
             :value="variant"
             :title="$t(VARIANT_HINT_KEYS[variant])"
-            class="px-4 py-2.5 font-mono text-caption uppercase tracking-caps"
+            class="h-7.5"
           >
             {{ VARIANT_LABELS[variant] }}
+            <span class="font-mono text-micro font-normal text-fg-faint">{{ VARIANT_ARM_PIXELS[variant] }} px</span>
           </RadioGroupItem>
         </RadioGroup>
 
-        <Button
-          variant="primary"
-          size="lg"
-          icon="i-lucide-check"
-          class="w-full"
-          :loading="saving"
-          :disabled="!canSave"
-          @click="save"
+        <KitStatus
+          v-if="skinStore.dirty && !demo"
+          tone="warning"
+          class="mt-1"
         >
-          <template v-if="saving">
-            {{ $t('skins.applying') }}
-          </template>
-          <template v-else-if="cooldown">
-            {{ $t('skins.cooldown', { seconds: cooldown }) }}
-          </template>
-          <template v-else>
-            {{ $t('skins.apply') }}
-          </template>
-        </Button>
+          {{ $t('skins.pending') }}
+        </KitStatus>
+
+        <div class="flex gap-2">
+          <Button
+            v-if="skinStore.dirty || demo || saving"
+            variant="primary"
+            size="lg"
+            icon="i-lucide-check"
+            class="flex-1"
+            :loading="saving"
+            :disabled="!canSave"
+            @click="save"
+          >
+            <template v-if="saving">
+              {{ $t('skins.applying') }}
+            </template>
+            <template v-else-if="cooldown">
+              {{ $t('skins.cooldown', { seconds: cooldown }) }}
+            </template>
+            <template v-else>
+              {{ $t('skins.apply') }}
+            </template>
+          </Button>
+
+          <Button
+            v-else
+            size="lg"
+            icon="i-lucide-check"
+            class="flex-1"
+            disabled
+          >
+            {{ $t('skins.applied') }}
+          </Button>
+
+          <Button
+            v-if="skinStore.dirty && !saving"
+            size="icon-lg"
+            icon="i-lucide-undo-2"
+            :title="$t('skins.revert')"
+            :aria-label="$t('skins.revert')"
+            @click="skinStore.reset()"
+          />
+        </div>
 
         <div
           v-if="!demo"
-          class="flex items-center justify-between gap-3"
+          class="flex items-center justify-between"
         >
           <Button
             variant="ghost"
+            size="sm"
             icon="i-lucide-copy"
+            class="-ml-2.5"
             :disabled="!draftSkin"
             @click="draftSkin && duplicate(draftSkin)"
           >
@@ -457,64 +514,62 @@ watch(activeUuid, uuid => reload(uuid))
 
           <Button
             variant="danger-ghost"
+            size="sm"
             icon="i-lucide-rotate-ccw"
+            class="-mr-2.5"
             @click="resetOpen = true"
           >
             {{ $t('skins.default') }}
           </Button>
         </div>
-
-        <div
-          v-if="skinStore.dirty"
-          class="flex justify-end"
-        >
-          <Button
-            variant="ghost"
-            @click="skinStore.reset()"
-          >
-            {{ $t('skins.revert') }}
-          </Button>
-        </div>
       </aside>
 
-      <div class="space-y-6 pt-10">
-        <KitPanel
-          :title="$t('skins.library_title')"
-          icon="i-lucide-shirt"
-          class="animate-rise"
-        >
-          <div class="space-y-5">
-            <div class="flex items-center gap-2">
-              <KitSearchInput
-                v-model="nickname"
-                :placeholder="$t('skins.nickname_placeholder')"
-                icon="i-lucide-user-round-search"
-                :loading="importingPlayer"
-                size="lg"
-                class="w-44"
-                @keyup.enter="importPlayer"
-              />
+      <div class="min-w-0 flex-1 space-y-8 pt-6.5">
+        <section class="animate-rise">
+          <div class="flex h-8.5 items-center gap-2.5">
+            <h2 class="text-heading font-semibold text-fg">
+              {{ $t('skins.library_title') }}
+            </h2>
+            <span
+              v-if="library.skins.length"
+              class="text-fg-faint tabular-nums"
+            >{{ library.skins.length }}</span>
 
-              <Button
-                icon="i-lucide-upload"
-                :loading="importing"
-                @click="importFile()"
-              >
-                {{ $t('skins.file') }}
-              </Button>
-            </div>
+            <span class="flex-1" />
 
-            <div class="grid grid-cols-3 gap-2.5 xl:grid-cols-4 2xl:grid-cols-6">
+            <KitSearchInput
+              v-model="nickname"
+              :placeholder="$t('skins.nickname_placeholder')"
+              :aria-label="$t('skins.nickname_placeholder')"
+              icon="i-lucide-user-round-search"
+              :loading="importingPlayer"
+              class="w-55"
+              @keyup.enter="importPlayer"
+            />
+
+            <Button
+              icon="i-lucide-upload"
+              :loading="importing"
+              @click="importFile()"
+            >
+              {{ $t('skins.file') }}
+            </Button>
+          </div>
+
+          <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(11.5rem,1fr))] gap-3">
+            <div
+              v-for="entry in library.skins"
+              :key="entry.id"
+              class="group/card relative"
+              @mouseenter="hovered = entry.id"
+              @mouseleave="hovered = null"
+            >
               <KitTile
-                v-for="entry in library.skins"
-                :key="entry.id"
                 :selected="draft.skinId === entry.id"
-                class="group/card flex aspect-3/4 flex-col overflow-hidden"
+                class="flex w-full flex-col overflow-hidden text-left"
                 @click="skinStore.pickSkin(entry.id)"
-                @mouseenter="hovered = entry.id"
-                @mouseleave="hovered = null"
               >
-                <div class="relative min-h-0 flex-1">
+                <span class="relative block h-50 w-full">
                   <SkinModel
                     v-if="skinStore.textureOf(entry)"
                     class="absolute inset-0"
@@ -528,100 +583,93 @@ watch(activeUuid, uuid => reload(uuid))
                   />
                   <span
                     v-else
-                    class="absolute inset-0 m-auto h-16 w-8 bg-line/40"
+                    class="absolute inset-0 m-auto h-24 w-12 rounded-xs bg-control"
                   />
 
                   <SkinCapeThumb
                     v-if="skinStore.capeById(entry.capeId ?? null)?.texture"
                     :cape="skinStore.capeById(entry.capeId ?? null)!.texture!"
-                    :scale="1.5"
-                    class="absolute right-1 bottom-1 border border-line/60"
+                    :scale="2"
+                    class="absolute right-2.5 bottom-2.5 ring-1 ring-line-strong"
                   />
-                </div>
 
-                <div class="w-full border-t border-line px-2 py-1.5 text-left">
-                  <p class="truncate text-caption leading-tight text-fg">
-                    {{ entry.name }}
-                  </p>
-                  <p class="mt-0.5 truncate font-mono text-[8px] uppercase tracking-caps text-fg-faint">
+                  <Badge
+                    v-if="skinStore.applied.skinId === entry.id"
+                    variant="solid"
+                    class="absolute top-2.5 left-2.5"
+                  >
+                    {{ $t('skins.active') }}
+                  </Badge>
+                </span>
+
+                <span class="block w-full border-t border-line px-3 pt-2 pb-2.5">
+                  <span class="block truncate font-medium text-fg">{{ entry.name }}</span>
+                  <span class="block truncate text-caption text-fg-faint">
                     {{ VARIANT_LABELS[entry.variant] }} · {{ $t(SOURCE_KEYS[entry.source]) }}
-                  </p>
-                </div>
-
-                <Badge
-                  v-if="skinStore.applied.skinId === entry.id"
-                  variant="solid"
-                  class="absolute top-0 left-0 text-[7px]"
-                >
-                  {{ $t('skins.active') }}
-                </Badge>
-
-                <div class="absolute top-1 right-1 hidden gap-0.5 group-hover/card:flex">
-                  <span
-                    class="grid size-5 place-items-center border border-line bg-panel text-fg-faint transition-colors duration-300 hover:border-accent/50 hover:text-accent"
-                    :title="$t('skins.duplicate_with_cape')"
-                    @click.stop="duplicate(entry)"
-                  >
-                    <Icon
-                      name="i-lucide-copy"
-                      class="size-2.5"
-                    />
                   </span>
-
-                  <span
-                    class="grid size-5 place-items-center border border-line bg-panel text-fg-faint transition-colors duration-300 hover:border-accent/50 hover:text-accent"
-                    :title="$t('skins.rename')"
-                    @click.stop="startRename(entry)"
-                  >
-                    <Icon
-                      name="i-lucide-pencil"
-                      class="size-2.5"
-                    />
-                  </span>
-
-                  <span
-                    class="grid size-5 place-items-center border border-line bg-panel text-fg-faint transition-colors duration-300 hover:border-danger/50 hover:text-danger"
-                    :title="$t('skins.remove')"
-                    @click.stop="removeTarget = entry"
-                  >
-                    <Icon
-                      name="i-lucide-trash-2"
-                      class="size-2.5"
-                    />
-                  </span>
-                </div>
+                </span>
               </KitTile>
 
-              <button
-                type="button"
-                class="group/drop flex aspect-3/4 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed outline-none transition-colors duration-300 focus-visible:border-line-strong"
-                :class="dropping ? 'border-accent bg-accent/6' : 'border-line hover:border-line-strong hover:bg-control'"
-                @click="importFile()"
-              >
-                <Icon
-                  name="i-lucide-image-plus"
-                  class="size-4 text-fg-faint transition-colors duration-300 group-hover/drop:text-accent"
-                />
-                <i18n-t
-                  keypath="skins.drop_hint"
-                  tag="span"
-                  class="px-2 text-center font-mono text-[8px] uppercase leading-relaxed tracking-caps text-fg-faint"
+              <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    size="icon-sm"
+                    icon="i-lucide-ellipsis"
+                    :title="$t('skins.actions', { name: entry.name })"
+                    :aria-label="$t('skins.actions', { name: entry.name })"
+                    class="absolute top-2 right-2 bg-raise opacity-0 shadow-float group-hover/card:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  class="w-56"
                 >
-                  <template #br>
-                    <br>
-                  </template>
-                </i18n-t>
-              </button>
+                  <DropdownMenuItem
+                    icon="i-lucide-pencil"
+                    @select="startRename(entry)"
+                  >
+                    {{ $t('skins.rename') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    icon="i-lucide-copy"
+                    @select="duplicate(entry)"
+                  >
+                    {{ $t('skins.duplicate_with_cape') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    icon="i-lucide-trash-2"
+                    variant="danger"
+                    @select="removeTarget = entry"
+                  >
+                    {{ $t('skins.remove') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            <KitEmpty
-              v-if="!library.skins.length && !loading"
-              class="py-10"
+            <Button
+              variant="dashed"
+              class="h-auto min-h-63 flex-col gap-2 rounded-md px-4 text-center font-normal whitespace-normal"
+              :class="dropping && 'border-accent bg-accent/6 text-accent'"
+              @click="importFile()"
             >
-              {{ $t('skins.library_empty') }}
-            </KitEmpty>
+              <Icon
+                name="i-lucide-image-plus"
+                class="size-5.5"
+              />
+              <span class="font-medium">{{ $t('skins.drop_title') }}</span>
+              <span class="text-caption text-fg-faint">{{ $t('skins.drop_sub') }}</span>
+            </Button>
           </div>
-        </KitPanel>
+
+          <KitEmpty
+            v-if="!library.skins.length && !loading"
+            class="mt-3 py-10"
+          >
+            {{ $t('skins.library_empty') }}
+          </KitEmpty>
+        </section>
 
         <KitPanel
           :title="draftSkin ? $t('skins.cape_title_named', { name: draftSkin.name }) : $t('skins.cape_title')"

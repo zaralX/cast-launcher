@@ -24,11 +24,28 @@ const isDetected = computed(() => javaRuntimes.value.some(r => r.path === javaPa
 
 const majors = computed(() => [...new Set(javaRuntimes.value.map(r => r.major))].sort((a, b) => a - b))
 
-const describe = (runtime: JavaRuntime) => [
-  runtime.vendor,
-  runtime.is_64bit ? t('settings.java.arch64') : t('settings.java.arch32'),
-  JAVA_SOURCE_KEYS[runtime.source] ? t(JAVA_SOURCE_KEYS[runtime.source]!) : runtime.source,
-].join(' · ')
+const choice = computed({
+  get: () => mode.value,
+  set: (value: JavaMode) => {
+    if (value === 'manual') mode.value = 'manual'
+    else setMode(value)
+  },
+})
+
+const modeHint = computed(() => {
+  if (mode.value === 'manual') return ''
+  if (javaScanning.value && !javaRuntimes.value.length) return t('settings.java.scanning')
+
+  if (mode.value === 'system') {
+    const runtime = store.systemJavaRuntime
+    return runtime ? `Java ${runtime.major} · ${runtime.vendor}` : t('settings.java.not_found')
+  }
+
+  return majors.value.length ? t('settings.java.auto_hint', { majors: majors.value.join(', ') }) : t('settings.java.not_found')
+})
+
+const sourceOf = (runtime: JavaRuntime) =>
+  JAVA_SOURCE_KEYS[runtime.source] ? t(JAVA_SOURCE_KEYS[runtime.source]!) : runtime.source
 
 const select = (runtime: JavaRuntime) => setMode('manual', runtime.path)
 
@@ -68,13 +85,79 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-7">
+  <div class="space-y-6">
     <div>
-      <div class="mb-2 flex items-center justify-between gap-4">
-        <Label>{{ $t('settings.java.runtime') }}</Label>
+      <Label class="mb-1.5">
+        {{ $t('settings.java.mode_label') }}
+      </Label>
+      <div class="flex flex-wrap items-center gap-3.5">
+        <RadioGroup
+          v-model="choice"
+          :aria-label="$t('settings.java.mode_label')"
+          class="w-fit"
+        >
+          <RadioGroupItem
+            value="auto"
+            class="flex-none"
+          >
+            {{ $t('settings.java.auto') }}
+          </RadioGroupItem>
+          <RadioGroupItem
+            value="system"
+            class="flex-none"
+          >
+            {{ $t('settings.java.system') }}
+          </RadioGroupItem>
+          <RadioGroupItem
+            value="manual"
+            class="flex-none"
+          >
+            {{ $t('settings.java.manual') }}
+          </RadioGroupItem>
+        </RadioGroup>
+        <span class="text-caption text-fg-faint">{{ modeHint }}</span>
+      </div>
+    </div>
 
+    <KitField
+      v-if="mode === 'manual'"
+      :label="$t('settings.java.custom_path')"
+      :hint="$t('settings.java.custom_path_hint')"
+      for="java-custom-path"
+    >
+      <Input
+        id="java-custom-path"
+        v-model="javaPath"
+        :placeholder="$t('settings.java.custom_path')"
+        font="mono"
+      />
+
+      <KitStatus
+        v-if="isManual && !isDetected"
+        :tone="manualChecking ? 'muted' : manual ? 'success' : 'warning'"
+        :dot="manualChecking ? 'live' : 'static'"
+        class="mt-2"
+      >
+        <template v-if="manualChecking">
+          {{ $t('settings.java.probing') }}
+        </template>
+        <template v-else-if="manual">
+          Java {{ manual.version }} · {{ manual.vendor }} · {{ manual.arch }}
+        </template>
+        <template v-else>
+          {{ $t('settings.java.probe_failed') }}
+        </template>
+      </KitStatus>
+    </KitField>
+
+    <div>
+      <div class="mb-2 flex items-center gap-2">
+        <Label>{{ $t('settings.java.found') }}</Label>
+        <span class="text-caption text-fg-faint tabular-nums">{{ javaRuntimes.length || '' }}</span>
+        <span class="flex-1" />
         <Button
           variant="ghost"
+          size="sm"
           icon="i-lucide-refresh-cw"
           :loading="javaScanning"
           @click="rescan"
@@ -83,137 +166,52 @@ onBeforeUnmount(() => {
         </Button>
       </div>
 
-      <ul class="max-h-64 overflow-y-scroll border border-line">
-        <KitListItem
-          :active="mode === 'auto'"
-          :active-label="$t('settings.java.active')"
-          @select="setMode('auto')"
-        >
-          <template #leading>
-            <Icon
-              name="i-lucide-wand-sparkles"
-              class="size-4 shrink-0 text-fg-faint"
-            />
-          </template>
-
-          <p class="truncate text-title text-fg">
-            {{ $t('settings.java.auto') }}
-          </p>
-          <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
-            <template v-if="majors.length">
-              {{ $t('settings.java.auto_hint', { majors: majors.join(', ') }) }}
-            </template>
-            <template v-else-if="javaScanning">
-              {{ $t('settings.java.scanning') }}
-            </template>
-            <template v-else>
-              {{ $t('settings.java.not_found') }}
-            </template>
-          </p>
-        </KitListItem>
-
-        <KitListItem
-          :active="mode === 'system'"
-          :active-label="$t('settings.java.active')"
-          @select="setMode('system')"
-        >
-          <template #leading>
-            <Icon
-              name="i-lucide-square-terminal"
-              class="size-4 shrink-0 text-fg-faint"
-            />
-          </template>
-
-          <p class="truncate text-title text-fg">
-            {{ $t('settings.java.system') }}
-          </p>
-          <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
-            <template v-if="store.systemJavaRuntime">
-              Java {{ store.systemJavaRuntime.major }} · {{ store.systemJavaRuntime.vendor }}
-            </template>
-            <template v-else-if="javaScanning">
-              {{ $t('settings.java.scanning') }}
-            </template>
-            <template v-else>
-              {{ $t('settings.java.not_found') }}
-            </template>
-          </p>
-        </KitListItem>
-
+      <ul
+        v-if="javaRuntimes.length"
+        class="max-h-80 divide-y divide-line overflow-y-auto rounded-md ring-1 ring-line ring-inset"
+      >
         <KitListItem
           v-for="runtime in javaRuntimes"
           :key="runtime.path"
           :active="isManual && javaPath === runtime.path"
           :active-label="$t('settings.java.active')"
+          class="rounded-none px-4"
           @select="select(runtime)"
         >
           <template #leading>
-            <span class="shrink-0 font-mono text-heading leading-none tabular-nums text-fg-muted">
+            <span class="w-8 shrink-0 text-center font-mono text-heading text-fg-muted tabular-nums">
               {{ runtime.major }}
             </span>
           </template>
 
-          <p class="truncate text-title text-fg">
-            Java {{ runtime.version }}
-            <span
+          <p class="flex min-w-0 items-center gap-2 text-fg">
+            <span class="truncate">
+              {{ runtime.version }} · {{ runtime.vendor }} · {{ runtime.is_64bit ? $t('settings.java.arch64') : $t('settings.java.arch32') }}
+            </span>
+            <Badge
               v-if="!runtime.is_64bit"
-              class="ml-2 font-mono text-micro uppercase tracking-caps text-warning"
+              variant="warning"
             >
               {{ $t('settings.java.bit32') }}
-            </span>
+            </Badge>
           </p>
-          <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
-            {{ describe(runtime) }}
-          </p>
-          <p class="mt-1 truncate font-mono text-caption text-fg-faint/70">
+          <p class="truncate font-mono text-micro text-fg-faint">
             {{ runtime.path }}
           </p>
+
+          <template #trailing>
+            <Badge>{{ sourceOf(runtime) }}</Badge>
+          </template>
         </KitListItem>
       </ul>
 
-      <p
-        v-if="!javaRuntimes.length && !javaScanning"
-        class="border-b border-line py-6 text-center font-mono text-caption uppercase tracking-caps text-fg-faint"
+      <KitEmpty
+        v-else
+        icon="i-lucide-coffee"
+        class="py-8"
       >
-        {{ $t('settings.java.empty') }}
-      </p>
+        {{ javaScanning ? $t('settings.java.scanning') : $t('settings.java.empty') }}
+      </KitEmpty>
     </div>
-
-    <KitField
-      :label="$t('settings.java.custom_path')"
-      :hint="$t('settings.java.custom_path_hint')"
-      for="java-custom-path"
-    >
-      <Input
-        id="java-custom-path"
-        v-model="javaPath"
-        :placeholder="mode === 'system' ? $t('settings.java.system') : $t('settings.java.auto')"
-        font="mono"
-      />
-
-      <p
-        v-if="isManual && !isDetected"
-        class="mt-2 flex items-center gap-2 font-mono text-caption tracking-[0.02em]"
-      >
-        <template v-if="manualChecking">
-          <Spinner class="size-3 text-fg-faint" />
-          <span class="text-fg-faint">{{ $t('settings.java.probing') }}</span>
-        </template>
-        <template v-else-if="manual">
-          <Icon
-            name="i-lucide-check"
-            class="size-3 shrink-0 text-accent"
-          />
-          <span class="text-fg-muted">Java {{ manual.version }} · {{ manual.vendor }} · {{ manual.arch }}</span>
-        </template>
-        <template v-else>
-          <Icon
-            name="i-lucide-triangle-alert"
-            class="size-3 shrink-0 text-warning"
-          />
-          <span class="text-warning">{{ $t('settings.java.probe_failed') }}</span>
-        </template>
-      </p>
-    </KitField>
   </div>
 </template>

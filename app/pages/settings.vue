@@ -3,11 +3,103 @@ definePageMeta({
   layout: 'main',
 })
 
+type Section = 'look' | 'behavior' | 'accounts' | 'java' | 'storage' | 'import' | 'about'
+
+interface Entry {
+  value: Section
+  labelKey: string
+  icon: string
+  keys: string[]
+}
+
+// keys hold the labels of the settings inside, so the search finds a section by what it contains.
+const GROUPS: { labelKey: string, items: Entry[] }[] = [
+  {
+    labelKey: 'settings.group.main',
+    items: [
+      {
+        value: 'look',
+        labelKey: 'settings.section.look',
+        icon: 'i-lucide-palette',
+        keys: ['settings.launcher.theme', 'settings.launcher.accent.label', 'settings.launcher.language', 'settings.launcher.compact.label'],
+      },
+      {
+        value: 'behavior',
+        labelKey: 'settings.section.behavior',
+        icon: 'i-lucide-app-window',
+        keys: ['settings.launcher.after_launch.label', 'settings.launcher.auto_update.label', 'settings.launcher.telemetry.label'],
+      },
+      {
+        value: 'accounts',
+        labelKey: 'settings.accounts.title',
+        icon: 'i-lucide-user-round',
+        keys: ['settings.accounts.offline', 'settings.accounts.nickname', 'layout.account.add'],
+      },
+    ],
+  },
+  {
+    labelKey: 'settings.group.game',
+    items: [
+      {
+        value: 'java',
+        labelKey: 'settings.java.title',
+        icon: 'i-lucide-coffee',
+        keys: ['settings.java.mode_label', 'settings.java.custom_path', 'settings.java.memory_title', 'settings.java.min_ram', 'settings.java.max_ram'],
+      },
+    ],
+  },
+  {
+    labelKey: 'settings.group.system',
+    items: [
+      {
+        value: 'storage',
+        labelKey: 'settings.section.storage',
+        icon: 'i-lucide-hard-drive',
+        keys: ['settings.launcher.dir.label'],
+      },
+      {
+        value: 'import',
+        labelKey: 'settings.section.import',
+        icon: 'i-lucide-import',
+        keys: ['settings.import.title'],
+      },
+      {
+        value: 'about',
+        labelKey: 'settings.section.about',
+        icon: 'i-lucide-info',
+        keys: ['settings.about.check', 'layout.nav.credits'],
+      },
+    ],
+  },
+]
+
+const ENTRIES = GROUPS.flatMap(group => group.items)
+
+const route = useRoute()
+
+const asked = route.query.section
+const section = ref<Section>(ENTRIES.find(entry => entry.value === asked)?.value ?? 'look')
+const current = computed(() => ENTRIES.find(entry => entry.value === section.value) ?? ENTRIES[0]!)
+
+const query = ref('')
+
 const store = useAppStore()
 const { config } = storeToRefs(store)
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const toast = useAppToast()
+
+const groups = computed(() => {
+  const needle = query.value.trim().toLocaleLowerCase(locale.value)
+  if (!needle) return GROUPS
+
+  const matches = (entry: Entry) => [entry.labelKey, ...entry.keys]
+    .some(key => t(key).toLocaleLowerCase(locale.value).includes(needle))
+
+  return GROUPS
+    .map(group => ({ ...group, items: group.items.filter(matches) }))
+    .filter(group => group.items.length)
+})
 const saving = ref(false)
 
 const saved = ref<string | null>(null)
@@ -60,61 +152,100 @@ const guard = useUnsavedChanges({
 </script>
 
 <template>
-  <div class="min-h-full w-full px-8 pb-8 xl:px-14">
-    <div class="grid grid-cols-[15rem_minmax(0,1fr)] gap-14">
-      <aside class="sticky top-0 self-start pt-10">
-        <KitPageHeader
-          :title="$t('settings.title')"
-          :description="$t('settings.subtitle')"
-        />
+  <Tabs
+    v-model="section"
+    orientation="vertical"
+    class="flex min-h-full w-full"
+  >
+    <aside class="sticky top-0 flex h-[calc(100vh-2.5rem)] w-59 shrink-0 flex-col border-r border-line pt-6 pr-3 pb-4 pl-5">
+      <KitTitle class="pl-1">
+        {{ $t('settings.title') }}
+      </KitTitle>
 
-        <Button
-          variant="ghost"
-          icon="i-lucide-info"
-          to="/credits"
-          class="mt-5 -ml-3"
+      <KitSearchInput
+        v-model="query"
+        :placeholder="$t('settings.search')"
+        :aria-label="$t('settings.search')"
+        class="mt-4"
+      />
+
+      <TabsList class="mt-1 min-h-0 flex-1 overflow-y-auto">
+        <template
+          v-for="group in groups"
+          :key="group.labelKey"
         >
-          {{ $t('layout.nav.credits') }}
-        </Button>
+          <KitNavHeading>{{ $t(group.labelKey) }}</KitNavHeading>
+          <TabsTrigger
+            v-for="item in group.items"
+            :key="item.value"
+            :value="item.value"
+            :icon="item.icon"
+          >
+            {{ $t(item.labelKey) }}
+          </TabsTrigger>
+        </template>
 
-        <KitSaveBar
-          :saving="saving"
-          :disabled="!config || !dirty"
-          :dirty="dirty"
-          :dirty-label="$t('settings.unsaved')"
-          @save="saveConfig"
-          @reset="reset"
-        />
-      </aside>
+        <p
+          v-if="!groups.length"
+          class="px-2.5 py-3 text-caption text-fg-faint"
+        >
+          {{ $t('common.no_match') }}
+        </p>
+      </TabsList>
+    </aside>
 
-      <div
-        v-if="config"
-        class="space-y-6 pt-10"
-      >
-        <SettingsLauncher
-          v-model="config"
-          class="animate-rise"
-        />
-        <SettingsAccounts class="animate-rise [animation-delay:80ms]" />
-        <SettingsJava
-          v-model="config"
-          class="animate-rise [animation-delay:160ms]"
-        />
-        <SettingsImport class="animate-rise [animation-delay:240ms]" />
-      </div>
+    <div class="min-w-0 flex-1 px-9 pt-6 pb-24">
+      <template v-if="config">
+        <h2 class="text-heading font-semibold text-fg">
+          {{ $t(current.labelKey) }}
+        </h2>
 
-      <KitStatus
+        <div class="mt-5 max-w-4xl">
+          <TabsContent value="look">
+            <SettingsLook v-model="config" />
+          </TabsContent>
+          <TabsContent value="behavior">
+            <SettingsBehavior v-model="config" />
+          </TabsContent>
+          <TabsContent value="accounts">
+            <SettingsAccounts />
+          </TabsContent>
+          <TabsContent value="java">
+            <SettingsJava v-model="config" />
+          </TabsContent>
+          <TabsContent value="storage">
+            <SettingsStorage v-model="config" />
+          </TabsContent>
+          <TabsContent value="import">
+            <SettingsImport />
+          </TabsContent>
+          <TabsContent value="about">
+            <SettingsAbout />
+          </TabsContent>
+        </div>
+      </template>
+
+      <KitEmpty
         v-else
-        class="py-14"
+        icon="i-lucide-settings"
       >
         {{ $t('settings.empty') }}
-      </KitStatus>
+      </KitEmpty>
     </div>
+
+    <KitSaveBar
+      :saving="saving"
+      :disabled="!config || !dirty"
+      :dirty="dirty"
+      :dirty-label="$t('settings.unsaved')"
+      @save="saveConfig"
+      @reset="reset"
+    />
 
     <AppUnsavedChangesModal
       :guard="guard"
       :description="$t('settings.leave.description')"
       :discard-label="$t('settings.leave.discard')"
     />
-  </div>
+  </Tabs>
 </template>

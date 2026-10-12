@@ -109,7 +109,7 @@ async function addOffline() {
       <DropdownMenuItem
         icon="i-lucide-settings"
         class="rounded-md text-fg-muted"
-        @select="navigateTo('/settings')"
+        @select="navigateTo('/settings?section=accounts')"
       >
         {{ $t('layout.account.manage') }}
       </DropdownMenuItem>
