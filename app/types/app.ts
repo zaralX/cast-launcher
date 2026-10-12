@@ -1,3 +1,15 @@
+export interface AppUpdate {
+  version: string
+  notes?: string
+  date?: string
+  downloaded: boolean
+}
+
+export interface AppUpdateProgress {
+  downloaded: number
+  total: number | null
+}
+
 export interface AppConfig {
   version: number
   launcher: LauncherConfig

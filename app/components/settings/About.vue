@@ -3,10 +3,10 @@ import { getVersion } from '@tauri-apps/api/app'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const { update, updateBusy } = storeToRefs(appStore)
 const toast = useAppToast()
 
 const version = ref('')
-const checking = ref(false)
 
 onMounted(async () => {
   try {
@@ -18,17 +18,14 @@ onMounted(async () => {
 })
 
 async function check() {
-  if (checking.value) return
-  checking.value = true
-
-  const result = await attempt(() => appStore.updateApp(), { context: { action: t('settings.about.update_action') } })
-
-  checking.value = false
+  const result = await attempt(() => appStore.checkUpdate(), { context: { action: t('settings.about.update_action') } })
 
   if (result.ok && !result.value) {
     toast.add({ title: t('settings.about.latest'), color: 'success', icon: 'i-lucide-check' })
   }
 }
+
+const install = () => safeRun(() => appStore.installUpdate(), { context: { action: t('settings.about.update_action') } })
 </script>
 
 <template>
@@ -52,10 +49,27 @@ async function check() {
       </div>
     </div>
 
+    <KitStatus
+      v-if="update"
+      tone="accent"
+    >
+      {{ $t('settings.about.available', { version: update.version }) }}
+    </KitStatus>
+
     <div class="flex gap-2">
       <Button
+        v-if="update"
+        variant="primary"
+        :icon="update.downloaded ? 'i-lucide-rotate-cw' : 'i-lucide-circle-arrow-up'"
+        :loading="updateBusy === 'installing' || updateBusy === 'downloading'"
+        @click="install"
+      >
+        {{ update.downloaded ? $t('update.restart') : $t('update.install') }}
+      </Button>
+      <Button
+        v-else
         icon="i-lucide-refresh-cw"
-        :loading="checking"
+        :loading="updateBusy === 'checking'"
         @click="check"
       >
         {{ $t('settings.about.check') }}

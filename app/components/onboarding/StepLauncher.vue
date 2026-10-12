@@ -27,6 +27,7 @@ const telemetry = computed({
       <div class="space-y-6">
         <KitRow
           :label="$t('settings.launcher.auto_update.label')"
+          :description="$t('settings.launcher.auto_update.hint')"
         >
           <Switch
             v-model="autoUpdate"

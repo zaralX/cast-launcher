@@ -33,6 +33,7 @@ onMounted(async () => {
       class="flex-1"
     />
 
+    <AppUpdateNotice />
     <AppActiveDownloads />
 
     <AppWindowControls>

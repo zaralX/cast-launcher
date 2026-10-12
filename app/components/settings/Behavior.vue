@@ -31,6 +31,7 @@ const afterLaunchHint = computed(() =>
     </KitRow>
     <KitRow
       :label="$t('settings.launcher.auto_update.label')"
+      :description="$t('settings.launcher.auto_update.hint')"
     >
       <Switch v-model="config.launcher.auto_update" />
     </KitRow>
