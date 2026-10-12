@@ -79,14 +79,17 @@ const HEADER_KEYS: Record<string, string> = {
 </script>
 
 <template>
-  <aside class="flex flex-col gap-7">
-    <div class="flex items-center gap-3">
-      <span class="font-mono text-caption uppercase tracking-caps-wide text-accent">{{ $t('search.filters.title') }}</span>
-      <Separator class="flex-1" />
+  <aside
+    class="flex flex-col gap-5.5"
+    :aria-label="$t('search.filters.title')"
+  >
+    <div class="flex h-7 items-center justify-between">
+      <span class="font-semibold text-fg">{{ $t('search.filters.title') }}</span>
       <Button
         v-if="selectedCount"
         variant="ghost"
-        class="py-0 text-micro"
+        size="sm"
+        class="-mr-2.5"
         @click="reset"
       >
         {{ $t('search.filters.reset', { count: selectedCount }) }}
@@ -106,25 +109,26 @@ const HEADER_KEYS: Record<string, string> = {
 
     <template v-else-if="filters">
       <section v-if="filters.loaders.length">
-        <Label class="mb-3 text-micro">
+        <Label class="mb-2">
           {{ $t('search.filters.loader') }}
         </Label>
         <ToggleGroup
           v-model="loaders"
           type="multiple"
+          class="gap-1.5"
         >
           <ToggleGroupItem
             v-for="loader in filters.loaders"
             :key="loader"
             :value="loader"
           >
-            {{ loader }}
+            {{ categoryName(loader) }}
           </ToggleGroupItem>
         </ToggleGroup>
       </section>
 
       <section v-if="filters.gameVersions.length">
-        <Label class="mb-3 text-micro">
+        <Label class="mb-2">
           {{ $t('search.filters.game_version') }}
         </Label>
         <KitSelectMenu
@@ -139,22 +143,25 @@ const HEADER_KEYS: Record<string, string> = {
             v-model="singleGameVersion"
             :items="gameVersionItems"
           />
-          <p class="mt-2 text-caption leading-relaxed text-fg-faint">
+          <p class="mt-2 text-caption text-fg-faint">
             {{ $t('search.filters.single_version') }}
           </p>
         </template>
       </section>
 
       <section v-if="can.environment">
-        <Label class="mb-3 text-micro">
+        <Label class="mb-2">
           {{ $t('search.filters.environment') }}
         </Label>
-        <RadioGroup v-model="environmentChoice">
+        <RadioGroup
+          v-model="environmentChoice"
+          :aria-label="$t('search.filters.environment')"
+        >
           <RadioGroupItem
             v-for="option in ENVIRONMENTS"
             :key="option.value"
             :value="option.value"
-            class="py-2 font-mono text-micro uppercase tracking-caps data-[state=checked]:text-accent"
+            class="h-7"
           >
             {{ option.label }}
           </RadioGroupItem>
@@ -165,12 +172,13 @@ const HEADER_KEYS: Record<string, string> = {
         v-for="group in groups"
         :key="group.header"
       >
-        <Label class="mb-3 text-micro">
+        <Label class="mb-2">
           {{ HEADER_KEYS[group.header] ? $t(HEADER_KEYS[group.header]!) : group.header }}
         </Label>
         <ToggleGroup
           v-model="categories"
           type="multiple"
+          class="gap-1.5"
         >
           <ToggleGroupItem
             v-for="category in group.items"
@@ -185,7 +193,7 @@ const HEADER_KEYS: Record<string, string> = {
 
     <p
       v-else
-      class="text-body leading-relaxed text-fg-muted"
+      class="text-body text-fg-muted"
     >
       {{ $t('search.filters.failed') }}
     </p>

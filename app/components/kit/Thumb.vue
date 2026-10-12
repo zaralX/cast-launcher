@@ -2,7 +2,7 @@
 withDefaults(defineProps<{
   src?: string | null
   alt?: string
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
   fallbackIcon?: string
 }>(), {
   src: undefined,
@@ -15,6 +15,7 @@ const SIZE = {
   sm: 'size-10',
   md: 'size-12',
   lg: 'size-14',
+  xl: 'size-16',
 }
 </script>
 

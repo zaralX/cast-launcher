@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { v4 } from 'uuid'
 import type { PackHit, PackVersion } from '~/types/catalog'
+import { PROVIDER_LOGOS } from '~/types/catalog'
 import { INSTANCE_TYPE_LABELS, PACK_PROVIDER_LABELS } from '~/types/instance'
 import type { LauncherError } from '~/utils/error'
 
 const props = defineProps<{ hit: PackHit }>()
 
 const emit = defineEmits<{ installed: [instanceId: string] }>()
+
+const FORM_ID = 'pack-install'
 
 const instanceStore = useInstanceStore()
 
@@ -125,127 +128,135 @@ const install = async () => {
 </script>
 
 <template>
-  <div>
-    <div class="flex items-start gap-4 border-b border-line pb-5">
-      <KitThumb
-        :src="hit.iconUrl"
-        :alt="hit.title"
-      />
+  <DialogHeader class="flex-row items-start gap-3.5">
+    <KitThumb
+      :src="hit.iconUrl"
+      :alt="hit.title"
+    />
 
-      <div class="min-w-0">
-        <p class="font-mono text-micro uppercase tracking-caps text-accent">
-          {{ PACK_PROVIDER_LABELS[hit.provider] }}
-        </p>
-        <h3 class="mt-1.5 truncate font-unbounded text-heading font-semibold tracking-heading text-fg">
-          {{ hit.title }}
-        </h3>
-      </div>
+    <div class="min-w-0 flex-1">
+      <p class="flex items-center gap-1.5 text-caption text-fg-faint">
+        <img
+          :src="PROVIDER_LOGOS[hit.provider]"
+          class="size-3.25"
+          alt=""
+        >
+        {{ $t('search.install.eyebrow', { provider: PACK_PROVIDER_LABELS[hit.provider] }) }}
+      </p>
+      <DialogTitle class="mt-1 leading-snug">
+        {{ hit.title }}
+      </DialogTitle>
     </div>
+  </DialogHeader>
 
+  <DialogBody class="pt-5">
     <KitLoading
       v-if="loading"
       :label="$t('search.install.loading')"
+      class="py-10"
     />
 
     <KitLoadError
       v-else-if="loadError"
       :error="loadError"
-      class="mt-6"
       @retry="loadVersions"
     />
 
     <p
       v-else-if="!versions.length"
-      class="mt-6 text-body leading-relaxed text-fg-muted"
+      class="text-body text-fg-muted"
     >
       {{ $t('search.install.no_versions') }}
     </p>
 
     <form
       v-else
-      class="mt-6 space-y-8"
+      :id="FORM_ID"
+      class="space-y-4"
       @submit.prevent="install"
     >
-      <div class="space-y-5">
-        <KitField
-          :label="$t('search.install.name')"
-          for="pack-name"
-        >
-          <Input
-            id="pack-name"
-            v-model="name"
-            size="lg"
-            font="display"
-          />
-        </KitField>
+      <KitField
+        :label="$t('search.install.name')"
+        for="pack-name"
+      >
+        <Input
+          id="pack-name"
+          v-model="name"
+          size="lg"
+        />
+      </KitField>
 
-        <KitField
-          :label="$t('search.install.description')"
-          for="pack-description"
-        >
-          <Input
-            id="pack-description"
-            v-model="description"
-            :placeholder="$t('search.install.description_placeholder')"
-          />
-        </KitField>
+      <KitField
+        :label="$t('search.install.description')"
+        for="pack-description"
+      >
+        <Input
+          id="pack-description"
+          v-model="description"
+          :placeholder="$t('search.install.description_placeholder')"
+        />
+      </KitField>
 
-        <KitField :label="$t('search.install.version')">
-          <KitSelectMenu
-            v-model="versionId"
-            :items="versionItems"
-            :search-placeholder="$t('search.install.version_search')"
-          />
-        </KitField>
-      </div>
+      <KitField :label="$t('search.install.version')">
+        <KitSelectMenu
+          v-model="versionId"
+          :items="versionItems"
+          :search-placeholder="$t('search.install.version_search')"
+        />
+      </KitField>
 
       <KitStatGrid>
-        <KitStat
-          label="Minecraft"
-          :value="selected?.minecraftVersion ?? '-'"
-        />
+        <KitStat label="Minecraft">
+          <span class="font-mono">{{ selected?.minecraftVersion ?? '-' }}</span>
+        </KitStat>
         <KitStat
           :label="$t('search.install.loader')"
           :value="loaderLabel"
         />
       </KitStatGrid>
 
-      <KitNote
+      <Alert
         v-if="selected && !selected.supported"
+        variant="warning"
         icon="i-lucide-triangle-alert"
       >
         {{ $t('search.install.unsupported', { reason: unsupportedReason(selected) }) }}
-      </KitNote>
+      </Alert>
 
-      <KitNote
+      <Alert
         v-else-if="selected?.blocked"
+        variant="warning"
         icon="i-lucide-hand"
       >
         {{ $t('search.install.blocked_pack') }}
-      </KitNote>
+      </Alert>
 
-      <KitNote
+      <Alert
         v-else-if="!hit.distributionAllowed"
+        variant="warning"
         icon="i-lucide-triangle-alert"
       >
         {{ $t('search.install.blocked_files') }}
-      </KitNote>
-
-      <Button
-        variant="primary"
-        type="submit"
-        size="lg"
-        class="group/act w-full"
-        :loading="creating"
-        :disabled="!canInstall"
-      >
-        <Icon
-          v-if="!creating"
-          name="i-lucide-download"
-          class="size-3.5 transition-transform duration-500 group-hover/act:translate-y-0.5"
-        />
-        {{ creating ? $t('search.install.creating') : $t('search.install.install') }}
-      </Button>
+      </Alert>
     </form>
-  </div>
+  </DialogBody>
+
+  <DialogFooter class="border-t border-line pt-3.5 pb-3.5">
+    <DialogClose as-child>
+      <Button variant="ghost">
+        {{ $t('common.cancel') }}
+      </Button>
+    </DialogClose>
+
+    <Button
+      variant="primary"
+      type="submit"
+      :form="FORM_ID"
+      icon="i-lucide-download"
+      :loading="creating"
+      :disabled="!canInstall"
+    >
+      {{ creating ? $t('search.install.creating') : $t('search.install.install') }}
+    </Button>
+  </DialogFooter>
 </template>

@@ -9,7 +9,7 @@ definePageMeta({
   layout: 'main',
 })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 type Source = PackProvider | 'castpack'
 
@@ -201,6 +201,11 @@ const outdated = computed(() =>
   castpackStore.packs.filter(pack => castpackStore.stateOf(pack) === 'outdated').length,
 )
 
+const catalogUpdated = computed(() => {
+  const value = catalog.value?.updatedAt
+  return value ? new Date(value).toLocaleString(locale.value) : ''
+})
+
 const packInstallOf = (packId: string) => {
   const instance = castpackStore.instanceOf(packId)
   return instance ? instanceStore.getInstall(instance.id) : undefined
@@ -237,12 +242,8 @@ const playPack = (instanceId: string) => safeRun(
 </script>
 
 <template>
-  <div class="min-h-full w-full px-6 pt-6 pb-10 xl:px-10">
-    <header class="animate-rise flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
-      <KitPageHeader
-        :title="$t('search.title')"
-      />
-
+  <div class="min-h-full w-full px-8 pt-7 pb-10">
+    <KitPageHeader :title="$t('search.title')">
       <RadioGroup
         :model-value="source"
         :aria-label="$t('search.sources')"
@@ -254,37 +255,37 @@ const playPack = (instanceId: string) => safeRun(
           :value="item.id"
           :disabled="!item.ready"
           :title="item.reason ? uiText(item.reason) : undefined"
-          class="flex-none px-4 py-2.5"
+          class="flex-none gap-1.5"
         >
           <img
             :src="PROVIDER_LOGOS[item.id]"
             class="size-3.5"
             alt=""
           >
-          <span class="font-mono text-caption uppercase tracking-caps">{{ item.label }}</span>
+          {{ item.label }}
           <span
             v-if="!item.ready"
-            class="font-mono text-micro tracking-[0.12em] text-fg-faint"
+            class="font-normal text-fg-faint"
           >{{ $t('search.no_key') }}</span>
         </RadioGroupItem>
 
         <RadioGroupItem
           :value="CASTPACK"
-          class="flex-none px-4 py-2.5"
+          class="flex-none gap-1.5"
         >
           <img
             src="/logo.svg"
             class="size-3.5"
             alt=""
           >
-          <span class="font-mono text-caption uppercase tracking-caps">CastPack</span>
+          CastPack
         </RadioGroupItem>
       </RadioGroup>
-    </header>
+    </KitPageHeader>
 
     <section
       v-if="source !== CASTPACK"
-      class="mt-6 grid grid-cols-[minmax(0,15rem)_minmax(0,1fr)] gap-8"
+      class="mt-5.5 grid grid-cols-[13.75rem_minmax(0,1fr)] gap-8"
     >
       <SearchFilters
         v-model:loaders="loaders"
@@ -298,10 +299,11 @@ const playPack = (instanceId: string) => safeRun(
       />
 
       <div class="min-w-0">
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2">
           <KitSearchInput
             v-model="query"
             :placeholder="$t('search.placeholder')"
+            :aria-label="$t('search.placeholder')"
             :loading="searching"
             size="lg"
             class="min-w-0 flex-1"
@@ -310,45 +312,49 @@ const playPack = (instanceId: string) => safeRun(
             v-model="sort"
             :items="SORT_ITEMS"
             size="lg"
-            class="w-52"
+            class="w-49"
           />
         </div>
 
-        <div class="mt-4 flex items-center gap-4">
-          <span class="font-mono text-caption uppercase tracking-caps text-fg-faint">
-            {{ searching ? $t('search.searching') : $t('search.found', { count: total }) }}
-          </span>
-          <Separator class="flex-1" />
-        </div>
+        <p class="mt-3.5 text-caption text-fg-faint">
+          {{ searching ? $t('search.searching') : $t('search.found', { count: total.toLocaleString(locale) }) }}
+        </p>
 
         <KitLoadError
           v-if="searchError"
           :error="searchError"
-          class="mt-6"
+          class="mt-3"
           @retry="search()"
         />
 
         <div
           v-else-if="searching && !hits.length"
-          class="mt-4 grid gap-3 2xl:grid-cols-2"
+          class="mt-3 space-y-3.5"
         >
-          <Skeleton
+          <div
             v-for="row in 6"
             :key="row"
-            class="h-30 bg-panel"
-          />
+            class="flex gap-4 py-1"
+          >
+            <Skeleton class="size-14 shrink-0 bg-panel" />
+            <div class="flex-1 space-y-2 pt-0.5">
+              <Skeleton class="h-3.5 w-1/2 bg-panel" />
+              <Skeleton class="h-3 w-5/6 bg-panel" />
+              <Skeleton class="h-3 w-1/3 bg-panel" />
+            </div>
+          </div>
         </div>
 
         <p
           v-else-if="!hits.length"
-          class="mt-8 text-title leading-relaxed text-fg-muted"
+          class="mt-3 max-w-[46ch] text-title text-fg-muted"
         >
           {{ $t('search.nothing_found') }}
         </p>
 
         <div
           v-else
-          class="mt-4 grid gap-3 2xl:grid-cols-2"
+          class="-mx-3.5 mt-1"
         >
           <SearchPackCard
             v-for="(hit, i) in hits"
@@ -362,11 +368,11 @@ const playPack = (instanceId: string) => safeRun(
 
         <div
           v-if="hasMore && !searchError"
-          class="mt-6 flex justify-center"
+          class="mt-3.5 flex justify-center"
         >
           <Button
             size="lg"
-            class="px-8"
+            class="px-7"
             :loading="loadingMore"
             @click="search(hits.length)"
           >
@@ -378,20 +384,22 @@ const playPack = (instanceId: string) => safeRun(
 
     <section
       v-else
-      class="mt-6"
+      class="mt-5.5"
     >
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2">
         <KitSearchInput
           v-model="catalogQuery"
           :placeholder="$t('search.catalog_placeholder')"
+          :aria-label="$t('search.catalog_placeholder')"
           size="lg"
           class="min-w-0 flex-1"
         />
 
         <Button
           variant="ghost"
+          size="lg"
           icon="i-lucide-rotate-cw"
-          class="px-2"
+          class="px-3.5 text-body"
           :loading="catalogLoading"
           @click="loadCatalog(true)"
         >
@@ -402,9 +410,10 @@ const playPack = (instanceId: string) => safeRun(
       <Alert
         v-if="outdated"
         variant="warning"
-        class="animate-rise mt-6"
+        icon="i-lucide-triangle-alert"
+        class="animate-rise mt-4"
       >
-        {{ $t('search.outdated', { count: outdated }) }}
+        {{ $t('search.outdated', outdated) }}
       </Alert>
 
       <KitLoading
@@ -422,7 +431,7 @@ const playPack = (instanceId: string) => safeRun(
 
       <div
         v-else
-        class="mt-6 grid grid-cols-2 gap-3 2xl:grid-cols-3"
+        class="mt-4 grid grid-cols-2 gap-3 2xl:grid-cols-3"
       >
         <CastpackCard
           v-for="(pack, i) in catalogPacks"
@@ -441,26 +450,21 @@ const playPack = (instanceId: string) => safeRun(
       </div>
 
       <p
-        v-if="catalog?.updatedAt"
-        class="mt-8 font-mono text-caption uppercase tracking-caps text-fg-faint"
+        v-if="catalogUpdated"
+        class="mt-5 text-caption text-fg-faint"
       >
-        {{ $t('search.catalog_updated', { date: catalog.updatedAt }) }}
+        {{ $t('search.catalog_updated', { date: catalogUpdated }) }}
       </p>
     </section>
 
     <Dialog v-model:open="installOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{{ $t('search.install_title') }}</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <SearchInstallModalBody
-            v-if="installTarget"
-            :key="installTarget.projectId"
-            :hit="installTarget"
-            @installed="onInstalled"
-          />
-        </DialogBody>
+      <DialogContent class="max-w-120">
+        <SearchInstallModalBody
+          v-if="installTarget"
+          :key="installTarget.projectId"
+          :hit="installTarget"
+          @installed="onInstalled"
+        />
       </DialogContent>
     </Dialog>
   </div>
