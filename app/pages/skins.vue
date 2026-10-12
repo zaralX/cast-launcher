@@ -248,15 +248,11 @@ watch(activeUuid, uuid => reload(uuid))
 <template>
   <div class="min-h-full w-full px-8 pb-8">
     <div class="flex gap-7">
-      <aside class="sticky top-0 flex w-75 shrink-0 flex-col gap-3 self-start pt-6.5">
-        <KitTitle class="pl-0.5">
-          {{ $t('layout.nav.skins') }}
-        </KitTitle>
-
+      <aside class="sticky top-0 flex w-75 shrink-0 flex-col gap-3 self-start pt-6">
         <DropdownMenu v-if="accountItems.length > 1">
           <DropdownMenuTrigger
             :aria-label="$t('skins.account')"
-            :class="cn(FOCUS_RING, ACCOUNT_BOX, 'mt-1 cursor-pointer transition-colors duration-150 hover:bg-hover aria-expanded:bg-hover')"
+            :class="cn(FOCUS_RING, ACCOUNT_BOX, 'cursor-pointer transition-colors duration-150 hover:bg-hover aria-expanded:bg-hover')"
           >
             <KitAvatar :name="account?.name" />
             <span class="min-w-0 flex-1">
@@ -288,7 +284,7 @@ watch(activeUuid, uuid => reload(uuid))
 
         <div
           v-else
-          :class="cn(ACCOUNT_BOX, 'mt-1')"
+          :class="ACCOUNT_BOX"
         >
           <KitAvatar :name="account?.name" />
           <span class="min-w-0 flex-1">
@@ -517,26 +513,16 @@ watch(activeUuid, uuid => reload(uuid))
         </div>
       </aside>
 
-      <div class="min-w-0 flex-1 space-y-8 pt-6.5">
+      <div class="min-w-0 flex-1 space-y-8 pt-6">
         <section class="animate-rise">
-          <div class="flex h-8.5 items-center gap-2.5">
-            <h2 class="text-heading font-semibold text-fg">
-              {{ $t('skins.library_title') }}
-            </h2>
-            <span
-              v-if="library.skins.length"
-              class="text-fg-faint tabular-nums"
-            >{{ library.skins.length }}</span>
-
-            <span class="flex-1" />
-
+          <div class="flex h-11 items-center gap-2">
             <KitSearchInput
               v-model="nickname"
               :placeholder="$t('skins.nickname_placeholder')"
               :aria-label="$t('skins.nickname_placeholder')"
               icon="i-lucide-user-round-search"
               :loading="importingPlayer"
-              class="w-55"
+              class="w-72"
               @keyup.enter="importPlayer"
             />
 
@@ -549,7 +535,7 @@ watch(activeUuid, uuid => reload(uuid))
             </Button>
           </div>
 
-          <div class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(11.5rem,1fr))] gap-3">
+          <div class="mt-3 grid grid-cols-[repeat(auto-fill,minmax(11.5rem,1fr))] gap-3">
             <div
               v-for="entry in library.skins"
               :key="entry.id"

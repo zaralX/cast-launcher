@@ -11,7 +11,6 @@ type Sort = 'recent' | 'name' | 'playtime'
 const SORTS: Sort[] = ['recent', 'name', 'playtime']
 
 const { t, locale } = useI18n()
-const appStore = useAppStore()
 const instanceStore = useInstanceStore()
 const toast = useAppToast()
 
@@ -23,21 +22,6 @@ const launcherImportOpen = ref(false)
 const announceImport = useImportToast()
 
 const compact = useCompact()
-
-const view = computed({
-  get: () => (compact.value ? 'compact' : 'normal'),
-  set: (value: string) => setCompact(value === 'compact'),
-})
-
-async function setCompact(value: boolean) {
-  const config = appStore.config
-  if (!config || config.launcher.compact === value) return
-
-  await safeRun(
-    () => appStore.updateConfig({ ...config, launcher: { ...config.launcher, compact: value } }),
-    { context: { action: t('home.view.label') } },
-  )
-}
 
 const query = ref('')
 const sort = useLocalStorage<Sort>('cast:library-sort', 'recent')
@@ -108,38 +92,10 @@ function onImported(instanceId: string, updated: boolean) {
 
 <template>
   <div class="flex min-h-full w-full items-stretch">
-    <div class="min-w-0 flex-1 px-8 pt-7 pb-8">
-      <KitPageHeader
-        :title="$t('home.title')"
-        :meta="$t('home.count', instances.length)"
-      >
-        <KitSplitButton
-          icon="i-lucide-plus"
-          :menu-label="$t('home.more_ways')"
-          @click="createModalOpen = true"
-        >
-          {{ $t('home.new_instance') }}
-
-          <template #menu>
-            <DropdownMenuItem
-              icon="i-lucide-file-archive"
-              @select="importModalOpen = true"
-            >
-              {{ $t('home.from_file') }}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              icon="i-lucide-import"
-              @select="launcherImportOpen = true"
-            >
-              {{ $t('home.from_launcher') }}
-            </DropdownMenuItem>
-          </template>
-        </KitSplitButton>
-      </KitPageHeader>
-
+    <div class="min-w-0 flex-1 px-8 pt-6 pb-8">
       <div
         v-if="instances.length"
-        class="mt-4.5 flex items-center gap-2"
+        class="flex items-center gap-2"
       >
         <KitSearchInput
           v-model="query"
@@ -173,40 +129,34 @@ function onImported(instanceId: string, updated: boolean) {
 
         <span class="flex-1" />
 
-        <RadioGroup
-          v-model="view"
-          :aria-label="$t('home.view.label')"
-          class="w-fit"
+        <KitSplitButton
+          icon="i-lucide-plus"
+          :menu-label="$t('home.more_ways')"
+          @click="createModalOpen = true"
         >
-          <RadioGroupItem
-            value="normal"
-            :aria-label="$t('home.view.normal')"
-            :title="$t('home.view.normal')"
-            class="flex-none px-2"
-          >
-            <Icon
-              name="i-lucide-layout-grid"
-              class="size-4"
-            />
-          </RadioGroupItem>
-          <RadioGroupItem
-            value="compact"
-            :aria-label="$t('home.view.compact')"
-            :title="$t('home.view.compact')"
-            class="flex-none px-2"
-          >
-            <Icon
-              name="i-lucide-grid-3x3"
-              class="size-4"
-            />
-          </RadioGroupItem>
-        </RadioGroup>
+          {{ $t('home.new_instance') }}
+
+          <template #menu>
+            <DropdownMenuItem
+              icon="i-lucide-file-archive"
+              @select="importModalOpen = true"
+            >
+              {{ $t('home.from_file') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              icon="i-lucide-import"
+              @select="launcherImportOpen = true"
+            >
+              {{ $t('home.from_launcher') }}
+            </DropdownMenuItem>
+          </template>
+        </KitSplitButton>
       </div>
 
       <template v-if="shown.length">
         <div
           v-if="compact"
-          class="mt-5.5 grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1"
+          class="mt-5 grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1"
         >
           <InstanceCompactCard
             v-for="instance in shown"
@@ -221,7 +171,7 @@ function onImported(instanceId: string, updated: boolean) {
 
         <div
           v-else
-          class="mt-6.5 grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3"
+          class="mt-5 grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3"
         >
           <InstanceCard
             v-for="instance in shown"
@@ -236,7 +186,7 @@ function onImported(instanceId: string, updated: boolean) {
       <KitEmpty
         v-else-if="instances.length"
         icon="i-lucide-search-x"
-        class="mt-6.5"
+        class="mt-5"
       >
         {{ $t('home.nothing_found') }}
       </KitEmpty>
@@ -244,7 +194,7 @@ function onImported(instanceId: string, updated: boolean) {
       <KitEmpty
         v-else
         icon="i-lucide-box"
-        class="mt-6.5"
+        class="mt-2"
       >
         {{ $t('home.empty') }}
 
@@ -261,6 +211,12 @@ function onImported(instanceId: string, updated: boolean) {
             @click="importModalOpen = true"
           >
             {{ $t('home.from_file') }}
+          </Button>
+          <Button
+            icon="i-lucide-import"
+            @click="launcherImportOpen = true"
+          >
+            {{ $t('home.from_launcher') }}
           </Button>
         </template>
       </KitEmpty>

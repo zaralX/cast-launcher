@@ -242,11 +242,12 @@ const playPack = (instanceId: string) => safeRun(
 </script>
 
 <template>
-  <div class="min-h-full w-full px-8 pt-7 pb-10">
-    <KitPageHeader :title="$t('search.title')">
+  <div class="min-h-full w-full px-8 pt-6 pb-10">
+    <div class="flex items-center gap-2">
       <RadioGroup
         :model-value="source"
         :aria-label="$t('search.sources')"
+        class="mr-2"
         @update:model-value="value => selectSource(value as Source)"
       >
         <RadioGroupItem
@@ -255,7 +256,7 @@ const playPack = (instanceId: string) => safeRun(
           :value="item.id"
           :disabled="!item.ready"
           :title="item.reason ? uiText(item.reason) : undefined"
-          class="flex-none gap-1.5"
+          class="h-8.5 flex-none gap-1.5"
         >
           <img
             :src="PROVIDER_LOGOS[item.id]"
@@ -271,7 +272,7 @@ const playPack = (instanceId: string) => safeRun(
 
         <RadioGroupItem
           :value="CASTPACK"
-          class="flex-none gap-1.5"
+          class="h-8.5 flex-none gap-1.5"
         >
           <img
             src="/logo.svg"
@@ -281,11 +282,48 @@ const playPack = (instanceId: string) => safeRun(
           CastPack
         </RadioGroupItem>
       </RadioGroup>
-    </KitPageHeader>
+
+      <template v-if="source !== CASTPACK">
+        <KitSearchInput
+          v-model="query"
+          :placeholder="$t('search.placeholder')"
+          :aria-label="$t('search.placeholder')"
+          :loading="searching"
+          size="lg"
+          class="min-w-0 flex-1"
+        />
+        <KitSelect
+          v-model="sort"
+          :items="SORT_ITEMS"
+          size="lg"
+          class="w-49"
+        />
+      </template>
+
+      <template v-else>
+        <KitSearchInput
+          v-model="catalogQuery"
+          :placeholder="$t('search.catalog_placeholder')"
+          :aria-label="$t('search.catalog_placeholder')"
+          size="lg"
+          class="min-w-0 flex-1"
+        />
+        <Button
+          variant="ghost"
+          size="lg"
+          icon="i-lucide-rotate-cw"
+          class="px-3.5 text-body"
+          :loading="catalogLoading"
+          @click="loadCatalog(true)"
+        >
+          {{ $t('search.refresh') }}
+        </Button>
+      </template>
+    </div>
 
     <section
       v-if="source !== CASTPACK"
-      class="mt-5.5 grid grid-cols-[13.75rem_minmax(0,1fr)] gap-8"
+      class="mt-5 grid grid-cols-[13.75rem_minmax(0,1fr)] gap-8"
     >
       <SearchFilters
         v-model:loaders="loaders"
@@ -299,24 +337,7 @@ const playPack = (instanceId: string) => safeRun(
       />
 
       <div class="min-w-0">
-        <div class="flex items-center gap-2">
-          <KitSearchInput
-            v-model="query"
-            :placeholder="$t('search.placeholder')"
-            :aria-label="$t('search.placeholder')"
-            :loading="searching"
-            size="lg"
-            class="min-w-0 flex-1"
-          />
-          <KitSelect
-            v-model="sort"
-            :items="SORT_ITEMS"
-            size="lg"
-            class="w-49"
-          />
-        </div>
-
-        <p class="mt-3.5 text-caption text-fg-faint">
+        <p class="flex h-7 items-center text-caption text-fg-faint">
           {{ searching ? $t('search.searching') : $t('search.found', { count: total.toLocaleString(locale) }) }}
         </p>
 
@@ -382,31 +403,7 @@ const playPack = (instanceId: string) => safeRun(
       </div>
     </section>
 
-    <section
-      v-else
-      class="mt-5.5"
-    >
-      <div class="flex items-center gap-2">
-        <KitSearchInput
-          v-model="catalogQuery"
-          :placeholder="$t('search.catalog_placeholder')"
-          :aria-label="$t('search.catalog_placeholder')"
-          size="lg"
-          class="min-w-0 flex-1"
-        />
-
-        <Button
-          variant="ghost"
-          size="lg"
-          icon="i-lucide-rotate-cw"
-          class="px-3.5 text-body"
-          :loading="catalogLoading"
-          @click="loadCatalog(true)"
-        >
-          {{ $t('search.refresh') }}
-        </Button>
-      </div>
-
+    <section v-else>
       <Alert
         v-if="outdated"
         variant="warning"

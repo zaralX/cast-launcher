@@ -88,7 +88,6 @@ const route = useRoute()
 
 const asked = route.query.section
 const section = ref<Section>(ENTRIES.find(entry => entry.value === asked)?.value ?? 'look')
-const current = computed(() => ENTRIES.find(entry => entry.value === section.value) ?? ENTRIES[0]!)
 
 const query = ref('')
 
@@ -167,15 +166,10 @@ const guard = useUnsavedChanges({
     class="flex min-h-full w-full"
   >
     <aside class="sticky top-0 flex h-[calc(100vh-2.5rem)] w-59 shrink-0 flex-col border-r border-line pt-6 pr-3 pb-4 pl-5">
-      <KitTitle class="pl-1">
-        {{ $t('settings.title') }}
-      </KitTitle>
-
       <KitSearchInput
         v-model="query"
         :placeholder="$t('settings.search')"
         :aria-label="$t('settings.search')"
-        class="mt-4"
       />
 
       <TabsList class="mt-1 min-h-0 flex-1 overflow-y-auto">
@@ -205,11 +199,7 @@ const guard = useUnsavedChanges({
 
     <div class="min-w-0 flex-1 px-9 pt-6 pb-24">
       <template v-if="config">
-        <h2 class="text-heading font-semibold text-fg">
-          {{ $t(current.labelKey) }}
-        </h2>
-
-        <div class="mt-5 max-w-4xl">
+        <div class="max-w-4xl">
           <TabsContent value="look">
             <SettingsLook v-model="config" />
           </TabsContent>
