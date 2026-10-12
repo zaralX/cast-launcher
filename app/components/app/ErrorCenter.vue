@@ -49,7 +49,7 @@ function copyAll() {
         :aria-label="$t('error.center.title')"
         :title="$t('error.center.title')"
       >
-        <span class="relative">
+        <span class="relative grid place-items-center">
           <Icon
             name="i-lucide-bell"
             class="size-4"

@@ -24,7 +24,7 @@ onMounted(async () => {
     <AppLogo>
       <span
         v-if="version"
-        class="text-micro text-fg-faint"
+        class="font-mono text-micro text-fg-faint"
       >{{ version }}</span>
     </AppLogo>
 
