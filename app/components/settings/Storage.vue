@@ -21,7 +21,6 @@ const open = () => safeRun(() => appStore.openLauncherDir())
 <template>
   <KitField
     :label="$t('settings.launcher.dir.label')"
-    :hint="$t('settings.launcher.dir.hint')"
     for="settings-launcher-dir"
   >
     <div class="flex gap-2">

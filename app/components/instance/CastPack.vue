@@ -90,9 +90,6 @@ async function toggle(enabled: boolean) {
 
   toast.add({
     title: enabled ? t('instance.castpack.autoupdate_on_title') : t('instance.castpack.autoupdate_off_title'),
-    description: enabled
-      ? t('instance.castpack.autoupdate_on_hint')
-      : t('instance.castpack.autoupdate_off_hint'),
     color: 'success',
     icon: 'i-lucide-refresh-cw',
   })

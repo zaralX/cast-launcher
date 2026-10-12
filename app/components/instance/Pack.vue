@@ -145,7 +145,6 @@ async function apply() {
 
   toast.add({
     title: t('instance.pack.switched', { version: switched.value.pack?.versionNumber ?? t('instance.pack.switched_fallback') }),
-    description: t('instance.pack.switched_hint'),
     color: 'success',
     icon: 'i-lucide-refresh-cw',
   })

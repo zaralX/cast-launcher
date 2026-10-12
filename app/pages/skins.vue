@@ -303,7 +303,6 @@ watch(activeUuid, uuid => reload(uuid))
             to="/settings?section=accounts"
             class="text-warning underline underline-offset-2"
           >{{ $t('skins.demo_hint_link') }}</NuxtLink>
-          {{ $t('skins.demo_hint_after') }}
         </Alert>
 
         <Alert
@@ -435,14 +434,6 @@ watch(activeUuid, uuid => reload(uuid))
             <span class="font-mono text-micro font-normal text-fg-faint">{{ VARIANT_ARM_PIXELS[variant] }} px</span>
           </RadioGroupItem>
         </RadioGroup>
-
-        <KitStatus
-          v-if="skinStore.dirty && !demo"
-          tone="warning"
-          class="mt-1"
-        >
-          {{ $t('skins.pending') }}
-        </KitStatus>
 
         <div class="flex gap-2">
           <Button
@@ -638,7 +629,6 @@ watch(activeUuid, uuid => reload(uuid))
                 class="size-5.5"
               />
               <span class="font-medium">{{ $t('skins.drop_title') }}</span>
-              <span class="text-caption text-fg-faint">{{ $t('skins.drop_sub') }}</span>
             </Button>
           </div>
 

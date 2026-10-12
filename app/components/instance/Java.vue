@@ -60,7 +60,6 @@ watch(() => settings.value.overrideJava, (enabled) => {
   <div class="flex flex-col gap-3.5">
     <KitPanel
       :title="$t('instance.java.memory_title')"
-      :description="settings.overrideMemory ? undefined : $t('instance.java.override_memory_hint')"
     >
       <template #action>
         <KitOverride v-model="settings.overrideMemory" />
@@ -78,7 +77,6 @@ watch(() => settings.value.overrideJava, (enabled) => {
 
     <KitPanel
       :title="$t('instance.java.title')"
-      :description="$t('instance.java.override_java_hint')"
     >
       <template #action>
         <KitOverride v-model="settings.overrideJava" />

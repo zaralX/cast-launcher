@@ -196,10 +196,7 @@ onMounted(async () => {
           :label="$t('icon.search')"
           class="min-w-44 flex-1"
         >
-          <KitSearchInput
-            v-model="search"
-            :placeholder="$t('icon.search_placeholder')"
-          />
+          <KitSearchInput v-model="search" />
         </KitField>
       </div>
 

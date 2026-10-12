@@ -12,12 +12,9 @@ const config = defineModel<AppConfig>({ required: true })
     />
 
     <section>
-      <h3 class="text-title font-semibold text-fg">
+      <h3 class="mb-3 text-title font-semibold text-fg">
         {{ $t('settings.java.memory_title') }}
       </h3>
-      <p class="mt-0.5 mb-3 text-caption text-fg-faint">
-        {{ $t('settings.java.memory_hint') }}
-      </p>
       <SettingsMemory
         v-model:min="config.java.min_ram"
         v-model:max="config.java.max_ram"

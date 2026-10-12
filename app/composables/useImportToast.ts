@@ -8,7 +8,6 @@ export function useImportToast() {
 
     toast.add({
       title: t(updated ? 'home.updated_from_file' : 'home.imported', { name }),
-      description: t(updated ? 'home.updated_hint' : 'home.imported_hint'),
       color: 'success',
       icon: 'i-lucide-file-archive',
     })

@@ -229,7 +229,6 @@ async function installPack(packId: string) {
 
   toast.add({
     title: t('search.installing', { name: pack?.name ?? packId }),
-    description: t('search.installing_hint'),
     color: 'success',
     icon: 'i-lucide-arrow-down-to-line',
   })

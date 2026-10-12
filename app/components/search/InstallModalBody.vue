@@ -141,7 +141,7 @@ const install = async () => {
           class="size-3.25"
           alt=""
         >
-        {{ $t('search.install.eyebrow', { provider: PACK_PROVIDER_LABELS[hit.provider] }) }}
+        {{ PACK_PROVIDER_LABELS[hit.provider] }}
       </p>
       <DialogTitle class="mt-1 leading-snug">
         {{ hit.title }}

@@ -188,14 +188,7 @@ const memory = computed(() => {
         name="i-lucide-mouse-pointer-click"
         class="size-5"
       />
-      <i18n-t
-        keypath="instance.panel.empty"
-        tag="p"
-      >
-        <template #br>
-          <br>
-        </template>
-      </i18n-t>
+      <p>{{ $t('instance.panel.empty') }}</p>
     </div>
   </aside>
 </template>

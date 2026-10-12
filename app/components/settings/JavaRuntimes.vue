@@ -122,7 +122,6 @@ onBeforeUnmount(() => {
     <KitField
       v-if="mode === 'manual'"
       :label="$t('settings.java.custom_path')"
-      :hint="$t('settings.java.custom_path_hint')"
       for="java-custom-path"
     >
       <Input

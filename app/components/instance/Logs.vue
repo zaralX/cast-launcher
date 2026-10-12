@@ -179,7 +179,7 @@ onMounted(async () => {
 
       <KitSearchInput
         v-model="filter"
-        :placeholder="$t('instance.logs.search_placeholder')"
+        :placeholder="$t('instance.logs.search')"
         :aria-label="$t('instance.logs.search')"
         font="mono"
         class="w-60"

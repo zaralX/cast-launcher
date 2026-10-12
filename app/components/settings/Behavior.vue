@@ -9,7 +9,7 @@ const { t } = useI18n()
 const afterLaunchOptions = computed(() => AFTER_LAUNCH_VALUES.map(value => ({
   value,
   label: t(`settings.after_launch.${value}.label`),
-  hint: t(`settings.after_launch.${value}.hint`),
+  hint: value === 'nothing' ? undefined : t(`settings.after_launch.${value}.hint`),
 })))
 
 const afterLaunchHint = computed(() =>
@@ -31,7 +31,6 @@ const afterLaunchHint = computed(() =>
     </KitRow>
     <KitRow
       :label="$t('settings.launcher.auto_update.label')"
-      :description="$t('settings.launcher.auto_update.hint')"
     >
       <Switch v-model="config.launcher.auto_update" />
     </KitRow>

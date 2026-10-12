@@ -58,7 +58,11 @@ const rows = computed(() => [
     title: t('settings.import.rows.java'),
     hint: t('settings.import.rows.java_hint'),
   },
-  { key: 'icons' as const, title: t('settings.import.rows.icons'), hint: t('settings.import.rows.icons_hint') },
+  {
+    key: 'icons' as const,
+    title: t('settings.import.rows.icons'),
+    hint: undefined,
+  },
   {
     key: 'linkPacks' as const,
     title: t('settings.import.rows.link_packs'),

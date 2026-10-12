@@ -196,13 +196,6 @@ const guard = useUnsavedChanges({
                   {{ item.label }}
                 </TabsTrigger>
               </TabsList>
-
-              <p
-                v-if="settingsSection === 'launch'"
-                class="mt-3.5 px-2.5 text-caption text-fg-faint"
-              >
-                {{ $t('instance.java.inherit_hint') }}
-              </p>
             </div>
 
             <div class="min-w-0 flex-1">

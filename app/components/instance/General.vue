@@ -87,7 +87,6 @@ async function remove() {
             id="instance-general-name"
             v-model="name"
             :aria-invalid="!name.trim() || undefined"
-            :placeholder="$t('instance.general.name_placeholder')"
           />
         </KitField>
 
@@ -102,7 +101,7 @@ async function remove() {
             class="min-w-0 flex-1 truncate text-caption text-fg-faint"
             :title="icon"
           >
-            {{ icon || $t('instance.general.icon_default') }}
+            {{ icon }}
           </p>
           <Button
             size="sm"

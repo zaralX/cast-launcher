@@ -40,7 +40,7 @@ async function share(theme: CustomTheme) {
   if (!code) return
 
   if (await copyToClipboard(code)) {
-    toast.add({ title: t('theme_editor.copied'), description: t('theme_editor.copied_hint'), color: 'success', icon: 'i-lucide-clipboard-check' })
+    toast.add({ title: t('theme_editor.copied'), color: 'success', icon: 'i-lucide-clipboard-check' })
   }
   else {
     toast.add({ title: t('common.copy_failed'), color: 'error', icon: 'i-lucide-clipboard-x' })
@@ -117,7 +117,6 @@ async function importTheme() {
     <KitRows v-if="launcher.theme === SYSTEM_THEME">
       <KitRow
         :label="$t('settings.launcher.system_light.label')"
-        :description="$t('settings.launcher.system_light.hint')"
       >
         <KitSelect
           v-model="launcher.theme_light"
@@ -127,7 +126,6 @@ async function importTheme() {
       </KitRow>
       <KitRow
         :label="$t('settings.launcher.system_dark.label')"
-        :description="$t('settings.launcher.system_dark.hint')"
       >
         <KitSelect
           v-model="launcher.theme_dark"
@@ -145,10 +143,7 @@ async function importTheme() {
       @remove="removeTarget = editing"
     />
 
-    <KitField
-      :label="$t('settings.launcher.accent.label')"
-      :hint="$t('settings.launcher.accent.hint')"
-    >
+    <KitField :label="$t('settings.launcher.accent.label')">
       <KitAccentPicker v-model="launcher.accent" />
     </KitField>
 
@@ -180,7 +175,6 @@ async function importTheme() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{{ $t('theme_import.title') }}</DialogTitle>
-          <DialogDescription>{{ $t('theme_import.description') }}</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <Textarea

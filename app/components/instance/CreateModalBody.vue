@@ -144,7 +144,6 @@ const createInstance = async () => {
         <Input
           id="instance-name"
           v-model="name"
-          :placeholder="$t('create.name_placeholder')"
         />
       </KitField>
 
