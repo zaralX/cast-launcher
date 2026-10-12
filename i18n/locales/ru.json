@@ -1126,7 +1126,6 @@
   "skins.preview.second_layer": "Второй слой",
   "skins.preview.background": "Фон превью",
   "skins.preview.reset": "Сбросить поворот и зум",
-  "skins.preview.drag_hint": "Тяните, чтобы повернуть",
   "skins.applying": "Применение",
   "skins.cooldown": "Подождите {seconds}с",
   "skins.apply": "Применить",

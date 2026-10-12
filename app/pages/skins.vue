@@ -361,13 +361,6 @@ watch(activeUuid, uuid => reload(uuid))
             {{ $t('skins.no_set') }}
           </p>
 
-          <span
-            v-if="draftTexture && !loading"
-            class="pointer-events-none absolute top-2.5 left-3 text-micro text-fg-faint"
-          >
-            {{ $t('skins.preview.drag_hint') }}
-          </span>
-
           <div class="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-raise p-0.75 shadow-float ring-1 ring-line-strong">
             <Button
               v-for="item in POSES"
