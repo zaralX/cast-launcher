@@ -304,7 +304,7 @@ fn blocked_reason(error: CommandError) -> UiText {
 
 fn open_blocking(path: &Path) -> CommandResult<Opened> {
     let mut archive = crate::archive::open(path)?;
-    let names: BTreeSet<String> = archive.file_names().map(str::to_string).collect();
+    let names: BTreeSet<String> = archive.file_names().flatten().map(String::from).collect();
 
     if crate::castpack::file::is_cast(&names) {
         let opened = crate::castpack::file::open_blocking(path)?;

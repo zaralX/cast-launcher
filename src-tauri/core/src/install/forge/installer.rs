@@ -224,7 +224,7 @@ struct RawProcessor {
 
 fn parse(jar: PathBuf) -> CommandResult<Installer> {
     let mut archive = open_zip(&jar)?;
-    let names: HashSet<String> = archive.file_names().map(str::to_string).collect();
+    let names: HashSet<String> = archive.file_names().flatten().map(String::from).collect();
 
     let raw: RawProfile = serde_json::from_slice(&read_entry(&mut archive, INSTALL_PROFILE)?)
         .map_err(|e| {

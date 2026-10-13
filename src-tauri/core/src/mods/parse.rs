@@ -58,7 +58,7 @@ pub fn jar(path: &Path, prefer: Option<ModLoader>) -> CommandResult<Parsed> {
             continue;
         };
 
-        let Some(known) = known_entry(entry.name()) else {
+        let Some(known) = entry.name().ok().and_then(|name| known_entry(&name)) else {
             continue;
         };
 

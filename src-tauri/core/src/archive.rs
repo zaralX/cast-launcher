@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
+use zip::result::ZipError;
 use zip::ZipArchive;
 
 use crate::error::{CommandError, CommandResult};
@@ -20,13 +21,14 @@ fn extract_natives_blocking(jar_path: &Path, output_dir: &Path) -> CommandResult
         .map_err(|e| CommandError::io("error.reason.fs.create_dir", output_dir, e))?;
 
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index).map_err(|e| {
-            CommandError::archive("error.reason.archive.read_entry")
-                .param("path", jar_path.display())
-                .with_details(e.to_string())
-        })?;
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|e| unreadable_entry(jar_path, e))?;
 
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|e| unreadable_entry(jar_path, e))?
+            .into_owned();
 
         if name.ends_with('/') || name.starts_with("META-INF/") || !is_native(&name) {
             continue;
@@ -110,13 +112,14 @@ fn extract_dir_blocking(
     let mut extracted = Vec::new();
 
     for index in 0..archive.len() {
-        let mut entry = archive.by_index(index).map_err(|e| {
-            CommandError::archive("error.reason.archive.read_entry")
-                .param("path", archive_path.display())
-                .with_details(e.to_string())
-        })?;
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|e| unreadable_entry(archive_path, e))?;
 
-        let name = entry.name().to_string();
+        let name = entry
+            .name()
+            .map_err(|e| unreadable_entry(archive_path, e))?
+            .into_owned();
 
         let Some(relative) = name.strip_prefix(&prefix) else {
             continue;
@@ -169,18 +172,20 @@ fn entry_hashes_blocking(
 
     let mut archive = open(archive_path)?;
     let mut hashes = BTreeMap::new();
+    let mut buffer = vec![0_u8; 64 * 1024];
 
     for prefix in prefixes {
         let prefix = format!("{}/", prefix.trim_end_matches('/'));
 
         for index in 0..archive.len() {
-            let mut entry = archive.by_index(index).map_err(|e| {
-                CommandError::archive("error.reason.archive.read_entry")
-                    .param("path", archive_path.display())
-                    .with_details(e.to_string())
-            })?;
+            let mut entry = archive
+                .by_index(index)
+                .map_err(|e| unreadable_entry(archive_path, e))?;
 
-            let name = entry.name().to_string();
+            let name = entry
+                .name()
+                .map_err(|e| unreadable_entry(archive_path, e))?
+                .into_owned();
 
             let Some(relative) = name.strip_prefix(&prefix) else {
                 continue;
@@ -196,11 +201,19 @@ fn entry_hashes_blocking(
 
             let mut hasher = Sha1::new();
 
-            io::copy(&mut entry, &mut hasher).map_err(|e| {
-                CommandError::archive("error.reason.archive.read_file")
-                    .param("entry", &name)
-                    .with_details(e.to_string())
-            })?;
+            loop {
+                let read = entry.read(&mut buffer).map_err(|e| {
+                    CommandError::archive("error.reason.archive.read_file")
+                        .param("entry", &name)
+                        .with_details(e.to_string())
+                })?;
+
+                if read == 0 {
+                    break;
+                }
+
+                hasher.update(&buffer[..read]);
+            }
 
             let sha1: String = hasher
                 .finalize()
@@ -221,6 +234,12 @@ fn is_native(name: &str) -> bool {
         .iter()
         .any(|extension| lowercase.ends_with(extension))
         || lowercase.contains(".so.")
+}
+
+fn unreadable_entry(archive_path: &Path, e: ZipError) -> CommandError {
+    CommandError::archive("error.reason.archive.read_entry")
+        .param("path", archive_path.display())
+        .with_details(e.to_string())
 }
 
 pub(crate) fn open(jar_path: &Path) -> CommandResult<ZipArchive<File>> {
