@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import { useResizeObserver } from '@vueuse/core'
 import type { Instance } from '~/types/instance'
 import type { CatalogMatch, InstalledMods, ModFile, ModUpdate } from '~/types/mods'
 import { CATALOG_LABELS, MOD_LOADER_LABELS } from '~/types/mods'
@@ -6,7 +9,7 @@ import { PROVIDER_LOGOS } from '~/types/catalog'
 
 const props = defineProps<{ instance: Instance }>()
 
-const ICON_BATCH = 10
+const ROW_HEIGHT = 57
 
 type Filter = 'all' | 'enabled' | 'disabled' | 'outdated'
 
@@ -62,6 +65,41 @@ const visible = computed(() => mods.value.filter((mod) => {
   return matchesMod(mod, query.value, matchOf(mod.path))
 }))
 
+const root = ref<HTMLElement | null>(null)
+const list = ref<HTMLElement | null>(null)
+const scroller = ref<HTMLElement | null>(null)
+const listOffset = ref(0)
+
+const virtualizer = useVirtualizer(computed(() => {
+  const items = visible.value
+
+  return {
+    count: items.length,
+    getScrollElement: () => scroller.value,
+    getItemKey: (index: number) => items[index]?.path ?? index,
+    estimateSize: () => ROW_HEIGHT,
+    scrollMargin: listOffset.value,
+    overscan: 6,
+  }
+}))
+
+const rows = computed(() => virtualizer.value.getVirtualItems().flatMap((item) => {
+  const mod = visible.value[item.index]
+  return mod ? [{ item, mod }] : []
+}))
+
+function measure(el: Element | ComponentPublicInstance | null) {
+  if (el instanceof Element) virtualizer.value.measureElement(el)
+}
+
+function measureOffset() {
+  if (!list.value || !scroller.value) return
+
+  listOffset.value = list.value.getBoundingClientRect().top - scroller.value.getBoundingClientRect().top + scroller.value.scrollTop
+}
+
+useResizeObserver(() => scroller.value?.firstElementChild as HTMLElement | null | undefined, measureOffset)
+
 const picked = computed(() => mods.value.filter(mod => selected.value.includes(modKey(mod))))
 const pickedManaged = computed(() => picked.value.filter(mod => mod.managed))
 
@@ -102,14 +140,6 @@ function keepAlive() {
   if (!keys.includes(expanded.value)) expanded.value = ''
 }
 
-async function loadIcons(list: ModFile[]) {
-  const keys = list.map(mod => mod.details.iconKey).filter((key): key is string => !!key)
-
-  for (let index = 0; index < keys.length; index += ICON_BATCH) {
-    await Promise.all(keys.slice(index, index + ICON_BATCH).map(key => modsStore.ensureIcon(key)))
-  }
-}
-
 async function load(force = false) {
   const result = await attempt(
     () => modsStore.load(instanceId.value, force),
@@ -119,7 +149,6 @@ async function load(force = false) {
   if (!result.ok) return
 
   keepAlive()
-  await loadIcons(result.value)
   await identify()
 }
 
@@ -173,7 +202,6 @@ async function applyUpdates(paths: string[]) {
   })
 
   keepAlive()
-  await loadIcons(mods.value)
   await identify()
 }
 
@@ -192,7 +220,6 @@ async function setEnabled(mod: ModFile, enabled: boolean) {
   if (!result.ok) return
 
   keepAlive()
-  await loadIcons(result.value)
 }
 
 async function setPickedEnabled(enabled: boolean) {
@@ -213,7 +240,6 @@ async function setPickedEnabled(enabled: boolean) {
   working.value = false
 
   keepAlive()
-  await loadIcons(mods.value)
 }
 
 async function removePicked() {
@@ -276,12 +302,10 @@ async function addFiles(paths: string[]) {
 
   report(result.value)
   keepAlive()
-  await loadIcons(mods.value)
 }
 
 async function afterCatalogInstall() {
   keepAlive()
-  await loadIcons(mods.value)
   await identify()
 }
 
@@ -304,7 +328,10 @@ const openHomepage = (url: string) => safeRun(
   { context: { instanceId: instanceId.value, action: t('instance.mods.open_page_action') } },
 )
 
-onMounted(load)
+onMounted(() => {
+  scroller.value = root.value?.closest<HTMLElement>('[data-main-scroll]') ?? null
+  load()
+})
 
 const dragging = useFileDrop(async (paths) => {
   if (loading.value) return
@@ -328,7 +355,10 @@ watch(instanceId, () => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3">
+  <div
+    ref="root"
+    class="flex flex-col gap-3"
+  >
     <div class="flex items-center gap-2">
       <KitSearchInput
         v-model="query"
@@ -489,11 +519,20 @@ watch(instanceId, () => {
         <span />
       </div>
 
-      <template v-if="visible.length">
+      <div
+        v-if="visible.length"
+        ref="list"
+        class="relative"
+        :style="{ height: `${virtualizer.getTotalSize()}px` }"
+      >
         <div
-          v-for="mod in visible"
+          v-for="{ item, mod } in rows"
           :key="mod.path"
-          class="border-b border-line last:border-b-0"
+          :ref="measure"
+          :data-index="item.index"
+          class="absolute inset-x-0 top-0"
+          :class="item.index < visible.length - 1 && 'border-b border-line'"
+          :style="{ transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)` }"
         >
           <div
             class="group/row grid min-h-14 items-center gap-x-3.5 py-2 pr-3 pl-3.5 transition-colors duration-150"
@@ -696,7 +735,7 @@ watch(instanceId, () => {
             </KitNote>
           </div>
         </div>
-      </template>
+      </div>
 
       <p
         v-else

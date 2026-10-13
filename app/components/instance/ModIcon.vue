@@ -16,6 +16,10 @@ const SIZES = {
 const url = computed(() => modsStore.iconOf(props.iconKey) || props.fallbackUrl || null)
 
 const mark = computed(() => props.name.trim().slice(0, 2).toUpperCase() || '??')
+
+watch(() => props.iconKey, (key) => {
+  if (key) modsStore.ensureIcon(key)
+}, { immediate: true })
 </script>
 
 <template>
