@@ -96,42 +96,43 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
     <DialogContent
       :dismissible="false"
       :show-close-button="false"
-      class="max-w-2xl"
+      class="max-w-170"
     >
       <DialogHeader>
         <DialogTitle>{{ $t('blocked.title') }}</DialogTitle>
+        <DialogDescription class="truncate text-caption">
+          {{ install.instanceName }}
+        </DialogDescription>
       </DialogHeader>
 
-      <DialogBody class="space-y-6">
-        <DialogDescription>
+      <DialogBody class="space-y-5">
+        <p class="text-body text-fg-muted">
           {{ $t('blocked.description') }}
-        </DialogDescription>
+        </p>
 
         <div>
-          <Label
-            for="blocked-folder"
-            class="mb-2 flex items-center gap-2"
-          >
-            <span>{{ $t('blocked.where') }}</span>
+          <div class="mb-1.5 flex items-center gap-2">
+            <Label for="blocked-folder">
+              {{ $t('blocked.where') }}
+            </Label>
             <span
               v-if="!allFound"
-              class="flex items-center gap-1.5 text-accent/70"
+              class="flex items-center gap-1.5 text-caption text-accent"
             >
-              <span class="size-1 animate-pulse rounded-pill bg-accent" />
+              <KitLiveDot size="sm" />
               {{ $t('blocked.auto') }}
             </span>
-          </Label>
-
-          <div class="flex gap-4">
+          </div>
+          <div class="flex gap-2">
             <Input
               id="blocked-folder"
               v-model="folder"
+              font="mono"
               :placeholder="$t('blocked.folder_placeholder')"
               class="flex-1"
               @keydown.enter.prevent="scan"
             />
             <Button
-              variant="ghost"
               icon="i-lucide-folder-open"
               @click="pickFolder"
             >
@@ -149,81 +150,70 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
           </div>
         </div>
 
-        <div class="flex items-center gap-4">
-          <span
-            class="font-mono text-caption uppercase tracking-caps"
-            :class="allFound ? 'text-accent' : 'text-fg-faint'"
-          >
-            {{ $t('blocked.found', { found: found.length, total: files.length }) }}
-          </span>
-          <Separator class="flex-1" />
-          <Button
-            v-if="missing.length"
-            variant="ghost"
-            icon="i-lucide-external-link"
-            @click="openMissing"
-          >
-            {{ $t('blocked.open_missing') }}
-          </Button>
-        </div>
-
-        <ul class="max-h-72 divide-y divide-line overflow-y-auto border border-line">
-          <li
-            v-for="file in files"
-            :key="file.targetPath"
-            class="flex items-center gap-3 px-4 py-3"
-          >
-            <Icon
-              :name="file.localPath ? 'i-lucide-check' : 'i-lucide-x'"
-              class="size-3.5 shrink-0"
-              :class="file.localPath ? 'text-accent' : 'text-danger'"
-            />
-
-            <div class="min-w-0 flex-1">
-              <p
-                class="truncate text-body text-fg"
-                :title="file.fileName"
-              >
-                {{ file.fileName }}
-              </p>
-              <p
-                class="mt-1 truncate font-mono text-caption text-fg-faint"
-                :title="file.localPath ?? file.targetPath"
-              >
-                {{ file.localPath ?? file.targetPath }}
-              </p>
-            </div>
-
-            <Button
-              v-if="file.websiteUrl && !file.localPath"
-              variant="ghost"
-              icon="i-lucide-download"
-              @click="openFile(file)"
+        <div>
+          <div class="mb-1.5 flex items-center justify-between gap-4">
+            <span
+              class="text-caption font-medium"
+              :class="allFound ? 'text-success' : 'text-fg-muted'"
             >
-              {{ $t('blocked.download') }}
+              {{ $t('blocked.found', { found: found.length, total: files.length }) }}
+            </span>
+            <Button
+              v-if="missing.length"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-external-link"
+              class="-mr-2.5"
+              @click="openMissing"
+            >
+              {{ $t('blocked.open_missing') }}
             </Button>
-          </li>
-        </ul>
+          </div>
 
-        <p
-          v-if="missing.length"
-          class="text-body leading-relaxed text-fg-muted"
-        >
-          {{ $t('blocked.missing_hint') }}
-        </p>
-
-        <p
-          v-else-if="allFound"
-          class="text-body leading-relaxed text-fg-muted"
-        >
-          {{ $t('blocked.all_found_hint') }}
-        </p>
+          <ul class="max-h-72 divide-y divide-line overflow-y-auto rounded-md bg-panel ring-1 ring-card-line ring-inset">
+            <li
+              v-for="file in files"
+              :key="file.targetPath"
+              class="flex items-center gap-3 px-3.5 py-2.5"
+            >
+              <Icon
+                :name="file.localPath ? 'i-lucide-check' : 'i-lucide-minus'"
+                class="size-4 shrink-0"
+                :class="file.localPath ? 'text-success' : 'text-fg-faint'"
+              />
+              <div class="min-w-0 flex-1">
+                <p
+                  class="truncate text-fg"
+                  :title="file.fileName"
+                >
+                  {{ file.fileName }}
+                </p>
+                <p
+                  class="truncate font-mono text-caption text-fg-faint"
+                  :title="file.localPath ?? file.targetPath"
+                >
+                  {{ file.localPath ?? file.targetPath }}
+                </p>
+              </div>
+              <Button
+                v-if="file.websiteUrl && !file.localPath"
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-external-link"
+                @click="openFile(file)"
+              >
+                {{ $t('blocked.download') }}
+              </Button>
+            </li>
+          </ul>
+        </div>
       </DialogBody>
 
-      <DialogFooter class="justify-between">
+      <DialogFooter class="border-t border-line pt-3.5 pb-3.5">
         <Button
           variant="danger-ghost"
           icon="i-lucide-circle-stop"
+          class="mr-auto"
           @click="cancel"
         >
           {{ $t('blocked.cancel') }}
@@ -231,7 +221,6 @@ const cancel = () => safeRun(() => call('cancel_install', { instanceId: props.in
 
         <Button
           variant="primary"
-          size="lg"
           :loading="finishing"
           @click="finish"
         >

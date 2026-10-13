@@ -195,9 +195,10 @@ async function remove() {
     </div>
 
     <Dialog v-model:open="pickerOpen">
-      <DialogContent class="max-w-3xl">
+      <DialogContent class="max-w-150">
         <DialogHeader>
           <DialogTitle>{{ $t('instance.general.icon_modal') }}</DialogTitle>
+          <DialogDescription>{{ instance.name }}</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <InstanceIconPicker v-model="icon" />

@@ -8,6 +8,7 @@ const props = defineProps<{
   placeholder?: string
   disabled?: boolean
   size?: 'sm' | 'md' | 'lg'
+  ariaLabel?: string
   class?: HTMLAttributes['class']
 }>()
 
@@ -27,6 +28,7 @@ const current = computed(() => options.value.find(option => option.value === mod
   >
     <SelectTrigger
       :size="size"
+      :aria-label="ariaLabel"
       :class="props.class"
     >
       <SelectValue :placeholder="placeholder">

@@ -7,7 +7,6 @@ interface SourceInfo {
   hintKey: string
   icon: string
   placeholder: string
-  librariesHintKey: string
 }
 
 const SOURCES: SourceInfo[] = [
@@ -17,7 +16,6 @@ const SOURCES: SourceInfo[] = [
     hintKey: 'settings.import.prism.hint',
     icon: 'i-lucide-package',
     placeholder: '%APPDATA%\\PrismLauncher',
-    librariesHintKey: 'settings.import.prism.libraries_hint',
   },
   {
     kind: 'modrinth',
@@ -25,7 +23,6 @@ const SOURCES: SourceInfo[] = [
     hintKey: 'settings.import.modrinth.hint',
     icon: 'i-lucide-box',
     placeholder: '%APPDATA%\\ModrinthApp',
-    librariesHintKey: 'settings.import.modrinth.libraries_hint',
   },
 ]
 
@@ -47,27 +44,11 @@ const current = computed(() => SOURCES.find(option => option.kind === source.val
 const detected = computed(() => launchers.value.find(launcher => launcher.kind === source.value) ?? null)
 
 const rows = computed(() => [
-  { key: 'libraries' as const, title: t('settings.import.rows.libraries'), hint: t(current.value.librariesHintKey) },
-  {
-    key: 'assets' as const,
-    title: t('settings.import.rows.assets'),
-    hint: t('settings.import.rows.assets_hint'),
-  },
-  {
-    key: 'java' as const,
-    title: t('settings.import.rows.java'),
-    hint: t('settings.import.rows.java_hint'),
-  },
-  {
-    key: 'icons' as const,
-    title: t('settings.import.rows.icons'),
-    hint: undefined,
-  },
-  {
-    key: 'linkPacks' as const,
-    title: t('settings.import.rows.link_packs'),
-    hint: t('settings.import.rows.link_packs_hint'),
-  },
+  { key: 'libraries' as const, title: t('settings.import.rows.libraries') },
+  { key: 'assets' as const, title: t('settings.import.rows.assets') },
+  { key: 'java' as const, title: t('settings.import.rows.java') },
+  { key: 'icons' as const, title: t('settings.import.rows.icons') },
+  { key: 'linkPacks' as const, title: t('settings.import.rows.link_packs') },
 ])
 
 const scanning = ref(false)
@@ -315,19 +296,22 @@ onMounted(async () => {
       </p>
     </div>
 
-    <KitRows v-if="scanned?.length">
-      <KitRow
+    <div
+      v-if="scanned?.length"
+      class="grid grid-cols-2 gap-x-6 rounded-md bg-panel px-4 py-1.5 ring-1 ring-card-line ring-inset"
+    >
+      <label
         v-for="row in rows"
         :key="row.key"
-        :label="row.title"
-        :description="row.hint"
+        class="flex cursor-pointer items-center justify-between gap-4 py-2"
       >
+        <span class="text-fg">{{ row.title }}</span>
         <Switch
           v-model="options[row.key]"
           :disabled="running"
         />
-      </KitRow>
-    </KitRows>
+      </label>
+    </div>
 
     <Alert
       v-if="running"

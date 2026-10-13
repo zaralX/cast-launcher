@@ -49,43 +49,30 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
 </script>
 
 <template>
-  <div class="space-y-5">
-    <div class="space-y-2">
-      <KitNote
-        v-if="base"
-        icon="i-lucide-layers"
-        tone="muted"
-      >
-        {{ $t('import_pack.cast.base', base) }}
-      </KitNote>
-
-      <p class="font-mono text-caption uppercase tracking-caps text-fg-faint">
-        {{ $t('import_pack.cast.sources', {
-          modrinth: preview.modrinthMods,
-          curseforge: preview.curseforgeMods,
-          linked: preview.linkedFiles,
-        }) }}
-      </p>
-
-      <p
-        v-if="pack.author || preview.exportedBy"
-        class="font-mono text-caption uppercase tracking-caps text-fg-faint"
-      >
-        <span v-if="pack.author">{{ $t('import_pack.cast.author', { author: pack.author }) }}</span>
-        <span v-if="pack.author && preview.exportedBy"> · </span>
-        <span v-if="preview.exportedBy">{{ $t('import_pack.cast.exported_by', { version: preview.exportedBy }) }}</span>
-      </p>
-    </div>
+  <div class="space-y-4">
+    <KitNote
+      :icon="base ? 'i-lucide-layers' : 'i-lucide-package'"
+      tone="muted"
+    >
+      <template v-if="base">
+        {{ $t('import_pack.cast.base', base) }} ·
+      </template>
+      {{ $t('import_pack.cast.sources', {
+        modrinth: preview.modrinthMods,
+        curseforge: preview.curseforgeMods,
+        linked: preview.linkedFiles,
+      }) }}
+    </KitNote>
 
     <Alert
       v-if="preview.embeddedCode.length"
       variant="warning"
       icon="i-lucide-shield-alert"
     >
-      <AlertTitle class="text-body font-normal">
+      <AlertTitle>
         {{ $t('import_pack.cast.code_title', { count: preview.embeddedCode.length }) }}
       </AlertTitle>
-      <AlertDescription class="not-first:mt-1.5">
+      <AlertDescription class="not-first:mt-1">
         {{ $t('import_pack.cast.code_hint') }}
       </AlertDescription>
       <ul class="mt-2 space-y-0.5 font-mono text-caption text-fg-faint">
@@ -109,18 +96,20 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
     >
       <RadioGroup
         v-model="mode"
+        variant="cards"
         :aria-label="$t('import_pack.cast.mode')"
+        class="grid-cols-2"
       >
         <RadioGroupItem
           v-for="option in MODES"
           :key="option"
           :value="option"
-          class="min-w-0 flex-col items-start gap-1 px-4 py-3 text-left"
+          class="min-w-0 flex-col items-start gap-0.5 px-3.5 py-3"
         >
-          <span class="w-full truncate font-unbounded text-body tracking-[-0.02em]">
+          <span class="w-full truncate font-medium text-fg">
             {{ option === 'update' ? $t('import_pack.cast.mode_update', { name: existing.name }) : $t('import_pack.cast.mode_create') }}
           </span>
-          <span class="font-mono text-caption tracking-[0.06em] text-fg-faint">
+          <span class="w-full truncate text-caption text-fg-faint">
             {{ option === 'update'
               ? $t('import_pack.cast.mode_update_hint', { from: versionOf(existing.version), to: versionOf(pack.version) })
               : $t('import_pack.cast.mode_create_hint') }}
@@ -147,7 +136,7 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
       v-if="preview.changelog"
       :label="$t('import_pack.cast.changelog')"
     >
-      <p class="max-h-32 overflow-y-auto border border-line px-4 py-3 text-body leading-relaxed whitespace-pre-line text-fg-muted">
+      <p class="max-h-32 overflow-y-auto rounded-md bg-panel px-3.5 py-2.5 text-body whitespace-pre-line text-fg-muted ring-1 ring-card-line ring-inset">
         {{ preview.changelog }}
       </p>
     </KitField>

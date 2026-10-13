@@ -260,25 +260,31 @@ async function apply() {
       :title="$t('instance.pack.manual_title')"
       icon="i-lucide-hand"
     >
-      <p class="text-body leading-relaxed text-fg-muted">
+      <template #action>
+        <Badge variant="warning">
+          {{ blockedFiles.length }}
+        </Badge>
+      </template>
+
+      <p class="text-body text-fg-muted">
         {{ $t('instance.pack.manual_hint') }}
       </p>
 
-      <ul class="mt-5 divide-y divide-line border border-line">
+      <ul class="mt-3.5 divide-y divide-line overflow-hidden rounded-md bg-sheet ring-1 ring-card-line ring-inset">
         <li
           v-for="file in blockedFiles"
           :key="file.targetPath"
-          class="flex items-center gap-4 px-4 py-3"
+          class="flex items-center gap-3 px-3.5 py-2.5"
         >
           <div class="min-w-0 flex-1">
             <p
-              class="truncate text-body text-fg"
+              class="truncate text-fg"
               :title="file.fileName"
             >
               {{ file.fileName }}
             </p>
             <p
-              class="mt-1 truncate font-mono text-caption text-fg-faint"
+              class="truncate font-mono text-caption text-fg-faint"
               :title="file.targetPath"
             >
               {{ file.targetPath }}
@@ -288,6 +294,7 @@ async function apply() {
           <Button
             v-if="file.websiteUrl"
             variant="ghost"
+            size="sm"
             icon="i-lucide-external-link"
             @click="openPage(file.websiteUrl)"
           >
@@ -299,7 +306,7 @@ async function apply() {
       <Button
         variant="ghost"
         icon="i-lucide-folder-open"
-        class="mt-3"
+        class="mt-3 -ml-2.5"
         @click="openMods"
       >
         {{ $t('instance.pack.open_game_folder') }}
