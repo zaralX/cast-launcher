@@ -33,7 +33,6 @@ const SIZES = {
 const mark = computed(() => (props.size !== 'sm' && props.version) || (props.type && TYPE_MARK[props.type]) || '??')
 const url = computed(() => iconStore.urlOf(props.icon))
 
-// Minecraft item icons are 16px sprites: they sit smaller in the middle and stay pixelated.
 const pixelated = computed(() => props.icon.startsWith('mc-'))
 
 watch(() => props.icon, (name) => {

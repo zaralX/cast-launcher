@@ -12,7 +12,6 @@ interface Entry {
   keys: string[]
 }
 
-// keys hold the labels of the settings inside, so the search finds a section by what it contains.
 const GROUPS: { labelKey: string, items: Entry[] }[] = [
   {
     labelKey: 'settings.group.main',

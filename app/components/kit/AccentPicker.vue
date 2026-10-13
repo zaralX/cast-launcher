@@ -29,7 +29,6 @@ watch(normalized, (value) => {
   if (isCustomAccent(value)) model.value = value.toLowerCase()
 })
 
-// "From the theme" is drawn with the accents of the themes it can take.
 const themeSwatch = computed(() => {
   const colors = [...new Set(THEMES.map(theme => theme.preview.accent))]
   const step = 100 / colors.length

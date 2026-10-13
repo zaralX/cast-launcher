@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// The "Custom" switch of a block that otherwise takes its values from the launcher settings.
 defineProps<{
   label?: string
   disabled?: boolean

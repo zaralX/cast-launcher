@@ -9,7 +9,6 @@ export const SYSTEM_THEME = 'system'
 
 export const DEFAULT_ACCENT = 'theme'
 
-// The preview colors mirror main.css, a theme card draws them before the theme is applied.
 export const THEMES: Theme[] = [
   {
     value: 'depth',
@@ -308,7 +307,6 @@ function luminanceOf(hex: string): number {
   return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5)
 }
 
-// Text on a custom accent: near-black on light colors, white on dark ones (WCAG relative luminance).
 export function onAccentOf(hex: string): string {
   return luminanceOf(hex) > 0.18 ? '#0b0d10' : '#ffffff'
 }

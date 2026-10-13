@@ -184,26 +184,34 @@ never a hardcoded one.
   `Button`, a field is `Input`, a divider is `Separator` (through `as-child`), imported
   explicitly from `@/components/ui/<name>`. A missing look is a new variant of the base.
 - `components/kit/` holds launcher blocks: panel, rows and row, field, "custom" switch and
-  inherited value, status line, note, empty state, confirm dialog, save bar, selects, search
-  and number inputs, split button, stat grid, list item, tile, text link, page and section
-  headings, theme and accent pickers.
+  inherited value, status line, note, empty state, confirm dialog, save bar and floating bar,
+  selects, search, number and color inputs, split button, stat grid and facts, list item,
+  tile, thumb and avatar, text link, title, section and nav headings, theme and accent pickers.
 - Screens use only these two. A screen with its own button, field, label, badge or status
   color is a missing variant or a missing kit block: add it there instead.
 
 `<Button>` variants: `secondary` (default), `primary` (the accent, one per screen),
-`ghost`, `strong` (light on dark, the save bar), `danger`, `danger-ghost`, `dashed`, `link`;
-sizes `sm` 28px, `md` 32px, `lg` 40px and `icon-sm` / `icon` / `icon-lg`. It takes `icon`,
+`ghost`, `strong` (light on dark, the save bar), `danger`, `danger-ghost`, `dashed`, `link`,
+`play` (the play button of an instance card) and `close` (the window close button); sizes
+`sm` 28px, `md` 32px, `lg` 40px, `icon-sm` / `icon` / `icon-lg`, `round` (a 36px circle, the
+actions of a card) and `bar` (the title bar buttons). It takes `icon`,
 `trailingIcon`, `loading` and `to`. `ghost` shows a pressed state through `aria-pressed`.
 Toasts go through `useAppToast().add({ title, description, icon, color, actions })`, which
 renders `ui/sonner/Toast.vue` in vue-sonner.
 
-**Themes.** A theme is a set of `--cast-*` variables in `main.css` under
-`:root[data-theme="…"]`; `useAppearance()` sets `data-theme` from `config.launcher.theme`
-(`system` follows the OS between `light` and `depth`) and the accent from
-`config.launcher.accent`: `theme` keeps the theme's own, a preset sets `data-accent`, a hex
-goes inline with a computed `--cast-on-accent`. The list and preview colors are in
-`utils/appearance.ts`, mirroring `main.css`. `classic` has square corners and mono uppercase
-labels: anything that changes there uses the `classic:` variant.
+**Themes.** A built-in theme is a set of `--cast-*` variables in `main.css` under
+`:root[data-theme="…"]`; its list and preview colors are in `utils/appearance.ts`, mirroring
+`main.css`. `config.launcher.theme` is a built-in name, the id of a custom theme or `system`,
+which follows the OS between `theme_light` and `theme_dark`. Custom themes live in
+`config.launcher.themes` and are checked by `theme.rs` in core: a name, a `classic` flag and
+colors for the tokens of `theme::TOKENS` (mirrored by `THEME_TOKENS`). A new one starts as a
+copy of any theme, and themes are shared as a `cast-theme:` code from `encode_theme` /
+`decode_theme`. `useAppearance()` sets `data-theme`; for a custom theme that is `light` or
+`depth` by the brightness of its `sheet`, with its colors inline on top. The accent comes from
+`config.launcher.accent`: `theme` keeps the theme's own, a preset sets `data-accent` and keeps
+the theme's `on-accent`, a hex goes inline with a computed `--cast-on-accent`. `classic` and
+custom themes with the flag set `data-classic`: square corners and mono uppercase labels,
+anything that changes there uses the `classic:` variant.
 
 Colors come only from tokens. Surfaces go `bg-frame` (window) < `sheet` (content) <
 `panel` < `control` < `hover`, with `raise` for menus, dialogs and toasts; text is `fg` /

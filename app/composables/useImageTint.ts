@@ -2,7 +2,6 @@ import type { MaybeRefOrGetter } from 'vue'
 
 const SAMPLE = 24
 
-// Each pixel counts by its saturation, so a colorful icon on a grey background gives its color, not grey.
 async function sample(url: string): Promise<string | null> {
   const image = new Image()
   image.src = url

@@ -18,7 +18,6 @@ export const MENU_ITEM = 'relative flex h-8 w-full cursor-pointer items-center g
 
 export const MENU_ICON = 'size-4 shrink-0 text-fg-faint in-data-[variant=danger]:text-danger'
 
-// Leaves room on the right for the check of a selected item.
 export const MENU_INDICATOR = 'pointer-events-none absolute right-2 flex items-center text-accent'
 
 export const MENU_SEPARATOR = 'mx-1.5 my-1 bg-line-strong data-[orientation=horizontal]:w-auto'

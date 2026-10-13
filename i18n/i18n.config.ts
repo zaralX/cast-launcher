@@ -1,7 +1,6 @@
 export default defineI18nConfig(() => ({
   fallbackLocale: 'en',
   pluralRules: {
-    // ru messages carry three forms: one, few and many.
     ru: (choice: number) => {
       const tens = Math.abs(choice) % 100
       const units = tens % 10

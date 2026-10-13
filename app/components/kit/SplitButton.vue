@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ButtonVariants } from '@/components/ui/button'
 
-// The main action plus a menu of the other ways to do it, like "New instance" and its imports.
 withDefaults(defineProps<{
   icon?: string
   variant?: ButtonVariants['variant']

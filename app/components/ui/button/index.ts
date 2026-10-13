@@ -4,7 +4,6 @@ import { FOCUS_RING } from '@/lib/styles'
 
 export { default as Button } from './Button.vue'
 
-// One primary button per screen; the save bar uses strong so it does not compete with Play.
 export const buttonVariants = cva(
   `${FOCUS_RING} relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-sm font-medium `
   + 'transition-[background-color,color,filter,border-color] duration-150 '

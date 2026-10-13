@@ -2,7 +2,6 @@
 @import "tw-animate-css";
 @import "vue-sonner/style.css";
 
-/* Surfaces go frame < sheet < panel < control < hover; raise is for floating panels. */
 :root {
     --cast-frame: #070a0f;
     --cast-sheet: #0f141c;
@@ -203,7 +202,6 @@
     --cast-success: #6fd08c;
 }
 
-/* An accent picked in settings replaces the theme's own; on-accent stays the theme's. */
 :root[data-accent="sky"] {
     --cast-accent: #2fb4f4;
 }

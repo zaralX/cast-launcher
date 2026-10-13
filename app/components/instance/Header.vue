@@ -54,8 +54,6 @@ const pack = computed(() => {
   return null
 })
 
-// The bar sticks to the top of the page scroller; once the big row has gone under it, the bar shows who it
-// belongs to. Compact mode has no big row at all and starts with that bar.
 const hero = ref<HTMLElement | null>(null)
 const bar = ref<HTMLElement | null>(null)
 const scroller = ref<HTMLElement | null>(null)
