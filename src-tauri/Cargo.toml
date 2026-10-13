@@ -14,7 +14,7 @@ debug = false
 
 [package]
 name = "cast-launcher"
-version = "1.6.0"
+version = "1.7.0"
 description = "Minecraft launcher and modpack manager"
 authors = ["zaralX"]
 homepage = "https://github.com/zaralX/cast-launcher"
