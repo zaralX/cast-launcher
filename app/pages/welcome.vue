@@ -65,80 +65,78 @@ async function finish() {
 </script>
 
 <template>
-  <div class="relative flex h-screen w-full flex-col overflow-hidden bg-ink-900 text-fg">
-    <div
-      class="pointer-events-none absolute -top-40 -left-40 size-[26rem] rounded-full bg-acid/[0.07] blur-[120px]"
-      aria-hidden="true"
-    />
-
+  <div class="flex h-screen w-full flex-col overflow-hidden bg-frame text-fg">
     <header
       data-tauri-drag-region
-      class="relative z-30 flex h-11 shrink-0 items-stretch justify-between border-b border-line bg-ink-800/70"
+      class="relative z-30 flex h-10 shrink-0 items-stretch justify-between"
     >
       <AppLogo />
       <AppWindowControls />
     </header>
 
-    <main class="relative z-20 min-h-0 min-w-0 flex-1">
-      <Transition
-        name="step"
-        mode="out-in"
-      >
-        <div
-          :key="step"
-          class="h-full"
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-lg bg-sheet shadow-sheet">
+      <main class="relative min-h-0 min-w-0 flex-1">
+        <Transition
+          name="step"
+          mode="out-in"
         >
-          <OnboardingStepAppearance v-if="step === 'appearance'" />
-          <OnboardingStepAccount v-else-if="step === 'account'" />
-          <OnboardingStepLauncher
-            v-else
-            v-model="report"
+          <div
+            :key="step"
+            class="h-full"
+          >
+            <OnboardingStepAppearance v-if="step === 'appearance'" />
+            <OnboardingStepAccount v-else-if="step === 'account'" />
+            <OnboardingStepLauncher
+              v-else
+              v-model="report"
+            />
+          </div>
+        </Transition>
+      </main>
+
+      <footer class="flex shrink-0 items-center gap-5 border-t border-line px-6 py-4">
+        <div class="flex shrink-0 items-center gap-1.5">
+          <span
+            v-for="(item, i) in STEPS"
+            :key="item"
+            class="h-1 w-6 rounded-pill transition-colors duration-300"
+            :class="i <= index ? 'bg-accent' : 'bg-line'"
           />
         </div>
-      </Transition>
-    </main>
 
-    <footer class="relative z-30 flex shrink-0 items-center gap-5 border-t border-line bg-ink-800/70 px-6 py-4">
-      <div class="flex shrink-0 items-center gap-1.5">
+        <KitStatus
+          v-if="blocked"
+          tone="warning"
+          dot="static"
+          class="min-w-0 flex-1"
+        >
+          {{ $t('onboarding.account.required') }}
+        </KitStatus>
         <span
-          v-for="(item, i) in STEPS"
-          :key="item"
-          class="h-px w-6 transition-colors duration-500"
-          :class="i <= index ? 'bg-acid' : 'bg-line'"
+          v-else
+          class="flex-1"
         />
-      </div>
 
-      <KitStatus
-        v-if="blocked"
-        tone="warning"
-        dot="static"
-        class="min-w-0 flex-1"
-      >
-        {{ $t('onboarding.account.required') }}
-      </KitStatus>
-      <span
-        v-else
-        class="flex-1"
-      />
+        <Button
+          v-if="index > 0"
+          variant="ghost"
+          :disabled="finishing"
+          @click="back"
+        >
+          {{ $t('onboarding.back') }}
+        </Button>
 
-      <Button
-        v-if="index > 0"
-        variant="quiet"
-        :disabled="finishing"
-        @click="back"
-      >
-        {{ $t('onboarding.back') }}
-      </Button>
-
-      <Button
-        size="lg"
-        :loading="finishing"
-        :disabled="blocked || finishing"
-        @click="next"
-      >
-        {{ nextLabel }}
-      </Button>
-    </footer>
+        <Button
+          variant="primary"
+          size="lg"
+          :loading="finishing"
+          :disabled="blocked || finishing"
+          @click="next"
+        >
+          {{ nextLabel }}
+        </Button>
+      </footer>
+    </div>
   </div>
 </template>
 

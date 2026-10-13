@@ -20,7 +20,7 @@ const props = withDefaults(
   defineProps<SelectContentProps & { class?: HTMLAttributes['class'] }>(),
   {
     position: 'popper',
-    sideOffset: 8,
+    sideOffset: 6,
     collisionPadding: 8,
   },
 )
@@ -38,7 +38,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       v-bind="{ ...$attrs, ...forwarded }"
       :class="cn(
         FLOATING,
-        'relative max-h-60 min-w-(--reka-select-trigger-width) overflow-hidden origin-(--reka-select-content-transform-origin)',
+        'relative max-h-72 min-w-(--reka-select-trigger-width) overflow-hidden origin-(--reka-select-content-transform-origin)',
         props.class,
       )"
     >

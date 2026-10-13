@@ -1,3 +1,15 @@
+export interface AppUpdate {
+  version: string
+  notes?: string
+  date?: string
+  downloaded: boolean
+}
+
+export interface AppUpdateProgress {
+  downloaded: number
+  total: number | null
+}
+
 export interface AppConfig {
   version: number
   launcher: LauncherConfig
@@ -7,6 +19,9 @@ export interface AppConfig {
 export interface LauncherConfig {
   language: string
   theme: string
+  theme_light: string
+  theme_dark: string
+  themes: CustomTheme[]
   dir: string
   auto_update: boolean
   accent: string
@@ -74,4 +89,57 @@ export interface Accent {
   value: string
   labelKey: string
   preview: string
+}
+
+export type ThemeToken
+  = | 'frame'
+    | 'sheet'
+    | 'panel'
+    | 'control'
+    | 'hover'
+    | 'raise'
+    | 'line'
+    | 'line-strong'
+    | 'card-line'
+    | 'sheet-edge'
+    | 'fg'
+    | 'fg-muted'
+    | 'fg-faint'
+    | 'accent'
+    | 'on-accent'
+    | 'success'
+    | 'warning'
+    | 'danger'
+    | 'on-danger'
+
+export interface CustomTheme {
+  id: string
+  name: string
+  classic: boolean
+  colors: Partial<Record<ThemeToken, string>>
+}
+
+export interface ThemeTokenGroup {
+  labelKey: string
+  tokens: {
+    token: ThemeToken
+    labelKey: string
+    alpha?: boolean
+  }[]
+}
+
+export interface ThemePreview {
+  frame: string
+  sheet: string
+  panel: string
+  accent: string
+  sheetEdge?: string
+  cardLine?: string
+  square?: boolean
+}
+
+export interface Theme {
+  value: string
+  labelKey: string
+  preview: ThemePreview
 }

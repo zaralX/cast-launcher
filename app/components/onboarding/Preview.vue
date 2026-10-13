@@ -2,99 +2,103 @@
 defineProps<{
   compact: boolean
 }>()
-
-const ROWS = [
-  { name: 'Vanilla', meta: '1.21.4', width: 'w-16' },
-  { name: 'Fabric', meta: '1.20.1', width: 'w-20' },
-  { name: 'Create', meta: '1.20.1', width: 'w-14' },
-  { name: 'TFG', meta: '1.19.2', width: 'w-24' },
-  { name: 'Skyblock', meta: '1.8.9', width: 'w-16' },
-]
 </script>
 
 <template>
-  <div class="relative select-none overflow-hidden border border-line bg-ink-900">
-    <div class="flex h-6 items-center gap-2 border-b border-line bg-ink-800 px-2.5">
-      <span class="size-1.5 bg-acid" />
-      <span class="h-1 w-10 bg-line-strong" />
-      <span class="ml-auto flex items-center gap-1.5">
-        <span class="h-px w-2 bg-fg-faint/60" />
-        <span class="size-1.5 border border-fg-faint/60" />
-        <span class="size-1.5 rotate-45 border-r border-t border-fg-faint/60" />
+  <div
+    class="overflow-hidden rounded-md bg-frame ring-1 ring-line-strong select-none"
+    aria-hidden="true"
+  >
+    <div class="flex h-5 items-center gap-1.5 px-2">
+      <span class="size-2 rounded-xs bg-accent" />
+      <span class="h-1 w-6 rounded-pill bg-line-strong" />
+      <span class="ml-auto flex items-center gap-2">
+        <span class="h-px w-1.5 bg-fg-faint" />
+        <span class="size-1.5 ring-1 ring-fg-faint ring-inset" />
+        <span class="size-1.5 rounded-pill bg-fg-faint" />
       </span>
     </div>
 
-    <div class="flex h-[9.5rem]">
-      <div class="flex w-7 shrink-0 flex-col items-center gap-2 border-r border-line bg-ink-800/60 py-2.5">
-        <span class="relative grid size-4 place-items-center">
-          <span class="absolute -left-2.5 h-3 w-px bg-acid" />
-          <span class="size-2.5 border border-acid" />
+    <div class="flex h-40">
+      <div class="flex w-6 shrink-0 flex-col items-center gap-1 pt-0.5 pb-1.5">
+        <span class="grid size-4 place-items-center rounded-sm bg-accent/18">
+          <span class="size-1.5 rounded-xs bg-accent" />
         </span>
         <span
-          v-for="i in 3"
-          :key="i"
-          class="size-2.5 border border-fg-faint/40"
-        />
+          v-for="item in 2"
+          :key="item"
+          class="grid size-4 place-items-center"
+        >
+          <span class="size-1.5 rounded-xs bg-line-strong" />
+        </span>
+        <span class="flex-1" />
+        <span class="size-3 rounded-xs bg-control" />
       </div>
 
-      <div class="min-w-0 flex-1 p-3">
-        <Transition
-          name="mock"
-          mode="out-in"
-        >
-          <div
-            v-if="compact"
-            key="compact"
-            class="space-y-[3px]"
-          >
-            <div
-              v-for="(row, i) in ROWS"
-              :key="row.name"
-              class="relative flex items-center gap-2 border border-line/70 bg-ink-800/60 px-2 py-[5px]"
-              :class="i === 0 ? 'border-acid/40' : ''"
-            >
-              <span
-                v-if="i === 0"
-                class="absolute inset-y-0 left-0 w-[2px] bg-acid"
-              />
-              <span
-                class="size-2.5 shrink-0"
-                :class="i === 0 ? 'bg-acid' : 'bg-line-strong'"
-              />
-              <span class="font-mono text-[6px] uppercase tracking-[0.18em] text-fg-muted">{{ row.name }}</span>
-              <span class="ml-auto font-mono text-[6px] text-fg-faint">{{ row.meta }}</span>
-            </div>
+      <div class="flex min-w-0 flex-1 overflow-hidden rounded-tl-md bg-sheet shadow-sheet">
+        <div class="min-w-0 flex-1 p-2">
+          <div class="flex items-center gap-1">
+            <span class="h-2.5 w-14 rounded-xs bg-control" />
+            <span class="h-2.5 w-7 rounded-xs bg-control/60" />
+            <span class="flex-1" />
+            <span class="h-2.5 w-10 rounded-xs bg-control" />
           </div>
 
-          <div
-            v-else
-            key="cards"
-            class="grid grid-cols-2 gap-2"
+          <Transition
+            name="mock"
+            mode="out-in"
           >
             <div
-              v-for="(row, i) in ROWS.slice(0, 4)"
-              :key="row.name"
-              class="border border-line/70 bg-ink-800/60 p-2"
-              :class="i === 0 ? 'border-acid/40' : ''"
+              v-if="compact"
+              key="compact"
+              class="mt-2 grid grid-cols-4 gap-1"
             >
               <span
-                class="block size-6"
-                :class="i === 0 ? 'bg-acid' : 'bg-line-strong'"
-              />
-              <span class="mt-2 block font-mono text-[6px] uppercase tracking-[0.18em] text-fg-muted">
-                {{ row.name }}
+                v-for="tile in 12"
+                :key="tile"
+                class="grid aspect-square place-items-center rounded-sm"
+                :class="tile === 1 ? 'bg-accent/18' : 'bg-panel'"
+              >
+                <span
+                  class="size-3 rounded-xs"
+                  :class="tile === 1 ? 'bg-accent' : 'bg-control'"
+                />
               </span>
-              <span
-                class="mt-1 block h-px bg-line"
-                :class="row.width"
-              />
-              <span
-                class="mt-2 block h-2 w-full"
-                :class="i === 0 ? 'bg-acid/70' : 'bg-line'"
-              />
             </div>
-          </div>
-        </Transition>
+
+            <div
+              v-else
+              key="cards"
+              class="mt-2 grid grid-cols-2 gap-1"
+            >
+              <span
+                v-for="card in 6"
+                :key="card"
+                class="flex h-7 items-center gap-1 rounded-sm bg-panel px-1 ring-1 ring-card-line ring-inset"
+              >
+                <span
+                  class="size-4.5 shrink-0 rounded-xs"
+                  :class="card === 1 ? 'bg-accent' : 'bg-control'"
+                />
+                <span class="min-w-0 flex-1 space-y-0.5">
+                  <span class="block h-1 w-4/5 rounded-pill bg-fg-faint/50" />
+                  <span class="block h-0.75 w-1/2 rounded-pill bg-line-strong" />
+                </span>
+                <span class="size-2.5 shrink-0 rounded-pill bg-control" />
+              </span>
+            </div>
+          </Transition>
+        </div>
+
+        <div
+          v-if="compact"
+          class="w-14 shrink-0 border-l border-line bg-panel p-1.5"
+        >
+          <span class="block size-6 rounded-sm bg-accent" />
+          <span class="mt-1.5 block h-1 w-4/5 rounded-pill bg-fg-faint/50" />
+          <span class="mt-1 block h-0.75 w-1/2 rounded-pill bg-line-strong" />
+          <span class="mt-2 block h-2.5 w-full rounded-xs bg-accent" />
+        </div>
       </div>
     </div>
   </div>
@@ -103,16 +107,16 @@ const ROWS = [
 <style scoped>
 .mock-enter-active,
 .mock-leave-active {
-  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .mock-enter-from {
   opacity: 0;
-  transform: translateY(6px) scale(0.98);
+  transform: translateY(4px);
 }
 
 .mock-leave-to {
   opacity: 0;
-  transform: translateY(-6px) scale(0.98);
+  transform: translateY(-4px);
 }
 </style>

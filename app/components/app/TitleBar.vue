@@ -17,29 +17,34 @@ onMounted(async () => {
 </script>
 
 <template>
-  <header class="relative z-40 flex h-11 shrink-0 items-stretch border-b border-line bg-ink-800">
+  <header
+    data-tauri-drag-region
+    class="relative z-40 flex h-10 shrink-0 items-stretch bg-frame"
+  >
     <AppLogo>
       <span
         v-if="version"
-        class="font-mono text-label leading-none text-fg-faint"
-      >v{{ version }}</span>
+        class="font-mono text-micro text-fg-faint"
+      >{{ version }}</span>
     </AppLogo>
 
     <div
       data-tauri-drag-region
-      class="flex flex-1 items-center justify-center px-4"
-    >
-      <AppActiveDownloads />
-      <InstanceBlockedFilesModal
-        v-if="awaiting"
-        :key="awaiting.instanceId"
-        :install="awaiting"
-      />
-      <ImportOpenedFile />
-    </div>
+      class="flex-1"
+    />
+
+    <AppUpdateNotice />
+    <AppActiveDownloads />
 
     <AppWindowControls>
       <AppErrorCenter />
     </AppWindowControls>
+
+    <InstanceBlockedFilesModal
+      v-if="awaiting"
+      :key="awaiting.instanceId"
+      :install="awaiting"
+    />
+    <ImportOpenedFile />
   </header>
 </template>

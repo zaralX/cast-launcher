@@ -45,8 +45,8 @@ function toggleExpanded(key: string) {
 }
 
 const SOURCE_TONE: Record<SourceKind, string> = {
-  modrinth: 'text-acid',
-  curseforge: 'text-acid',
+  modrinth: 'text-accent',
+  curseforge: 'text-accent',
   embedded: 'text-warning',
   unchecked: 'text-warning',
 }
@@ -77,29 +77,30 @@ const sizeOf = (entry: TreeEntry) => entry.dir
 </script>
 
 <template>
-  <ul class="divide-y divide-line border border-line">
+  <ul class="divide-y divide-line overflow-hidden rounded-md bg-panel ring-1 ring-card-line ring-inset">
     <li
       v-for="entry in tree"
       :key="entry.key"
     >
-      <div class="flex items-center gap-3 px-3 py-2.5">
-        <button
+      <div class="flex items-center gap-2.5 px-3 py-2.5">
+        <Button
           v-if="entry.children?.length"
-          type="button"
-          class="grid size-5 shrink-0 cursor-pointer place-items-center text-fg-faint outline-none transition-colors duration-300 hover:text-fg focus-visible:text-fg"
+          variant="ghost"
+          size="icon-sm"
+          class="-my-1 size-6"
           :aria-label="$t('cast_export.expand')"
           :aria-expanded="expanded.has(entry.key)"
           @click="toggleExpanded(entry.key)"
         >
           <Icon
             name="i-lucide-chevron-right"
-            class="size-3.5 transition-transform duration-300"
-            :class="expanded.has(entry.key) ? 'rotate-90' : ''"
+            class="size-3.5 transition-transform duration-150"
+            :class="expanded.has(entry.key) && 'rotate-90'"
           />
-        </button>
+        </Button>
         <span
           v-else
-          class="size-5 shrink-0"
+          class="size-6 shrink-0"
         />
 
         <Checkbox
@@ -110,19 +111,19 @@ const sizeOf = (entry: TreeEntry) => entry.dir
 
         <Icon
           :name="entry.dir ? 'i-lucide-folder' : 'i-lucide-file'"
-          class="size-3.5 shrink-0 text-fg-faint"
+          class="size-4 shrink-0 text-fg-faint"
         />
 
         <div class="min-w-0 flex-1">
           <p
-            class="truncate text-body text-fg"
+            class="truncate text-fg"
             :title="entry.key"
           >
             {{ entry.name }}
           </p>
           <p
             v-if="sources(entry).length"
-            class="mt-0.5 truncate font-mono text-micro uppercase tracking-caps text-fg-faint"
+            class="truncate text-caption text-fg-faint"
           >
             <template
               v-for="(source, i) in sources(entry)"
@@ -136,69 +137,56 @@ const sizeOf = (entry: TreeEntry) => entry.dir
 
         <span
           v-if="entry.inBase"
-          class="shrink-0 font-mono text-micro uppercase tracking-caps text-fg-faint"
+          class="shrink-0 text-caption text-fg-faint"
         >
           {{ $t('cast_export.in_base') }}
         </span>
-
-        <Badge
-          v-if="entry.note"
-          class="text-fg-faint"
-        >
+        <Badge v-if="entry.note">
           {{ $t(EXPORT_NOTE_KEYS[entry.note]) }}
         </Badge>
-
-        <span class="w-36 shrink-0 text-right font-mono text-label tabular-nums text-fg-faint">
+        <span class="w-36 shrink-0 text-right font-mono text-caption text-fg-faint tabular-nums">
           {{ sizeOf(entry) }}
         </span>
       </div>
 
       <ul
         v-if="entry.children?.length && expanded.has(entry.key)"
-        class="max-h-72 overflow-y-auto border-t border-line bg-ink-900/40"
+        class="max-h-72 overflow-y-auto border-t border-line bg-sheet/40"
       >
         <li
           v-for="child in entry.children"
           :key="child.key"
-          class="flex items-center gap-3 py-1.5 pr-3 pl-14"
+          class="flex items-center gap-2.5 py-1.5 pr-3 pl-[4.25rem]"
         >
           <Checkbox
             :model-value="selected.has(child.key)"
             :disabled="!choosable(child)"
             @update:model-value="value => toggle(child, value)"
           />
-
           <span
-            class="min-w-0 flex-1 truncate text-body text-fg-muted"
+            class="min-w-0 flex-1 truncate text-fg-muted"
             :title="child.key"
           >
             {{ child.name }}
           </span>
-
           <span
             v-if="child.inBase"
-            class="shrink-0 font-mono text-micro uppercase tracking-caps text-fg-faint"
+            class="shrink-0 text-caption text-fg-faint"
           >
             {{ $t('cast_export.in_base') }}
           </span>
-
           <span
             v-if="child.source"
-            class="max-w-48 shrink-0 truncate font-mono text-micro uppercase tracking-caps"
+            class="max-w-48 shrink-0 truncate text-caption"
             :class="SOURCE_TONE[child.source.kind]"
             :title="child.source.title"
           >
             {{ child.source.title || $t(SOURCE_KEYS[child.source.kind]) }}
           </span>
-
-          <span
-            v-if="child.note"
-            class="shrink-0 font-mono text-micro uppercase tracking-caps text-fg-faint"
-          >
+          <Badge v-if="child.note">
             {{ $t(EXPORT_NOTE_KEYS[child.note]) }}
-          </span>
-
-          <span class="w-36 shrink-0 text-right font-mono text-label tabular-nums text-fg-faint">
+          </Badge>
+          <span class="w-36 shrink-0 text-right font-mono text-caption text-fg-faint tabular-nums">
             {{ sizeOf(child) }}
           </span>
         </li>

@@ -4,24 +4,26 @@ import { cva } from 'class-variance-authority'
 export { default as Badge } from './Badge.vue'
 
 export const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden border font-mono whitespace-nowrap uppercase tracking-caps',
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-xs font-medium whitespace-nowrap '
+  + 'classic:font-mono classic:uppercase classic:tracking-caps',
   {
     variants: {
       variant: {
-        outline: 'border-line text-fg-muted',
-        accent: 'border-acid text-acid',
-        warning: 'border-warning/40 text-warning',
-        danger: 'border-danger/40 text-danger',
-        solid: 'border-acid bg-acid text-on-acid',
-        surface: 'border-line bg-ink-800 text-fg-muted',
+        neutral: 'bg-control text-fg-muted',
+        accent: 'bg-accent/15 text-accent',
+        success: 'bg-success/15 text-success',
+        warning: 'bg-warning/15 text-warning',
+        danger: 'bg-danger/15 text-danger',
+        solid: 'bg-accent text-on-accent',
+        outline: 'text-fg-faint ring-1 ring-inset ring-line-strong',
       },
       size: {
-        sm: 'px-1.5 py-0.5 text-micro',
-        md: 'px-3 py-1.5 text-label',
+        sm: 'h-5 px-1.5 text-micro',
+        md: 'h-6 px-2 text-caption',
       },
     },
     defaultVariants: {
-      variant: 'outline',
+      variant: 'neutral',
       size: 'sm',
     },
   },

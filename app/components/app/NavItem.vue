@@ -1,11 +1,18 @@
 <script setup lang="ts">
-defineProps<{
+import { FOCUS_RING } from '@/lib/styles'
+import { cn } from '@/lib/utils'
+
+const props = defineProps<{
   to: string
   icon: string
   label: string
+  match?: string[]
 }>()
 
 const route = useRoute()
+
+const active = computed(() => [props.to, ...(props.match ?? [])]
+  .some(path => route.path === path || route.path.startsWith(`${path}/`)))
 </script>
 
 <template>
@@ -14,19 +21,16 @@ const route = useRoute()
       <NuxtLink
         :to="to"
         :aria-label="label"
-        class="group relative grid size-14 place-items-center outline-none"
+        :aria-current="active ? 'page' : undefined"
+        :class="cn(
+          FOCUS_RING,
+          'grid size-10 place-items-center rounded-md transition-colors duration-150',
+          active ? 'bg-accent/18 text-accent' : 'text-fg-faint hover:bg-control hover:text-fg',
+        )"
       >
-        <span
-          class="absolute top-1/2 left-0 w-px -translate-y-1/2 bg-acid transition-all duration-500 ease-deck"
-          :class="route.path === to ? 'h-8 opacity-100' : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-60 group-focus-visible:h-4 group-focus-visible:opacity-60'"
-        />
-
         <Icon
           :name="icon"
-          class="size-[18px] transition-all duration-300 ease-deck"
-          :class="route.path === to
-            ? 'text-acid'
-            : 'text-fg-faint group-hover:-translate-y-0.5 group-hover:text-fg'"
+          class="size-5"
         />
       </NuxtLink>
     </TooltipTrigger>

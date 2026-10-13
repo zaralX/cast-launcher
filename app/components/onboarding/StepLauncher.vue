@@ -23,33 +23,27 @@ const telemetry = computed({
 
 <template>
   <OnboardingPane :title="$t('onboarding.launcher.title')">
-    <div class="space-y-10">
-      <div class="space-y-6">
+    <div class="space-y-8">
+      <KitRows>
         <KitRow
           :label="$t('settings.launcher.auto_update.label')"
           :description="$t('settings.launcher.auto_update.hint')"
         >
-          <Switch
-            v-model="autoUpdate"
-            size="lg"
-          />
+          <Switch v-model="autoUpdate" />
         </KitRow>
 
         <KitRow
           :label="$t('settings.launcher.telemetry.label')"
           :description="$t('settings.launcher.telemetry.hint')"
         >
-          <Switch
-            v-model="telemetry"
-            size="lg"
-          />
+          <Switch v-model="telemetry" />
         </KitRow>
-      </div>
+      </KitRows>
 
       <div>
-        <Label class="mb-5 border-t border-line pt-5">
+        <h3 class="mb-3 text-title font-semibold text-fg">
           {{ $t('settings.import.title') }}
-        </Label>
+        </h3>
 
         <ImportWizard @imported="report => model = report" />
       </div>

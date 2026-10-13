@@ -2,6 +2,7 @@
 import type { Instance } from '~/types/instance'
 import type { CatalogMatch, InstalledMods, ModFile, ModUpdate } from '~/types/mods'
 import { CATALOG_LABELS, MOD_LOADER_LABELS } from '~/types/mods'
+import { PROVIDER_LOGOS } from '~/types/catalog'
 
 const props = defineProps<{ instance: Instance }>()
 
@@ -29,13 +30,6 @@ const { t } = useI18n()
 
 const confirming = ref(false)
 
-const FILTERS = computed(() => [
-  { label: t('instance.mods.filter.all'), value: 'all' },
-  { label: t('instance.mods.filter.enabled'), value: 'enabled' },
-  { label: t('instance.mods.filter.disabled'), value: 'disabled' },
-  { label: t('instance.mods.filter.outdated'), value: 'outdated' },
-])
-
 const identifying = computed(() => modsStore.isIdentifying(instanceId.value))
 const checking = computed(() => modsStore.isChecking(instanceId.value))
 
@@ -45,6 +39,20 @@ const matchOf = (path: string): CatalogMatch | null => modsStore.matchOf(instanc
 const updateOf = (path: string): ModUpdate | null => updates.value.find(update => update.path === path) ?? null
 
 const disabledCount = computed(() => mods.value.filter(mod => !mod.enabled).length)
+
+const FILTERS = computed(() => [
+  { label: t('instance.mods.filter.all'), value: 'all', count: mods.value.length },
+  { label: t('instance.mods.filter.enabled'), value: 'enabled', count: mods.value.length - disabledCount.value },
+  { label: t('instance.mods.filter.disabled'), value: 'disabled', count: disabledCount.value },
+  { label: t('instance.mods.filter.outdated'), value: 'outdated', count: updates.value.length },
+])
+
+const GRID = 'grid-cols-[1rem_2.25rem_minmax(0,1fr)_9.5rem_7.5rem_2.25rem_1.75rem]'
+
+function askRemove(mod: ModFile) {
+  selected.value = [modKey(mod)]
+  confirming.value = true
+}
 
 const visible = computed(() => mods.value.filter((mod) => {
   if (filter.value === 'enabled' && !mod.enabled) return false
@@ -320,92 +328,130 @@ watch(instanceId, () => {
 </script>
 
 <template>
-  <KitPanel
-    index="01"
-    :title="$t('instance.mods.title')"
-    icon="i-lucide-blocks"
-  >
-    <div
-      class="space-y-5"
-      :class="dragging ? 'outline outline-1 outline-offset-8 outline-acid' : ''"
-    >
-      <div class="flex flex-wrap items-end gap-4">
-        <KitField
-          :label="$t('instance.mods.search')"
-          class="min-w-56 flex-1"
+  <div class="flex flex-col gap-3">
+    <div class="flex items-center gap-2">
+      <KitSearchInput
+        v-model="query"
+        :placeholder="$t('instance.mods.search_placeholder')"
+        :aria-label="$t('instance.mods.search')"
+        class="w-65"
+      />
+
+      <RadioGroup
+        v-model="filter"
+        :aria-label="$t('instance.mods.show')"
+        class="w-fit"
+      >
+        <RadioGroupItem
+          v-for="item in FILTERS"
+          :key="item.value"
+          :value="item.value"
+          class="flex-none"
         >
-          <KitSearchInput
-            v-model="query"
-            :placeholder="$t('instance.mods.search_placeholder')"
+          {{ item.label }}
+          <span
+            v-if="item.count"
+            class="text-fg-faint tabular-nums"
+          >{{ item.count }}</span>
+        </RadioGroupItem>
+      </RadioGroup>
+
+      <span class="flex-1" />
+
+      <Button
+        icon="i-lucide-compass"
+        @click="catalogOpen = true"
+      >
+        {{ $t('instance.mods.find') }}
+      </Button>
+
+      <Button
+        icon="i-lucide-package-plus"
+        :loading="working"
+        @click="pickFiles"
+      >
+        {{ $t('instance.mods.add_files') }}
+      </Button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            size="icon"
+            icon="i-lucide-ellipsis"
+            :aria-label="$t('instance.panel.more')"
+            :title="$t('instance.panel.more')"
           />
-        </KitField>
-
-        <KitField
-          :label="$t('instance.mods.show')"
-          class="min-w-40"
-        >
-          <KitSelect
-            v-model="filter"
-            :items="FILTERS"
-          />
-        </KitField>
-
-        <div class="flex items-center gap-3">
-          <Button
-            icon="i-lucide-search"
-            @click="catalogOpen = true"
-          >
-            {{ $t('instance.mods.find') }}
-          </Button>
-
-          <Button
-            icon="i-lucide-package-plus"
-            :loading="working"
-            @click="pickFiles"
-          >
-            {{ $t('instance.mods.add_files') }}
-          </Button>
-
-          <Button
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
             icon="i-lucide-arrow-up-circle"
-            :loading="checking"
-            :disabled="!mods.length"
-            @click="checkUpdates"
+            :disabled="!mods.length || checking"
+            @select="checkUpdates"
           >
             {{ $t('instance.mods.check_updates') }}
-          </Button>
-
-          <Button
+          </DropdownMenuItem>
+          <DropdownMenuItem
             icon="i-lucide-refresh-cw"
-            :loading="loading"
-            @click="load(true)"
+            :disabled="loading"
+            @select="load(true)"
           >
             {{ $t('instance.mods.reload') }}
-          </Button>
-
-          <Button
+          </DropdownMenuItem>
+          <DropdownMenuItem
             icon="i-lucide-folder-open"
-            @click="openFolder"
+            @select="openFolder"
           >
             {{ $t('instance.mods.folder') }}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+
+    <Alert
+      v-if="updates.length"
+      variant="accent"
+      icon="i-lucide-arrow-up-circle"
+      class="items-center py-2 pr-2"
+    >
+      <span class="font-medium text-fg">{{ $t('instance.mods.updates_count', { count: updates.length }) }}</span>
+
+      <template #action>
+        <div class="flex items-center gap-1.5">
+          <Button
+            v-if="filter !== 'outdated'"
+            variant="ghost"
+            size="sm"
+            @click="filter = 'outdated'"
+          >
+            {{ $t('instance.mods.show_updates') }}
+          </Button>
+          <Button
+            size="sm"
+            :loading="working"
+            @click="applyUpdates(updates.map(update => update.path))"
+          >
+            {{ $t('instance.mods.update_all') }}
           </Button>
         </div>
-      </div>
+      </template>
+    </Alert>
 
-      <div class="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
-        <div class="flex items-center gap-4">
-          <Label
-            v-if="visible.length"
-            class="flex cursor-pointer items-center gap-2.5"
-          >
-            <Checkbox
-              :model-value="allVisiblePicked"
-              @update:model-value="toggleAllVisible"
-            />
-            {{ $t('instance.mods.select_all') }}
-          </Label>
-
-          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+    <div
+      class="overflow-hidden rounded-md bg-panel ring-inset transition-shadow duration-150"
+      :class="dragging ? 'ring-2 ring-accent' : 'ring-1 ring-card-line'"
+    >
+      <div
+        class="grid h-10 items-center gap-x-3.5 border-b border-line pr-3 pl-3.5 text-caption text-fg-faint"
+        :class="GRID"
+      >
+        <Checkbox
+          :model-value="allVisiblePicked"
+          :disabled="!visible.length"
+          :aria-label="$t('instance.mods.select_all')"
+          @update:model-value="toggleAllVisible"
+        />
+        <span class="col-span-2 flex min-w-0 items-center gap-3">
+          <span class="truncate">
             <template v-if="visible.length !== mods.length">
               {{ $t('instance.mods.count_of', { visible: visible.length, total: mods.length }) }}
             </template>
@@ -415,184 +461,181 @@ watch(instanceId, () => {
             <template v-if="disabledCount">
               · {{ $t('instance.mods.disabled_count', { count: disabledCount }) }}
             </template>
-          </p>
-        </div>
+          </span>
 
-        <KitStatus
-          v-if="loading || dragging || identifying || checking"
-          :tone="dragging ? 'accent' : 'muted'"
-        >
-          <template v-if="dragging">
-            {{ $t('instance.mods.drop_here') }}
-          </template>
-          <template v-else-if="loading">
-            {{ $t('instance.mods.reading') }}
-          </template>
-          <template v-else-if="checking">
-            {{ $t('instance.mods.asking') }}
-          </template>
-          <template v-else>
-            {{ $t('instance.mods.identifying') }}
-          </template>
-        </KitStatus>
+          <KitStatus
+            v-if="loading || dragging || identifying || checking"
+            :tone="dragging ? 'accent' : 'muted'"
+            dot="live"
+            class="shrink-0"
+          >
+            <template v-if="dragging">
+              {{ $t('instance.mods.drop_here') }}
+            </template>
+            <template v-else-if="loading">
+              {{ $t('instance.mods.reading') }}
+            </template>
+            <template v-else-if="checking">
+              {{ $t('instance.mods.asking') }}
+            </template>
+            <template v-else>
+              {{ $t('instance.mods.identifying') }}
+            </template>
+          </KitStatus>
+        </span>
+        <span>{{ $t('instance.mods.col.version') }}</span>
+        <span>{{ $t('instance.mods.col.source') }}</span>
+        <span />
+        <span />
       </div>
 
-      <Alert
-        v-if="updates.length"
-        variant="accent"
-        class="items-center"
-      >
-        <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
-          {{ $t('instance.mods.updates_count', { count: updates.length }) }}
-        </p>
-
-        <template #action>
-          <Button
-            icon="i-lucide-arrow-up-circle"
-            :loading="working"
-            @click="applyUpdates(updates.map(update => update.path))"
-          >
-            {{ $t('instance.mods.update_all') }}
-          </Button>
-        </template>
-      </Alert>
-
-      <Alert
-        v-if="picked.length"
-        class="items-center"
-      >
-        <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
-          {{ $t('instance.mods.picked', { count: picked.length }) }}
-        </p>
-
-        <template #action>
-          <div class="flex items-center gap-4">
-            <Button
-              variant="quiet"
-              icon="i-lucide-toggle-right"
-              :disabled="working"
-              @click="setPickedEnabled(true)"
-            >
-              {{ $t('instance.mods.enable') }}
-            </Button>
-
-            <Button
-              variant="quiet"
-              icon="i-lucide-toggle-left"
-              :disabled="working"
-              @click="setPickedEnabled(false)"
-            >
-              {{ $t('instance.mods.disable') }}
-            </Button>
-
-            <Button
-              variant="quiet-danger"
-              icon="i-lucide-trash-2"
-              :disabled="working"
-              @click="confirming = true"
-            >
-              {{ $t('common.delete') }}
-            </Button>
-
-            <Button
-              variant="quiet"
-              icon="i-lucide-x"
-              @click="selected = []"
-            >
-              {{ $t('instance.mods.unpick') }}
-            </Button>
-          </div>
-        </template>
-      </Alert>
-
-      <div
-        v-if="visible.length"
-        class="border-t border-line"
-      >
+      <template v-if="visible.length">
         <div
           v-for="mod in visible"
           :key="mod.path"
-          class="border-b border-line"
+          class="border-b border-line last:border-b-0"
         >
           <div
-            class="group flex items-center gap-4 px-1 py-3 transition-colors duration-300 hover:bg-ink-700"
-            :class="mod.enabled ? '' : 'opacity-55'"
+            class="group/row grid min-h-14 items-center gap-x-3.5 py-2 pr-3 pl-3.5 transition-colors duration-150"
+            :class="[GRID, selected.includes(modKey(mod)) ? 'bg-accent/10' : 'hover:bg-hover']"
           >
             <Checkbox
               :model-value="selected.includes(modKey(mod))"
+              :aria-label="modName(mod, matchOf(mod.path))"
               @update:model-value="togglePicked(modKey(mod))"
             />
 
-            <Switch
-              :model-value="mod.enabled"
-              :disabled="busy.includes(mod.path) || working"
-              @update:model-value="value => setEnabled(mod, value)"
+            <InstanceModIcon
+              :icon-key="mod.details.iconKey"
+              :fallback-url="matchOf(mod.path)?.iconUrl"
+              :name="modName(mod, matchOf(mod.path))"
+              :class="!mod.enabled && 'opacity-45'"
             />
 
             <button
               type="button"
-              class="flex min-w-0 flex-1 cursor-pointer items-center gap-4 text-left outline-none"
+              class="min-w-0 cursor-pointer rounded-xs text-left outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              :class="!mod.enabled && 'opacity-45'"
+              :aria-expanded="expanded === modKey(mod)"
               @click="toggle(modKey(mod))"
             >
-              <InstanceModIcon
-                :icon-key="mod.details.iconKey"
-                :fallback-url="matchOf(mod.path)?.iconUrl"
-                :name="modName(mod, matchOf(mod.path))"
-              />
-
-              <span class="min-w-0 flex-1">
-                <span class="flex items-center gap-2.5">
-                  <span
-                    class="truncate text-title font-medium text-fg"
-                    :title="mod.fileName"
-                  >
-                    {{ modName(mod, matchOf(mod.path)) }}
-                  </span>
-
-                  <Badge
-                    v-if="updateOf(mod.path)"
-                    variant="accent"
-                  >
-                    {{ updateOf(mod.path)?.to }}
-                  </Badge>
-
-                  <Icon
-                    v-if="mod.managed"
-                    name="i-lucide-package"
-                    class="size-3.5 shrink-0 text-fg-faint"
-                    :title="$t('instance.mods.managed')"
-                  />
-                </span>
-
-                <span class="mt-1 block truncate font-mono text-label uppercase tracking-caps text-fg-faint">
-                  {{ subtitle(mod) || mod.fileName }}
-                </span>
-              </span>
-
-              <span class="flex shrink-0 items-center gap-2">
-                <Badge
-                  v-for="loader in loaders(mod)"
-                  :key="loader"
+              <span class="flex min-w-0 items-center gap-2">
+                <span
+                  class="truncate font-medium text-fg"
+                  :title="mod.fileName"
                 >
-                  {{ loader }}
+                  {{ modName(mod, matchOf(mod.path)) }}
+                </span>
+                <Badge
+                  v-if="mod.managed"
+                  :title="$t('instance.mods.managed_hint')"
+                >
+                  {{ $t('instance.mods.from_pack') }}
                 </Badge>
               </span>
-
-              <Icon
-                name="i-lucide-chevron-down"
-                class="size-4 shrink-0 text-fg-faint transition-transform duration-300"
-                :class="expanded === modKey(mod) ? 'rotate-180 text-acid' : ''"
-              />
+              <span class="mt-0.5 block truncate text-caption text-fg-faint">
+                {{ mod.details.description || subtitle(mod) || mod.fileName }}
+              </span>
             </button>
+
+            <span
+              class="truncate text-caption text-fg-muted tabular-nums"
+              :class="!mod.enabled && 'opacity-45'"
+            >
+              {{ mod.details.version || '-' }}
+              <span
+                v-if="updateOf(mod.path)"
+                class="text-accent"
+              >→ {{ updateOf(mod.path)?.to }}</span>
+            </span>
+
+            <span
+              class="flex min-w-0 items-center gap-1.5 text-caption text-fg-muted"
+              :class="!mod.enabled && 'opacity-45'"
+            >
+              <template v-if="matchOf(mod.path)">
+                <img
+                  :src="PROVIDER_LOGOS[matchOf(mod.path)!.provider]"
+                  alt=""
+                  class="size-3.5 shrink-0"
+                >
+                <span class="truncate">{{ CATALOG_LABELS[matchOf(mod.path)!.provider] }}</span>
+              </template>
+              <template v-else-if="!identifying">
+                <Icon
+                  name="i-lucide-file-archive"
+                  class="size-3.5 shrink-0"
+                />
+                <span class="truncate">{{ $t('instance.mods.source_file') }}</span>
+              </template>
+            </span>
+
+            <Switch
+              :model-value="mod.enabled"
+              :disabled="busy.includes(mod.path) || working"
+              :aria-label="modName(mod, matchOf(mod.path))"
+              @update:model-value="value => setEnabled(mod, value)"
+            />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  icon="i-lucide-ellipsis"
+                  :aria-label="$t('instance.mods.actions', { name: modName(mod, matchOf(mod.path)) })"
+                  class="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  icon="i-lucide-info"
+                  @select="toggle(modKey(mod))"
+                >
+                  {{ $t('common.details') }}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  v-if="updateOf(mod.path) && !mod.managed"
+                  icon="i-lucide-arrow-up-circle"
+                  :disabled="working"
+                  @select="applyUpdates([mod.path])"
+                >
+                  {{ $t('instance.mods.update_to', { version: updateOf(mod.path)?.to }) }}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  v-if="matchOf(mod.path)?.pageUrl"
+                  icon="i-lucide-external-link"
+                  @select="openHomepage(matchOf(mod.path)!.pageUrl)"
+                >
+                  {{ CATALOG_LABELS[matchOf(mod.path)!.provider] }}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  v-if="mod.details.homepage"
+                  icon="i-lucide-globe"
+                  @select="openHomepage(mod.details.homepage)"
+                >
+                  {{ $t('instance.mods.page') }}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  icon="i-lucide-trash-2"
+                  variant="danger"
+                  :disabled="working"
+                  @select="askRemove(mod)"
+                >
+                  {{ $t('common.delete') }}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <div
             v-if="expanded === modKey(mod)"
-            class="space-y-3 px-1 pb-5 pl-[6.5rem] animate-rise"
+            class="animate-rise space-y-3 pr-3 pb-4 pl-23.5"
           >
             <p
               v-if="mod.details.description"
-              class="text-body leading-relaxed text-fg-muted"
+              class="text-body text-fg-muted"
             >
               {{ mod.details.description }}
             </p>
@@ -633,27 +676,15 @@ watch(instanceId, () => {
             </KitDetails>
 
             <div
-              v-if="matchOf(mod.path)"
-              class="flex flex-wrap items-center gap-4"
+              v-if="loaders(mod).length"
+              class="flex flex-wrap gap-1.5"
             >
-              <Button
-                v-if="matchOf(mod.path)?.pageUrl"
-                variant="link"
-                icon="i-lucide-external-link"
-                @click="openHomepage(matchOf(mod.path)!.pageUrl)"
+              <Badge
+                v-for="loader in loaders(mod)"
+                :key="loader"
               >
-                {{ CATALOG_LABELS[matchOf(mod.path)!.provider] }}
-              </Button>
-
-              <Button
-                v-if="updateOf(mod.path) && !mod.managed"
-                size="sm"
-                icon="i-lucide-arrow-up-circle"
-                :loading="working"
-                @click="applyUpdates([mod.path])"
-              >
-                {{ $t('instance.mods.update_to', { version: updateOf(mod.path)?.to }) }}
-              </Button>
+                {{ loader }}
+              </Badge>
             </div>
 
             <KitNote
@@ -665,11 +696,11 @@ watch(instanceId, () => {
             </KitNote>
           </div>
         </div>
-      </div>
+      </template>
 
-      <KitStatus
+      <p
         v-else
-        class="border-t border-line py-10"
+        class="px-4 py-12 text-center text-body text-fg-faint"
       >
         <template v-if="loading || !loaded">
           {{ $t('instance.mods.reading_folder') }}
@@ -683,8 +714,48 @@ watch(instanceId, () => {
         <template v-else>
           {{ $t('instance.mods.empty') }}
         </template>
-      </KitStatus>
+      </p>
     </div>
+
+    <KitFloatingBar
+      :open="picked.length > 0 && !confirming"
+      :label="$t('instance.mods.picked', { count: picked.length })"
+      position="center"
+    >
+      <Button
+        variant="ghost"
+        size="sm"
+        icon="i-lucide-toggle-right"
+        :disabled="working"
+        @click="setPickedEnabled(true)"
+      >
+        {{ $t('instance.mods.enable') }}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        icon="i-lucide-toggle-left"
+        :disabled="working"
+        @click="setPickedEnabled(false)"
+      >
+        {{ $t('instance.mods.disable') }}
+      </Button>
+      <Button
+        variant="danger-ghost"
+        size="sm"
+        icon="i-lucide-trash-2"
+        :disabled="working"
+        @click="confirming = true"
+      >
+        {{ $t('common.delete') }}
+      </Button>
+      <Button
+        size="sm"
+        @click="selected = []"
+      >
+        {{ $t('instance.mods.unpick') }}
+      </Button>
+    </KitFloatingBar>
 
     <InstanceModCatalog
       v-model:open="catalogOpen"
@@ -700,7 +771,7 @@ watch(instanceId, () => {
       :loading="working"
       @confirm="removePicked"
     >
-      <ul class="max-h-52 space-y-1.5 overflow-auto border border-line bg-ink-900 p-4">
+      <ul class="max-h-52 space-y-1 overflow-auto rounded-sm bg-sheet p-3">
         <li
           v-for="mod in picked"
           :key="mod.path"
@@ -717,5 +788,5 @@ watch(instanceId, () => {
         {{ $t('instance.mods.remove_managed', { count: pickedManaged.length }) }}
       </KitStatus>
     </KitConfirmDialog>
-  </KitPanel>
+  </div>
 </template>

@@ -14,78 +14,67 @@ const latestVersion = computed(() => props.hit.versions.at(-1) ?? '')
 </script>
 
 <template>
-  <article class="group relative flex gap-4 overflow-hidden border border-line bg-ink-800 p-4 transition-all duration-500 ease-deck hover:border-acid/40 hover:bg-ink-700">
-    <span
-      class="absolute inset-y-0 left-0 w-[2px] origin-top scale-y-0 bg-acid transition-transform duration-700 ease-deck group-hover:scale-y-100"
-      aria-hidden="true"
-    />
-
+  <article
+    class="relative flex items-start gap-4 rounded-md p-3.5 transition-colors duration-150 before:absolute before:inset-x-3.5 before:top-0 before:h-px before:bg-line first:before:hidden hover:bg-panel hover:before:opacity-0 [&:hover+article]:before:opacity-0"
+  >
     <KitThumb
       :src="hit.iconUrl"
       :alt="hit.title"
       size="lg"
     />
 
-    <div class="flex min-w-0 flex-1 flex-col">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h3 class="truncate font-unbounded text-lead font-semibold leading-[1.15] tracking-heading text-fg">
-            {{ hit.title }}
-          </h3>
-          <p
-            v-if="hit.author"
-            class="mt-1 font-mono text-micro uppercase tracking-caps text-fg-faint"
-          >
-            {{ hit.author }}
-          </p>
-        </div>
-
-        <Button
-          variant="quiet"
-          class="group/act shrink-0"
-          @click="emit('install', hit)"
-        >
-          {{ $t('search.card.install') }}
-          <Icon
-            name="i-lucide-arrow-right"
-            class="size-3 transition-transform duration-500 ease-deck group-hover/act:translate-x-1"
-          />
-        </Button>
+    <div class="min-w-0 flex-1">
+      <div class="flex min-w-0 items-baseline gap-2">
+        <h3 class="truncate text-title font-semibold text-fg">
+          {{ hit.title }}
+        </h3>
+        <span
+          v-if="hit.author"
+          class="shrink-0 text-caption text-fg-faint"
+        >{{ hit.author }}</span>
       </div>
 
-      <p class="mt-2 line-clamp-2 text-body leading-relaxed text-fg-muted">
+      <p class="mt-0.5 line-clamp-2 text-body text-fg-muted">
         {{ hit.description }}
       </p>
 
-      <div class="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-3">
-        <span class="flex items-center gap-1.5 font-mono text-micro uppercase tracking-caps text-fg-faint">
+      <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-fg-faint">
+        <span class="flex items-center gap-1.5">
           <Icon
             name="i-lucide-download"
-            class="size-3"
+            class="size-3.5"
           />
           {{ formatDownloads(hit.downloads) }}
         </span>
 
         <span
           v-if="latestVersion"
-          class="font-mono text-micro uppercase tracking-caps text-fg-faint"
-        >
-          {{ latestVersion }}
-        </span>
+          class="font-mono"
+        >{{ latestVersion }}</span>
 
-        <Separator
-          orientation="vertical"
-          class="h-3"
-        />
+        <template v-if="categories.length">
+          <Separator
+            orientation="vertical"
+            class="data-[orientation=vertical]:h-3"
+          />
 
-        <Badge
-          v-for="category in categories"
-          :key="category"
-          class="text-fg-faint"
-        >
-          {{ categoryName(category) }}
-        </Badge>
+          <span class="flex flex-wrap gap-1">
+            <Badge
+              v-for="category in categories"
+              :key="category"
+            >
+              {{ categoryName(category) }}
+            </Badge>
+          </span>
+        </template>
       </div>
     </div>
+
+    <Button
+      class="mt-3"
+      @click="emit('install', hit)"
+    >
+      {{ $t('search.card.install') }}
+    </Button>
   </article>
 </template>

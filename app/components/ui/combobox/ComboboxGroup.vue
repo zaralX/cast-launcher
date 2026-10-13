@@ -3,6 +3,7 @@ import type { ComboboxGroupProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { ComboboxGroup, ComboboxLabel } from 'reka-ui'
+import { MENU_LABEL } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<ComboboxGroupProps & {
@@ -21,7 +22,7 @@ const delegatedProps = reactiveOmit(props, 'class')
   >
     <ComboboxLabel
       v-if="heading"
-      class="px-1.5 py-1.5 font-mono text-micro uppercase tracking-caps text-fg-faint"
+      :class="MENU_LABEL"
     >
       {{ heading }}
     </ComboboxLabel>

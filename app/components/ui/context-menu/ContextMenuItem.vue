@@ -6,7 +6,7 @@ import {
   ContextMenuItem,
   useForwardPropsEmits,
 } from 'reka-ui'
-import { MENU_ITEM } from '@/lib/styles'
+import { MENU_ICON, MENU_ITEM } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<ContextMenuItemProps & {
@@ -30,12 +30,12 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     data-slot="context-menu-item"
     :data-variant="variant"
     v-bind="forwarded"
-    :class="cn(MENU_ITEM, 'font-mono text-caption data-[variant=danger]:text-danger data-[variant=danger]:data-[highlighted]:text-danger', props.class)"
+    :class="cn(MENU_ITEM, props.class)"
   >
     <Icon
       v-if="icon"
       :name="icon"
-      class="size-4 shrink-0"
+      :class="MENU_ICON"
     />
     <slot />
   </ContextMenuItem>

@@ -5,6 +5,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import type { ButtonVariants } from '.'
 import { Primitive } from 'reka-ui'
 import { cn } from '@/lib/utils'
+import { Spinner } from '@/components/ui/spinner'
 import { buttonVariants } from '.'
 
 interface Props extends PrimitiveProps {
@@ -29,7 +30,7 @@ const NuxtLink = resolveComponent('NuxtLink')
 const isLink = computed(() => props.to != null)
 const resolvedAs = computed(() => (isLink.value ? NuxtLink : props.as))
 const isDisabled = computed(() => props.disabled || props.loading)
-const iconClass = computed(() => (props.size === 'xs' ? 'size-3' : 'size-3.5'))
+const iconClass = computed(() => (props.size === 'sm' || props.size === 'icon-sm' ? 'size-3.5' : 'size-4'))
 </script>
 
 <template>

@@ -8,11 +8,11 @@ defineProps<{
 
 <template>
   <div class="min-w-0">
-    <dt class="font-mono text-micro uppercase tracking-caps text-fg-faint">
+    <dt class="text-caption text-fg-faint">
       {{ label }}
     </dt>
     <dd
-      class="mt-1 truncate text-fg-muted"
+      class="mt-0.5 truncate text-fg"
       :class="mono ? 'font-mono text-caption' : 'text-body'"
       :title="title"
     >

@@ -4,6 +4,7 @@ import type { InstanceSettings } from '~/types/instance'
 const settings = defineModel<InstanceSettings>({ required: true })
 
 const { config } = storeToRefs(useAppStore())
+const { t } = useI18n()
 
 const globalJava = computed(() => config.value?.java ?? null)
 
@@ -27,6 +28,19 @@ const javaPath = computed({
   set: (value: string) => settings.value.javaPath = value,
 })
 
+const inheritedMemory = computed(() => {
+  const java = globalJava.value
+  if (!java) return ''
+  return `${formatBytes(java.min_ram * 1024 * 1024)} – ${formatBytes(java.max_ram * 1024 * 1024)}`
+})
+
+const inheritedJava = computed(() => {
+  const java = globalJava.value
+  if (!java) return ''
+  if (java.java_mode === 'manual' && java.java_path.trim()) return java.java_path
+  return java.java_mode === 'system' ? t('settings.java.system') : t('settings.java.auto')
+})
+
 watch(() => settings.value.overrideMemory, (enabled) => {
   if (!enabled) return
   if (!settings.value.minRam) settings.value.minRam = globalJava.value?.min_ram ?? 1024
@@ -43,62 +57,42 @@ watch(() => settings.value.overrideJava, (enabled) => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="flex flex-col gap-3.5">
     <KitPanel
-      index="01"
       :title="$t('instance.java.memory_title')"
-      icon="i-lucide-memory-stick"
     >
-      <div class="space-y-7">
-        <KitRow
-          :bordered="false"
-          :label="$t('instance.java.override_memory')"
-          :description="$t('instance.java.override_memory_hint')"
-        >
-          <Switch
-            v-model="settings.overrideMemory"
-            size="lg"
-          />
-        </KitRow>
+      <template #action>
+        <KitOverride v-model="settings.overrideMemory" />
+      </template>
 
-        <SettingsMemory
-          v-model:min="minRam"
-          v-model:max="maxRam"
-          :disabled="!settings.overrideMemory"
-          class="border-t border-line pt-6 transition-opacity duration-300"
-          :class="settings.overrideMemory ? '' : 'opacity-45'"
-        />
-      </div>
+      <SettingsMemory
+        v-if="settings.overrideMemory"
+        v-model:min="minRam"
+        v-model:max="maxRam"
+      />
+      <KitInherited v-else>
+        {{ inheritedMemory }} · {{ $t('instance.java.from_launcher') }}
+      </KitInherited>
     </KitPanel>
 
     <KitPanel
-      index="02"
       :title="$t('instance.java.title')"
-      :description="$t('instance.java.description')"
-      icon="i-lucide-cpu"
     >
-      <div class="space-y-7">
-        <KitRow
-          :bordered="false"
-          :label="$t('instance.java.override_java')"
-          :description="$t('instance.java.override_java_hint')"
-        >
-          <Switch
-            v-model="settings.overrideJava"
-            size="lg"
-          />
-        </KitRow>
+      <template #action>
+        <KitOverride v-model="settings.overrideJava" />
+      </template>
 
-        <div
-          class="border-t border-line pt-6 transition-opacity duration-300"
-          :class="settings.overrideJava ? '' : 'pointer-events-none opacity-45'"
-        >
-          <SettingsJavaRuntimes
-            v-model:mode="javaMode"
-            v-model:path="javaPath"
-          />
-        </div>
-      </div>
+      <SettingsJavaRuntimes
+        v-if="settings.overrideJava"
+        v-model:mode="javaMode"
+        v-model:path="javaPath"
+      />
+      <KitInherited
+        v-else
+        :mono="globalJava?.java_mode === 'manual'"
+      >
+        {{ inheritedJava }} · {{ $t('instance.java.from_launcher') }}
+      </KitInherited>
     </KitPanel>
   </div>
 </template>

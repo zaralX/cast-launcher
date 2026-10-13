@@ -1,48 +1,48 @@
 import type { VariantProps } from 'class-variance-authority'
 import { cva } from 'class-variance-authority'
+import { FOCUS_RING } from '@/lib/styles'
 
 export { default as Button } from './Button.vue'
 
-const SWEEP = 'isolate overflow-hidden before:absolute before:inset-0 before:-z-10 before:origin-left before:scale-x-0 '
-  + 'before:transition-transform before:duration-500 before:ease-deck hover:before:scale-x-100'
-
 export const buttonVariants = cva(
-  'relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-mono uppercase tracking-caps outline-none transition-all duration-300 focus-visible:ring-1 focus-visible:ring-acid/60 disabled:pointer-events-none disabled:opacity-75 aria-disabled:pointer-events-none aria-disabled:opacity-75',
+  `${FOCUS_RING} relative inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-sm font-medium `
+  + 'transition-[background-color,color,filter,border-color] duration-150 '
+  + 'disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 '
+  + 'classic:font-mono classic:text-micro classic:uppercase classic:tracking-caps',
   {
     variants: {
       variant: {
-        'fill': `${SWEEP} border border-line text-fg before:bg-acid hover:border-acid hover:text-on-acid`,
-        'fill-accent': `${SWEEP} border border-acid/40 text-acid before:bg-acid hover:border-acid hover:text-on-acid`,
-        'danger': `${SWEEP} border border-danger/30 text-danger before:bg-danger-strong hover:border-danger-strong hover:text-on-danger`,
-        'outline': 'border border-line text-fg-muted hover:border-line-strong hover:text-fg',
-        'outline-accent': 'border border-line text-fg-faint hover:border-acid hover:text-acid',
-        'dashed': 'border border-dashed border-line text-fg-faint hover:border-acid/50 hover:text-acid',
-        'ghost': 'text-fg-faint hover:bg-ink-600 hover:text-fg',
-        'toolbar': 'text-fg-faint hover:text-fg aria-pressed:text-acid',
-        'quiet': 'text-fg-muted hover:text-acid',
-        'quiet-danger': 'text-fg-muted hover:text-danger',
-        'link': 'text-acid hover:opacity-70',
+        'primary': 'bg-accent text-on-accent hover:brightness-110',
+        'secondary': 'bg-control text-fg hover:bg-hover aria-expanded:bg-hover',
+        'ghost': 'text-fg-muted hover:bg-control hover:text-fg aria-expanded:bg-control aria-expanded:text-fg aria-pressed:bg-control aria-pressed:text-fg',
+        'strong': 'bg-fg text-sheet hover:brightness-90',
+        'danger': 'bg-danger text-on-danger hover:brightness-110',
+        'danger-ghost': 'text-danger hover:bg-danger/12',
+        'dashed': 'border border-dashed border-line-strong text-fg-muted hover:border-accent hover:text-accent',
+        'link': 'text-accent underline-offset-2 hover:underline',
+        'play': 'bg-control text-fg hover:bg-accent hover:text-on-accent group-hover/card:bg-accent group-hover/card:text-on-accent',
+        'close': 'text-fg-muted hover:bg-danger hover:text-on-danger',
       },
       size: {
-        'xs': 'h-7 gap-1.5 px-3 text-label',
-        'sm': 'h-8 px-3 text-label',
-        'md': 'h-9 px-3.5 text-label',
-        'lg': 'h-10 px-6 text-caption',
-        'xl': 'h-11 px-6 text-caption',
-        'icon-sm': 'size-8',
-        'icon': 'size-9',
-        'icon-lg': 'size-11',
+        'sm': 'h-7 gap-1.5 px-2.5 text-caption',
+        'md': 'h-8 gap-2 px-3 text-body',
+        'lg': 'h-10 gap-2 px-4.5 text-title',
+        'icon-sm': 'size-7',
+        'icon': 'size-8',
+        'icon-lg': 'size-10',
+        'round': 'size-9 rounded-pill',
+        'bar': 'h-10 w-11.5 rounded-none',
       },
     },
     compoundVariants: [
       {
-        variant: ['quiet', 'quiet-danger', 'link'],
-        size: ['xs', 'sm', 'md', 'lg', 'xl'],
-        class: 'h-auto px-0 py-2',
+        variant: 'link',
+        size: ['sm', 'md', 'lg'],
+        class: 'h-auto px-0',
       },
     ],
     defaultVariants: {
-      variant: 'fill',
+      variant: 'secondary',
       size: 'md',
     },
   },

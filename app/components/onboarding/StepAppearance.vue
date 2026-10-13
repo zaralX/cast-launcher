@@ -10,9 +10,16 @@ const language = computed({
 })
 
 const accent = computed({
-  get: () => store.config?.launcher.accent ?? 'sky',
+  get: () => store.config?.launcher.accent ?? DEFAULT_ACCENT,
   set: (value: string) => {
     if (store.config) store.config.launcher.accent = value
+  },
+})
+
+const theme = computed({
+  get: () => store.config?.launcher.theme ?? DEFAULT_THEME,
+  set: (value: string) => {
+    if (store.config) store.config.launcher.theme = value
   },
 })
 
@@ -50,19 +57,22 @@ const compact = computed({
           </RadioGroup>
         </KitField>
 
+        <KitField :label="$t('settings.launcher.theme')">
+          <KitThemePicker v-model="theme" />
+        </KitField>
+
         <KitField :label="$t('settings.launcher.accent.label')">
           <KitAccentPicker v-model="accent" />
         </KitField>
 
-        <KitRow
-          :label="$t('settings.launcher.compact.label')"
-          :description="$t('settings.launcher.compact.hint')"
-        >
-          <Switch
-            v-model="compact"
-            size="lg"
-          />
-        </KitRow>
+        <KitRows>
+          <KitRow
+            :label="$t('settings.launcher.compact.label')"
+            :description="$t('settings.launcher.compact.hint')"
+          >
+            <Switch v-model="compact" />
+          </KitRow>
+        </KitRows>
       </div>
 
       <aside class="space-y-3">

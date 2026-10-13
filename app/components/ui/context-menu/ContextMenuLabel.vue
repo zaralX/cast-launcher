@@ -3,9 +3,10 @@ import type { ContextMenuLabelProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { reactiveOmit } from '@vueuse/core'
 import { ContextMenuLabel } from 'reka-ui'
+import { MENU_LABEL } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
-const props = defineProps<ContextMenuLabelProps & { class?: HTMLAttributes['class'], inset?: boolean }>()
+const props = defineProps<ContextMenuLabelProps & { class?: HTMLAttributes['class'] }>()
 
 const delegatedProps = reactiveOmit(props, 'class')
 </script>
@@ -13,9 +14,8 @@ const delegatedProps = reactiveOmit(props, 'class')
 <template>
   <ContextMenuLabel
     data-slot="context-menu-label"
-    :data-inset="inset ? '' : undefined"
     v-bind="delegatedProps"
-    :class="cn('px-1.5 py-1.5 font-mono text-micro uppercase tracking-caps text-fg-faint', props.class)"
+    :class="cn(MENU_LABEL, props.class)"
   >
     <slot />
   </ContextMenuLabel>

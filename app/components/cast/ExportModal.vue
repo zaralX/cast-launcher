@@ -14,6 +14,8 @@ const { t } = useI18n()
 const castStore = useCastStore()
 const accountStore = useAccountStore()
 
+const FORM_ID = 'cast-export'
+
 const step = ref<Step>('files')
 const scanning = ref(false)
 const scan = ref<ExportScan | null>(null)
@@ -232,29 +234,34 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 <template>
   <Dialog v-model:open="open">
     <DialogContent
-      class="max-w-3xl"
+      class="max-w-190"
       :dismissible="step !== 'exporting'"
       :show-close-button="step !== 'exporting'"
     >
       <DialogHeader>
-        <DialogTitle>{{ $t('cast_export.title', { name: instance.name }) }}</DialogTitle>
+        <DialogTitle>{{ $t('cast_export.heading') }}</DialogTitle>
+        <DialogDescription class="truncate text-caption">
+          {{ step === 'files' || step === 'details'
+            ? `${instance.name} · ${$t('cast_export.step', { step: step === 'files' ? 1 : 2 })}`
+            : instance.name }}
+        </DialogDescription>
       </DialogHeader>
 
       <DialogBody>
         <div
           v-if="step === 'files'"
-          class="space-y-5"
+          class="space-y-4"
         >
-          <DialogDescription>
+          <p class="text-body text-fg-muted">
             {{ $t('cast_export.files_hint') }}
-          </DialogDescription>
+          </p>
 
           <div
             v-if="scanning && !scan"
             class="flex items-center gap-3 py-10"
           >
-            <Spinner class="text-acid" />
-            <span class="font-mono text-label uppercase tracking-caps text-fg-faint">{{ $t('cast_export.scanning') }}</span>
+            <Spinner class="text-accent" />
+            <span class="text-body text-fg-muted">{{ $t('cast_export.scanning') }}</span>
           </div>
 
           <template v-else-if="scan">
@@ -264,10 +271,9 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
               icon="i-lucide-wifi-off"
             >
               {{ $t('cast_export.unchecked', { count: scan.unchecked }) }}
-
               <template #action>
                 <Button
-                  variant="quiet"
+                  size="sm"
                   icon="i-lucide-rotate-cw"
                   :loading="scanning"
                   @click="load"
@@ -278,21 +284,21 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             </Alert>
 
             <CastExportTree
+              v-if="scan.tree.length"
               v-model:selected="selected"
               :tree="scan.tree"
             />
 
-            <KitStatus
-              v-if="!scan.tree.length"
-              dot="static"
+            <KitEmpty
+              v-else
+              icon="i-lucide-folder-open"
             >
               {{ $t('cast_export.empty') }}
-            </KitStatus>
+            </KitEmpty>
           </template>
 
           <Button
             v-else
-            variant="quiet"
             icon="i-lucide-rotate-cw"
             @click="load"
           >
@@ -302,10 +308,11 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
         <form
           v-else-if="step === 'details'"
-          class="space-y-6"
+          :id="FORM_ID"
+          class="space-y-5"
           @submit.prevent="run"
         >
-          <div class="grid grid-cols-[minmax(0,1fr)_10rem] gap-5">
+          <div class="grid grid-cols-[minmax(0,1fr)_10rem] gap-4">
             <KitField
               :label="$t('cast_export.name')"
               for="cast-export-name"
@@ -314,10 +321,8 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
                 id="cast-export-name"
                 v-model="form.name"
                 size="lg"
-                font="display"
               />
             </KitField>
-
             <KitField
               :label="$t('cast_export.version')"
               for="cast-export-version"
@@ -331,7 +336,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             </KitField>
           </div>
 
-          <div class="grid grid-cols-2 gap-5">
+          <div class="grid grid-cols-2 gap-4">
             <KitField
               :label="$t('cast_export.author')"
               for="cast-export-author"
@@ -342,7 +347,6 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
                 :placeholder="$t('cast_export.optional')"
               />
             </KitField>
-
             <KitField
               :label="$t('cast_export.ram')"
               :hint="$t('cast_export.ram_hint')"
@@ -377,27 +381,20 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             <Textarea
               id="cast-export-changelog"
               v-model="form.changelog"
-              :rows="3"
+              :rows="2"
               autoresize
               :placeholder="$t('cast_export.optional')"
             />
           </KitField>
 
-          <Alert
-            v-if="base"
-            class="bg-transparent"
-          >
-            <AlertTitle class="text-body font-normal">
-              {{ $t('cast_export.base.title', { name: baseLabel }) }}
-            </AlertTitle>
-            <AlertDescription class="not-first:mt-1">
-              {{ useBase ? $t('cast_export.base.on_hint') : $t('cast_export.base.off_hint') }}
-            </AlertDescription>
-
-            <template #action>
+          <KitRows v-if="base">
+            <KitRow
+              :label="$t('cast_export.base.title', { name: baseLabel })"
+              :description="useBase ? $t('cast_export.base.on_hint') : $t('cast_export.base.off_hint')"
+            >
               <Switch v-model="useBase" />
-            </template>
-          </Alert>
+            </KitRow>
+          </KitRows>
 
           <KitStatGrid :columns="3">
             <KitStat
@@ -424,21 +421,18 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
                 ? $t('cast_export.base.from_base', { count: summary.fromBase })
                 : $t('cast_export.base.not_compared') }}
             </KitNote>
-
             <KitNote
               v-if="summary.code"
               icon="i-lucide-package-open"
             >
               {{ $t('cast_export.code_hint', { count: summary.code }) }}
             </KitNote>
-
             <KitNote
               v-if="summary.personal.length"
               icon="i-lucide-user-round"
             >
               {{ $t('cast_export.personal_hint', { folders: summary.personal.join(', ') }) }}
             </KitNote>
-
             <KitNote
               :icon="scan?.defaults.knownPack ? 'i-lucide-refresh-cw' : 'i-lucide-sparkles'"
               tone="muted"
@@ -450,25 +444,21 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
         <div
           v-else-if="step === 'exporting'"
-          class="space-y-4 py-6"
+          class="space-y-3 py-6"
         >
-          <header class="flex items-end justify-between gap-4">
-            <p class="font-mono text-label uppercase tracking-caps text-fg-muted">
+          <div class="flex items-end justify-between gap-4">
+            <p class="text-body text-fg-muted">
               {{ progress?.label ?? $t('cast_export.stage.collecting') }}
             </p>
             <span
               v-if="progress?.percent != null"
-              class="font-unbounded text-[22px] font-semibold leading-none tracking-[-0.05em] text-fg"
-            >
-              {{ progress.percent }}<span class="text-body text-acid">%</span>
-            </span>
-          </header>
-
+              class="text-heading font-semibold text-fg tabular-nums"
+            >{{ progress.percent }}%</span>
+          </div>
           <Progress :model-value="progress?.percent ?? null" />
-
           <p
             v-if="progress?.detail"
-            class="font-mono text-label tabular-nums text-fg-faint"
+            class="font-mono text-caption text-fg-faint tabular-nums"
           >
             {{ progress.detail }}
           </p>
@@ -476,24 +466,24 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
 
         <div
           v-else-if="step === 'done' && result"
-          class="space-y-5"
+          class="space-y-4"
         >
           <KitNote
             icon="i-lucide-check"
-            tone="accent"
+            tone="success"
             class="text-fg"
           >
             {{ $t('cast_export.done', { size: formatBytes(result.size) }) }}
           </KitNote>
 
           <p
-            class="truncate border border-line px-4 py-3 font-mono text-caption text-fg-muted"
+            class="truncate rounded-md bg-panel px-3.5 py-2.5 font-mono text-caption text-fg-muted ring-1 ring-card-line ring-inset"
             :title="result.path"
           >
             {{ result.path }}
           </p>
 
-          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+          <p class="text-caption text-fg-faint">
             {{ $t('cast_export.done_counts', { links: result.mods, embedded: result.embedded }) }}
             <template v-if="result.removed">
               · {{ $t('cast_export.done_removed', { count: result.removed }) }}
@@ -504,7 +494,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             <KitNote icon="i-lucide-ban">
               {{ $t('cast_export.skipped', { count: result.skipped.length }) }}
             </KitNote>
-            <ul class="mt-1.5 space-y-0.5 pl-6 font-mono text-label text-fg-faint">
+            <ul class="mt-1.5 space-y-0.5 pl-6.5 font-mono text-caption text-fg-faint">
               <li
                 v-for="file in result.skipped.slice(0, 6)"
                 :key="file"
@@ -517,60 +507,73 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
         </div>
       </DialogBody>
 
-      <DialogFooter class="justify-between">
-        <Button
-          v-if="step === 'details'"
-          variant="quiet"
-          icon="i-lucide-arrow-left"
-          @click="step = 'files'"
-        >
-          {{ $t('cast_export.back') }}
-        </Button>
-        <span v-else />
+      <DialogFooter class="border-t border-line pt-3.5 pb-3.5">
+        <template v-if="step === 'files'">
+          <span
+            v-if="scan"
+            class="mr-auto truncate text-caption text-fg-faint"
+          >
+            {{ $t('cast_export.footer_summary', { links: summary.links, embedded: summary.embedded, size: formatBytes(summary.size) }) }}
+          </span>
+          <DialogClose as-child>
+            <Button variant="ghost">
+              {{ $t('common.cancel') }}
+            </Button>
+          </DialogClose>
+          <Button
+            variant="primary"
+            :disabled="!canContinue || scanning"
+            @click="step = 'details'"
+          >
+            {{ $t('cast_export.next') }}
+          </Button>
+        </template>
 
-        <Button
-          v-if="step === 'files'"
-          icon="i-lucide-arrow-right"
-          :disabled="!canContinue || scanning"
-          @click="step = 'details'"
-        >
-          {{ $t('cast_export.next') }}
-        </Button>
-
-        <Button
-          v-else-if="step === 'details'"
-          icon="i-lucide-file-down"
-          :disabled="!canExport"
-          @click="run"
-        >
-          {{ $t('cast_export.export') }}
-        </Button>
+        <template v-else-if="step === 'details'">
+          <Button
+            variant="ghost"
+            icon="i-lucide-arrow-left"
+            class="mr-auto"
+            @click="step = 'files'"
+          >
+            {{ $t('cast_export.back') }}
+          </Button>
+          <Button
+            variant="primary"
+            type="submit"
+            :form="FORM_ID"
+            icon="i-lucide-file-archive"
+            :disabled="!canExport"
+          >
+            {{ $t('cast_export.export') }}
+          </Button>
+        </template>
 
         <Button
           v-else-if="step === 'exporting'"
-          variant="quiet"
+          variant="ghost"
           icon="i-lucide-square"
           @click="cancel"
         >
           {{ $t('common.cancel') }}
         </Button>
 
-        <div
-          v-else-if="step === 'done' && result"
-          class="flex gap-4"
-        >
+        <template v-else-if="step === 'done' && result">
           <Button
-            variant="quiet"
+            variant="ghost"
             icon="i-lucide-folder-open"
+            class="mr-auto"
             @click="showInFolder(result.path)"
           >
             {{ $t('cast_export.show_in_folder') }}
           </Button>
-
-          <Button @click="open = false">
+          <Button
+            variant="primary"
+            @click="open = false"
+          >
             {{ $t('cast_export.close') }}
           </Button>
-        </div>
+        </template>
       </DialogFooter>
     </DialogContent>
   </Dialog>

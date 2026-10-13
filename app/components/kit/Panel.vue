@@ -3,8 +3,7 @@ import type { HTMLAttributes } from 'vue'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
-  index: string
-  title: string
+  title?: string
   description?: string
   icon?: string
   class?: HTMLAttributes['class']
@@ -12,31 +11,34 @@ const props = defineProps<{
 </script>
 
 <template>
-  <section :class="cn('group relative border border-line bg-ink-800 transition-colors duration-500 hover:border-line-strong', props.class)">
-    <header class="flex items-start gap-5 border-b border-line px-6 py-5">
-      <span class="mt-0.5 font-mono text-label leading-none tracking-caps-wide text-acid">{{ index }}</span>
-
-      <div class="min-w-0 flex-1">
-        <h2 class="font-unbounded text-body font-semibold uppercase leading-none tracking-caps text-fg">
-          {{ title }}
-        </h2>
-        <p
-          v-if="description"
-          class="mt-2.5 text-body leading-relaxed text-fg-muted"
-        >
-          {{ description }}
-        </p>
-      </div>
-
+  <section :class="cn('rounded-md bg-panel p-4 ring-1 ring-card-line ring-inset', props.class)">
+    <header
+      v-if="title || $slots.action"
+      class="mb-3 flex min-h-5 items-center gap-2"
+    >
       <Icon
         v-if="icon"
         :name="icon"
-        class="size-4 shrink-0 text-fg-faint transition-colors duration-500 group-hover:text-fg-muted"
+        class="size-3.5 shrink-0 text-fg-faint"
       />
+      <h2 class="min-w-0 truncate text-caption font-semibold text-fg-muted classic:font-mono classic:text-micro classic:uppercase classic:tracking-caps">
+        {{ title }}
+      </h2>
+      <div
+        v-if="$slots.action"
+        class="ml-auto flex shrink-0 items-center gap-2"
+      >
+        <slot name="action" />
+      </div>
     </header>
 
-    <div class="px-6 py-7">
-      <slot />
-    </div>
+    <p
+      v-if="description"
+      class="-mt-1.5 mb-3 text-caption text-fg-faint"
+    >
+      {{ description }}
+    </p>
+
+    <slot />
   </section>
 </template>

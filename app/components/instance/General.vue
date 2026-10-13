@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Instance } from '~/types/instance'
-import { INSTANCE_TYPE_LABELS } from '~/types/instance'
-import type { InstanceDir } from '~/types/backend'
+import { INSTANCE_DIR_KEYS, INSTANCE_DIRS, INSTANCE_TYPE_LABELS } from '~/types/instance'
 
 const props = defineProps<{ instance: Instance }>()
 
@@ -11,6 +10,7 @@ const icon = defineModel<string>('icon', { required: true })
 const pickerOpen = ref(false)
 
 const instanceStore = useInstanceStore()
+const actions = useInstanceActions()
 const router = useRouter()
 const toast = useAppToast()
 
@@ -22,10 +22,9 @@ const { total, last } = usePlaytime(() => props.instance)
 const { t } = useI18n()
 
 const facts = computed(() => [
-  { label: t('instance.general.facts.id'), value: props.instance.id },
   { label: t('instance.general.facts.loader'), value: INSTANCE_TYPE_LABELS[props.instance.type] ?? props.instance.type },
-  { label: 'Minecraft', value: props.instance.minecraftVersion },
   { label: t('instance.general.facts.loader_version'), value: props.instance.loaderVersion || '-' },
+  { label: 'Minecraft', value: props.instance.minecraftVersion },
   { label: t('instance.general.facts.playtime'), value: formatPlaytime(total.value) || '-' },
   {
     label: t('instance.general.facts.last_played'),
@@ -35,23 +34,18 @@ const facts = computed(() => [
 ])
 
 const status = computed(() => {
-  if (running.value) return { text: t('instance.general.status.running'), tone: 'text-acid' }
-  if (installing.value) return { text: t('instance.general.status.installing'), tone: 'text-fg-muted' }
+  if (running.value) return { text: t('instance.general.status.running'), tone: 'text-success' }
+  if (installing.value) return { text: t('instance.general.status.installing'), tone: 'text-fg' }
   return props.instance.installed
-    ? { text: t('instance.general.status.installed'), tone: 'text-fg-muted' }
+    ? { text: t('instance.general.status.installed'), tone: 'text-fg' }
     : { text: t('instance.general.status.absent'), tone: 'text-warning' }
 })
 
-const DIRS: { target: InstanceDir, labelKey: string, icon: string }[] = [
-  { target: 'root', labelKey: 'instance.general.dir.root', icon: 'i-lucide-folder' },
-  { target: 'minecraft', labelKey: 'instance.dir.minecraft', icon: 'i-lucide-folder-open' },
-  { target: 'logs', labelKey: 'instance.general.dir.logs', icon: 'i-lucide-folder-clock' },
-]
-
-const openDir = (target: InstanceDir) => safeRun(
-  () => call('open_instance_dir', { instanceId: props.instance.id, target }),
-  { context: { instanceId: props.instance.id, action: t('instance.general.open_dir_action') } },
-)
+const DIR_ICONS: Record<typeof INSTANCE_DIRS[number], string> = {
+  root: 'i-lucide-folder',
+  minecraft: 'i-lucide-folder-open',
+  logs: 'i-lucide-folder-clock',
+}
 
 const reinstall = () => safeRun(
   () => instanceStore.installInstance(props.instance.id),
@@ -81,99 +75,86 @@ async function remove() {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <KitPanel
-      index="01"
-      :title="$t('instance.general.title')"
-      icon="i-lucide-box"
-    >
-      <div class="space-y-7">
-        <div class="flex items-center gap-5">
-          <InstanceIcon
-            :icon="icon"
-            :type="instance.type"
-            size="lg"
-          />
-
-          <div class="min-w-0 flex-1">
-            <Label>{{ $t('instance.general.icon') }}</Label>
-            <p
-              class="mt-2 truncate font-mono text-caption text-fg-muted"
-              :title="icon"
-            >
-              {{ icon || $t('instance.general.icon_default') }}
-            </p>
-
-            <div class="mt-3 flex items-center gap-3">
-              <Button
-                size="sm"
-                icon="i-lucide-image"
-                @click="pickerOpen = true"
-              >
-                {{ $t('instance.general.pick_icon') }}
-              </Button>
-
-              <Button
-                v-if="icon"
-                variant="quiet"
-                icon="i-lucide-x"
-                @click="icon = ''"
-              >
-                {{ $t('instance.general.clear_icon') }}
-              </Button>
-            </div>
-          </div>
-        </div>
-
+  <div class="grid grid-cols-2 items-start gap-3.5">
+    <div class="flex flex-col gap-3.5">
+      <KitPanel :title="$t('instance.general.identity_title')">
         <KitField
           :label="$t('instance.general.name')"
+          :error="name.trim() ? undefined : $t('instance.name_required')"
           for="instance-general-name"
         >
           <Input
             id="instance-general-name"
             v-model="name"
-            :placeholder="$t('instance.general.name_placeholder')"
+            :aria-invalid="!name.trim() || undefined"
           />
         </KitField>
 
-        <KitDetails class="border-t border-line pt-6">
-          <KitDetail
+        <div class="mt-4 flex items-center gap-3">
+          <InstanceIcon
+            :icon="icon"
+            :type="instance.type"
+            :version="instance.minecraftVersion"
+            size="md"
+          />
+          <p
+            class="min-w-0 flex-1 truncate text-caption text-fg-faint"
+            :title="icon"
+          >
+            {{ icon }}
+          </p>
+          <Button
+            size="sm"
+            icon="i-lucide-image"
+            @click="pickerOpen = true"
+          >
+            {{ $t('instance.general.pick_icon') }}
+          </Button>
+          <Button
+            v-if="icon"
+            variant="ghost"
+            size="sm"
+            @click="icon = ''"
+          >
+            {{ $t('instance.general.clear_icon') }}
+          </Button>
+        </div>
+      </KitPanel>
+
+      <KitPanel :title="$t('instance.general.facts_title')">
+        <dl class="-my-1.5">
+          <KitFact
             v-for="fact in facts"
             :key="fact.label"
             :label="fact.label"
-            :title="fact.value"
-            mono
-          >
-            {{ fact.value }}
-          </KitDetail>
-
-          <KitDetail
-            :label="$t('instance.general.status')"
-            mono
-          >
+            :value="fact.value"
+          />
+          <KitFact :label="$t('instance.general.status')">
             <span :class="status.tone">{{ status.text }}</span>
-          </KitDetail>
-        </KitDetails>
-      </div>
-    </KitPanel>
+          </KitFact>
+          <KitFact :label="$t('instance.general.facts.id')">
+            <span class="font-mono text-micro text-fg-muted">{{ instance.id }}</span>
+          </KitFact>
+        </dl>
+      </KitPanel>
+    </div>
 
-    <KitPanel
-      index="02"
-      :title="$t('instance.general.files_title')"
-      icon="i-lucide-hard-drive"
-    >
-      <div class="space-y-7">
-        <div class="flex flex-wrap gap-3">
+    <div class="flex flex-col gap-3.5">
+      <KitPanel :title="$t('instance.general.dirs_title')">
+        <div class="flex flex-wrap gap-1.5">
           <Button
-            v-for="dir in DIRS"
-            :key="dir.target"
-            :icon="dir.icon"
-            @click="openDir(dir.target)"
+            v-for="target in INSTANCE_DIRS"
+            :key="target"
+            size="sm"
+            :icon="DIR_ICONS[target]"
+            @click="actions.openDir(instance.id, target)"
           >
-            {{ $t(dir.labelKey) }}
+            {{ $t(INSTANCE_DIR_KEYS[target]) }}
           </Button>
         </div>
+      </KitPanel>
 
+      <KitRows>
         <KitRow :label="instance.installed ? $t('instance.general.reinstall_title') : $t('instance.general.install_title')">
           <template #description>
             {{ $t('instance.general.reinstall_hint') }}
@@ -186,6 +167,7 @@ async function remove() {
           </template>
 
           <Button
+            size="sm"
             :icon="instance.installed ? 'i-lucide-refresh-cw' : 'i-lucide-arrow-down-to-line'"
             :disabled="installing || running"
             @click="reinstall"
@@ -197,10 +179,11 @@ async function remove() {
         <KitRow
           tone="danger"
           :label="$t('instance.general.remove_section')"
-          :description="$t('instance.general.remove_hint')"
+          :description="running ? $t('instance.general.running_hint') : $t('instance.general.remove_hint')"
         >
           <Button
             variant="danger"
+            size="sm"
             icon="i-lucide-trash-2"
             :disabled="running"
             @click="removeOpen = true"
@@ -208,20 +191,14 @@ async function remove() {
             {{ $t('common.delete') }}
           </Button>
         </KitRow>
-
-        <KitStatus
-          v-if="running"
-          dot="static"
-        >
-          {{ $t('instance.general.running_hint') }}
-        </KitStatus>
-      </div>
-    </KitPanel>
+      </KitRows>
+    </div>
 
     <Dialog v-model:open="pickerOpen">
-      <DialogContent class="max-w-3xl">
+      <DialogContent class="max-w-150">
         <DialogHeader>
           <DialogTitle>{{ $t('instance.general.icon_modal') }}</DialogTitle>
+          <DialogDescription>{{ instance.name }}</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <InstanceIconPicker v-model="icon" />
@@ -239,7 +216,7 @@ async function remove() {
       <i18n-t
         keypath="instance.general.remove_text"
         tag="p"
-        class="text-title leading-relaxed text-fg-muted"
+        class="text-body text-fg-muted"
       >
         <template #name>
           <span class="text-fg">{{ instance.name }}</span>

@@ -145,7 +145,6 @@ async function apply() {
 
   toast.add({
     title: t('instance.pack.switched', { version: switched.value.pack?.versionNumber ?? t('instance.pack.switched_fallback') }),
-    description: t('instance.pack.switched_hint'),
     color: 'success',
     icon: 'i-lucide-refresh-cw',
   })
@@ -155,7 +154,6 @@ async function apply() {
 <template>
   <div class="space-y-6">
     <KitPanel
-      index="01"
       :title="local ? $t('instance.pack.title_local') : $t('instance.pack.title_remote')"
       icon="i-lucide-package"
     >
@@ -203,7 +201,7 @@ async function apply() {
 
           <template #action>
             <Button
-              variant="quiet"
+              variant="ghost"
               @click="selectLatest"
             >
               {{ $t('instance.pack.select_latest') }}
@@ -259,29 +257,34 @@ async function apply() {
 
     <KitPanel
       v-if="blockedFiles.length"
-      index="02"
       :title="$t('instance.pack.manual_title')"
       icon="i-lucide-hand"
     >
-      <p class="text-body leading-relaxed text-fg-muted">
+      <template #action>
+        <Badge variant="warning">
+          {{ blockedFiles.length }}
+        </Badge>
+      </template>
+
+      <p class="text-body text-fg-muted">
         {{ $t('instance.pack.manual_hint') }}
       </p>
 
-      <ul class="mt-5 divide-y divide-line border border-line">
+      <ul class="mt-3.5 divide-y divide-line overflow-hidden rounded-md bg-sheet ring-1 ring-card-line ring-inset">
         <li
           v-for="file in blockedFiles"
           :key="file.targetPath"
-          class="flex items-center gap-4 px-4 py-3"
+          class="flex items-center gap-3 px-3.5 py-2.5"
         >
           <div class="min-w-0 flex-1">
             <p
-              class="truncate text-body text-fg"
+              class="truncate text-fg"
               :title="file.fileName"
             >
               {{ file.fileName }}
             </p>
             <p
-              class="mt-1 truncate font-mono text-label text-fg-faint"
+              class="truncate font-mono text-caption text-fg-faint"
               :title="file.targetPath"
             >
               {{ file.targetPath }}
@@ -290,7 +293,8 @@ async function apply() {
 
           <Button
             v-if="file.websiteUrl"
-            variant="quiet"
+            variant="ghost"
+            size="sm"
             icon="i-lucide-external-link"
             @click="openPage(file.websiteUrl)"
           >
@@ -300,9 +304,9 @@ async function apply() {
       </ul>
 
       <Button
-        variant="quiet"
+        variant="ghost"
         icon="i-lucide-folder-open"
-        class="mt-3"
+        class="mt-3 -ml-2.5"
         @click="openMods"
       >
         {{ $t('instance.pack.open_game_folder') }}
@@ -310,7 +314,6 @@ async function apply() {
     </KitPanel>
 
     <KitPanel
-      :index="blockedFiles.length ? '03' : '02'"
       :title="$t('instance.pack.content_title')"
       icon="i-lucide-list"
     >

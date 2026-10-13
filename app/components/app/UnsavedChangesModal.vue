@@ -39,7 +39,7 @@ const discardText = computed(() => props.discardLabel ?? t('unsaved.discard'))
 
       <DialogFooter class="justify-between">
         <Button
-          variant="quiet-danger"
+          variant="danger-ghost"
           icon="i-lucide-trash-2"
           :disabled="guard.saving"
           @click="guard.discard()"
@@ -49,7 +49,7 @@ const discardText = computed(() => props.discardLabel ?? t('unsaved.discard'))
 
         <div class="flex items-center gap-4">
           <Button
-            variant="quiet"
+            variant="ghost"
             :disabled="guard.saving"
             @click="guard.cancel()"
           >
@@ -57,6 +57,7 @@ const discardText = computed(() => props.discardLabel ?? t('unsaved.discard'))
           </Button>
 
           <Button
+            variant="primary"
             size="lg"
             icon="i-lucide-save"
             :loading="guard.saving"

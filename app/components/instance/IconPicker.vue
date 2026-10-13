@@ -103,105 +103,92 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-5">
-    <div class="flex flex-wrap items-center justify-between gap-4">
+  <div class="space-y-4">
+    <div class="flex items-center gap-2">
       <RadioGroup v-model="tab">
         <RadioGroupItem
           v-for="item in TABS"
           :key="item.key"
           :value="item.key"
-          class="flex-none px-4 py-2 font-mono text-label uppercase tracking-caps"
+          class="h-7.5 flex-none px-3"
         >
           {{ $t(item.labelKey) }}
         </RadioGroupItem>
       </RadioGroup>
 
-      <div class="flex items-center gap-3">
-        <Button
-          icon="i-lucide-image-plus"
-          :loading="importing"
-          @click="importFile"
-        >
-          {{ $t('icon.upload') }}
-        </Button>
+      <span class="flex-1" />
 
-        <Button
-          variant="quiet"
-          icon="i-lucide-x"
-          :disabled="!icon"
-          @click="icon = ''"
-        >
-          {{ $t('icon.none') }}
-        </Button>
-      </div>
+      <Button
+        variant="ghost"
+        icon="i-lucide-x"
+        class="-mr-2"
+        :disabled="!icon"
+        @click="icon = ''"
+      >
+        {{ $t('icon.none') }}
+      </Button>
     </div>
 
-    <div v-if="tab === 'library'">
+    <div
+      v-if="tab === 'library'"
+      class="grid max-h-[22rem] grid-cols-6 gap-2.5 overflow-y-auto p-0.5"
+    >
       <div
-        v-if="library.length"
-        class="grid max-h-[22rem] grid-cols-8 gap-2 overflow-y-auto pr-1"
+        v-for="file in library"
+        :key="file.name"
+        class="group/icon relative"
       >
         <KitTile
-          v-for="file in library"
-          :key="file.name"
           :selected="icon === file.name"
-          class="grid aspect-square place-items-center"
+          class="grid aspect-square w-full place-items-center"
           :title="file.name"
           @click="icon = file.name"
         >
           <InstanceIcon
             :icon="file.name"
-            size="md"
-            :bordered="false"
+            size="lg"
           />
-
-          <span
-            class="absolute -top-px -right-px hidden size-5 place-items-center border border-line bg-ink-800 text-fg-faint transition-colors duration-300 group-hover:grid hover:border-danger/50 hover:text-danger"
-            :title="$t('icon.remove', { name: file.name })"
-            @click.stop="removeIcon(file.name)"
-          >
-            <Spinner
-              v-if="removing === file.name"
-              class="size-3"
-            />
-            <Icon
-              v-else
-              name="i-lucide-x"
-              class="size-3"
-            />
-          </span>
         </KitTile>
+
+        <Button
+          size="icon-sm"
+          icon="i-lucide-x"
+          :loading="removing === file.name"
+          :aria-label="$t('icon.remove', { name: file.name })"
+          :title="$t('icon.remove', { name: file.name })"
+          class="absolute top-1.5 right-1.5 bg-raise opacity-0 shadow-float ring-1 ring-line-strong group-hover/icon:opacity-100 focus-visible:opacity-100"
+          @click="removeIcon(file.name)"
+        />
       </div>
 
-      <KitEmpty v-else>
-        {{ $t('icon.library_empty') }}
-      </KitEmpty>
+      <Button
+        variant="dashed"
+        icon="i-lucide-image-plus"
+        :loading="importing"
+        :aria-label="$t('icon.upload')"
+        :title="$t('icon.upload')"
+        class="aspect-square h-auto rounded-md"
+        @click="importFile"
+      />
     </div>
 
     <div
       v-else
       class="space-y-4"
     >
-      <div class="flex flex-wrap items-end gap-4">
-        <KitField
-          :label="$t('icon.category')"
-          class="min-w-52 flex-1"
-        >
-          <KitSelect
-            v-model="category"
-            :items="categoryItems"
-          />
-        </KitField>
-
-        <KitField
-          :label="$t('icon.search')"
-          class="min-w-44 flex-1"
-        >
-          <KitSearchInput
-            v-model="search"
-            :placeholder="$t('icon.search_placeholder')"
-          />
-        </KitField>
+      <div class="flex items-center gap-2">
+        <KitSelect
+          v-model="category"
+          :items="categoryItems"
+          :aria-label="$t('icon.category')"
+          class="w-56"
+        />
+        <KitSearchInput
+          v-model="search"
+          :placeholder="$t('icon.search')"
+          :aria-label="$t('icon.search')"
+          class="min-w-0 flex-1"
+        />
       </div>
 
       <KitLoading
@@ -213,19 +200,18 @@ onMounted(async () => {
       <template v-else>
         <div
           v-if="visibleItems.length"
-          class="grid max-h-[19rem] grid-cols-8 gap-2 overflow-y-auto pr-1"
+          class="grid max-h-[19rem] grid-cols-8 gap-2 overflow-y-auto p-0.5"
         >
-          <button
+          <KitTile
             v-for="item in visibleItems"
             :key="item"
-            type="button"
-            class="grid aspect-square cursor-pointer place-items-center border border-line outline-none transition-colors duration-300 hover:border-acid/50 hover:bg-ink-700 focus-visible:border-acid/50"
+            class="grid aspect-square place-items-center"
             :title="itemName(item)"
             @click="useItem(item)"
           >
             <Spinner
               v-if="saving === item"
-              class="text-acid"
+              class="text-accent"
             />
             <img
               v-else-if="iconStore.itemUrlOf(item)"
@@ -235,24 +221,28 @@ onMounted(async () => {
             >
             <span
               v-else
-              class="size-4 bg-line/60"
+              class="size-4 rounded-xs bg-control"
             />
-          </button>
+          </KitTile>
         </div>
 
-        <KitEmpty v-else>
+        <KitEmpty
+          v-else
+          icon="i-lucide-search-x"
+        >
           {{ $t('icon.nothing_found') }}
         </KitEmpty>
 
         <div class="flex items-center justify-between gap-4">
-          <p class="font-mono text-label uppercase tracking-caps text-fg-faint">
+          <p class="text-caption text-fg-faint tabular-nums">
             {{ $t('icon.shown', { shown: visibleItems.length, total: catalogItems.length }) }}
           </p>
-
           <Button
             v-if="visibleItems.length < catalogItems.length"
-            variant="quiet"
+            variant="ghost"
+            size="sm"
             icon="i-lucide-chevron-down"
+            class="-mr-2.5"
             @click="limit += PAGE"
           >
             {{ $t('icon.show_more') }}

@@ -1,38 +1,69 @@
 <script setup lang="ts">
 import type { Instance } from '~/types/instance'
+import { useLocalStorage } from '@vueuse/core'
 
 definePageMeta({
   layout: 'main',
 })
 
-const { t } = useI18n()
+type Sort = 'recent' | 'name' | 'playtime'
+
+const SORTS: Sort[] = ['recent', 'name', 'playtime']
+
+const { t, locale } = useI18n()
 const instanceStore = useInstanceStore()
 const toast = useAppToast()
 
-const { installInstance, playInstance } = instanceStore
-const { instances, installs } = storeToRefs(instanceStore)
+const { instances } = storeToRefs(instanceStore)
 
 const createModalOpen = ref(false)
 const importModalOpen = ref(false)
+const launcherImportOpen = ref(false)
 const announceImport = useImportToast()
 
 const compact = useCompact()
 
-const selectedId = ref<string | null>(null)
-const selected = computed(() => instances.value.find(instance => instance.id === selectedId.value) ?? null)
+const query = ref('')
+const sort = useLocalStorage<Sort>('cast:library-sort', 'recent')
+const sortLabel = computed(() => t(`home.sort.${SORTS.includes(sort.value) ? sort.value : 'recent'}`))
 
-watch([compact, instances], () => {
-  if (compact.value && !selected.value) selectedId.value = instances.value[0]?.id ?? null
+const shown = computed(() => {
+  const needle = query.value.trim().toLocaleLowerCase(locale.value)
+  const list = instances.value.filter(instance => !needle
+    || instance.name.toLocaleLowerCase(locale.value).includes(needle)
+    || instance.minecraftVersion.includes(needle))
+
+  switch (sort.value) {
+    case 'name':
+      return list.sort((a, b) => a.name.localeCompare(b.name, locale.value))
+    case 'playtime':
+      return list.sort((a, b) => (b.playtime?.totalSeconds ?? 0) - (a.playtime?.totalSeconds ?? 0))
+    default:
+      return list.sort((a, b) => (b.playtime?.lastPlayedAt ?? 0) - (a.playtime?.lastPlayedAt ?? 0))
+  }
+})
+
+const selectedId = ref<string | null>(null)
+const selected = computed(() => shown.value.find(instance => instance.id === selectedId.value) ?? null)
+
+watch([compact, shown], () => {
+  if (compact.value && !selected.value) selectedId.value = shown.value[0]?.id ?? null
 }, { immediate: true })
+
+const find = (id: string) => instances.value.find(instance => instance.id === id) ?? null
+
+const exportTarget = ref<Instance | null>(null)
+const exportOpen = computed({
+  get: () => !!exportTarget.value,
+  set: (value: boolean) => {
+    if (!value) exportTarget.value = null
+  },
+})
 
 const removeTarget = ref<Instance | null>(null)
 const removing = ref(false)
 
 const { remove } = useInstanceActions()
-
-function askRemove(id: string) {
-  removeTarget.value = instances.value.find(instance => instance.id === id) ?? null
-}
 
 async function confirmRemove() {
   const target = removeTarget.value
@@ -53,134 +84,150 @@ async function confirmRemove() {
   })
 }
 
-const isRunning = (id: string) => instanceStore.isRunning(id)
-
-const isInstalling = (id: string) => installs.value.some(install => install.instanceId === id)
-
-const installOf = (id: string) => installs.value.find(i => i.instanceId === id)
-
-const openCreateModal = () => {
-  createModalOpen.value = true
-}
-
 function onImported(instanceId: string, updated: boolean) {
   importModalOpen.value = false
   announceImport(instanceId, updated)
 }
-
-const run = (id: string) => safeRun(
-  () => playInstance(id),
-  { context: { instanceId: id, action: t('instance.context.play') } },
-)
 </script>
 
 <template>
-  <div
-    :data-compact="compact"
-    class="min-h-full w-full"
-    :class="compact ? 'flex items-stretch' : 'px-6 pt-6 pb-10 xl:px-10'"
-  >
-    <div
-      class="min-w-0"
-      :class="compact ? 'flex-1 px-6 pt-6 pb-10 xl:px-10' : ''"
-    >
-      <section>
-        <KitSectionHeading
-          index="01"
-          :title="$t('home.title')"
+  <div class="flex min-h-full w-full items-stretch">
+    <div class="min-w-0 flex-1 px-8 pt-6 pb-8">
+      <div
+        v-if="instances.length"
+        class="flex items-center gap-2"
+      >
+        <KitSearchInput
+          v-model="query"
+          :placeholder="$t('home.search')"
+          :aria-label="$t('home.search')"
+          class="w-65"
+        />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="ghost"
+              icon="i-lucide-arrow-down-wide-narrow"
+              trailing-icon="i-lucide-chevron-down"
+            >
+              {{ sortLabel }}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuRadioGroup v-model="sort">
+              <DropdownMenuRadioItem
+                v-for="option in SORTS"
+                :key="option"
+                :value="option"
+              >
+                {{ $t(`home.sort.${option}`) }}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <span class="flex-1" />
+
+        <KitSplitButton
+          icon="i-lucide-plus"
+          :menu-label="$t('home.more_ways')"
+          @click="createModalOpen = true"
         >
-          <template #action>
-            <Button
-              variant="quiet"
-              size="xs"
-              class="group/imp ml-2"
-              @click="importModalOpen = true"
+          {{ $t('home.new_instance') }}
+
+          <template #menu>
+            <DropdownMenuItem
+              icon="i-lucide-file-archive"
+              @select="importModalOpen = true"
             >
-              <Icon
-                name="i-lucide-file-archive"
-                class="size-3 transition-transform duration-500 group-hover/imp:-translate-y-0.5"
-              />
               {{ $t('home.from_file') }}
-            </Button>
-
-            <Button
-              size="xs"
-              class="group/new ml-2"
-              @click="openCreateModal"
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              icon="i-lucide-import"
+              @select="launcherImportOpen = true"
             >
-              <Icon
-                name="i-lucide-plus"
-                class="size-3 transition-transform duration-500 group-hover/new:rotate-90"
-              />
-              {{ $t('home.create') }}
-            </Button>
+              {{ $t('home.from_launcher') }}
+            </DropdownMenuItem>
           </template>
-        </KitSectionHeading>
+        </KitSplitButton>
+      </div>
 
+      <template v-if="shown.length">
         <div
           v-if="compact"
-          class="mt-4 grid grid-cols-[repeat(auto-fill,minmax(6.25rem,1fr))] gap-1"
+          class="mt-5 grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1"
         >
           <InstanceCompactCard
-            v-for="instance in instances"
+            v-for="instance in shown"
             :key="instance.id"
             :instance="instance"
             :selected="instance.id === selectedId"
             @select="selectedId = $event"
-            @remove="askRemove"
+            @export="exportTarget = find($event)"
+            @remove="removeTarget = find($event)"
           />
-
-          <Button
-            variant="dashed"
-            class="group h-auto flex-col gap-2 p-2.5 normal-case tracking-normal"
-            @click="openCreateModal"
-          >
-            <Icon
-              name="i-lucide-plus"
-              class="size-4 transition-transform duration-500 ease-deck group-hover:rotate-90"
-            />
-            <span class="font-sans text-caption leading-tight">{{ $t('home.new') }}</span>
-          </Button>
         </div>
 
         <div
           v-else
-          class="mt-4 grid grid-cols-3 gap-3 xl:grid-cols-4 2xl:grid-cols-5"
+          class="mt-5 grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3"
         >
           <InstanceCard
-            v-for="(instance, i) in instances"
+            v-for="instance in shown"
             :key="instance.id"
             :instance="instance"
-            :running="isRunning(instance.id)"
-            :installing="isInstalling(instance.id)"
-            :progress="installOf(instance.id)?.progress"
-            :phase="installOf(instance.id)?.phase"
-            class="animate-rise"
-            :style="{ animationDelay: `${i * 35}ms` }"
-            @install="installInstance"
-            @run="run"
+            @export="exportTarget = find($event)"
+            @remove="removeTarget = find($event)"
           />
+        </div>
+      </template>
 
+      <KitEmpty
+        v-else-if="instances.length"
+        icon="i-lucide-search-x"
+        class="mt-5"
+      >
+        {{ $t('home.nothing_found') }}
+      </KitEmpty>
+
+      <KitEmpty
+        v-else
+        icon="i-lucide-box"
+        class="mt-2"
+      >
+        {{ $t('home.empty') }}
+
+        <template #action>
           <Button
-            variant="dashed"
-            class="group h-auto min-h-28 flex-col gap-2 duration-500 ease-deck hover:-translate-y-0.5"
-            @click="openCreateModal"
+            variant="primary"
+            icon="i-lucide-plus"
+            @click="createModalOpen = true"
           >
-            <Icon
-              name="i-lucide-plus"
-              class="size-4 transition-transform duration-500 ease-deck group-hover:rotate-90"
-            />
             {{ $t('home.new_instance') }}
           </Button>
-        </div>
-      </section>
+          <Button
+            icon="i-lucide-file-archive"
+            @click="importModalOpen = true"
+          >
+            {{ $t('home.from_file') }}
+          </Button>
+          <Button
+            icon="i-lucide-import"
+            @click="launcherImportOpen = true"
+          >
+            {{ $t('home.from_launcher') }}
+          </Button>
+        </template>
+      </KitEmpty>
     </div>
 
     <InstanceSidePanel
-      v-if="compact"
+      v-if="compact && instances.length"
       :instance="selected"
-      class="sticky top-0 h-[calc(100vh-2.75rem)] w-64 shrink-0"
-      @remove="askRemove"
+      class="sticky top-0 h-[calc(100vh-2.5rem)] w-75 shrink-0"
+      @export="exportTarget = find($event)"
+      @remove="removeTarget = find($event)"
     />
 
     <Dialog v-model:open="createModalOpen">
@@ -204,6 +251,23 @@ const run = (id: string) => safeRun(
         </DialogBody>
       </DialogContent>
     </Dialog>
+
+    <Dialog v-model:open="launcherImportOpen">
+      <DialogContent class="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{{ $t('settings.import.title') }}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <ImportWizard />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
+
+    <CastExportModal
+      v-if="exportTarget"
+      v-model:open="exportOpen"
+      :instance="exportTarget"
+    />
 
     <KitConfirmDialog
       :open="!!removeTarget"

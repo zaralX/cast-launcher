@@ -25,3 +25,4 @@ pub mod process;
 pub mod skins;
 pub mod telemetry;
 pub mod text;
+pub mod theme;

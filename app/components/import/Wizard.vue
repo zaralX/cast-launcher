@@ -7,7 +7,6 @@ interface SourceInfo {
   hintKey: string
   icon: string
   placeholder: string
-  librariesHintKey: string
 }
 
 const SOURCES: SourceInfo[] = [
@@ -17,7 +16,6 @@ const SOURCES: SourceInfo[] = [
     hintKey: 'settings.import.prism.hint',
     icon: 'i-lucide-package',
     placeholder: '%APPDATA%\\PrismLauncher',
-    librariesHintKey: 'settings.import.prism.libraries_hint',
   },
   {
     kind: 'modrinth',
@@ -25,7 +23,6 @@ const SOURCES: SourceInfo[] = [
     hintKey: 'settings.import.modrinth.hint',
     icon: 'i-lucide-box',
     placeholder: '%APPDATA%\\ModrinthApp',
-    librariesHintKey: 'settings.import.modrinth.libraries_hint',
   },
 ]
 
@@ -47,23 +44,11 @@ const current = computed(() => SOURCES.find(option => option.kind === source.val
 const detected = computed(() => launchers.value.find(launcher => launcher.kind === source.value) ?? null)
 
 const rows = computed(() => [
-  { key: 'libraries' as const, title: t('settings.import.rows.libraries'), hint: t(current.value.librariesHintKey) },
-  {
-    key: 'assets' as const,
-    title: t('settings.import.rows.assets'),
-    hint: t('settings.import.rows.assets_hint'),
-  },
-  {
-    key: 'java' as const,
-    title: t('settings.import.rows.java'),
-    hint: t('settings.import.rows.java_hint'),
-  },
-  { key: 'icons' as const, title: t('settings.import.rows.icons'), hint: t('settings.import.rows.icons_hint') },
-  {
-    key: 'linkPacks' as const,
-    title: t('settings.import.rows.link_packs'),
-    hint: t('settings.import.rows.link_packs_hint'),
-  },
+  { key: 'libraries' as const, title: t('settings.import.rows.libraries') },
+  { key: 'assets' as const, title: t('settings.import.rows.assets') },
+  { key: 'java' as const, title: t('settings.import.rows.java') },
+  { key: 'icons' as const, title: t('settings.import.rows.icons') },
+  { key: 'linkPacks' as const, title: t('settings.import.rows.link_packs') },
 ])
 
 const scanning = ref(false)
@@ -187,14 +172,14 @@ onMounted(async () => {
       >
         <Icon
           :name="option.icon"
-          class="size-5 shrink-0 text-fg-faint group-data-[state=checked]:text-acid"
+          class="size-5 shrink-0 text-fg-faint group-data-[state=checked]:text-accent"
         />
 
         <div class="min-w-0 flex-1">
-          <p class="truncate text-title text-fg">
+          <p class="truncate font-medium text-fg">
             {{ option.label }}
           </p>
-          <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
+          <p class="mt-0.5 truncate text-caption text-fg-faint">
             {{ $t(option.hintKey) }}
           </p>
         </div>
@@ -244,8 +229,9 @@ onMounted(async () => {
         </Label>
 
         <Button
-          variant="quiet"
-          :icon="allSelected ? 'i-lucide-square' : 'i-lucide-check-square'"
+          variant="ghost"
+          size="sm"
+          class="-mr-2.5"
           :disabled="running || !importable.length"
           @click="toggleAll"
         >
@@ -253,26 +239,31 @@ onMounted(async () => {
         </Button>
       </div>
 
-      <ul class="border-t border-line">
+      <ul
+        v-if="scanned.length"
+        class="max-h-80 divide-y divide-line overflow-y-auto rounded-md bg-panel ring-1 ring-card-line ring-inset"
+      >
         <KitListItem
           v-for="instance in scanned"
           :key="instance.folder"
-          :active="isSelected(instance.folder)"
           :disabled="!!instance.blocked"
+          class="rounded-none px-4"
           @select="toggle(instance)"
         >
           <template #leading>
-            <Icon
-              :name="instance.blocked ? 'i-lucide-ban' : isSelected(instance.folder) ? 'i-lucide-check' : 'i-lucide-minus'"
-              class="size-4 shrink-0"
-              :class="isSelected(instance.folder) ? 'text-acid' : 'text-fg-faint'"
+            <Checkbox
+              :model-value="isSelected(instance.folder)"
+              :disabled="!!instance.blocked"
+              tabindex="-1"
+              aria-hidden="true"
+              class="pointer-events-none"
             />
           </template>
 
-          <p class="truncate text-title text-fg">
+          <p class="truncate font-medium text-fg">
             {{ instance.name }}
           </p>
-          <p class="mt-1 truncate font-mono text-micro uppercase tracking-caps text-fg-faint">
+          <p class="truncate text-caption text-fg-faint">
             {{ instance.minecraftVersion || '-' }} · {{ instance.loaderLabel }}
             <template v-if="instance.pack">
               · {{ instance.pack.provider }}
@@ -283,23 +274,23 @@ onMounted(async () => {
           </p>
           <p
             v-if="instance.blocked"
-            class="mt-1 truncate font-mono text-label text-warning"
+            class="truncate text-caption text-warning"
           >
             {{ uiText(instance.blocked) }}
           </p>
         </KitListItem>
       </ul>
 
-      <p
-        v-if="!scanned.length"
-        class="border-b border-line py-6 text-center font-mono text-label uppercase tracking-caps text-fg-faint"
+      <KitEmpty
+        v-else
+        icon="i-lucide-folder-search"
       >
         {{ $t('settings.import.empty') }}
-      </p>
+      </KitEmpty>
 
       <p
-        v-else-if="blocked.length"
-        class="mt-3 font-mono text-label leading-relaxed text-fg-faint/70"
+        v-if="blocked.length"
+        class="mt-3 text-caption text-fg-faint"
       >
         {{ $t('settings.import.blocked', { count: blocked.length, launcher: current.label }) }}
       </p>
@@ -307,46 +298,35 @@ onMounted(async () => {
 
     <div
       v-if="scanned?.length"
-      class="space-y-4 border-t border-line pt-6"
+      class="grid grid-cols-2 gap-x-6 rounded-md bg-panel px-4 py-1.5 ring-1 ring-card-line ring-inset"
     >
-      <KitRow
+      <label
         v-for="row in rows"
         :key="row.key"
-        :bordered="false"
-        :label="row.title"
-        :description="row.hint"
+        class="flex cursor-pointer items-center justify-between gap-4 py-2"
       >
+        <span class="text-fg">{{ row.title }}</span>
         <Switch
           v-model="options[row.key]"
-          size="lg"
           :disabled="running"
         />
-      </KitRow>
+      </label>
     </div>
 
     <Alert
       v-if="running"
-      class="block bg-ink-700 px-5 py-4"
+      variant="accent"
+      icon="i-lucide-loader"
     >
-      <div class="flex items-center justify-between gap-4">
-        <p class="min-w-0 truncate font-mono text-label uppercase tracking-caps text-acid">
-          {{ progress ? $t(STAGE_KEYS[progress.stage]) : $t('settings.import.preparing') }}
-          <span
-            v-if="progress?.step"
-            class="text-fg-muted"
-          > · {{ uiText(progress.step) }}</span>
-        </p>
+      <p class="truncate font-medium text-fg">
+        {{ progress ? $t(STAGE_KEYS[progress.stage]) : $t('settings.import.preparing') }}
+        <span
+          v-if="progress?.step"
+          class="font-normal text-fg-muted"
+        > · {{ uiText(progress.step) }}</span>
+      </p>
 
-        <Button
-          variant="quiet"
-          icon="i-lucide-x"
-          @click="cancel"
-        >
-          {{ $t('settings.import.cancel') }}
-        </Button>
-      </div>
-
-      <p class="mt-3 font-mono text-label text-fg-faint">
+      <p class="mt-0.5 text-caption text-fg-faint">
         <template v-if="progress">
           {{ $t('settings.import.files', { files: progress.stats.files, bytes: formatBytes(progress.stats.bytes) }) }}
           <template v-if="progress.stats.skipped">
@@ -360,20 +340,29 @@ onMounted(async () => {
           {{ $t('settings.import.reading', { launcher: current.label }) }}
         </template>
       </p>
+
+      <template #action>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon="i-lucide-x"
+          @click="cancel"
+        >
+          {{ $t('settings.import.cancel') }}
+        </Button>
+      </template>
     </Alert>
 
     <Alert
       v-else-if="report"
-      class="block bg-ink-700 px-5 py-4"
+      :variant="report.cancelled ? 'warning' : 'accent'"
+      :icon="report.cancelled ? 'i-lucide-circle-slash' : 'i-lucide-circle-check'"
     >
-      <p
-        class="font-mono text-label uppercase tracking-caps"
-        :class="report.cancelled ? 'text-warning' : 'text-acid'"
-      >
+      <p class="font-medium text-fg">
         {{ report.cancelled ? $t('settings.import.cancelled') : $t('settings.import.finished') }}
       </p>
 
-      <p class="mt-3">
+      <p class="mt-0.5">
         {{ $t('settings.import.report', {
           imported: report.imported.length,
           files: report.stats.files,
@@ -383,12 +372,12 @@ onMounted(async () => {
 
       <ul
         v-if="report.skipped.length"
-        class="mt-3 space-y-1"
+        class="mt-2 space-y-1"
       >
         <li
           v-for="skipped in report.skipped"
           :key="skipped.name"
-          class="font-mono text-label leading-relaxed text-warning"
+          class="text-caption text-warning"
         >
           {{ skipped.name }} - {{ uiText(skipped.reason) }}
         </li>
@@ -397,7 +386,8 @@ onMounted(async () => {
 
     <Button
       v-if="scanned?.length"
-      size="xl"
+      variant="primary"
+      size="lg"
       icon="i-lucide-download"
       class="w-full"
       :loading="running"

@@ -10,11 +10,11 @@ defineProps<{
 <template>
   <button
     type="button"
-    class="group relative flex cursor-pointer items-center gap-4 border border-line bg-ink-800 px-5 py-4 text-left outline-none transition-colors duration-500 hover:border-acid/50 focus-visible:border-acid/50"
+    class="group relative flex cursor-pointer items-center gap-4 border border-line bg-panel px-5 py-4 text-left outline-none transition-colors duration-500 hover:border-accent/50 focus-visible:border-accent/50"
   >
     <Icon
       :name="icon"
-      class="size-[18px] shrink-0 text-fg-faint transition-colors duration-300 group-hover:text-acid"
+      class="size-[18px] shrink-0 text-fg-faint transition-colors duration-300 group-hover:text-accent"
     />
 
     <span class="min-w-0 flex-1">

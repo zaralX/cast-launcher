@@ -40,6 +40,6 @@ onMounted(resize)
     ref="element"
     v-model="modelValue"
     data-slot="textarea"
-    :class="cn(FIELD, 'block w-full resize-none px-2.5 py-1.5', props.class)"
+    :class="cn(FIELD, 'block w-full resize-none px-2.5 py-2', props.class)"
   />
 </template>

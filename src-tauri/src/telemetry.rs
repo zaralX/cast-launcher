@@ -9,6 +9,7 @@ use tauri_plugin_aptabase::{EventTracker, InitOptions};
 pub use cast_core::telemetry::{classify_crash, host_of, megabytes, minutes, Event};
 
 use cast_core::config::AppConfig;
+use cast_core::theme;
 
 use crate::state::AppState;
 
@@ -118,7 +119,7 @@ pub async fn app_started(app: &AppHandle, state: &Arc<AppState>) {
         .text("java_mode", config.java.java_mode.key())
         .num("min_ram", config.java.min_ram)
         .num("max_ram", config.java.max_ram)
-        .text("theme", &config.launcher.theme)
+        .text("theme", theme::public_name(&config.launcher.theme))
         .text("accent", &config.launcher.accent)
         .text("language", &config.launcher.language)
         .flag("compact", config.launcher.compact)
@@ -155,7 +156,11 @@ pub fn settings_changed(app: &AppHandle, before: &AppConfig, after: &AppConfig) 
         &before.launcher.language,
         &after.launcher.language,
     );
-    text("theme", &before.launcher.theme, &after.launcher.theme);
+    text(
+        "theme",
+        theme::public_name(&before.launcher.theme),
+        theme::public_name(&after.launcher.theme),
+    );
     text("accent", &before.launcher.accent, &after.launcher.accent);
     text(
         "java_mode",

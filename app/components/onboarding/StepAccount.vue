@@ -7,9 +7,6 @@ const adding = ref(false)
 
 const accounts = computed(() => accountConfig.value?.accounts ?? [])
 
-const faceOf = (name: string) =>
-  `https://assets.zaralx.ru/api/v2/minecraft/players/${encodeURIComponent(name)}/face`
-
 async function addOffline() {
   const name = nickname.value.trim()
   if (!name || adding.value) return
@@ -34,33 +31,33 @@ const select = (index: number) => safeRun(() => accountStore.selectAccount(index
   >
     <div class="space-y-6">
       <Button
-        size="xl"
+        variant="primary"
+        size="lg"
         icon="simple-icons:microsoft"
-        class="h-12 w-full"
+        class="w-full"
         :loading="loggingIn"
         @click="loginMicrosoft"
       >
         Microsoft
       </Button>
 
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
         <Separator class="flex-1" />
-        <span class="font-mono text-micro uppercase tracking-caps text-fg-faint">
-          {{ $t('settings.accounts.offline') }}
-        </span>
+        <span class="text-caption text-fg-faint">{{ $t('settings.accounts.offline') }}</span>
         <Separator class="flex-1" />
       </div>
 
       <div class="flex gap-2">
         <Input
           v-model="nickname"
-          placeholder="nickname"
+          :placeholder="$t('settings.accounts.nickname')"
+          :aria-label="$t('settings.accounts.nickname')"
           size="lg"
-          font="mono"
           @keydown.enter="addOffline"
         />
 
         <Button
+          size="lg"
           icon="i-lucide-plus"
           :loading="adding"
           :disabled="!nickname.trim()"
@@ -72,29 +69,24 @@ const select = (index: number) => safeRun(() => accountStore.selectAccount(index
 
       <ul
         v-if="accounts.length"
-        class="border-t border-line"
+        class="divide-y divide-line overflow-hidden rounded-md bg-panel ring-1 ring-card-line ring-inset"
       >
         <KitListItem
           v-for="(account, i) in accounts"
           :key="`${account.type}-${account.name}-${i}`"
           :active="accountConfig?.selected === i"
           :active-label="$t('settings.accounts.active')"
-          class="pr-4"
+          class="rounded-none px-4"
           @select="select(i)"
         >
           <template #leading>
-            <img
-              :src="faceOf(account.name)"
-              class="size-8 shrink-0"
-              :alt="account.name"
-              @error="fallbackFace"
-            >
+            <KitAvatar :name="account.name" />
           </template>
 
-          <p class="truncate text-title text-fg">
+          <p class="truncate font-medium text-fg">
             {{ account.name }}
           </p>
-          <p class="mt-1 font-mono text-micro uppercase tracking-caps text-fg-faint">
+          <p class="truncate text-caption text-fg-faint">
             {{ account.type === 'microsoft' ? 'Microsoft' : $t('settings.accounts.offline') }}
           </p>
         </KitListItem>

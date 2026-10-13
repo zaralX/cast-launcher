@@ -2,13 +2,15 @@ import type { ClassValue } from 'clsx'
 import { clsx } from 'clsx'
 import { extendTailwindMerge } from 'tailwind-merge'
 
-// Without our theme keys tailwind-merge reads `text-label` as a color and drops it next to `text-fg`.
+// Without our theme keys tailwind-merge reads `text-caption` as a color and drops it next to `text-fg`.
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      text: ['micro', 'label', 'caption', 'body', 'title', 'lead', 'heading'],
+      text: ['micro', 'caption', 'body', 'title', 'lead', 'heading', 'page', 'display'],
       tracking: ['caps', 'caps-wide', 'heading', 'display'],
-      animate: ['rise', 'sweep', 'blink', 'breathe'],
+      radius: ['pill'],
+      shadow: ['float', 'dialog', 'sheet', 'focus', 'invalid'],
+      animate: ['rise', 'sweep', 'breathe'],
       ease: ['deck'],
     },
   },

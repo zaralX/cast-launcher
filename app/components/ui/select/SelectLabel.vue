@@ -2,6 +2,7 @@
 import type { SelectLabelProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
 import { SelectLabel } from 'reka-ui'
+import { MENU_LABEL } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<SelectLabelProps & { class?: HTMLAttributes['class'] }>()
@@ -10,7 +11,7 @@ const props = defineProps<SelectLabelProps & { class?: HTMLAttributes['class'] }
 <template>
   <SelectLabel
     data-slot="select-label"
-    :class="cn('px-1.5 py-1.5 font-mono text-micro uppercase tracking-caps text-fg-faint', props.class)"
+    :class="cn(MENU_LABEL, props.class)"
   >
     <slot />
   </SelectLabel>

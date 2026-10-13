@@ -47,6 +47,11 @@ export const VARIANT_LABELS: Record<SkinVariant, string> = {
   SLIM: 'Slim',
 }
 
+export const VARIANT_ARM_PIXELS: Record<SkinVariant, number> = {
+  CLASSIC: 4,
+  SLIM: 3,
+}
+
 export const VARIANT_HINT_KEYS: Record<SkinVariant, string> = {
   CLASSIC: 'skins.variant.classic_hint',
   SLIM: 'skins.variant.slim_hint',

@@ -1,17 +1,20 @@
 import type { VariantProps } from 'class-variance-authority'
 import { cva } from 'class-variance-authority'
+import { FOCUS_RING } from '@/lib/styles'
 
 export { default as Toggle } from './Toggle.vue'
 
 export const toggleVariants = cva(
-  'inline-flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap outline-none transition-colors duration-300 focus-visible:ring-1 focus-visible:ring-acid/60 disabled:pointer-events-none disabled:opacity-75',
+  `${FOCUS_RING} inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-sm font-medium whitespace-nowrap transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45`,
   {
     variants: {
       variant: {
-        chip: 'border border-line font-mono uppercase tracking-caps text-fg-faint hover:border-line-strong hover:text-fg-muted data-[state=on]:border-acid data-[state=on]:text-acid',
+        chip: 'bg-control text-fg-muted hover:bg-hover hover:text-fg data-[state=on]:bg-accent/15 data-[state=on]:text-accent',
+        ghost: 'text-fg-faint hover:bg-control hover:text-fg data-[state=on]:bg-control data-[state=on]:text-fg',
       },
       size: {
-        sm: 'px-2.5 py-1 text-label',
+        'sm': 'h-7 px-2.5 text-caption',
+        'icon-sm': 'size-7',
       },
     },
     defaultVariants: {

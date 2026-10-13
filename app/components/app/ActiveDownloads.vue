@@ -1,5 +1,4 @@
 <script setup lang="ts">
-const { t } = useI18n()
 const instanceStore = useInstanceStore()
 const { installs } = storeToRefs(instanceStore)
 
@@ -13,123 +12,106 @@ const averageProgress = computed(() => {
 
 const percent = (value: number) => Math.round(value * 100)
 
-const formatSize = (bytes: number) => {
-  if (!bytes) return '-'
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} ${t('common.unit.kb')}`
-  return `${(bytes / 1024 / 1024).toFixed(1)} ${t('common.unit.mb')}`
-}
-
 watch(installs, (value) => {
   if (!value.length) open.value = false
 })
 </script>
 
 <template>
-  <Dialog
+  <Popover
     v-if="installs.length"
     v-model:open="open"
   >
-    <DialogTrigger as-child>
-      <button
-        type="button"
-        class="group relative flex max-w-md min-w-64 cursor-pointer items-center gap-2.5 overflow-hidden border border-line bg-ink-700 px-3 py-1 text-left outline-none transition-colors duration-300 hover:border-acid/50 hover:bg-ink-600 focus-visible:border-acid/50"
+    <PopoverTrigger as-child>
+      <Button
+        variant="ghost"
+        size="sm"
+        class="my-auto mr-1.5 max-w-72"
       >
-        <KitLiveDot
-          size="sm"
-          class="text-acid"
+        <Icon
+          name="i-lucide-download"
+          class="size-3.5 shrink-0 text-accent"
         />
-
-        <span class="min-w-0 flex-1 truncate font-mono text-caption leading-none text-fg-muted">
-          <template v-if="installs.length === 1">
-            {{ installs[0]!.instanceName }} · {{ uiText(installs[0]!.phase) }}
-          </template>
-          <template v-else>
-            {{ $t('download.installs', { count: installs.length }) }}
-          </template>
+        <span class="min-w-0 truncate">
+          <template v-if="installs.length === 1">{{ installs[0]!.instanceName }}</template>
+          <template v-else>{{ $t('download.installs', { count: installs.length }) }}</template>
         </span>
-
-        <span class="shrink-0 font-mono text-caption leading-none tabular-nums text-acid">
-          {{ percent(averageProgress) }}%
-        </span>
-
         <Progress
           :model-value="percent(averageProgress)"
-          class="absolute inset-x-0 bottom-0 bg-transparent"
+          class="w-10 shrink-0"
         />
-      </button>
-    </DialogTrigger>
+        <span class="shrink-0 tabular-nums">{{ percent(averageProgress) }}%</span>
+      </Button>
+    </PopoverTrigger>
 
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>{{ $t('download.title') }}</DialogTitle>
-      </DialogHeader>
+    <PopoverContent
+      align="end"
+      class="w-90 overflow-hidden"
+    >
+      <p class="px-4 pt-3.5 pb-2 text-title font-semibold text-fg">
+        {{ $t('download.title') }}
+      </p>
 
-      <DialogBody class="space-y-8">
+      <div class="max-h-[min(30rem,calc(100vh-6rem))] overflow-y-auto">
         <section
           v-for="install in installs"
           :key="install.instanceId"
+          class="border-t border-line px-4 py-3"
         >
-          <header class="flex items-baseline justify-between gap-4">
-            <div class="min-w-0">
-              <h3 class="truncate font-unbounded text-lead font-semibold tracking-heading text-fg">
-                {{ install.instanceName }}
-              </h3>
-              <p class="mt-1.5 truncate font-mono text-label uppercase tracking-caps text-fg-faint">
-                {{ uiText(install.phase) }}
-              </p>
-            </div>
+          <div class="flex items-baseline justify-between gap-3">
+            <p class="min-w-0 truncate font-medium text-fg">
+              {{ install.instanceName }}
+            </p>
+            <span class="shrink-0 text-caption text-fg tabular-nums">{{ percent(install.progress) }}%</span>
+          </div>
+          <p class="mt-0.5 truncate text-caption text-fg-muted">
+            {{ uiText(install.phase) }}
+          </p>
 
-            <span class="shrink-0 font-unbounded text-[22px] font-semibold leading-none tracking-[-0.05em] text-fg">
-              {{ percent(install.progress) }}<span class="text-body text-acid">%</span>
-            </span>
-          </header>
-
-          <Progress
-            :model-value="percent(install.progress)"
-            class="mt-3"
-          />
+          <div class="mt-2 flex items-center gap-2.5">
+            <Progress
+              :model-value="percent(install.progress)"
+              class="flex-1"
+            />
+            <Button
+              variant="danger-ghost"
+              size="sm"
+              :loading="install.aborting"
+              @click="instanceStore.abortInstall(install.instanceId)"
+            >
+              {{ install.aborting ? $t('download.aborting') : $t('download.abort') }}
+            </Button>
+          </div>
 
           <ul
             v-if="install.files.length"
-            class="mt-4 space-y-2.5"
+            class="mt-2 space-y-1"
           >
             <li
               v-for="file in install.files"
               :key="file.url"
-              class="flex items-center gap-3"
+              class="flex items-center gap-2.5 text-micro text-fg-faint"
             >
-              <span class="min-w-0 flex-1 truncate font-mono text-label text-fg-muted">{{ file.name }}</span>
-
-              <span class="shrink-0 font-mono text-label tabular-nums text-fg-faint">
-                {{ formatSize(file.total) }}
-              </span>
-
+              <span class="min-w-0 flex-1 truncate font-mono">{{ file.name }}</span>
+              <span
+                v-if="file.total"
+                class="shrink-0 font-mono tabular-nums"
+              >{{ formatBytes(file.total) }}</span>
               <Progress
                 :model-value="percent(file.percent)"
                 tone="muted"
-                class="w-20 shrink-0"
+                class="w-14 shrink-0"
               />
             </li>
           </ul>
-
           <p
-            v-else
-            class="mt-4 truncate font-mono text-label text-fg-faint"
+            v-else-if="install.message"
+            class="mt-2 truncate text-micro text-fg-faint"
           >
             {{ uiText(install.message) }}
           </p>
-
-          <Button
-            variant="quiet-danger"
-            icon="i-lucide-circle-stop"
-            class="mt-2"
-            :loading="install.aborting"
-            @click="instanceStore.abortInstall(install.instanceId)"
-          >
-            {{ install.aborting ? $t('download.aborting') : $t('download.abort') }}
-          </Button>
         </section>
-      </DialogBody>
-    </DialogContent>
-  </Dialog>
+      </div>
+    </PopoverContent>
+  </Popover>
 </template>

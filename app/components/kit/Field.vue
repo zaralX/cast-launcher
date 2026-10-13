@@ -2,6 +2,7 @@
 defineProps<{
   label: string
   hint?: string
+  error?: string
   for?: string
 }>()
 </script>
@@ -10,14 +11,20 @@ defineProps<{
   <div>
     <Label
       :for="$props.for"
-      class="mb-2"
+      class="mb-1.5"
     >
       {{ label }}
     </Label>
     <slot />
     <p
-      v-if="hint"
-      class="mt-2 font-mono text-label leading-relaxed text-fg-faint/70"
+      v-if="error"
+      class="mt-1.5 text-caption text-danger"
+    >
+      {{ error }}
+    </p>
+    <p
+      v-else-if="hint"
+      class="mt-1.5 text-caption text-fg-faint"
     >
       {{ hint }}
     </p>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ToastAction, ToastColor } from '.'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 const props = withDefaults(defineProps<{
   title: string
@@ -21,8 +22,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ closeToast: [] }>()
 
 const TONE: Record<ToastColor, { icon: string, bar: string }> = {
-  neutral: { icon: 'text-fg', bar: 'bg-fg-muted' },
-  info: { icon: 'text-acid', bar: 'bg-acid' },
+  neutral: { icon: 'text-fg-muted', bar: 'bg-fg-faint' },
+  info: { icon: 'text-accent', bar: 'bg-accent' },
   success: { icon: 'text-success', bar: 'bg-success' },
   warning: { icon: 'text-warning', bar: 'bg-warning' },
   error: { icon: 'text-danger', bar: 'bg-danger' },
@@ -37,7 +38,7 @@ function run(action: ToastAction, event: MouseEvent) {
 <template>
   <div
     data-slot="toast"
-    class="relative flex w-(--width) gap-2.5 overflow-hidden bg-ink-800 p-4 shadow-lg ring ring-line"
+    class="relative flex w-(--width) gap-3 overflow-hidden rounded-md bg-raise pt-3.5 pr-3 pb-4 pl-3.5 shadow-float ring-1 ring-line-strong"
   >
     <Icon
       v-if="icon"
@@ -46,12 +47,12 @@ function run(action: ToastAction, event: MouseEvent) {
     />
 
     <div class="flex w-0 flex-1 flex-col">
-      <p class="text-lead font-medium text-fg">
+      <p class="text-title font-medium text-fg">
         {{ title }}
       </p>
       <p
         v-if="description"
-        class="mt-1 text-lead text-fg-muted"
+        class="mt-0.5 text-body text-fg-muted"
       >
         {{ description }}
       </p>
@@ -60,10 +61,10 @@ function run(action: ToastAction, event: MouseEvent) {
         class="mt-2.5 flex items-start gap-1.5"
       >
         <Button
-          v-for="action in actions"
+          v-for="(action, index) in actions"
           :key="action.label"
-          variant="outline"
-          size="xs"
+          :variant="index === 0 ? 'secondary' : 'ghost'"
+          size="sm"
           @click="run(action, $event)"
         >
           {{ action.label }}
@@ -76,7 +77,7 @@ function run(action: ToastAction, event: MouseEvent) {
       size="icon-sm"
       icon="i-lucide-x"
       :aria-label="$t('common.close')"
-      class="-mt-1.5 -mr-1.5 shrink-0"
+      class="-mt-1 shrink-0"
       @click="emit('closeToast')"
     />
 

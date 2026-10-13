@@ -13,14 +13,14 @@ watch(open, (isOpen) => {
   if (isOpen) errorStore.markAllSeen()
 }, { immediate: true })
 
-const SEVERITY: Record<ErrorSeverity, { icon: string, rule: string }> = {
-  error: { icon: 'text-danger', rule: 'bg-danger/70' },
-  warning: { icon: 'text-warning', rule: 'bg-warning/70' },
-  info: { icon: 'text-acid', rule: 'bg-acid/70' },
+const SEVERITY: Record<ErrorSeverity, string> = {
+  error: 'bg-danger/16 text-danger',
+  warning: 'bg-warning/16 text-warning',
+  info: 'bg-accent/16 text-accent',
 }
 
 function formatTime(at: number) {
-  return new Date(at).toLocaleTimeString(locale.value)
+  return new Date(at).toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' })
 }
 
 async function copy(id: string, text: string) {
@@ -41,142 +41,150 @@ function copyAll() {
 </script>
 
 <template>
-  <Dialog v-model:open="open">
-    <DialogTrigger as-child>
+  <Popover v-model:open="open">
+    <PopoverTrigger as-child>
       <Button
         variant="ghost"
-        size="icon-lg"
+        size="bar"
         :aria-label="$t('error.center.title')"
-        class="group"
-        :class="unseenCount > 0 && 'text-danger hover:text-danger'"
+        :title="$t('error.center.title')"
+      >
+        <span class="relative grid place-items-center">
+          <Icon
+            name="i-lucide-bell"
+            class="size-4"
+          />
+          <span
+            v-if="unseenCount > 0"
+            class="absolute -top-0.5 -right-0.5 size-1.75 rounded-pill bg-danger ring-2 ring-frame"
+          />
+        </span>
+      </Button>
+    </PopoverTrigger>
+
+    <PopoverContent
+      align="end"
+      :side-offset="6"
+      class="flex max-h-[min(36rem,calc(100vh-4rem))] w-105 flex-col overflow-hidden"
+    >
+      <header class="flex shrink-0 items-center gap-1 pt-3 pr-2 pb-2.5 pl-4">
+        <p class="flex-1 text-lead font-semibold text-fg">
+          {{ $t('error.center.title') }}
+        </p>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          :icon="copiedId === 'all' ? 'i-lucide-check' : 'i-lucide-clipboard-list'"
+          :disabled="!entries.length"
+          :aria-label="$t('error.center.copy_all')"
+          :title="$t('error.center.copy_all')"
+          @click="copyAll"
+        />
+        <Button
+          variant="danger-ghost"
+          size="icon-sm"
+          icon="i-lucide-trash-2"
+          :disabled="!entries.length"
+          :aria-label="$t('error.center.clear')"
+          :title="$t('error.center.clear')"
+          @click="errorStore.clear()"
+        />
+      </header>
+
+      <div
+        v-if="!entries.length"
+        class="flex flex-col items-center gap-2.5 border-t border-line px-4 py-10 text-center text-body text-fg-faint"
       >
         <Icon
-          name="i-lucide-triangle-alert"
-          class="size-4 transition-transform duration-500 ease-deck group-hover:-translate-y-0.5"
+          name="i-lucide-bell-off"
+          class="size-5"
         />
-      </Button>
-    </DialogTrigger>
+        {{ $t('error.center.empty') }}
+      </div>
 
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>{{ $t('error.center.title') }}</DialogTitle>
-      </DialogHeader>
-
-      <DialogBody>
-        <KitStatus
-          v-if="!entries.length"
-          dot="static"
-          class="justify-center py-12"
+      <div
+        v-else
+        class="min-h-0 flex-1 divide-y divide-line overflow-y-auto border-t border-line"
+      >
+        <article
+          v-for="entry in entries"
+          :key="entry.id"
+          class="flex gap-3 py-3 pr-3.5 pl-4"
         >
-          {{ $t('error.center.empty') }}
-        </KitStatus>
-
-        <div
-          v-else
-          class="space-y-3"
-        >
-          <article
-            v-for="entry in entries"
-            :key="entry.id"
-            class="group relative border border-line bg-ink-900 p-4 pl-5 transition-colors duration-300 hover:border-line-strong"
+          <span
+            class="grid size-7.5 shrink-0 place-items-center rounded-sm"
+            :class="SEVERITY[entry.severity]"
           >
-            <span
-              class="absolute inset-y-0 left-0 w-[2px]"
-              :class="SEVERITY[entry.severity].rule"
+            <Icon
+              :name="entry.icon"
+              class="size-4"
             />
+          </span>
 
-            <div class="flex items-start gap-3">
-              <Icon
-                :name="entry.icon"
-                class="mt-0.5 size-4 shrink-0"
-                :class="SEVERITY[entry.severity].icon"
-              />
-
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <p class="truncate text-title font-medium text-fg">
-                    {{ entry.title }}
-                  </p>
-                  <Badge
-                    v-if="entry.count > 1"
-                    class="normal-case tracking-normal"
-                  >
-                    ×{{ entry.count }}
-                  </Badge>
-                  <span class="ml-auto shrink-0 font-mono text-label tabular-nums text-fg-faint">
-                    {{ formatTime(entry.at) }}
-                  </span>
-                </div>
-
-                <p
-                  v-if="entry.reason"
-                  class="mt-2 text-body leading-relaxed text-fg-muted"
-                >
-                  {{ entry.reason }}
-                </p>
-
-                <p
-                  v-if="entry.hint"
-                  class="mt-1 text-body leading-relaxed text-fg-faint"
-                >
-                  {{ entry.hint }}
-                </p>
-
-                <p
-                  v-if="entry.context.instanceName"
-                  class="mt-2 font-mono text-label uppercase tracking-caps text-fg-faint"
-                >
-                  {{ $t('error.center.instance') }} · {{ entry.context.instanceName }}
-                </p>
-
-                <details class="mt-3">
-                  <summary class="cursor-pointer font-mono text-label uppercase tracking-caps text-fg-faint transition-colors select-none hover:text-acid">
-                    {{ $t('error.center.technical') }}
-                  </summary>
-                  <pre class="mt-3 max-h-48 overflow-auto border border-line bg-ink-800 p-3 font-mono text-caption leading-relaxed break-all whitespace-pre-wrap text-fg-muted">{{ entry.report }}</pre>
-                </details>
-              </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-baseline gap-2.5">
+              <p class="min-w-0 flex-1 font-medium text-fg">
+                {{ entry.title }}
+              </p>
+              <Badge v-if="entry.count > 1">
+                ×{{ entry.count }}
+              </Badge>
+              <span class="shrink-0 text-micro text-fg-faint tabular-nums">
+                {{ formatTime(entry.at) }}
+              </span>
             </div>
 
-            <div class="mt-3 flex gap-5 pl-7">
+            <p
+              v-if="entry.reason"
+              class="mt-0.5 text-caption text-fg-muted"
+            >
+              {{ entry.reason }}
+            </p>
+            <p
+              v-if="entry.hint"
+              class="mt-0.5 text-caption text-fg-faint"
+            >
+              {{ entry.hint }}
+            </p>
+            <p
+              v-if="entry.context.instanceName"
+              class="mt-0.5 text-caption text-fg-faint"
+            >
+              {{ $t('error.center.instance') }} · {{ entry.context.instanceName }}
+            </p>
+
+            <details class="group/details mt-1.5">
+              <summary class="flex cursor-pointer list-none items-center gap-1 text-caption text-fg-faint select-none hover:text-fg">
+                <Icon
+                  name="i-lucide-chevron-right"
+                  class="size-3.5 transition-transform group-open/details:rotate-90"
+                />
+                {{ $t('error.center.technical') }}
+              </summary>
+              <pre class="mt-1.5 max-h-40 overflow-auto rounded-sm bg-sheet p-2.5 font-mono text-micro break-all whitespace-pre-wrap text-fg-muted">{{ entry.report }}</pre>
+            </details>
+
+            <div class="mt-1.5 -ml-2.5 flex gap-1">
               <Button
-                variant="quiet"
+                variant="ghost"
+                size="sm"
                 :icon="copiedId === entry.id ? 'i-lucide-check' : 'i-lucide-copy'"
                 @click="copy(entry.id, entry.report)"
               >
                 {{ copiedId === entry.id ? $t('common.copied') : $t('common.copy') }}
               </Button>
               <Button
-                variant="quiet"
+                variant="ghost"
+                size="sm"
                 icon="i-lucide-x"
                 @click="errorStore.dismiss(entry.id)"
               >
                 {{ $t('error.center.hide') }}
               </Button>
             </div>
-          </article>
-        </div>
-      </DialogBody>
-
-      <DialogFooter class="justify-between">
-        <Button
-          variant="quiet"
-          :icon="copiedId === 'all' ? 'i-lucide-check' : 'i-lucide-clipboard-list'"
-          :disabled="!entries.length"
-          @click="copyAll"
-        >
-          {{ $t('error.center.copy_all') }}
-        </Button>
-
-        <Button
-          variant="quiet-danger"
-          icon="i-lucide-trash-2"
-          :disabled="!entries.length"
-          @click="errorStore.clear()"
-        >
-          {{ $t('error.center.clear') }}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+          </div>
+        </article>
+      </div>
+    </PopoverContent>
+  </Popover>
 </template>

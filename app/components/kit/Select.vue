@@ -7,7 +7,8 @@ const props = defineProps<{
   items: readonly (T | SelectOption<T>)[]
   placeholder?: string
   disabled?: boolean
-  size?: 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
+  ariaLabel?: string
   class?: HTMLAttributes['class']
 }>()
 
@@ -27,13 +28,11 @@ const current = computed(() => options.value.find(option => option.value === mod
   >
     <SelectTrigger
       :size="size"
+      :aria-label="ariaLabel"
       :class="props.class"
     >
       <SelectValue :placeholder="placeholder">
-        <span
-          v-if="current"
-          class="flex min-w-0 items-center gap-1.5"
-        >
+        <template v-if="current">
           <Icon
             v-if="current.icon"
             :name="current.icon"
@@ -41,7 +40,7 @@ const current = computed(() => options.value.find(option => option.value === mod
             class="size-4 shrink-0"
           />
           <span class="truncate">{{ current.label }}</span>
-        </span>
+        </template>
         <template v-else>
           {{ placeholder }}
         </template>
@@ -55,15 +54,13 @@ const current = computed(() => options.value.find(option => option.value === mod
         :value="option.value"
         :disabled="option.disabled"
       >
-        <span class="flex items-center gap-1.5">
-          <Icon
-            v-if="option.icon"
-            :name="option.icon"
-            mode="svg"
-            class="size-4 shrink-0"
-          />
-          {{ option.label }}
-        </span>
+        <Icon
+          v-if="option.icon"
+          :name="option.icon"
+          mode="svg"
+          class="size-4 shrink-0"
+        />
+        {{ option.label }}
       </SelectItem>
     </SelectContent>
   </Select>

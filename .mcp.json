@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "shadcnVue": {
+      "command": "npx",
+      "args": [
+        "shadcn-vue",
+        "mcp"
+      ],
+      "env": {
+        "HTTPS_PROXY": "",
+        "HTTP_PROXY": ""
+      }
+    }
+  }
+}

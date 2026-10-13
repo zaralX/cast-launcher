@@ -5,10 +5,13 @@ use serde_json::Value;
 
 use crate::error::CommandResult;
 use crate::fs_util::{read_json_opt, write_json_atomic};
+use crate::theme::{self, CustomTheme};
 
-pub const CONFIG_VERSION: u32 = 7;
+pub const CONFIG_VERSION: u32 = 8;
 
-pub const DEFAULT_ACCENT: &str = "sky";
+pub const DEFAULT_THEME: &str = "depth";
+
+pub const DEFAULT_ACCENT: &str = "theme";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -21,6 +24,12 @@ pub struct AppConfig {
 pub struct LauncherConfig {
     pub language: String,
     pub theme: String,
+    #[serde(default = "default_light")]
+    pub theme_light: String,
+    #[serde(default = "default_dark")]
+    pub theme_dark: String,
+    #[serde(default)]
+    pub themes: Vec<CustomTheme>,
     pub dir: String,
     pub auto_update: bool,
     #[serde(default)]
@@ -58,6 +67,14 @@ impl AfterLaunch {
 
 fn default_accent() -> String {
     DEFAULT_ACCENT.into()
+}
+
+fn default_light() -> String {
+    theme::DEFAULT_LIGHT.into()
+}
+
+fn default_dark() -> String {
+    theme::DEFAULT_DARK.into()
 }
 
 fn yes() -> bool {
@@ -109,7 +126,10 @@ impl AppConfig {
             version: CONFIG_VERSION,
             launcher: LauncherConfig {
                 language: "ru".into(),
-                theme: "dark".into(),
+                theme: DEFAULT_THEME.into(),
+                theme_light: default_light(),
+                theme_dark: default_dark(),
+                themes: Vec::new(),
                 dir: config_root.display().to_string(),
                 auto_update: true,
                 castpack_url: String::new(),
@@ -126,6 +146,27 @@ impl AppConfig {
                 max_ram: 4096,
             },
         }
+    }
+
+    pub fn normalized(mut self) -> Self {
+        let launcher = &mut self.launcher;
+
+        launcher.themes = theme::normalize(std::mem::take(&mut launcher.themes));
+        launcher.theme = theme::choice(&launcher.theme, &launcher.themes, true, DEFAULT_THEME);
+        launcher.theme_light = theme::choice(
+            &launcher.theme_light,
+            &launcher.themes,
+            false,
+            theme::DEFAULT_LIGHT,
+        );
+        launcher.theme_dark = theme::choice(
+            &launcher.theme_dark,
+            &launcher.themes,
+            false,
+            theme::DEFAULT_DARK,
+        );
+
+        self
     }
 
     pub fn manual_java_path(&self) -> Option<&str> {
@@ -203,6 +244,11 @@ fn migrate(mut raw: Value) -> Value {
         set_in(&mut raw, "launcher", "onboarded", Value::Bool(true));
     }
 
+    if version <= 7 {
+        replace_in(&mut raw, "launcher", "theme", "dark", DEFAULT_THEME);
+        replace_in(&mut raw, "launcher", "accent", "sky", DEFAULT_ACCENT);
+    }
+
     raw["version"] = Value::from(CONFIG_VERSION);
     raw
 }
@@ -216,6 +262,18 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
         launcher: LauncherConfig {
             language: string_or(launcher, "language", defaults.launcher.language),
             theme: string_or(launcher, "theme", defaults.launcher.theme),
+            theme_light: string_or(launcher, "theme_light", defaults.launcher.theme_light),
+            theme_dark: string_or(launcher, "theme_dark", defaults.launcher.theme_dark),
+            themes: launcher
+                .and_then(|launcher| launcher.get("themes"))
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| serde_json::from_value(item.clone()).ok())
+                        .collect()
+                })
+                .unwrap_or_default(),
             dir: string_or(launcher, "dir", defaults.launcher.dir),
             auto_update: bool_or(launcher, "auto_update", defaults.launcher.auto_update),
             castpack_url: string_or(launcher, "castpack_url", defaults.launcher.castpack_url),
@@ -238,6 +296,7 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
             max_ram: number_or(java, "max_ram", defaults.java.max_ram),
         },
     }
+    .normalized()
 }
 
 fn set_in(raw: &mut Value, section: &str, key: &str, value: Value) {
@@ -249,6 +308,16 @@ fn set_in(raw: &mut Value, section: &str, key: &str, value: Value) {
 
     if let Some(object) = entry.as_object_mut() {
         object.insert(key.to_string(), value);
+    }
+}
+
+fn replace_in(raw: &mut Value, section: &str, key: &str, from: &str, to: &str) {
+    let value = raw
+        .get_mut(section)
+        .and_then(|section| section.get_mut(key));
+
+    if let Some(value) = value.filter(|value| value.as_str() == Some(from)) {
+        *value = Value::String(to.into());
     }
 }
 
@@ -401,6 +470,29 @@ mod tests {
     }
 
     #[test]
+    fn v7_config_moves_from_dark_and_sky_to_the_theme_defaults() {
+        let config = migrated(json!({
+            "version": 7,
+            "launcher": { "language": "ru", "theme": "dark", "dir": "/data", "accent": "sky" }
+        }));
+
+        assert_eq!(config.version, CONFIG_VERSION);
+        assert_eq!(config.launcher.theme, DEFAULT_THEME);
+        assert_eq!(config.launcher.accent, DEFAULT_ACCENT);
+    }
+
+    #[test]
+    fn v7_config_keeps_a_picked_theme_and_accent() {
+        let config = migrated(json!({
+            "version": 7,
+            "launcher": { "language": "ru", "theme": "light", "dir": "/data", "accent": "violet" }
+        }));
+
+        assert_eq!(config.launcher.theme, "light");
+        assert_eq!(config.launcher.accent, "violet");
+    }
+
+    #[test]
     fn a_fresh_config_still_needs_onboarding() {
         assert!(!AppConfig::defaults(Path::new("/cfg")).launcher.onboarded);
     }
@@ -489,6 +581,59 @@ mod tests {
         assert_eq!(config.launcher.language, "ru");
         assert_eq!(config.launcher.accent, DEFAULT_ACCENT);
         assert_eq!(config.java.min_ram, 1024);
+    }
+
+    #[test]
+    fn custom_themes_survive_a_round_trip() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": {
+                "theme": "system",
+                "theme_light": "custom-day",
+                "theme_dark": "custom-night",
+                "themes": [
+                    { "id": "custom-day", "name": "День", "colors": { "panel": "#ffffff" } },
+                    { "id": "custom-night", "name": "Ночь", "classic": true, "colors": { "line": "#ffffff1f" } },
+                    { "name": "no id" }
+                ]
+            }
+        }));
+
+        assert_eq!(config.launcher.theme, theme::SYSTEM);
+        assert_eq!(config.launcher.theme_light, "custom-day");
+        assert_eq!(config.launcher.theme_dark, "custom-night");
+        assert_eq!(config.launcher.themes.len(), 2);
+        assert!(config.launcher.themes[1].classic);
+    }
+
+    #[test]
+    fn theme_settings_fall_back_when_their_custom_theme_is_gone() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": {
+                "theme": "custom-gone",
+                "theme_light": "custom-gone",
+                "theme_dark": "system",
+                "themes": []
+            }
+        }));
+
+        assert_eq!(config.launcher.theme, DEFAULT_THEME);
+        assert_eq!(config.launcher.theme_light, theme::DEFAULT_LIGHT);
+        assert_eq!(config.launcher.theme_dark, theme::DEFAULT_DARK);
+    }
+
+    #[test]
+    fn an_older_config_gets_the_default_system_pair() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "theme": "moss" }
+        }));
+
+        assert_eq!(config.launcher.theme, "moss");
+        assert_eq!(config.launcher.theme_light, theme::DEFAULT_LIGHT);
+        assert_eq!(config.launcher.theme_dark, theme::DEFAULT_DARK);
+        assert!(config.launcher.themes.is_empty());
     }
 
     #[test]

@@ -1,15 +1,14 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
-const loading = ref(true)
+const appStore = useAppStore()
+
 const steps = computed(() => [
   t('boot.steps.waiting'),
   t('boot.steps.connecting'),
-  t('boot.steps.updates'),
   t('boot.steps.done'),
 ])
 const currentStep = ref(1)
-const appStore = useAppStore()
 
 onMounted(async () => {
   currentStep.value = 2
@@ -17,13 +16,9 @@ onMounted(async () => {
   await safeRun(() => useLauncherEvents(), { code: 'CONFIG_ERROR' })
   currentStep.value += 1
 
-  if (appStore.config?.launcher?.auto_update) {
-    await safeRun(() => appStore.updateApp(), { code: 'UPDATE_FAILED' })
-  }
-  currentStep.value += 1
+  await navigateTo(appStore.needsOnboarding ? '/welcome' : '/main')
 
-  loading.value = false
-  navigateTo(appStore.needsOnboarding ? '/welcome' : '/main')
+  appStore.checkUpdate().catch(error => writeErrorLog(toLauncherError(error, 'UPDATE_FAILED')))
 })
 </script>
 

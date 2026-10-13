@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
+import { FOCUS_RING } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -23,31 +24,28 @@ function select() {
     :aria-pressed="active"
     :aria-disabled="disabled || undefined"
     :class="cn(
-      'group relative flex items-center gap-4 border-b border-line py-3.5 pr-1 pl-4 outline-none transition-colors duration-300',
-      disabled ? 'opacity-45' : 'cursor-pointer hover:bg-ink-700 focus-visible:bg-ink-700',
+      FOCUS_RING,
+      'group relative flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors duration-150',
+      active ? 'bg-control' : '',
+      disabled ? 'opacity-45' : 'cursor-pointer hover:bg-control',
       props.class,
     )"
     @click="select"
     @keydown.enter.self.prevent="select"
     @keydown.space.self.prevent="select"
   >
-    <span
-      class="absolute inset-y-0 left-0 w-[2px] bg-acid transition-transform duration-500 ease-deck"
-      :class="active ? 'scale-y-100' : disabled ? 'scale-y-0' : 'scale-y-0 group-hover:scale-y-50 group-hover:bg-line-strong'"
-    />
-
     <slot name="leading" />
 
     <div class="min-w-0 flex-1">
       <slot />
     </div>
 
-    <span
+    <Badge
       v-if="active && activeLabel"
-      class="shrink-0 font-mono text-micro uppercase tracking-caps text-acid"
+      variant="accent"
     >
       {{ activeLabel }}
-    </span>
+    </Badge>
 
     <slot name="trailing" />
   </li>

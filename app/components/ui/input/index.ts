@@ -9,13 +9,14 @@ export const inputVariants = cva(
   {
     variants: {
       size: {
+        sm: 'h-7 px-2.5 text-caption',
         md: 'h-8 px-2.5',
-        lg: 'h-9 px-3',
+        lg: 'h-10 px-3 text-title',
       },
       font: {
         sans: '',
-        mono: 'font-mono text-body tabular-nums',
-        display: 'font-unbounded text-heading tracking-heading',
+        mono: 'font-mono text-caption tabular-nums',
+        display: 'font-unbounded text-heading font-semibold tracking-heading',
       },
     },
     defaultVariants: {

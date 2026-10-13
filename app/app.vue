@@ -26,7 +26,7 @@ onUnmounted(unregister)
 </script>
 
 <template>
-  <div class="grain relative max-w-screen max-h-screen overflow-hidden bg-ink-900 text-fg antialiased">
+  <div class="relative max-h-screen max-w-screen overflow-hidden bg-frame text-fg antialiased">
     <TooltipProvider :delay-duration="0">
       <NuxtLayout>
         <NuxtPage />

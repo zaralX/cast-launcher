@@ -8,7 +8,7 @@ import {
   SelectItemText,
   useForwardProps,
 } from 'reka-ui'
-import { MENU_ITEM } from '@/lib/styles'
+import { MENU_INDICATOR, MENU_ITEM } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<SelectItemProps & { class?: HTMLAttributes['class'] }>()
@@ -22,16 +22,16 @@ const forwardedProps = useForwardProps(delegatedProps)
   <SelectItem
     data-slot="select-item"
     v-bind="forwardedProps"
-    :class="cn(MENU_ITEM, 'pr-8 text-lead', props.class)"
+    :class="cn(MENU_ITEM, 'pr-8', props.class)"
   >
-    <SelectItemText class="truncate">
+    <SelectItemText class="flex min-w-0 items-center gap-2.5 truncate">
       <slot />
     </SelectItemText>
 
-    <SelectItemIndicator class="absolute right-1.5 flex items-center">
+    <SelectItemIndicator :class="MENU_INDICATOR">
       <Icon
         name="i-lucide-check"
-        class="size-4 text-acid"
+        class="size-4"
       />
     </SelectItemIndicator>
   </SelectItem>
