@@ -21,5 +21,15 @@ const config = defineModel<AppConfig>({ required: true })
         class="max-w-xl"
       />
     </section>
+
+    <section>
+      <h3 class="mb-3 text-title font-semibold text-fg">
+        {{ $t('settings.java.args_title') }}
+      </h3>
+      <SettingsJvmArgs
+        v-model="config.java.jvm_args"
+        class="max-w-xl"
+      />
+    </section>
   </div>
 </template>

@@ -26,6 +26,7 @@ pub struct InstanceRow {
     pub version_id: Option<String>,
     pub java_path: Option<String>,
     pub memory_max: Option<u32>,
+    pub jvm_args: Option<Vec<String>>,
     pub last_played: Option<i64>,
     pub time_played: u64,
 }
@@ -115,6 +116,7 @@ const INSTANCES_QUERY: &str = "
         link.modrinth_version_id,
         json_extract(json(ovr.overrides), '$.java_path'),
         json_extract(json(ovr.overrides), '$.memory.maximum'),
+        json_extract(json(ovr.overrides), '$.extra_launch_args'),
         i.last_played,
         i.submitted_time_played + i.recent_time_played
     FROM instances i
@@ -142,6 +144,7 @@ const PROFILES_QUERY: &str = "
         linked_version_id,
         override_java_path,
         override_mc_memory_max,
+        json(override_extra_launch_args),
         last_played,
         submitted_time_played + recent_time_played
     FROM profiles
@@ -175,8 +178,9 @@ fn instances(connection: &Connection) -> CommandResult<Vec<InstanceRow>> {
                 memory_max: row
                     .get::<_, Option<i64>>(9)?
                     .and_then(|max| u32::try_from(max).ok()),
-                last_played: row.get::<_, Option<i64>>(10)?,
-                time_played: row.get::<_, Option<i64>>(11)?.unwrap_or(0).max(0) as u64,
+                jvm_args: string_list(row.get(10)?),
+                last_played: row.get::<_, Option<i64>>(11)?,
+                time_played: row.get::<_, Option<i64>>(12)?.unwrap_or(0).max(0) as u64,
             })
         })
         .map_err(failed)?;
@@ -188,6 +192,11 @@ fn instances(connection: &Connection) -> CommandResult<Vec<InstanceRow>> {
     }
 
     Ok(found)
+}
+
+// A JSON array of strings; `null` means the instance keeps the shared arguments.
+fn string_list(value: Option<String>) -> Option<Vec<String>> {
+    serde_json::from_str(&value?).ok()
 }
 
 fn text(value: Option<String>) -> Option<String> {
@@ -267,6 +276,7 @@ mod tests {
                         game_version TEXT, mod_loader TEXT, mod_loader_version TEXT,
                         linked_project_id TEXT, linked_version_id TEXT,
                         override_java_path TEXT, override_mc_memory_max INTEGER,
+                        override_extra_launch_args JSONB,
                         last_played INTEGER,
                         submitted_time_played INTEGER DEFAULT 0,
                         recent_time_played INTEGER DEFAULT 0
@@ -276,6 +286,7 @@ mod tests {
                         '1.21.1', 'fabric', '0.16.5',
                         '1KVo5zza', 'fzpQA5K4',
                         'C:/jdk21/bin/javaw.exe', 6144,
+                        jsonb(json_array('-XX:+UseZGC', '-Dname=a b')),
                         1761212747, 700000, 5341
                      );",
                 )
@@ -311,6 +322,7 @@ mod tests {
                         'inst-1',
                         jsonb(json_object(
                             'java_path', 'C:/jdk21/bin/javaw.exe',
+                            'extra_launch_args', json_array('-XX:+UseZGC', '-Dname=a b'),
                             'memory', json_object('maximum', 6144)
                         ))
                      );",
@@ -343,6 +355,10 @@ mod tests {
         assert_eq!(row.version_id.as_deref(), Some("fzpQA5K4"));
         assert_eq!(row.java_path.as_deref(), Some("C:/jdk21/bin/javaw.exe"));
         assert_eq!(row.memory_max, Some(6144));
+        assert_eq!(
+            row.jvm_args,
+            Some(vec!["-XX:+UseZGC".to_string(), "-Dname=a b".to_string()])
+        );
         assert_eq!(row.last_played, Some(1_761_212_747));
         assert_eq!(row.time_played, 705_341);
 
@@ -358,6 +374,30 @@ mod tests {
 
         std::fs::remove_dir_all(&new_dir).ok();
         std::fs::remove_dir_all(&old_dir).ok();
+    }
+
+    #[test]
+    fn launch_arguments_left_to_the_shared_settings_read_as_none() {
+        for schema in [Schema::Instances, Schema::Profiles] {
+            let dir = database(schema);
+
+            let connection = Connection::open(dir.join(DB_FILE)).unwrap();
+            let reset = match schema {
+                Schema::Instances => {
+                    "UPDATE instance_launch_overrides
+                     SET overrides = jsonb_set(overrides, '$.extra_launch_args', json('null'))"
+                }
+                Schema::Profiles => {
+                    "UPDATE profiles SET override_extra_launch_args = jsonb('null')"
+                }
+            };
+            connection.execute(reset, []).unwrap();
+            drop(connection);
+
+            assert_eq!(only(&dir).jvm_args, None, "{schema:?}");
+
+            std::fs::remove_dir_all(&dir).ok();
+        }
     }
 
     #[test]

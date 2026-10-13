@@ -233,6 +233,8 @@ pub struct InstanceSettings {
     pub override_java: bool,
     pub java_mode: JavaMode,
     pub java_path: String,
+    pub override_jvm_args: bool,
+    pub jvm_args: String,
 }
 
 impl InstanceSettings {
@@ -257,11 +259,15 @@ impl InstanceSettings {
             }
         }
 
+        if self.override_jvm_args {
+            config.java.jvm_args = self.jvm_args.trim().to_string();
+        }
+
         config
     }
 
     pub fn overrides_anything(&self) -> bool {
-        self.override_memory || self.override_java
+        self.override_memory || self.override_java || self.override_jvm_args
     }
 }
 
@@ -325,11 +331,16 @@ impl InstanceUpdate {
             None => None,
         };
 
+        let settings = self.settings.map(|mut settings| {
+            settings.jvm_args = settings.jvm_args.trim().to_string();
+            settings
+        });
+
         Ok(Self {
             name,
             description: self.description.map(|text| text.trim().to_string()),
             icon,
-            settings: self.settings,
+            settings,
         })
     }
 
@@ -955,6 +966,71 @@ mod tests {
     }
 
     #[test]
+    fn instance_jvm_arguments_replace_the_launcher_ones() {
+        let mut base = base_config();
+        base.java.jvm_args = "-XX:+UseG1GC".into();
+
+        let settings = InstanceSettings {
+            override_jvm_args: true,
+            jvm_args: "  -XX:+UseZGC -Dfml.ignoreInvalidMinecraftCertificates=true ".into(),
+            ..Default::default()
+        };
+
+        let effective = settings.apply(&base);
+
+        assert_eq!(
+            effective.custom_jvm_args(),
+            vec![
+                "-XX:+UseZGC",
+                "-Dfml.ignoreInvalidMinecraftCertificates=true"
+            ]
+        );
+        assert!(settings.overrides_anything());
+        assert_eq!(effective.java.max_ram, base.java.max_ram);
+    }
+
+    #[test]
+    fn an_empty_jvm_override_turns_the_launcher_arguments_off() {
+        let mut base = base_config();
+        base.java.jvm_args = "-XX:+UseG1GC".into();
+
+        let off = InstanceSettings {
+            override_jvm_args: true,
+            ..Default::default()
+        };
+        assert!(off.apply(&base).custom_jvm_args().is_empty());
+
+        let inherited = InstanceSettings {
+            jvm_args: "-XX:+UseZGC".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            inherited.apply(&base).custom_jvm_args(),
+            vec!["-XX:+UseG1GC"],
+            "arguments typed with the override off are ignored"
+        );
+    }
+
+    #[test]
+    fn jvm_arguments_from_the_settings_page_are_trimmed() {
+        let mut instance = update_target();
+
+        InstanceUpdate {
+            settings: Some(InstanceSettings {
+                override_jvm_args: true,
+                jvm_args: "\n  -Xss4M  \n".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+        .normalized(Path::new("unused"))
+        .unwrap()
+        .apply(&mut instance);
+
+        assert_eq!(instance.settings.jvm_args, "-Xss4M");
+    }
+
+    #[test]
     fn settings_survive_a_json_round_trip() {
         let instance: Instance = serde_json::from_value(json!({
             "id": "abc",
@@ -966,7 +1042,9 @@ mod tests {
                 "minRam": 3072,
                 "maxRam": 6144,
                 "overrideJava": true,
-                "javaMode": "system"
+                "javaMode": "system",
+                "overrideJvmArgs": true,
+                "jvmArgs": "-XX:+UseZGC"
             }
         }))
         .unwrap();
@@ -976,6 +1054,8 @@ mod tests {
         assert_eq!(written["settings"]["minRam"], 3072);
         assert_eq!(written["settings"]["javaMode"], "system");
         assert_eq!(written["settings"]["javaPath"], "");
+        assert_eq!(written["settings"]["overrideJvmArgs"], true);
+        assert_eq!(written["settings"]["jvmArgs"], "-XX:+UseZGC");
 
         let parsed: Instance = serde_json::from_value(written).unwrap();
         assert_eq!(parsed.settings, instance.settings);

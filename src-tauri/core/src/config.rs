@@ -118,6 +118,8 @@ pub struct JavaConfig {
     pub java_path: String,
     pub min_ram: u32,
     pub max_ram: u32,
+    #[serde(default)]
+    pub jvm_args: String,
 }
 
 impl AppConfig {
@@ -144,6 +146,7 @@ impl AppConfig {
                 java_path: String::new(),
                 min_ram: 1024,
                 max_ram: 4096,
+                jvm_args: String::new(),
             },
         }
     }
@@ -166,6 +169,8 @@ impl AppConfig {
             theme::DEFAULT_DARK,
         );
 
+        self.java.jvm_args = self.java.jvm_args.trim().to_string();
+
         self
     }
 
@@ -178,6 +183,10 @@ impl AppConfig {
         let min = self.java.min_ram.max(1);
         let max = self.java.max_ram.max(min);
         vec![format!("-Xms{min}M"), format!("-Xmx{max}M")]
+    }
+
+    pub fn custom_jvm_args(&self) -> Vec<String> {
+        crate::launch::args::split_user_args(&self.java.jvm_args)
     }
 }
 
@@ -294,6 +303,7 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
             java_path: string_or(java, "java_path", defaults.java.java_path),
             min_ram: number_or(java, "min_ram", defaults.java.min_ram),
             max_ram: number_or(java, "max_ram", defaults.java.max_ram),
+            jvm_args: string_or(java, "jvm_args", defaults.java.jvm_args),
         },
     }
     .normalized()
@@ -634,6 +644,32 @@ mod tests {
         assert_eq!(config.launcher.theme_light, theme::DEFAULT_LIGHT);
         assert_eq!(config.launcher.theme_dark, theme::DEFAULT_DARK);
         assert!(config.launcher.themes.is_empty());
+    }
+
+    #[test]
+    fn a_config_written_before_jvm_arguments_existed_adds_none() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "java": { "java_mode": "auto", "min_ram": 512, "max_ram": 1024 }
+        }));
+
+        assert!(config.java.jvm_args.is_empty());
+        assert!(config.custom_jvm_args().is_empty());
+    }
+
+    #[test]
+    fn jvm_arguments_survive_a_round_trip_trimmed() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "java": { "jvm_args": "  -XX:+UseG1GC -Dfile.encoding=UTF-8
+        " }
+        }));
+
+        assert_eq!(config.java.jvm_args, "-XX:+UseG1GC -Dfile.encoding=UTF-8");
+        assert_eq!(
+            config.custom_jvm_args(),
+            vec!["-XX:+UseG1GC", "-Dfile.encoding=UTF-8"]
+        );
     }
 
     #[test]

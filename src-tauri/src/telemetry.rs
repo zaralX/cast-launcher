@@ -119,6 +119,7 @@ pub async fn app_started(app: &AppHandle, state: &Arc<AppState>) {
         .text("java_mode", config.java.java_mode.key())
         .num("min_ram", config.java.min_ram)
         .num("max_ram", config.java.max_ram)
+        .flag("custom_jvm_args", !config.java.jvm_args.trim().is_empty())
         .text("theme", theme::public_name(&config.launcher.theme))
         .text("accent", &config.launcher.accent)
         .text("language", &config.launcher.language)
@@ -189,6 +190,11 @@ pub fn settings_changed(app: &AppHandle, before: &AppConfig, after: &AppConfig) 
         "custom_catalog",
         !before.launcher.castpack_url.trim().is_empty(),
         !after.launcher.castpack_url.trim().is_empty(),
+    );
+    flag(
+        "custom_jvm_args",
+        !before.java.jvm_args.trim().is_empty(),
+        !after.java.jvm_args.trim().is_empty(),
     );
     if before.launcher.dir.trim() != after.launcher.dir.trim() {
         changes.push(("launcher_dir", "changed".to_string()));

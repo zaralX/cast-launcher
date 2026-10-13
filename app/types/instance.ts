@@ -21,6 +21,8 @@ export interface InstanceSettings {
   overrideJava: boolean
   javaMode: JavaMode
   javaPath: string
+  overrideJvmArgs: boolean
+  jvmArgs: string
 }
 
 export type PackProvider = 'modrinth' | 'curseforge'

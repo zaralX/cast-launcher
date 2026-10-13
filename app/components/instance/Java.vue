@@ -41,6 +41,13 @@ const inheritedJava = computed(() => {
   return java.java_mode === 'system' ? t('settings.java.system') : t('settings.java.auto')
 })
 
+const inheritedJvmArgs = computed(() => globalJava.value?.jvm_args.trim() ?? '')
+
+function toggleJvmArgs(enabled: boolean) {
+  settings.value.overrideJvmArgs = enabled
+  if (enabled && !settings.value.jvmArgs.trim()) settings.value.jvmArgs = inheritedJvmArgs.value
+}
+
 watch(() => settings.value.overrideMemory, (enabled) => {
   if (!enabled) return
   if (!settings.value.minRam) settings.value.minRam = globalJava.value?.min_ram ?? 1024
@@ -92,6 +99,28 @@ watch(() => settings.value.overrideJava, (enabled) => {
         :mono="globalJava?.java_mode === 'manual'"
       >
         {{ inheritedJava }} · {{ $t('instance.java.from_launcher') }}
+      </KitInherited>
+    </KitPanel>
+
+    <KitPanel
+      :title="$t('instance.java.args_title')"
+    >
+      <template #action>
+        <KitOverride
+          :model-value="settings.overrideJvmArgs"
+          @update:model-value="toggleJvmArgs"
+        />
+      </template>
+
+      <SettingsJvmArgs
+        v-if="settings.overrideJvmArgs"
+        v-model="settings.jvmArgs"
+      />
+      <KitInherited
+        v-else
+        :mono="!!inheritedJvmArgs"
+      >
+        {{ inheritedJvmArgs || $t('instance.java.no_args') }} · {{ $t('instance.java.from_launcher') }}
       </KitInherited>
     </KitPanel>
   </div>

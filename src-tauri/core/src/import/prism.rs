@@ -348,6 +348,8 @@ fn settings(ini: &Ini) -> InstanceSettings {
         && !general.flag("AutomaticJava")
         && !java_path.is_empty();
 
+    let override_jvm_args = general.flag("OverrideJavaArgs");
+
     InstanceSettings {
         override_memory,
         min_ram: override_memory
@@ -366,6 +368,12 @@ fn settings(ini: &Ini) -> InstanceSettings {
         },
         java_path: if override_java {
             java_path
+        } else {
+            String::new()
+        },
+        override_jvm_args,
+        jvm_args: if override_jvm_args {
+            general.string("JvmArgs")
         } else {
             String::new()
         },
@@ -751,6 +759,24 @@ totalTimePlayed=705341
         assert!(settings.override_java);
         assert_eq!(settings.java_mode, JavaMode::Manual);
         assert_eq!(settings.java_path, "C:/jdk21/bin/javaw.exe");
+    }
+
+    #[test]
+    fn jvm_arguments_come_over_with_their_override() {
+        let config = "[General]\nname=x\nOverrideJavaArgs=true\nJvmArgs=-XX:+UseZGC \"-Dname=a b\"";
+        let settings = parse("x", config, FORGE_PACK).settings;
+
+        assert!(settings.override_jvm_args);
+        assert_eq!(settings.jvm_args, "-XX:+UseZGC \"-Dname=a b\"");
+    }
+
+    #[test]
+    fn jvm_arguments_are_ignored_while_the_override_is_off() {
+        let config = "[General]\nname=x\nOverrideJavaArgs=false\nJvmArgs=-XX:+UseZGC";
+        let settings = parse("x", config, FORGE_PACK).settings;
+
+        assert!(!settings.overrides_anything());
+        assert_eq!(settings.jvm_args, "");
     }
 
     #[test]

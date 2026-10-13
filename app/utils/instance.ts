@@ -8,6 +8,8 @@ export function emptyInstanceSettings(): InstanceSettings {
     overrideJava: false,
     javaMode: 'auto',
     javaPath: '',
+    overrideJvmArgs: false,
+    jvmArgs: '',
   }
 }
 

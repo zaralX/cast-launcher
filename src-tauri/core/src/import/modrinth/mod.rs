@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use crate::config::JavaMode;
 use crate::error::{CommandError, CommandResult};
 use crate::instance::{InstanceSettings, LoaderType, Playtime};
+use crate::launch::args::join_user_args;
 use crate::meta::neoforge;
 use crate::text::UiText;
 
@@ -316,6 +317,12 @@ fn settings(row: &db::InstanceRow) -> InstanceSettings {
             JavaMode::default()
         },
         java_path,
+        override_jvm_args: row.jvm_args.is_some(),
+        jvm_args: row
+            .jvm_args
+            .as_deref()
+            .map(join_user_args)
+            .unwrap_or_default(),
     }
 }
 
@@ -456,6 +463,7 @@ mod tests {
             version_id: Some("fzpQA5K4".into()),
             java_path: None,
             memory_max: None,
+            jvm_args: None,
             last_played: None,
             time_played: 0,
         }
@@ -648,6 +656,30 @@ mod tests {
         assert!(settings.override_java);
         assert_eq!(settings.java_mode, JavaMode::Manual);
         assert_eq!(settings.java_path, "C:/jdk21/bin/javaw.exe");
+    }
+
+    #[test]
+    fn launch_arguments_come_over_as_one_line() {
+        let settings = parse(&db::InstanceRow {
+            jvm_args: Some(vec!["-XX:+UseZGC".into(), "-Dname=a b".into()]),
+            ..row()
+        })
+        .settings;
+
+        assert!(settings.override_jvm_args);
+        assert_eq!(settings.jvm_args, "-XX:+UseZGC \"-Dname=a b\"");
+    }
+
+    #[test]
+    fn an_empty_argument_list_still_overrides_the_shared_one() {
+        let settings = parse(&db::InstanceRow {
+            jvm_args: Some(Vec::new()),
+            ..row()
+        })
+        .settings;
+
+        assert!(settings.override_jvm_args);
+        assert!(settings.jvm_args.is_empty());
     }
 
     #[test]
@@ -1055,17 +1087,18 @@ mod tests {
                     game_version TEXT, mod_loader TEXT, mod_loader_version TEXT,
                     linked_project_id TEXT, linked_version_id TEXT,
                     override_java_path TEXT, override_mc_memory_max INTEGER,
+                    override_extra_launch_args JSONB,
                     last_played INTEGER,
                     submitted_time_played INTEGER DEFAULT 0,
                     recent_time_played INTEGER DEFAULT 0
                  );
                  INSERT INTO profiles VALUES (
                     'Create Azure', 'Create Azure', 'icons/azure.png',
-                    '1.21.1', 'fabric', '0.16.5', NULL, NULL, NULL, NULL, NULL, 0, 0
+                    '1.21.1', 'fabric', '0.16.5', NULL, NULL, NULL, NULL, jsonb('null'), NULL, 0, 0
                  );
                  INSERT INTO profiles VALUES (
                     'Ушедшая', 'Ушедшая', NULL,
-                    '1.21.1', 'fabric', '0.16.5', NULL, NULL, NULL, NULL, NULL, 0, 0
+                    '1.21.1', 'fabric', '0.16.5', NULL, NULL, NULL, NULL, jsonb('null'), NULL, 0, 0
                  );"
             }
             db::Schema::Instances => {

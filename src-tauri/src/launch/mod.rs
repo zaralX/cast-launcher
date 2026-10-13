@@ -152,6 +152,7 @@ async fn run(
             .text("java_mode", config.java.java_mode.key())
             .num("min_ram", config.java.min_ram)
             .num("max_ram", config.java.max_ram)
+            .flag("custom_jvm_args", !config.custom_jvm_args().is_empty())
             .flag("first_launch", instance.playtime.total_seconds == 0)
             .flag("overrides", instance.settings.overrides_anything()),
     );

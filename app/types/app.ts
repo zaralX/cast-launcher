@@ -42,6 +42,7 @@ export interface JavaConfig {
   java_path: string
   min_ram: number
   max_ram: number
+  jvm_args: string
 }
 
 export interface LauncherPaths {
