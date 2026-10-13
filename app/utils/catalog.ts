@@ -8,7 +8,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 export function categoryLabel(category: PackCategory): string {
-  return categoryName(category.id) || category.label.replace(/[-_]/g, ' ')
+  return categoryName(category.label)
 }
 
 export function categoryName(name: string): string {
