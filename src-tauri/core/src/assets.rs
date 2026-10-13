@@ -61,6 +61,12 @@ pub fn item_icon_file(item: &str) -> String {
     format!("mc-{item}.webp")
 }
 
+pub fn item_of_icon_file(name: &str) -> Option<&str> {
+    name.strip_prefix("mc-")?
+        .strip_suffix(".webp")
+        .filter(|item| is_item_id(item))
+}
+
 pub fn is_item_id(item: &str) -> bool {
     !item.is_empty()
         && item.len() <= 64
@@ -102,6 +108,17 @@ mod tests {
     #[test]
     fn catalog_icons_get_a_recognizable_file_name() {
         assert_eq!(item_icon_file("grass_block"), "mc-grass_block.webp");
+    }
+
+    #[test]
+    fn the_item_is_read_back_only_from_an_item_icon_name() {
+        assert_eq!(
+            item_of_icon_file(&item_icon_file("grass_block")),
+            Some("grass_block")
+        );
+        assert_eq!(item_of_icon_file("mc-server.png"), None);
+        assert_eq!(item_of_icon_file("mc-My-Server.webp"), None);
+        assert_eq!(item_of_icon_file("grass_block.webp"), None);
     }
 
     #[tokio::test]

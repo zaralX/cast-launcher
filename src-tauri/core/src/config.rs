@@ -18,6 +18,8 @@ pub struct AppConfig {
     pub version: u32,
     pub launcher: LauncherConfig,
     pub java: JavaConfig,
+    #[serde(default)]
+    pub discord: DiscordConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +124,21 @@ pub struct JavaConfig {
     pub jvm_args: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiscordConfig {
+    pub enabled: bool,
+    pub show_instance: bool,
+}
+
+impl Default for DiscordConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            show_instance: true,
+        }
+    }
+}
+
 impl AppConfig {
     pub fn defaults(config_root: &Path) -> Self {
         Self {
@@ -148,6 +165,7 @@ impl AppConfig {
                 max_ram: 4096,
                 jvm_args: String::new(),
             },
+            discord: DiscordConfig::default(),
         }
     }
 
@@ -265,6 +283,7 @@ fn migrate(mut raw: Value) -> Value {
 fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
     let launcher = raw.get("launcher");
     let java = raw.get("java");
+    let discord = raw.get("discord");
 
     AppConfig {
         version: CONFIG_VERSION,
@@ -304,6 +323,10 @@ fn merge(defaults: AppConfig, raw: Value) -> AppConfig {
             min_ram: number_or(java, "min_ram", defaults.java.min_ram),
             max_ram: number_or(java, "max_ram", defaults.java.max_ram),
             jvm_args: string_or(java, "jvm_args", defaults.java.jvm_args),
+        },
+        discord: DiscordConfig {
+            enabled: bool_or(discord, "enabled", defaults.discord.enabled),
+            show_instance: bool_or(discord, "show_instance", defaults.discord.show_instance),
         },
     }
     .normalized()
@@ -670,6 +693,36 @@ mod tests {
             config.custom_jvm_args(),
             vec!["-XX:+UseG1GC", "-Dfile.encoding=UTF-8"]
         );
+    }
+
+    #[test]
+    fn a_config_written_before_discord_existed_shows_the_status() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "launcher": { "language": "ru" }
+        }));
+
+        assert!(config.discord.enabled);
+        assert!(config.discord.show_instance);
+    }
+
+    #[test]
+    fn discord_settings_survive_a_round_trip() {
+        let config = migrated(json!({
+            "version": CONFIG_VERSION,
+            "discord": { "show_instance": false }
+        }));
+
+        assert!(config.discord.enabled);
+        assert!(!config.discord.show_instance);
+
+        let off = migrated(json!({
+            "version": CONFIG_VERSION,
+            "discord": { "enabled": false, "show_instance": "yes" }
+        }));
+
+        assert!(!off.discord.enabled);
+        assert!(off.discord.show_instance);
     }
 
     #[test]

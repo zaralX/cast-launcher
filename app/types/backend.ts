@@ -29,6 +29,12 @@ export interface LoginPage {
   failed: string
 }
 
+export interface PresenceText {
+  menu: string
+  playing: string
+  button: string
+}
+
 export type LauncherEvent
   = | (InstallSnapshot & { type: 'install' })
     | (ImportProgress & { type: 'import' })
@@ -59,6 +65,7 @@ export interface Commands {
 
   get_config: Command<void, AppConfig>
   update_config: Command<{ config: AppConfig }, AppConfig>
+  set_presence_text: Command<{ text: PresenceText }, void>
   encode_theme: Command<{ theme: CustomTheme }, string>
   decode_theme: Command<{ code: string }, CustomTheme>
   get_paths: Command<void, LauncherPaths>

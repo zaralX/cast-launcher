@@ -8,6 +8,7 @@ use tokio::sync::RwLock;
 use cast_core::account::AccountStore;
 use cast_core::config::{self, AppConfig};
 use cast_core::error::{CommandError, CommandResult};
+use cast_core::icons::IconSources;
 use cast_core::instance::InstanceRegistry;
 use cast_core::java::JavaRegistry;
 use cast_core::mods::install::InstallPlan;
@@ -18,6 +19,7 @@ use cast_core::paths::LauncherPaths;
 
 use cast_core::import::ImportRegistry;
 
+use crate::discord::Discord;
 use crate::export::ExportRegistry;
 use crate::install::blocked::BlockedRegistry;
 use crate::install::InstallRegistry;
@@ -40,6 +42,8 @@ pub struct AppState {
     pub mod_updates: RwLock<HashMap<String, Vec<ModUpdate>>>,
     pub mod_plans: RwLock<HashMap<String, (String, InstallPlan)>>,
     pub exports: ExportRegistry,
+    pub icon_sources: IconSources,
+    pub discord: Discord,
     /// Pack files the system asked to open, waiting for the window to take them.
     opened: std::sync::Mutex<Vec<String>>,
 }
@@ -80,6 +84,7 @@ impl AppState {
         log::info!("Launcher data directory: {}", paths.root().display());
 
         let accounts = AccountStore::load(paths.accounts_file()).await;
+        let icon_sources = IconSources::load(&paths.icons()).await;
 
         let state = Arc::new(Self {
             config_root,
@@ -98,6 +103,8 @@ impl AppState {
             mod_updates: RwLock::new(HashMap::new()),
             mod_plans: RwLock::new(HashMap::new()),
             exports: ExportRegistry::default(),
+            icon_sources,
+            discord: Discord::start(),
             opened: std::sync::Mutex::new(Vec::new()),
         });
 
@@ -160,6 +167,7 @@ impl AppState {
 
         if relocated {
             self.accounts.relocate(paths.accounts_file()).await;
+            self.icon_sources.relocate(&paths.icons()).await;
             self.instances.reload(&paths).await?;
         }
 

@@ -3,7 +3,7 @@ definePageMeta({
   layout: 'main',
 })
 
-type Section = 'look' | 'behavior' | 'accounts' | 'java' | 'storage' | 'import' | 'about'
+type Section = 'look' | 'behavior' | 'discord' | 'accounts' | 'java' | 'storage' | 'import' | 'about'
 
 interface Entry {
   value: Section
@@ -36,6 +36,12 @@ const GROUPS: { labelKey: string, items: Entry[] }[] = [
         labelKey: 'settings.section.behavior',
         icon: 'i-lucide-app-window',
         keys: ['settings.launcher.after_launch.label', 'settings.launcher.auto_update.label', 'settings.launcher.telemetry.label'],
+      },
+      {
+        value: 'discord',
+        labelKey: 'settings.section.discord',
+        icon: 'simple-icons:discord',
+        keys: ['settings.discord.enabled.label', 'settings.discord.instance.label'],
       },
       {
         value: 'accounts',
@@ -212,6 +218,9 @@ const guard = useUnsavedChanges({
           </TabsContent>
           <TabsContent value="behavior">
             <SettingsBehavior v-model="config" />
+          </TabsContent>
+          <TabsContent value="discord">
+            <SettingsDiscord v-model="config" />
           </TabsContent>
           <TabsContent value="accounts">
             <SettingsAccounts />

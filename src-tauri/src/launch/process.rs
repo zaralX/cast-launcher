@@ -304,6 +304,7 @@ fn watch(
             .await;
             record_playtime(&app, &state, &instance_id, started_at).await;
             state.processes.forget(&run_id).await;
+            crate::discord::refresh(&state).await;
         }
 
         crate::window::exit_if_idle(&app);

@@ -170,6 +170,8 @@ async fn run(
     }
     .emit(&app);
 
+    crate::discord::refresh(&state).await;
+
     Ok(game)
 }
 

@@ -14,6 +14,12 @@ export interface AppConfig {
   version: number
   launcher: LauncherConfig
   java: JavaConfig
+  discord: DiscordConfig
+}
+
+export interface DiscordConfig {
+  enabled: boolean
+  show_instance: boolean
 }
 
 export interface LauncherConfig {

@@ -279,7 +279,13 @@ async fn save_icon(state: &Arc<AppState>, entry: &CatalogPack) -> Option<String>
     let name = entry.icon_file_name(url);
 
     match icons::save_once(&paths.icons(), &name, &bytes).await {
-        Ok(icon) => Some(icon.name),
+        Ok(icon) => {
+            if let Err(error) = state.icon_sources.remember(&icon.name, url).await {
+                log::warn!("Failed to save the link of icon {}: {error}", icon.name);
+            }
+
+            Some(icon.name)
+        }
         Err(error) => {
             log::warn!("Failed to save the icon of pack '{}': {}", entry.id, error);
             None

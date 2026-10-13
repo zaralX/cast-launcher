@@ -26,6 +26,7 @@ use cast_core::mods::{self, ModFile};
 use cast_core::mojang::version::VersionManifest;
 use cast_core::packs::{self, PackPage};
 use cast_core::paths::PathsSnapshot;
+use cast_core::presence::PresenceText;
 use cast_core::skins::{self, AccountLook, SkinEntry, SkinLibrary, SkinVariant};
 use cast_core::theme::{self, CustomTheme};
 
@@ -92,7 +93,17 @@ pub async fn update_config(
     telemetry::settings_changed(&app, &before, &updated);
     telemetry::set_enabled(updated.launcher.telemetry);
 
+    crate::discord::refresh(&state).await;
+
     Ok(updated)
+}
+
+#[tauri::command]
+pub async fn set_presence_text(state: Ctx<'_>, text: PresenceText) -> CommandResult<()> {
+    state.discord.set_text(text).await;
+    crate::discord::refresh(&state).await;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -242,6 +253,8 @@ pub async fn update_instance(
         instances: state.instances.all().await,
     }
     .emit(&app);
+
+    crate::discord::refresh(&state).await;
 
     Ok(updated)
 }
@@ -748,6 +761,10 @@ pub async fn delete_icon(state: Ctx<'_>, name: String) -> CommandResult<Vec<Icon
     let paths = state.paths().await;
 
     icons::remove(&paths.icons(), &name).await?;
+
+    if let Err(error) = state.icon_sources.forget(&name).await {
+        log::warn!("Failed to drop the link of icon {name}: {error}");
+    }
     icons::list(&paths.icons()).await
 }
 
@@ -1371,8 +1388,13 @@ pub async fn save_pack_icon(
     let bytes = packs::icon(provider, &url).await?;
     let paths = state.paths().await;
     let name = packs::icon_file_name(provider, &project_id, &url);
+    let icon = icons::save_once(&paths.icons(), &name, &bytes).await?;
 
-    icons::save_once(&paths.icons(), &name, &bytes).await
+    if let Err(error) = state.icon_sources.remember(&icon.name, &url).await {
+        log::warn!("Failed to save the link of icon {}: {error}", icon.name);
+    }
+
+    Ok(icon)
 }
 
 #[tauri::command]

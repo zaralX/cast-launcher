@@ -5,6 +5,7 @@ const errorCenterOpen = useErrorCenterOpen()
 
 useAppearance()
 useLanguage()
+usePresenceText()
 
 const unregister = registerErrorSink((entry) => {
   toast.add({

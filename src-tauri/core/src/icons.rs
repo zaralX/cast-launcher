@@ -1,14 +1,18 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::Serialize;
+use tokio::sync::RwLock;
 
 use crate::error::{CommandError, CommandResult};
-use crate::fs_util::{child_file, ensure_dir};
+use crate::fs_util::{child_file, ensure_dir, read_json_opt, write_json_atomic};
 
 pub const MAX_SIZE: u64 = 8 * 1024 * 1024;
+
+const SOURCES_FILE: &str = "sources.json";
 
 const EXTENSIONS: &[(&str, &str)] = &[
     ("png", "image/png"),
@@ -206,6 +210,64 @@ pub async fn remove(dir: &Path, name: &str) -> CommandResult<()> {
         .map_err(|e| CommandError::io("error.reason.fs.delete", &path, e))
 }
 
+pub struct IconSources {
+    file: RwLock<PathBuf>,
+    links: RwLock<BTreeMap<String, String>>,
+}
+
+impl IconSources {
+    pub async fn load(dir: &Path) -> Self {
+        let file = dir.join(SOURCES_FILE);
+
+        Self {
+            links: RwLock::new(read_json_opt(&file).await.unwrap_or_default()),
+            file: RwLock::new(file),
+        }
+    }
+
+    pub async fn relocate(&self, dir: &Path) {
+        let file = dir.join(SOURCES_FILE);
+        let loaded = read_json_opt(&file).await.unwrap_or_default();
+
+        let mut current = self.file.write().await;
+        *self.links.write().await = loaded;
+        *current = file;
+    }
+
+    pub async fn link(&self, name: &str) -> Option<String> {
+        self.links.read().await.get(name).cloned()
+    }
+
+    pub async fn remember(&self, name: &str, url: &str) -> CommandResult<()> {
+        let url = url.trim();
+
+        if !url.starts_with("https://") {
+            return Ok(());
+        }
+
+        self.mutate(|links| links.insert(name.to_string(), url.to_string()).as_deref() != Some(url))
+            .await
+    }
+
+    pub async fn forget(&self, name: &str) -> CommandResult<()> {
+        self.mutate(|links| links.remove(name).is_some()).await
+    }
+
+    async fn mutate<F>(&self, apply: F) -> CommandResult<()>
+    where
+        F: FnOnce(&mut BTreeMap<String, String>) -> bool,
+    {
+        let mut links = self.links.write().await;
+
+        if !apply(&mut links) {
+            return Ok(());
+        }
+
+        let file = self.file.read().await.clone();
+        write_json_atomic(&file, &*links).await
+    }
+}
+
 fn sanitize_name(name: &str) -> String {
     let name = Path::new(name)
         .file_name()
@@ -367,6 +429,63 @@ mod tests {
         assert!(url.ends_with(&STANDARD.encode(b"pixels")));
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn icon_links_survive_a_reload() {
+        let dir = temp_dir();
+        let sources = IconSources::load(&dir).await;
+
+        sources
+            .remember("modrinth-a.png", " https://cdn.modrinth.com/a.png ")
+            .await
+            .unwrap();
+        sources
+            .remember("castpack-b.png", "https://cdn/b.png")
+            .await
+            .unwrap();
+        sources.forget("castpack-b.png").await.unwrap();
+        sources
+            .remember("plain.png", "http://cdn/c.png")
+            .await
+            .unwrap();
+
+        let reloaded = IconSources::load(&dir).await;
+
+        assert_eq!(
+            reloaded.link("modrinth-a.png").await.as_deref(),
+            Some("https://cdn.modrinth.com/a.png")
+        );
+        assert_eq!(reloaded.link("castpack-b.png").await, None);
+        assert_eq!(reloaded.link("plain.png").await, None);
+        assert!(list(&dir).await.unwrap().is_empty());
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn broken_sources_start_empty_and_relocate_reads_the_new_ones() {
+        let broken = temp_dir();
+        let other = temp_dir();
+        std::fs::write(broken.join(SOURCES_FILE), b"{ not json").unwrap();
+
+        IconSources::load(&other)
+            .await
+            .remember("castpack-rpg.png", "https://cdn/rpg.png")
+            .await
+            .unwrap();
+
+        let sources = IconSources::load(&broken).await;
+        assert_eq!(sources.link("castpack-rpg.png").await, None);
+
+        sources.relocate(&other).await;
+        assert_eq!(
+            sources.link("castpack-rpg.png").await.as_deref(),
+            Some("https://cdn/rpg.png")
+        );
+
+        std::fs::remove_dir_all(&broken).ok();
+        std::fs::remove_dir_all(&other).ok();
     }
 
     #[tokio::test]

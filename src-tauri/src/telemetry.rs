@@ -125,6 +125,8 @@ pub async fn app_started(app: &AppHandle, state: &Arc<AppState>) {
         .text("language", &config.launcher.language)
         .flag("compact", config.launcher.compact)
         .flag("auto_update", config.launcher.auto_update)
+        .flag("discord", config.discord.enabled)
+        .flag("discord_instance", config.discord.show_instance)
         .flag("custom_dir", custom_dir(state, &config).await)
         .flag(
             "custom_catalog",
@@ -185,6 +187,12 @@ pub fn settings_changed(app: &AppHandle, before: &AppConfig, after: &AppConfig) 
         "telemetry",
         before.launcher.telemetry,
         after.launcher.telemetry,
+    );
+    flag("discord", before.discord.enabled, after.discord.enabled);
+    flag(
+        "discord_instance",
+        before.discord.show_instance,
+        after.discord.show_instance,
     );
     flag(
         "custom_catalog",

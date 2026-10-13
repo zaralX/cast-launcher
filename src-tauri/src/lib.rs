@@ -1,5 +1,6 @@
 mod castpack;
 mod commands;
+mod discord;
 mod events;
 mod export;
 mod import;
@@ -73,6 +74,7 @@ pub fn run() {
             commands::bootstrap,
             commands::get_config,
             commands::update_config,
+            commands::set_presence_text,
             commands::encode_theme,
             commands::decode_theme,
             commands::get_paths,
