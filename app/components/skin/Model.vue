@@ -162,7 +162,7 @@ function faceList(box: SkinBox, url: string, texture: { w: number, h: number }, 
     { key: 'right', style: skin(rects.right, `rotateY(-90deg) translateZ(${w / 2 * u}px)`) },
     { key: 'left', style: skin(rects.left, `rotateY(90deg) translateZ(${w / 2 * u}px)`) },
     { key: 'top', style: skin(rects.top, `rotateX(90deg) translateZ(${h / 2 * u}px)`) },
-    { key: 'bottom', style: skin(rects.bottom, `rotateX(-90deg) translateZ(${h / 2 * u}px)`) },
+    { key: 'bottom', style: skin(rects.bottom, `rotateX(-90deg) rotateZ(180deg) translateZ(${h / 2 * u}px)`) },
   ]
 }
 
