@@ -156,13 +156,14 @@ function faceList(box: SkinBox, url: string, texture: { w: number, h: number }, 
     transform: `translate(-50%, -50%) ${transform}`,
   })
 
+  // scale(1.01) fixes edge spaces
   return [
-    { key: 'front', style: skin(rects.front, `translateZ(${d / 2 * u}px)`) },
-    { key: 'back', style: skin(rects.back, `rotateY(180deg) translateZ(${d / 2 * u}px)`) },
-    { key: 'right', style: skin(rects.right, `rotateY(-90deg) translateZ(${w / 2 * u}px)`) },
-    { key: 'left', style: skin(rects.left, `rotateY(90deg) translateZ(${w / 2 * u}px)`) },
-    { key: 'top', style: skin(rects.top, `rotateX(90deg) translateZ(${h / 2 * u}px)`) },
-    { key: 'bottom', style: skin(rects.bottom, `rotateX(-90deg) rotateZ(180deg) translateZ(${h / 2 * u}px)`) },
+    { key: 'front', style: skin(rects.front, `translateZ(${d / 2 * u}px) scale(1.01)`) },
+    { key: 'back', style: skin(rects.back, `rotateY(180deg) translateZ(${d / 2 * u}px) scale(1.01)`) },
+    { key: 'right', style: skin(rects.right, `rotateY(-90deg) translateZ(${w / 2 * u}px) scale(1.01)`) },
+    { key: 'left', style: skin(rects.left, `rotateY(90deg) translateZ(${w / 2 * u}px) scale(1.01)`) },
+    { key: 'top', style: skin(rects.top, `rotateX(90deg) translateZ(${h / 2 * u}px) scale(1.01)`) },
+    { key: 'bottom', style: skin(rects.bottom, `rotateX(-90deg) rotateZ(180deg) translateZ(${h / 2 * u}px) scale(1.01)`) },
   ]
 }
 
