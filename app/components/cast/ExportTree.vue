@@ -53,11 +53,9 @@ const SOURCE_TONE: Record<SourceKind, string> = {
 
 function sources(entry: TreeEntry) {
   const counts: Partial<Record<SourceKind, number>> = {}
-  let inBase = 0
 
   for (const child of entry.children ?? []) {
     if (!selected.value.has(child.key)) continue
-    if (child.inBase) inBase++
     if (!child.source) continue
     counts[child.source.kind] = (counts[child.source.kind] ?? 0) + 1
   }
@@ -65,8 +63,6 @@ function sources(entry: TreeEntry) {
   const found = (Object.keys(SOURCE_KEYS) as SourceKind[])
     .filter(kind => counts[kind])
     .map(kind => ({ label: t(SOURCE_KEYS[kind]), tone: SOURCE_TONE[kind], count: counts[kind]! }))
-
-  if (inBase) found.push({ label: t('cast_export.in_base'), tone: 'text-fg-faint', count: inBase })
 
   return found
 }
@@ -135,12 +131,6 @@ const sizeOf = (entry: TreeEntry) => entry.dir
           </p>
         </div>
 
-        <span
-          v-if="entry.inBase"
-          class="shrink-0 text-caption text-fg-faint"
-        >
-          {{ $t('cast_export.in_base') }}
-        </span>
         <Badge v-if="entry.note">
           {{ $t(EXPORT_NOTE_KEYS[entry.note]) }}
         </Badge>
@@ -168,12 +158,6 @@ const sizeOf = (entry: TreeEntry) => entry.dir
             :title="child.key"
           >
             {{ child.name }}
-          </span>
-          <span
-            v-if="child.inBase"
-            class="shrink-0 text-caption text-fg-faint"
-          >
-            {{ $t('cast_export.in_base') }}
           </span>
           <span
             v-if="child.source"

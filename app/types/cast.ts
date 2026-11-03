@@ -75,8 +75,6 @@ export interface TreeEntry {
   mode: FileMode
   note?: ExportNote
   source?: FileSource
-  // The base modpack brings the same file.
-  inBase?: boolean
   children?: TreeEntry[]
 }
 
@@ -84,8 +82,6 @@ export interface ExportBase {
   provider: PackProvider
   name: string
   version: string
-  // Whether the tree already marks what the base brings.
-  compared: boolean
 }
 
 export interface ExportDefaults {
@@ -173,10 +169,13 @@ export interface ExportResult {
   skipped: string[]
 }
 
-export type ExportStage = 'collecting' | 'identifying' | 'packing'
+export type ExportStage = 'collecting' | 'downloading' | 'modpack' | 'hashing' | 'identifying' | 'packing'
 
 export const EXPORT_STAGE_KEYS: Record<ExportStage, string> = {
   collecting: 'cast_export.stage.collecting',
+  downloading: 'cast_export.stage.downloading',
+  modpack: 'cast_export.stage.modpack',
+  hashing: 'cast_export.stage.hashing',
   identifying: 'cast_export.stage.identifying',
   packing: 'cast_export.stage.packing',
 }

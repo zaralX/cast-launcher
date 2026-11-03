@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ExportField, ExportFormat, ExportResult, ExportScan, TreeEntry } from '~/types/cast'
+import type { ExportField, ExportFormat, ExportResult, ExportScan, ExportStage, TreeEntry } from '~/types/cast'
 import { EXPORT_FORMATS, EXPORT_STAGE_KEYS } from '~/types/cast'
 import type { Instance } from '~/types/instance'
 import { PACK_PROVIDER_LABELS } from '~/types/instance'
@@ -61,6 +61,7 @@ async function load() {
   })
 
   scanning.value = false
+  castStore.finishExport()
 
   if (!scanned.ok) return
 
@@ -130,7 +131,6 @@ const summary = computed(() => {
   let size = 0
   let code = 0
   let unchecked = 0
-  let fromBase = 0
   const personal: string[] = []
   const linkKinds = formatInfo.value.links
 
@@ -141,11 +141,6 @@ const summary = computed(() => {
     if (picked.length && (entry.note === 'personal' || entry.note === 'world')) personal.push(entry.name)
 
     for (const item of picked) {
-      if (leaningOnBase.value && item.inBase) {
-        fromBase++
-        continue
-      }
-
       const kind = item.source?.kind
 
       if (kind && linkKinds.includes(kind)) {
@@ -161,7 +156,7 @@ const summary = computed(() => {
     }
   }
 
-  return { links, embedded, size, code, unchecked, fromBase, personal }
+  return { links, embedded, size, code, unchecked, personal }
 })
 
 const canContinue = computed(() => include.value.length > 0)
@@ -217,18 +212,52 @@ async function run() {
 
 const cancel = () => safeRun(() => call('cancel_cast_export'))
 
+const stageStart = ref<{ stage: ExportStage, at: number, done: number } | null>(null)
+
+watch(() => castStore.exporting, (current) => {
+  if (!current || current.instanceId !== props.instance.id) {
+    stageStart.value = null
+    return
+  }
+
+  if (stageStart.value?.stage !== current.stage) {
+    stageStart.value = { stage: current.stage, at: Date.now(), done: current.done }
+  }
+})
+
+function timeLeft(done: number, total: number) {
+  const start = stageStart.value
+  if (!start || total <= 0) return ''
+
+  const elapsed = (Date.now() - start.at) / 1000
+  const progressed = done - start.done
+
+  if (elapsed < 3 || progressed <= 0 || done / total < 0.02) return ''
+
+  return t('cast_export.left', { time: formatPlaytime(Math.max(1, (total - done) * elapsed / progressed)) })
+}
+
+function stageDetail(stage: ExportStage, done: number, total: number) {
+  if (stage === 'collecting') return done ? t('cast_export.found', { count: done }) : ''
+  if (stage === 'hashing' || stage === 'modpack') return total ? `${done} / ${total}` : ''
+  if (stage === 'downloading' || stage === 'packing') {
+    return total ? `${formatBytes(done)} / ${formatBytes(total)}` : done ? formatBytes(done) : ''
+  }
+  return ''
+}
+
 const progress = computed(() => {
   const current = castStore.exporting
   if (!current || current.instanceId !== props.instance.id) return null
 
-  const percent = current.stage === 'packing' && current.total > 0
-    ? Math.min(100, Math.round(current.done / current.total * 100))
-    : null
+  const { stage, done, total } = current
+  const measured = stage !== 'collecting' && stage !== 'identifying'
 
   return {
-    label: t(EXPORT_STAGE_KEYS[current.stage]),
-    percent,
-    detail: current.stage === 'packing' ? `${formatBytes(current.done)} / ${formatBytes(current.total)}` : '',
+    label: t(EXPORT_STAGE_KEYS[stage]),
+    percent: measured && total > 0 ? Math.min(100, Math.round(done / total * 100)) : null,
+    detail: stageDetail(stage, done, total),
+    left: measured ? timeLeft(done, total) : '',
   }
 })
 
@@ -265,7 +294,11 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             class="flex items-center gap-3 py-10"
           >
             <Spinner class="text-accent" />
-            <span class="text-body text-fg-muted">{{ $t('cast_export.scanning') }}</span>
+            <span class="text-body text-fg-muted">{{ progress?.label ?? $t('cast_export.scanning') }}</span>
+            <span
+              v-if="progress?.detail"
+              class="font-mono text-caption text-fg-faint tabular-nums"
+            >{{ progress.detail }}</span>
           </div>
 
           <template v-else-if="scan">
@@ -424,7 +457,10 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             </KitRow>
           </KitRows>
 
-          <KitStatGrid :columns="3">
+          <KitStatGrid
+            v-if="!leaningOnBase"
+            :columns="3"
+          >
             <KitStat
               :label="$t('cast_export.summary.links')"
               :value="String(summary.links)"
@@ -440,15 +476,6 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           </KitStatGrid>
 
           <div class="space-y-2.5">
-            <KitNote
-              v-if="leaningOnBase"
-              icon="i-lucide-layers"
-              tone="accent"
-            >
-              {{ base?.compared
-                ? $t('cast_export.base.from_base', { count: summary.fromBase })
-                : $t('cast_export.base.not_compared') }}
-            </KitNote>
             <KitNote
               v-if="summary.code"
               icon="i-lucide-package-open"
@@ -487,12 +514,13 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             >{{ progress.percent }}%</span>
           </div>
           <Progress :model-value="progress?.percent ?? null" />
-          <p
-            v-if="progress?.detail"
-            class="font-mono text-caption text-fg-faint tabular-nums"
+          <div
+            v-if="progress?.detail || progress?.left"
+            class="flex justify-between gap-4 text-caption text-fg-faint"
           >
-            {{ progress.detail }}
-          </p>
+            <span class="font-mono tabular-nums">{{ progress.detail }}</span>
+            <span v-if="progress.left">{{ progress.left }}</span>
+          </div>
         </div>
 
         <div

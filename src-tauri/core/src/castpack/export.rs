@@ -172,9 +172,6 @@ pub struct TreeEntry {
     pub note: Option<Note>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<FileSource>,
-    /// The base modpack brings the same file.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    pub in_base: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<TreeEntry>,
 }
@@ -252,7 +249,6 @@ fn leaf(key: &str, name: &str, path: &Path, is_dir: bool, choice: Choice) -> Tre
         mode: choice.mode,
         note: choice.note,
         source: None,
-        in_base: false,
         children: Vec::new(),
     }
 }
@@ -330,7 +326,11 @@ pub struct Collected {
 }
 
 /// Every file under the chosen paths, without hidden, junk or forbidden ones.
-pub fn collect(minecraft_dir: &Path, include: &[String]) -> CommandResult<Collected> {
+pub fn collect(
+    minecraft_dir: &Path,
+    include: &[String],
+    found: &dyn Fn(u64),
+) -> CommandResult<Collected> {
     let mut files: BTreeMap<String, ExportFile> = BTreeMap::new();
     let mut skipped = BTreeSet::new();
 
@@ -348,9 +348,10 @@ pub fn collect(minecraft_dir: &Path, include: &[String]) -> CommandResult<Collec
         };
 
         if meta.is_dir() {
-            walk(&path, &key, 0, &mut files, &mut skipped)?;
+            walk(&path, &key, 0, &mut files, &mut skipped, found)?;
         } else if meta.is_file() {
             add(&key, path, meta.len(), &mut files, &mut skipped);
+            found(files.len() as u64);
         }
     }
 
@@ -366,6 +367,7 @@ fn walk(
     depth: usize,
     files: &mut BTreeMap<String, ExportFile>,
     skipped: &mut BTreeSet<String>,
+    found: &dyn Fn(u64),
 ) -> CommandResult<()> {
     if depth > MAX_DEPTH {
         return Ok(());
@@ -379,10 +381,11 @@ fn walk(
         }
 
         if is_dir {
-            walk(&path, &child, depth + 1, files, skipped)?;
+            walk(&path, &child, depth + 1, files, skipped, found)?;
         } else {
             let size = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(0);
             add(&child, path, size, files, skipped);
+            found(files.len() as u64);
         }
     }
 
@@ -466,19 +469,9 @@ pub async fn lookup(
     scan: &ModsScan,
     minecraft_dir: &Path,
     cache_file: &Path,
+    hashed: &(dyn Fn(u64, u64) + Sync),
 ) -> CommandResult<Lookup> {
-    let wanted: Vec<(String, PathBuf)> = files
-        .iter()
-        .filter(|(key, _)| is_catalog_candidate(key))
-        .cloned()
-        .collect();
-
-    if wanted.is_empty() {
-        return Ok(Lookup::default());
-    }
-
-    let hashes = hash_files(&wanted, scan).await?;
-    let identified = catalog::identify_hashes(&hashes, cache_file).await;
+    let (identified, hashes) = identify_files(files, scan, cache_file, hashed).await?;
     let (found, targets) = verify(identified.found, &hashes, minecraft_dir).await?;
 
     Ok(Lookup {
@@ -486,6 +479,47 @@ pub async fn lookup(
         targets,
         unchecked: identified.unchecked,
     })
+}
+
+pub async fn identify(
+    files: &[(String, PathBuf)],
+    scan: &ModsScan,
+    cache_file: &Path,
+    hashed: &(dyn Fn(u64, u64) + Sync),
+) -> CommandResult<Lookup> {
+    let (identified, _) = identify_files(files, scan, cache_file, hashed).await?;
+
+    Ok(Lookup {
+        targets: identified
+            .found
+            .keys()
+            .map(|key| (key.clone(), key.clone()))
+            .collect(),
+        found: identified.found,
+        unchecked: identified.unchecked,
+    })
+}
+
+async fn identify_files(
+    files: &[(String, PathBuf)],
+    scan: &ModsScan,
+    cache_file: &Path,
+    hashed: &(dyn Fn(u64, u64) + Sync),
+) -> CommandResult<(catalog::Identified, BTreeMap<String, FileHashes>)> {
+    let wanted: Vec<(String, PathBuf)> = files
+        .iter()
+        .filter(|(key, _)| is_catalog_candidate(key))
+        .cloned()
+        .collect();
+
+    if wanted.is_empty() {
+        return Ok(Default::default());
+    }
+
+    let hashes = hash_files(&wanted, scan, hashed).await?;
+    let identified = catalog::identify_hashes(&hashes, cache_file).await;
+
+    Ok((identified, hashes))
 }
 
 pub async fn verify(
@@ -516,6 +550,7 @@ pub async fn verify(
 pub async fn hash_files(
     files: &[(String, PathBuf)],
     scan: &ModsScan,
+    hashed: &(dyn Fn(u64, u64) + Sync),
 ) -> CommandResult<BTreeMap<String, FileHashes>> {
     let mods_prefix = format!("{}/", mods::FOLDER);
 
@@ -534,7 +569,12 @@ pub async fn hash_files(
         .filter(|(key, _)| !(key.starts_with(&mods_prefix) && hashes.contains_key(key)))
         .map(|(key, path)| (key.clone(), path.clone()))
         .collect();
+
+    let total = files.len() as u64;
+    let mut done = total.saturating_sub(pending.len() as u64);
     let mut pending = pending.into_iter();
+
+    hashed(done, total);
 
     let mut tasks = JoinSet::new();
 
@@ -548,6 +588,9 @@ pub async fn hash_files(
         if let Ok((key, Some(found))) = joined {
             hashes.insert(key, found);
         }
+
+        done += 1;
+        hashed(done, total);
 
         if let Some((key, path)) = pending.next() {
             tasks.spawn(async move { (key, hash::of(&path).await) });
@@ -703,35 +746,6 @@ pub fn stale_replacements(diff: &Diff, lookup: &Lookup) -> Vec<String> {
         .collect()
 }
 
-/// Marks the files of the tree the base pack already brings.
-pub fn mark_base(tree: &mut [TreeEntry], skip: &BTreeSet<String>) {
-    for entry in tree.iter_mut() {
-        entry.in_base = skip.contains(&entry.key);
-
-        for child in entry.children.iter_mut() {
-            child.in_base = skip.contains(&child.key);
-        }
-    }
-}
-
-/// Files of the tree that the base pack may bring: the ones to hash for a comparison.
-pub fn base_candidates(
-    tree: &[TreeEntry],
-    base: &BaseFiles,
-    minecraft_dir: &Path,
-) -> Vec<(String, PathBuf)> {
-    tree.iter()
-        .flat_map(|entry| std::iter::once(entry).chain(entry.children.iter()))
-        .filter(|entry| !entry.dir && base.contains_key(&entry.key))
-        .filter_map(|entry| {
-            Some((
-                entry.key.clone(),
-                safe_join(minecraft_dir, &entry.key).ok()?,
-            ))
-        })
-        .collect()
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ExportRequest {
@@ -869,14 +883,15 @@ pub struct ExportBase {
     pub provider: PackProvider,
     pub name: String,
     pub version: String,
-    /// Whether the tree already marks what the base brings: it does once its archive is downloaded.
-    pub compared: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ExportStage {
     Collecting,
+    Downloading,
+    Modpack,
+    Hashing,
     Identifying,
     Packing,
 }
@@ -1190,6 +1205,7 @@ mod tests {
         put(&dir, "options.txt", b"fov");
         put(&dir, "mods/sodium.jar", b"jar");
 
+        let seen = std::cell::Cell::new(0);
         let collected = collect(
             &dir,
             &[
@@ -1198,8 +1214,15 @@ mod tests {
                 "config/a.toml".into(),
                 "gone".into(),
             ],
+            &|count| seen.set(count),
         )
         .unwrap();
+
+        assert_eq!(
+            seen.get(),
+            3,
+            "the count of found files is reported as it grows"
+        );
 
         let keys: Vec<_> = collected
             .files
@@ -1213,7 +1236,7 @@ mod tests {
         assert_eq!(collected.skipped, vec!["config/setup.exe"]);
         assert_eq!(collected.files[2].mode, FileMode::Once);
 
-        assert!(collect(&dir, &["../outside".into()]).is_err());
+        assert!(collect(&dir, &["../outside".into()], &|_| {}).is_err());
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -1615,38 +1638,5 @@ mod tests {
         };
 
         assert_eq!(stale_replacements(&diff, &lookup), vec!["mods/a.jar"]);
-    }
-
-    #[test]
-    fn files_the_base_brings_are_marked_in_the_tree() {
-        let leaf = |key: &str| TreeEntry {
-            key: key.into(),
-            name: key.into(),
-            dir: false,
-            size: 1,
-            files: 1,
-            selected: true,
-            mode: FileMode::Always,
-            note: None,
-            source: None,
-            in_base: false,
-            children: Vec::new(),
-        };
-
-        let mut tree = vec![TreeEntry {
-            dir: true,
-            children: vec![leaf("mods/same.jar"), leaf("mods/own.jar")],
-            ..leaf("mods")
-        }];
-
-        mark_base(&mut tree, &BTreeSet::from(["mods/same.jar".to_string()]));
-
-        assert!(tree[0].children[0].in_base);
-        assert!(!tree[0].children[1].in_base);
-
-        let base: BaseFiles = BTreeMap::from([("mods/own.jar".to_string(), None)]);
-        let found = base_candidates(&tree, &base, Path::new("/mc"));
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].0, "mods/own.jar");
     }
 }

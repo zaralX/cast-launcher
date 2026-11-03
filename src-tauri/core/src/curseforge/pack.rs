@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{CommandError, CommandResult};
@@ -266,13 +267,16 @@ async fn resolve_files(entries: &[ManifestFile]) -> CommandResult<Vec<ResolvedFi
         .map(|entry| (entry.file_id, entry.required))
         .collect();
 
+    let started = std::time::Instant::now();
     let file_ids: Vec<u64> = required.keys().copied().collect();
     let raw_files = files_by_ids(&file_ids).await?;
+    let files_in = started.elapsed();
 
     let mod_ids: BTreeSet<u64> = raw_files.iter().map(RawFile::mod_id).collect();
     let projects = mods_by_ids(&mod_ids.into_iter().collect::<Vec<_>>())
         .await
         .unwrap_or_default();
+    let projects_in = started.elapsed() - files_in;
 
     let mut resolved: Vec<ResolvedFile> = raw_files
         .into_iter()
@@ -293,6 +297,15 @@ async fn resolve_files(entries: &[ManifestFile]) -> CommandResult<Vec<ResolvedFi
         .collect();
 
     recover_blocked(&mut resolved).await;
+
+    log::info!(
+        "CurseForge resolved {} files in {:.1}s: files {:.1}s, projects {:.1}s, blocked {:.1}s",
+        resolved.len(),
+        started.elapsed().as_secs_f64(),
+        files_in.as_secs_f64(),
+        projects_in.as_secs_f64(),
+        (started.elapsed() - files_in - projects_in).as_secs_f64()
+    );
 
     Ok(resolved)
 }
@@ -325,9 +338,9 @@ async fn recover_blocked(files: &mut [ResolvedFile]) {
 
 async fn files_by_ids(file_ids: &[u64]) -> CommandResult<Vec<RawFile>> {
     #[derive(Serialize)]
-    struct Body<'a> {
+    struct Body {
         #[serde(rename = "fileIds")]
-        file_ids: &'a [u64],
+        file_ids: Vec<u64>,
     }
 
     #[derive(Deserialize)]
@@ -336,25 +349,28 @@ async fn files_by_ids(file_ids: &[u64]) -> CommandResult<Vec<RawFile>> {
         data: Vec<RawFile>,
     }
 
-    let mut collected = Vec::with_capacity(file_ids.len());
+    let bodies = file_ids
+        .chunks(BATCH)
+        .map(|chunk| Body {
+            file_ids: chunk.to_vec(),
+        })
+        .collect();
 
-    for chunk in file_ids.chunks(BATCH) {
-        let response: Response =
-            post_json(&format!("{API}/mods/files"), &Body { file_ids: chunk }).await?;
+    let responses: Vec<Response> = post_batches(format!("{API}/mods/files"), bodies).await?;
 
-        collected.extend(response.data);
-    }
-
-    Ok(collected)
+    Ok(responses
+        .into_iter()
+        .flat_map(|response| response.data)
+        .collect())
 }
 
 async fn mods_by_ids(
     mod_ids: &[u64],
 ) -> CommandResult<BTreeMap<u64, (&'static str, Option<String>)>> {
     #[derive(Serialize)]
-    struct Body<'a> {
+    struct Body {
         #[serde(rename = "modIds")]
-        mod_ids: &'a [u64],
+        mod_ids: Vec<u64>,
     }
 
     #[derive(Deserialize)]
@@ -363,12 +379,17 @@ async fn mods_by_ids(
         data: Vec<RawMod>,
     }
 
+    let bodies = mod_ids
+        .chunks(BATCH)
+        .map(|chunk| Body {
+            mod_ids: chunk.to_vec(),
+        })
+        .collect();
+
+    let responses: Vec<Response> = post_batches(format!("{API}/mods"), bodies).await?;
     let mut collected = BTreeMap::new();
 
-    for chunk in mod_ids.chunks(BATCH) {
-        let response: Response =
-            post_json(&format!("{API}/mods"), &Body { mod_ids: chunk }).await?;
-
+    for response in responses {
         for project in response.data {
             collected.insert(
                 project.id(),
@@ -381,6 +402,32 @@ async fn mods_by_ids(
     }
 
     Ok(collected)
+}
+
+async fn post_batches<B, T>(url: String, bodies: Vec<B>) -> CommandResult<Vec<T>>
+where
+    B: Serialize + Send + Sync + 'static,
+    T: DeserializeOwned + Send + 'static,
+{
+    let mut requests = tokio::task::JoinSet::new();
+    let count = bodies.len();
+
+    for (index, body) in bodies.into_iter().enumerate() {
+        let url = url.clone();
+
+        requests.spawn(async move { (index, post_json::<B, T>(&url, &body).await) });
+    }
+
+    let mut answers: Vec<Option<T>> = (0..count).map(|_| None).collect();
+
+    while let Some(joined) = requests.join_next().await {
+        let (index, answer) =
+            joined.map_err(|e| CommandError::task_panicked("curseforge_batch", e))?;
+
+        answers[index] = Some(answer?);
+    }
+
+    Ok(answers.into_iter().flatten().collect())
 }
 
 pub(crate) fn sanitize(name: &str) -> String {

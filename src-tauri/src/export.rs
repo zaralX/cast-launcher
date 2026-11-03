@@ -1,8 +1,7 @@
-use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use tauri::AppHandle;
@@ -19,7 +18,7 @@ use cast_core::icons;
 use cast_core::instance::{CastExport, Instance};
 use cast_core::mods::hash::FileHashes;
 use cast_core::mods::{self, ModsScan};
-use cast_core::net::download::{DownloadOptions, DownloadTask};
+use cast_core::net::download::{DownloadOptions, DownloadTask, JobSnapshot};
 use cast_core::packs;
 use cast_core::packs::export::{self as modpack, ExportFormat};
 use cast_core::paths::LauncherPaths;
@@ -67,10 +66,16 @@ impl Drop for ExportGuard<'_> {
     }
 }
 
-pub async fn scan(state: &Arc<AppState>, instance_id: &str) -> CommandResult<ExportScan> {
+pub async fn scan(
+    app: &AppHandle,
+    state: &Arc<AppState>,
+    instance_id: &str,
+) -> CommandResult<ExportScan> {
     let instance = state.instances.get(instance_id).await?;
     let paths = state.paths().await;
     let minecraft = paths.instance(&instance.id).minecraft();
+    let progress = Progress::new(app, &instance.id);
+    let started = Instant::now();
 
     let mut tree = {
         let minecraft = minecraft.clone();
@@ -80,44 +85,45 @@ pub async fn scan(state: &Arc<AppState>, instance_id: &str) -> CommandResult<Exp
             .map_err(|e| CommandError::task_panicked("scan_export_tree", e))??
     };
 
+    let tree_time = started.elapsed();
     let candidates = export::candidates(&tree, &minecraft);
-    let lookup = lookup(state, &paths, &instance, &candidates).await?;
+    let lookup = identify(state, &paths, &instance, &candidates, &progress).await?;
 
     export::mark_sources(&mut tree, &lookup);
 
-    let base = match instance.pack.is_some() {
-        true => base(state, &paths, &instance, false)
-            .await
-            .unwrap_or_else(|error| {
-                log::warn!(
-                    "The export dialog could not compare the instance with its modpack: {error}"
-                );
-                None
-            }),
-        false => None,
+    log::info!(
+        "Export dialog for '{}' read in {:.1}s: tree {:.1}s, catalogs {:.1}s",
+        instance.name,
+        started.elapsed().as_secs_f64(),
+        tree_time.as_secs_f64(),
+        (started.elapsed() - tree_time).as_secs_f64()
+    );
+
+    let base = match &instance.pack {
+        Some(pack) => Some(ExportBase {
+            provider: pack.provider,
+            name: match packs::cached_archive(&paths, pack) {
+                Ok(archive) if archive.is_file() => base_name(&archive).await,
+                _ => String::new(),
+            },
+            version: pack.version_number.clone(),
+        }),
+        None => None,
     };
-
-    if let Some(base) = &base {
-        let files = export::base_candidates(&tree, &base.files, &minecraft);
-        let local = local_hashes(state, &paths, &instance, &files).await?;
-
-        export::mark_base(&mut tree, &export::diff(&base.files, &local, |_| true).skip);
-    }
 
     Ok(ExportScan {
         tree,
         defaults: export::defaults(&instance),
         unchecked: lookup.unchecked.len(),
-        base: instance.pack.as_ref().map(|pack| ExportBase {
-            provider: pack.provider,
-            name: base
-                .as_ref()
-                .map(|base| base.info.name.clone())
-                .unwrap_or_default(),
-            version: pack.version_number.clone(),
-            compared: base.is_some(),
-        }),
+        base,
     })
+}
+
+async fn base_name(archive: &Path) -> String {
+    packs::local::inspect(archive)
+        .await
+        .map(|found| found.name)
+        .unwrap_or_default()
 }
 
 fn mods_scan(paths: &LauncherPaths, instance: &Instance) -> ModsScan {
@@ -137,6 +143,7 @@ async fn lookup(
     paths: &LauncherPaths,
     instance: &Instance,
     files: &[(String, PathBuf)],
+    progress: &Progress,
 ) -> CommandResult<Lookup> {
     let lock = state.mods.of(&instance.id).await;
     let _guard = lock.lock().await;
@@ -144,7 +151,33 @@ async fn lookup(
     let minecraft = paths.instance(&instance.id).minecraft();
     let scan = mods_scan(paths, instance);
 
-    export::lookup(files, &scan, &minecraft, &paths.mod_catalog()).await
+    export::lookup(
+        files,
+        &scan,
+        &minecraft,
+        &paths.mod_catalog(),
+        &|done, total| progress.hashed(done, total),
+    )
+    .await
+}
+
+async fn identify(
+    state: &Arc<AppState>,
+    paths: &LauncherPaths,
+    instance: &Instance,
+    files: &[(String, PathBuf)],
+    progress: &Progress,
+) -> CommandResult<Lookup> {
+    let lock = state.mods.of(&instance.id).await;
+    let _guard = lock.lock().await;
+
+    export::identify(
+        files,
+        &mods_scan(paths, instance),
+        &paths.mod_catalog(),
+        &|done, total| progress.hashed(done, total),
+    )
+    .await
 }
 
 async fn file_hashes(
@@ -152,11 +185,15 @@ async fn file_hashes(
     paths: &LauncherPaths,
     instance: &Instance,
     files: &[(String, PathBuf)],
+    progress: &Progress,
 ) -> CommandResult<BTreeMap<String, FileHashes>> {
     let lock = state.mods.of(&instance.id).await;
     let _guard = lock.lock().await;
 
-    export::hash_files(files, &mods_scan(paths, instance)).await
+    export::hash_files(files, &mods_scan(paths, instance), &|done, total| {
+        progress.hashed(done, total)
+    })
+    .await
 }
 
 /// Sha1 of each file, empty when it could not be read: such a file never counts as unchanged.
@@ -165,8 +202,9 @@ async fn local_hashes(
     paths: &LauncherPaths,
     instance: &Instance,
     files: &[(String, PathBuf)],
+    progress: &Progress,
 ) -> CommandResult<BTreeMap<String, String>> {
-    let hashes = file_hashes(state, paths, instance, files).await?;
+    let hashes = file_hashes(state, paths, instance, files, progress).await?;
 
     Ok(files
         .iter()
@@ -187,13 +225,13 @@ struct Base {
     files: BaseFiles,
 }
 
-/// What the modpack the instance is built on brings. Without `download` only an archive
-/// already in the cache counts, so the export dialog opens without a long wait.
+/// What the modpack the instance is built on brings: its downloads, manual downloads and
+/// overrides, read from its archive, which is downloaded first when the cache lost it.
 async fn base(
     state: &Arc<AppState>,
     paths: &LauncherPaths,
     instance: &Instance,
-    download: bool,
+    progress: &Arc<Progress>,
 ) -> CommandResult<Option<Base>> {
     let Some(pack) = &instance.pack else {
         return Ok(None);
@@ -202,14 +240,24 @@ async fn base(
     let archive = packs::cached_archive(paths, pack)?;
 
     if !archive.is_file() {
-        if !download {
-            return Ok(None);
-        }
-
         if pack.file_url.trim().is_empty() {
             return Err(CommandError::unsupported("error.reason.cast.base_manual")
                 .param("version", &pack.version_number));
         }
+
+        progress.send(ExportStage::Downloading, 0, pack.file_size.unwrap_or(0));
+
+        let sink = {
+            let progress = Arc::clone(progress);
+
+            Box::new(move |snapshot: &JobSnapshot| {
+                progress.throttled(
+                    ExportStage::Downloading,
+                    snapshot.downloaded_bytes,
+                    snapshot.total_bytes,
+                )
+            })
+        };
 
         state
             .downloads
@@ -222,15 +270,28 @@ async fn base(
                     pack.file_sha1.clone(),
                 )],
                 DownloadOptions::default(),
-                None,
+                Some(sink),
             )
             .await?;
     }
 
+    progress.send(ExportStage::Modpack, 0, 0);
+
+    let started = Instant::now();
     let minecraft = paths.instance(&instance.id).minecraft();
     let resolved = packs::local::resolve(&archive, &minecraft).await?;
-    let overrides =
-        cast_core::archive::entry_hashes(archive.clone(), resolved.overrides.clone()).await?;
+    let resolved_in = started.elapsed();
+
+    let overrides = {
+        let progress = Arc::clone(progress);
+
+        cast_core::archive::entry_hashes(
+            archive.clone(),
+            resolved.overrides.clone(),
+            move |done, total| progress.throttled(ExportStage::Modpack, done, total),
+        )
+        .await?
+    };
 
     let mut files = BaseFiles::new();
 
@@ -245,10 +306,13 @@ async fn base(
     // Overrides are unpacked after the downloads and win on the same path.
     files.extend(overrides.into_iter().map(|(key, sha1)| (key, Some(sha1))));
 
-    let name = packs::local::inspect(&archive)
-        .await
-        .map(|found| found.name)
-        .unwrap_or_default();
+    log::info!(
+        "Read the base modpack of '{}': {} files, resolved in {:.1}s, overrides hashed in {:.1}s",
+        instance.name,
+        files.len(),
+        resolved_in.as_secs_f64(),
+        (started.elapsed() - resolved_in).as_secs_f64()
+    );
 
     Ok(Some(Base {
         spec: BaseSpec {
@@ -257,7 +321,7 @@ async fn base(
             version_id: pack.version_id.clone(),
         },
         info: BaseInfo {
-            name,
+            name: base_name(&archive).await,
             version: pack.version_number.clone(),
         },
         files,
@@ -265,18 +329,12 @@ async fn base(
 }
 
 struct Job<'a> {
-    app: &'a AppHandle,
     state: &'a Arc<AppState>,
     paths: &'a LauncherPaths,
     instance: &'a Instance,
     request: &'a ExportRequest,
     partial: &'a Path,
-}
-
-impl Job<'_> {
-    fn progress(&self) -> Progress {
-        Progress::new(self.app, &self.instance.id)
-    }
+    progress: Arc<Progress>,
 }
 
 struct Packed {
@@ -318,26 +376,33 @@ pub async fn export(
     let paths = state.paths().await;
     let minecraft = paths.instance(&instance.id).minecraft();
 
-    Progress::new(app, &instance.id).send(ExportStage::Collecting, 0, 0);
+    let progress = Progress::new(app, &instance.id);
+
+    progress.send(ExportStage::Collecting, 0, 0);
 
     let Collected { files, skipped } = {
         let include = request.include.clone();
+        let progress = Arc::clone(&progress);
 
-        tokio::task::spawn_blocking(move || export::collect(&minecraft, &include))
-            .await
-            .map_err(|e| CommandError::task_panicked("collect_export_files", e))??
+        tokio::task::spawn_blocking(move || {
+            export::collect(&minecraft, &include, &|found| {
+                progress.throttled(ExportStage::Collecting, found, 0)
+            })
+        })
+        .await
+        .map_err(|e| CommandError::task_panicked("collect_export_files", e))??
     };
 
     cancelled(state)?;
 
     let partial = partial_path(&target);
     let job = Job {
-        app,
         state,
         paths: &paths,
         instance: &instance,
         request: &request,
         partial: &partial,
+        progress: Arc::clone(&progress),
     };
 
     let packed = match request.format {
@@ -394,6 +459,7 @@ pub async fn export(
         result.removed,
         result.size
     );
+    log::info!("Export stages: {}", progress.timings());
 
     telemetry::track(
         app,
@@ -424,13 +490,11 @@ async fn pack_cast(job: &Job<'_>, files: Vec<ExportFile>) -> CommandResult<Packe
     } = *job;
 
     let base = match request.use_base {
-        true => base(state, paths, instance, true).await?,
+        true => base(state, paths, instance, &job.progress).await?,
         false => None,
     };
 
     cancelled(state)?;
-    job.progress()
-        .send(ExportStage::Identifying, 0, files.len() as u64);
 
     let (files, diff) = match &base {
         Some(base) => {
@@ -440,7 +504,7 @@ async fn pack_cast(job: &Job<'_>, files: Vec<ExportFile>) -> CommandResult<Packe
                 .map(|file| (file.key.clone(), file.path.clone()))
                 .collect();
 
-            let local = local_hashes(state, paths, instance, &relevant).await?;
+            let local = local_hashes(state, paths, instance, &relevant, &job.progress).await?;
             let diff = export::diff(&base.files, &local, export::covered_by(&request.include));
 
             let files = files
@@ -458,7 +522,7 @@ async fn pack_cast(job: &Job<'_>, files: Vec<ExportFile>) -> CommandResult<Packe
         .map(|file| (file.key.clone(), file.path.clone()))
         .collect();
 
-    let lookup = lookup(state, paths, instance, &candidates).await?;
+    let lookup = lookup(state, paths, instance, &candidates, &job.progress).await?;
 
     cancelled(state)?;
 
@@ -501,16 +565,14 @@ async fn pack_cast(job: &Job<'_>, files: Vec<ExportFile>) -> CommandResult<Packe
     let total: u64 = split.embedded.iter().map(|file| file.size).sum();
     let icon = read_icon(paths, instance).await;
 
-    job.progress().send(ExportStage::Packing, 0, total);
+    job.progress.send(ExportStage::Packing, 0, total);
 
     let written = {
         let state = Arc::clone(state);
-        let app = job.app.clone();
-        let instance_id = instance.id.clone();
+        let progress = Arc::clone(&job.progress);
         let partial = job.partial.to_path_buf();
 
         tokio::task::spawn_blocking(move || {
-            let progress = Progress::new(&app, &instance_id);
             let report = |done: u64| progress.throttled(ExportStage::Packing, done, total);
             let cancelled = || state.exports.is_cancelled();
 
@@ -569,16 +631,23 @@ async fn catalog_hashes(
     job: &Job<'_>,
     files: &[ExportFile],
 ) -> CommandResult<BTreeMap<String, FileHashes>> {
-    job.progress()
-        .send(ExportStage::Identifying, 0, files.len() as u64);
-
     let candidates: Vec<(String, PathBuf)> = files
         .iter()
         .filter(|file| export::is_catalog_candidate(&file.key))
         .map(|file| (file.key.clone(), file.path.clone()))
         .collect();
 
-    let hashes = file_hashes(job.state, job.paths, job.instance, &candidates).await?;
+    job.progress
+        .send(ExportStage::Hashing, 0, candidates.len() as u64);
+
+    let hashes = file_hashes(
+        job.state,
+        job.paths,
+        job.instance,
+        &candidates,
+        &job.progress,
+    )
+    .await?;
 
     cancelled(job.state)?;
 
@@ -597,15 +666,13 @@ async fn write_modpack(job: &Job<'_>, plan: modpack::Plan) -> CommandResult<Pack
         with_base: false,
     };
 
-    job.progress().send(ExportStage::Packing, 0, total);
+    job.progress.send(ExportStage::Packing, 0, total);
 
     let state = Arc::clone(job.state);
-    let app = job.app.clone();
-    let instance_id = job.instance.id.clone();
+    let progress = Arc::clone(&job.progress);
     let partial = job.partial.to_path_buf();
 
     tokio::task::spawn_blocking(move || {
-        let progress = Progress::new(&app, &instance_id);
         let report = |done: u64| progress.throttled(ExportStage::Packing, done, total);
         let cancelled = || state.exports.is_cancelled();
 
@@ -714,20 +781,32 @@ async fn read_icon(paths: &LauncherPaths, instance: &Instance) -> Option<Icon> {
 struct Progress {
     app: AppHandle,
     instance_id: String,
-    last: Cell<Option<Instant>>,
+    last: Mutex<Option<Instant>>,
+    stages: Mutex<Vec<(ExportStage, Instant)>>,
 }
 
 impl Progress {
-    fn new(app: &AppHandle, instance_id: &str) -> Self {
-        Self {
+    fn new(app: &AppHandle, instance_id: &str) -> Arc<Self> {
+        Arc::new(Self {
             app: app.clone(),
             instance_id: instance_id.to_string(),
-            last: Cell::new(None),
-        }
+            last: Mutex::new(None),
+            stages: Mutex::new(Vec::new()),
+        })
     }
 
     fn send(&self, stage: ExportStage, done: u64, total: u64) {
-        self.last.set(Some(Instant::now()));
+        let now = Instant::now();
+
+        *lock(&self.last) = Some(now);
+
+        {
+            let mut stages = lock(&self.stages);
+
+            if stages.last().is_none_or(|(last, _)| *last != stage) {
+                stages.push((stage, now));
+            }
+        }
 
         LauncherEvent::CastExport(ExportProgress {
             instance_id: self.instance_id.clone(),
@@ -739,13 +818,39 @@ impl Progress {
     }
 
     fn throttled(&self, stage: ExportStage, done: u64, total: u64) {
-        let due = self
-            .last
-            .get()
-            .is_none_or(|last| last.elapsed() >= PROGRESS_EVERY);
+        let due = lock(&self.last).is_none_or(|last| last.elapsed() >= PROGRESS_EVERY);
+        let changed = lock(&self.stages)
+            .last()
+            .is_none_or(|(last, _)| *last != stage);
 
-        if due || done >= total {
+        if due || changed || (total > 0 && done >= total) {
             self.send(stage, done, total);
         }
     }
+
+    fn hashed(&self, done: u64, total: u64) {
+        match done >= total {
+            true => self.send(ExportStage::Identifying, 0, 0),
+            false => self.throttled(ExportStage::Hashing, done, total),
+        }
+    }
+
+    fn timings(&self) -> String {
+        let stages = lock(&self.stages);
+        let now = Instant::now();
+
+        stages
+            .iter()
+            .enumerate()
+            .map(|(index, (stage, started))| {
+                let until = stages.get(index + 1).map_or(now, |(_, next)| *next);
+                format!("{stage:?} {:.1}s", (until - *started).as_secs_f64())
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

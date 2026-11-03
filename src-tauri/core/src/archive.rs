@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use zip::result::ZipError;
 use zip::ZipArchive;
@@ -158,8 +159,9 @@ fn extract_dir_blocking(
 pub async fn entry_hashes(
     archive_path: PathBuf,
     prefixes: Vec<String>,
+    hashed: impl Fn(u64, u64) + Send + Sync + 'static,
 ) -> CommandResult<BTreeMap<String, String>> {
-    tokio::task::spawn_blocking(move || entry_hashes_blocking(&archive_path, &prefixes))
+    tokio::task::spawn_blocking(move || entry_hashes_blocking(&archive_path, &prefixes, &hashed))
         .await
         .map_err(|e| CommandError::task_panicked("hash_archive_entries", e))?
 }
@@ -167,25 +169,21 @@ pub async fn entry_hashes(
 fn entry_hashes_blocking(
     archive_path: &Path,
     prefixes: &[String],
+    hashed: &(dyn Fn(u64, u64) + Sync),
 ) -> CommandResult<BTreeMap<String, String>> {
-    use sha1::{Digest, Sha1};
-
-    let mut archive = open(archive_path)?;
-    let mut hashes = BTreeMap::new();
-    let mut buffer = vec![0_u8; 64 * 1024];
+    let archive = open(archive_path)?;
+    let mut wanted: Vec<(usize, String)> = Vec::new();
+    let mut keys: Vec<String> = Vec::new();
 
     for prefix in prefixes {
         let prefix = format!("{}/", prefix.trim_end_matches('/'));
 
         for index in 0..archive.len() {
-            let mut entry = archive
-                .by_index(index)
-                .map_err(|e| unreadable_entry(archive_path, e))?;
+            let Some(name) = archive.name_for_index(index) else {
+                continue;
+            };
 
-            let name = entry
-                .name()
-                .map_err(|e| unreadable_entry(archive_path, e))?
-                .into_owned();
+            let name = name.map_err(|e| unreadable_entry(archive_path, e))?;
 
             let Some(relative) = name.strip_prefix(&prefix) else {
                 continue;
@@ -199,33 +197,91 @@ fn entry_hashes_blocking(
                 continue;
             };
 
-            let mut hasher = Sha1::new();
-
-            loop {
-                let read = entry.read(&mut buffer).map_err(|e| {
-                    CommandError::archive("error.reason.archive.read_file")
-                        .param("entry", &name)
-                        .with_details(e.to_string())
-                })?;
-
-                if read == 0 {
-                    break;
-                }
-
-                hasher.update(&buffer[..read]);
-            }
-
-            let sha1: String = hasher
-                .finalize()
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect();
-
-            hashes.insert(key, sha1);
+            wanted.push((index, name.into_owned()));
+            keys.push(key);
         }
     }
 
-    Ok(hashes)
+    drop(archive);
+
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |count| count.get())
+        .clamp(1, 8);
+    let chunk = wanted.len().div_ceil(threads).max(1);
+    let total = wanted.len() as u64;
+    let done = AtomicU64::new(0);
+    let counter = || hashed(done.fetch_add(1, Ordering::Relaxed) + 1, total);
+
+    let parts: Vec<CommandResult<Vec<String>>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = wanted
+            .chunks(chunk)
+            .map(|part| scope.spawn(|| hash_entries(archive_path, part, &counter)))
+            .collect();
+
+        handles
+            .into_iter()
+            .map(|handle| {
+                handle.join().unwrap_or_else(|_| {
+                    Err(CommandError::unknown("error.reason.task_failed")
+                        .with_details("hash_archive_entries panicked"))
+                })
+            })
+            .collect()
+    });
+
+    let mut sha1s = Vec::with_capacity(keys.len());
+
+    for part in parts {
+        sha1s.extend(part?);
+    }
+
+    Ok(keys.into_iter().zip(sha1s).collect())
+}
+
+fn hash_entries(
+    archive_path: &Path,
+    entries: &[(usize, String)],
+    hashed: &(dyn Fn() + Sync),
+) -> CommandResult<Vec<String>> {
+    use sha1::{Digest, Sha1};
+
+    let mut archive = open(archive_path)?;
+    let mut buffer = vec![0_u8; 64 * 1024];
+    let mut sha1s = Vec::with_capacity(entries.len());
+
+    for (index, name) in entries {
+        let mut entry = archive
+            .by_index(*index)
+            .map_err(|e| unreadable_entry(archive_path, e))?;
+
+        let mut hasher = Sha1::new();
+
+        loop {
+            let read = entry.read(&mut buffer).map_err(|e| {
+                CommandError::archive("error.reason.archive.read_file")
+                    .param("entry", name)
+                    .with_details(e.to_string())
+            })?;
+
+            if read == 0 {
+                break;
+            }
+
+            hasher.update(&buffer[..read]);
+        }
+
+        sha1s.push(
+            hasher
+                .finalize()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect(),
+        );
+
+        hashed();
+    }
+
+    Ok(sha1s)
 }
 
 fn is_native(name: &str) -> bool {
@@ -380,9 +436,13 @@ mod tests {
             ],
         );
 
-        let hashes = entry_hashes(pack, vec!["overrides".into(), "client-overrides".into()])
-            .await
-            .unwrap();
+        let hashes = entry_hashes(
+            pack,
+            vec!["overrides".into(), "client-overrides".into()],
+            |_, _| {},
+        )
+        .await
+        .unwrap();
 
         let sha1 = |bytes: &[u8]| -> String {
             use sha1::{Digest, Sha1};

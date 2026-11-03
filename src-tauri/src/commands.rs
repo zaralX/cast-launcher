@@ -1485,10 +1485,11 @@ pub async fn import_modpack_file(
 
 #[tauri::command]
 pub async fn cast_export_scan(
+    app: AppHandle,
     state: Ctx<'_>,
     instance_id: String,
 ) -> CommandResult<cast_core::castpack::export::ExportScan> {
-    crate::export::scan(state.inner(), &instance_id).await
+    crate::export::scan(&app, state.inner(), &instance_id).await
 }
 
 #[tauri::command]
