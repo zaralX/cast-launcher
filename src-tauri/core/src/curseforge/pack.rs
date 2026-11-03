@@ -13,11 +13,11 @@ use super::{post_json, RawFile, RawMod, API};
 
 pub const MANIFEST_ENTRY: &str = "manifest.json";
 
-const MANIFEST_TYPE: &str = "minecraftModpack";
+pub const MANIFEST_TYPE: &str = "minecraftModpack";
 
 const BATCH: usize = 300;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Manifest {
     #[serde(default)]
@@ -42,18 +42,18 @@ fn default_overrides() -> String {
     "overrides".to_string()
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Minecraft {
     #[serde(default)]
     pub version: String,
     #[serde(default)]
     pub mod_loaders: Vec<ModLoader>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recommended_ram: Option<u32>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModLoader {
     #[serde(default)]
@@ -62,7 +62,7 @@ pub struct ModLoader {
     pub primary: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ManifestFile {
     #[serde(rename = "projectID")]

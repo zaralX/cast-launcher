@@ -113,6 +113,58 @@ export interface ExportRequest {
   recommendedRam?: number
   include: string[]
   useBase: boolean
+  format: ExportFormat
+}
+
+export type ExportFormat = 'cast' | 'mrpack' | 'curseforge'
+
+export type ExportField = 'author' | 'ram' | 'description' | 'changelog'
+
+export interface ExportFormatInfo {
+  value: ExportFormat
+  icon: string
+  extension: string
+  labelKey: string
+  hintKey: string
+  filterKey: string
+  fields: readonly ExportField[]
+  links: readonly SourceKind[]
+  platform?: string
+}
+
+export const EXPORT_FORMATS: Record<ExportFormat, ExportFormatInfo> = {
+  cast: {
+    value: 'cast',
+    icon: 'i-lucide-file-archive',
+    extension: '.cast',
+    labelKey: 'cast_export.format.cast',
+    hintKey: 'cast_export.format.cast_hint',
+    filterKey: 'dialog.cast_export.filter',
+    fields: ['author', 'ram', 'description', 'changelog'],
+    links: ['modrinth', 'curseforge'],
+  },
+  mrpack: {
+    value: 'mrpack',
+    icon: 'simple-icons:modrinth',
+    extension: '.mrpack',
+    labelKey: 'cast_export.format.mrpack',
+    hintKey: 'cast_export.format.mrpack_hint',
+    filterKey: 'dialog.cast_export.filter_mrpack',
+    fields: ['description'],
+    links: ['modrinth'],
+    platform: 'Modrinth',
+  },
+  curseforge: {
+    value: 'curseforge',
+    icon: 'simple-icons:curseforge',
+    extension: '.zip',
+    labelKey: 'cast_export.format.curseforge',
+    hintKey: 'cast_export.format.curseforge_hint',
+    filterKey: 'dialog.cast_export.filter_curseforge',
+    fields: ['author', 'ram'],
+    links: ['curseforge', 'modrinth'],
+    platform: 'CurseForge',
+  },
 }
 
 export interface ExportResult {

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::{CommandError, CommandResult};
 use crate::fs_util::{relative_key, safe_join};
@@ -13,7 +13,7 @@ pub const INDEX_ENTRY: &str = "modrinth.index.json";
 
 pub const OVERRIDES: &[&str] = &["overrides", "client-overrides"];
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackIndex {
     #[serde(default)]
@@ -24,7 +24,7 @@ pub struct PackIndex {
     pub version_id: String,
     #[serde(default)]
     pub name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(default)]
     pub files: Vec<PackFile>,
@@ -32,26 +32,26 @@ pub struct PackIndex {
     pub dependencies: BTreeMap<String, String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackFile {
     pub path: String,
     #[serde(default)]
     pub hashes: BTreeMap<String, String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub env: Option<FileEnv>,
     #[serde(default)]
     pub downloads: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_size: Option<u64>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileEnv {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server: Option<String>,
 }
 

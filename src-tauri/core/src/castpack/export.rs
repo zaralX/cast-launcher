@@ -11,6 +11,7 @@ use crate::instance::{Instance, LoaderType, PackProvider};
 use crate::mods::catalog::{self, CatalogMatch};
 use crate::mods::hash::{self, FileHashes};
 use crate::mods::{self, ModsScan, DISABLED_SUFFIX};
+use crate::packs::export::ExportFormat;
 
 use super::file::{forbidden, BaseInfo, CastFile, FORMAT_VERSION};
 use super::manifest::{
@@ -478,37 +479,36 @@ pub async fn lookup(
 
     let hashes = hash_files(&wanted, scan).await?;
     let identified = catalog::identify_hashes(&hashes, cache_file).await;
+    let (found, targets) = verify(identified.found, &hashes, minecraft_dir).await?;
 
-    let entries: Vec<ModEntry> = identified
-        .found
-        .iter()
-        .map(|(key, found)| entry(key, found))
-        .collect();
+    Ok(Lookup {
+        found,
+        targets,
+        unchecked: identified.unchecked,
+    })
+}
+
+pub async fn verify(
+    found: BTreeMap<String, CatalogMatch>,
+    hashes: &BTreeMap<String, FileHashes>,
+    minecraft_dir: &Path,
+) -> CommandResult<(BTreeMap<String, CatalogMatch>, BTreeMap<String, String>)> {
+    let entries: Vec<ModEntry> = found.iter().map(|(key, found)| entry(key, found)).collect();
 
     let refs = entries
         .iter()
         .map(ModEntry::reference)
         .collect::<CommandResult<Vec<_>>>()?;
 
-    let (found, targets) = match super::mods::resolve(&refs, minecraft_dir).await {
-        Ok(resolved) => verified(&identified.found, &hashes, &resolved),
+    Ok(match super::mods::resolve(&refs, minecraft_dir).await {
+        Ok(resolved) => verified(&found, hashes, &resolved),
         Err(error) => {
             log::warn!("Could not check the identified files against the catalogs, trusting the hashes: {error}");
 
-            let targets = identified
-                .found
-                .keys()
-                .map(|key| (key.clone(), key.clone()))
-                .collect();
+            let targets = found.keys().map(|key| (key.clone(), key.clone())).collect();
 
-            (identified.found, targets)
+            (found, targets)
         }
-    };
-
-    Ok(Lookup {
-        found,
-        targets,
-        unchecked: identified.unchecked,
     })
 }
 
@@ -744,6 +744,7 @@ pub struct ExportRequest {
     pub include: Vec<String>,
     /// Ship only the difference with the modpack the instance is built on.
     pub use_base: bool,
+    pub format: ExportFormat,
 }
 
 impl ExportRequest {
@@ -787,7 +788,8 @@ impl ExportRequest {
             changelog: self.changelog.trim().to_string(),
             recommended_ram: self.recommended_ram.filter(|ram| *ram > 0),
             include,
-            use_base: self.use_base,
+            use_base: self.use_base && self.format == ExportFormat::Cast,
+            format: self.format,
         })
     }
 }
@@ -1390,6 +1392,27 @@ mod tests {
         ] {
             assert!(broken.normalized().is_err());
         }
+    }
+
+    #[test]
+    fn only_a_cast_pack_leans_on_the_base_modpack() {
+        let request = |format| ExportRequest {
+            name: "a".into(),
+            version: "1".into(),
+            include: vec!["mods".into()],
+            use_base: true,
+            format,
+            ..Default::default()
+        };
+
+        assert!(request(ExportFormat::Cast).normalized().unwrap().use_base);
+        assert!(!request(ExportFormat::Mrpack).normalized().unwrap().use_base);
+        assert!(
+            !request(ExportFormat::CurseForge)
+                .normalized()
+                .unwrap()
+                .use_base
+        );
     }
 
     fn instance(extra: serde_json::Value) -> Instance {

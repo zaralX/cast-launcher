@@ -491,6 +491,26 @@ pub async fn files_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, 
         .collect())
 }
 
+pub async fn exact_files_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, PackFile>> {
+    let found = versions_by_sha1(hashes).await?;
+
+    Ok(found
+        .into_iter()
+        .filter_map(|(hash, version)| {
+            version
+                .files
+                .into_iter()
+                .find(|file| {
+                    file.hashes
+                        .sha1
+                        .as_deref()
+                        .is_some_and(|sha1| sha1.eq_ignore_ascii_case(&hash))
+                })
+                .map(|file| (hash, PackFile::from(file)))
+        })
+        .collect())
+}
+
 async fn versions_by_sha1(hashes: &[String]) -> CommandResult<BTreeMap<String, Version>> {
     #[derive(Serialize)]
     struct Body<'a> {

@@ -271,7 +271,7 @@ fn entry_name(key: &str) -> String {
 }
 
 /// A name for the saved file that every file system accepts.
-pub fn file_name(name: &str, version: &str) -> String {
+pub fn file_name(name: &str, version: &str, extension: &str) -> String {
     let raw = match version.trim() {
         "" => name.trim().to_string(),
         version => format!("{}-{version}", name.trim()),
@@ -290,8 +290,8 @@ pub fn file_name(name: &str, version: &str) -> String {
     let cleaned = cleaned.trim().trim_end_matches(['.', ' ']).to_string();
 
     match cleaned.is_empty() {
-        true => format!("pack.{EXTENSION}"),
-        false => format!("{cleaned}.{EXTENSION}"),
+        true => format!("pack.{extension}"),
+        false => format!("{cleaned}.{extension}"),
     }
 }
 
@@ -708,7 +708,7 @@ pub fn write(
     Ok(file)
 }
 
-fn entry_options(key: &str, size: u64) -> SimpleFileOptions {
+pub(crate) fn entry_options(key: &str, size: u64) -> SimpleFileOptions {
     let stored = extension(key).is_some_and(|ext| STORED_EXTENSIONS.contains(&ext.as_str()));
 
     SimpleFileOptions::default()
@@ -721,7 +721,7 @@ fn entry_options(key: &str, size: u64) -> SimpleFileOptions {
         .large_file(size >= u32::MAX as u64)
 }
 
-fn zip_error(target: &Path, error: zip::result::ZipError) -> CommandError {
+pub(crate) fn zip_error(target: &Path, error: zip::result::ZipError) -> CommandError {
     CommandError::fs("error.reason.cast.write_failed")
         .param("path", target.display())
         .with_details(error.to_string())
@@ -1189,9 +1189,12 @@ mod tests {
 
     #[test]
     fn the_file_name_is_safe_everywhere() {
-        assert_eq!(file_name("Мой пак", "1.0.0"), "Мой пак-1.0.0.cast");
-        assert_eq!(file_name("a/b:c?", ""), "a_b_c_.cast");
-        assert_eq!(file_name("  ...  ", ""), "pack.cast");
-        assert_eq!(file_name("pack.", ""), "pack.cast");
+        assert_eq!(
+            file_name("Мой пак", "1.0.0", EXTENSION),
+            "Мой пак-1.0.0.cast"
+        );
+        assert_eq!(file_name("a/b:c?", "", EXTENSION), "a_b_c_.cast");
+        assert_eq!(file_name("  ...  ", "", EXTENSION), "pack.cast");
+        assert_eq!(file_name("pack.", "", "mrpack"), "pack.mrpack");
     }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ExportResult, ExportScan, TreeEntry } from '~/types/cast'
-import { EXPORT_STAGE_KEYS } from '~/types/cast'
+import type { ExportField, ExportFormat, ExportResult, ExportScan, TreeEntry } from '~/types/cast'
+import { EXPORT_FORMATS, EXPORT_STAGE_KEYS } from '~/types/cast'
 import type { Instance } from '~/types/instance'
 import { PACK_PROVIDER_LABELS } from '~/types/instance'
 
@@ -22,6 +22,11 @@ const scan = ref<ExportScan | null>(null)
 const selected = ref(new Set<string>())
 const result = ref<ExportResult | null>(null)
 const useBase = ref(true)
+const format = ref<ExportFormat>('cast')
+
+const formats = Object.values(EXPORT_FORMATS)
+const formatInfo = computed(() => EXPORT_FORMATS[format.value])
+const shows = (field: ExportField) => formatInfo.value.fields.includes(field)
 
 const form = ref({
   name: '',
@@ -84,11 +89,12 @@ watch(open, (opened) => {
   scan.value = null
   result.value = null
   useBase.value = true
+  format.value = 'cast'
   load()
 }, { immediate: true })
 
 const base = computed(() => scan.value?.base ?? null)
-const leaningOnBase = computed(() => !!base.value && useBase.value)
+const leaningOnBase = computed(() => !!base.value && useBase.value && format.value === 'cast')
 
 const baseLabel = computed(() => {
   const found = base.value
@@ -125,7 +131,9 @@ const summary = computed(() => {
   let code = 0
   let unchecked = 0
   let fromBase = 0
+  let fromModrinth = 0
   const personal: string[] = []
+  const linkKinds = formatInfo.value.links
 
   for (const entry of scan.value?.tree ?? []) {
     const items = entry.children?.length ? entry.children : [entry]
@@ -141,8 +149,9 @@ const summary = computed(() => {
 
       const kind = item.source?.kind
 
-      if (kind === 'modrinth' || kind === 'curseforge') {
+      if (kind && linkKinds.includes(kind)) {
         links++
+        if (kind === 'modrinth') fromModrinth++
         continue
       }
 
@@ -154,7 +163,7 @@ const summary = computed(() => {
     }
   }
 
-  return { links, embedded, size, code, unchecked, fromBase, personal }
+  return { links, embedded, size, code, unchecked, fromBase, fromModrinth, personal }
 })
 
 const canContinue = computed(() => include.value.length > 0)
@@ -182,8 +191,9 @@ async function run() {
         recommendedRam: Number.isFinite(ram) && ram > 0 ? Math.round(ram) : undefined,
         include: include.value,
         useBase: leaningOnBase.value,
+        format: format.value,
       },
-      dialog: { title: t('dialog.cast_export.title'), filter: t('dialog.cast_export.filter') },
+      dialog: { title: t('dialog.cast_export.title'), filter: t(formatInfo.value.filterKey) },
     })
 
     if (!exported) {
@@ -312,6 +322,28 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           class="space-y-5"
           @submit.prevent="run"
         >
+          <KitField
+            :label="$t('cast_export.format_label')"
+            :hint="$t(formatInfo.hintKey)"
+          >
+            <div class="grid grid-cols-3 gap-2">
+              <KitTile
+                v-for="info in formats"
+                :key="info.value"
+                :selected="format === info.value"
+                class="flex items-center gap-2.5 px-3.5 py-3 text-left"
+                @click="format = info.value"
+              >
+                <Icon
+                  :name="info.icon"
+                  class="size-4 shrink-0 text-fg-muted"
+                />
+                <span class="truncate text-body font-medium text-fg">{{ $t(info.labelKey) }}</span>
+                <span class="ml-auto font-mono text-caption text-fg-faint">{{ info.extension }}</span>
+              </KitTile>
+            </div>
+          </KitField>
+
           <div class="grid grid-cols-[minmax(0,1fr)_10rem] gap-4">
             <KitField
               :label="$t('cast_export.name')"
@@ -336,8 +368,12 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             </KitField>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div
+            v-if="shows('author') || shows('ram')"
+            class="grid grid-cols-2 gap-4"
+          >
             <KitField
+              v-if="shows('author')"
               :label="$t('cast_export.author')"
               for="cast-export-author"
             >
@@ -348,6 +384,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
               />
             </KitField>
             <KitField
+              v-if="shows('ram')"
               :label="$t('cast_export.ram')"
               :hint="$t('cast_export.ram_hint')"
             >
@@ -361,6 +398,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           </div>
 
           <KitField
+            v-if="shows('description')"
             :label="$t('cast_export.description')"
             for="cast-export-description"
           >
@@ -374,6 +412,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           </KitField>
 
           <KitField
+            v-if="shows('changelog')"
             :label="$t('cast_export.changelog')"
             :hint="$t('cast_export.changelog_hint')"
             for="cast-export-changelog"
@@ -387,7 +426,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             />
           </KitField>
 
-          <KitRows v-if="base">
+          <KitRows v-if="base && format === 'cast'">
             <KitRow
               :label="$t('cast_export.base.title', { name: baseLabel })"
               :description="useBase ? $t('cast_export.base.on_hint') : $t('cast_export.base.off_hint')"
@@ -425,7 +464,15 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
               v-if="summary.code"
               icon="i-lucide-package-open"
             >
-              {{ $t('cast_export.code_hint', { count: summary.code }) }}
+              {{ formatInfo.platform
+                ? $t('cast_export.code_hint_modpack', { count: summary.code, platform: formatInfo.platform })
+                : $t('cast_export.code_hint', { count: summary.code }) }}
+            </KitNote>
+            <KitNote
+              v-if="format === 'curseforge' && summary.fromModrinth"
+              icon="i-lucide-search"
+            >
+              {{ $t('cast_export.curseforge_check') }}
             </KitNote>
             <KitNote
               v-if="summary.personal.length"
@@ -434,6 +481,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
               {{ $t('cast_export.personal_hint', { folders: summary.personal.join(', ') }) }}
             </KitNote>
             <KitNote
+              v-if="format === 'cast'"
               :icon="scan?.defaults.knownPack ? 'i-lucide-refresh-cw' : 'i-lucide-sparkles'"
               tone="muted"
             >
@@ -489,6 +537,13 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
               · {{ $t('cast_export.done_removed', { count: result.removed }) }}
             </template>
           </p>
+
+          <KitNote
+            v-if="formatInfo.platform && result.embeddedCode"
+            icon="i-lucide-package-open"
+          >
+            {{ $t('cast_export.code_hint_modpack', { count: result.embeddedCode, platform: formatInfo.platform }) }}
+          </KitNote>
 
           <div v-if="result.skipped.length">
             <KitNote icon="i-lucide-ban">

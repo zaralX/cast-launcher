@@ -9,17 +9,19 @@ use tauri::AppHandle;
 use tauri_plugin_dialog::DialogExt;
 
 use cast_core::castpack::export::{
-    self, BaseFiles, Build, Collected, ExportBase, ExportProgress, ExportRequest, ExportResult,
-    ExportScan, ExportStage, Lookup,
+    self, BaseFiles, Build, Collected, ExportBase, ExportFile, ExportProgress, ExportRequest,
+    ExportResult, ExportScan, ExportStage, Lookup,
 };
 use cast_core::castpack::file::{self as cast_file, BaseInfo, Embed, Icon, WriteOptions};
 use cast_core::castpack::manifest::BaseSpec;
 use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons;
 use cast_core::instance::{CastExport, Instance};
+use cast_core::mods::hash::FileHashes;
 use cast_core::mods::{self, ModsScan};
 use cast_core::net::download::{DownloadOptions, DownloadTask};
 use cast_core::packs;
+use cast_core::packs::export::{self as modpack, ExportFormat};
 use cast_core::paths::LauncherPaths;
 
 use crate::commands::DialogText;
@@ -145,6 +147,18 @@ async fn lookup(
     export::lookup(files, &scan, &minecraft, &paths.mod_catalog()).await
 }
 
+async fn file_hashes(
+    state: &Arc<AppState>,
+    paths: &LauncherPaths,
+    instance: &Instance,
+    files: &[(String, PathBuf)],
+) -> CommandResult<BTreeMap<String, FileHashes>> {
+    let lock = state.mods.of(&instance.id).await;
+    let _guard = lock.lock().await;
+
+    export::hash_files(files, &mods_scan(paths, instance)).await
+}
+
 /// Sha1 of each file, empty when it could not be read: such a file never counts as unchanged.
 async fn local_hashes(
     state: &Arc<AppState>,
@@ -152,10 +166,7 @@ async fn local_hashes(
     instance: &Instance,
     files: &[(String, PathBuf)],
 ) -> CommandResult<BTreeMap<String, String>> {
-    let lock = state.mods.of(&instance.id).await;
-    let _guard = lock.lock().await;
-
-    let hashes = export::hash_files(files, &mods_scan(paths, instance)).await?;
+    let hashes = file_hashes(state, paths, instance, files).await?;
 
     Ok(files
         .iter()
@@ -253,6 +264,31 @@ async fn base(
     }))
 }
 
+struct Job<'a> {
+    app: &'a AppHandle,
+    state: &'a Arc<AppState>,
+    paths: &'a LauncherPaths,
+    instance: &'a Instance,
+    request: &'a ExportRequest,
+    partial: &'a Path,
+}
+
+impl Job<'_> {
+    fn progress(&self) -> Progress {
+        Progress::new(self.app, &self.instance.id)
+    }
+}
+
+struct Packed {
+    links: usize,
+    embedded: usize,
+    embedded_code: usize,
+    removed: usize,
+    unchecked: usize,
+    id: Option<String>,
+    with_base: bool,
+}
+
 pub async fn export(
     app: &AppHandle,
     state: &Arc<AppState>,
@@ -281,19 +317,10 @@ pub async fn export(
     let started = Instant::now();
     let paths = state.paths().await;
     let minecraft = paths.instance(&instance.id).minecraft();
-    let progress = Progress::new(app, &instance.id);
 
-    progress.send(ExportStage::Collecting, 0, 0);
-
-    let base = match request.use_base {
-        true => base(state, &paths, &instance, true).await?,
-        false => None,
-    };
-
-    cancelled(state)?;
+    Progress::new(app, &instance.id).send(ExportStage::Collecting, 0, 0);
 
     let Collected { files, skipped } = {
-        let minecraft = minecraft.clone();
         let include = request.include.clone();
 
         tokio::task::spawn_blocking(move || export::collect(&minecraft, &include))
@@ -302,109 +329,25 @@ pub async fn export(
     };
 
     cancelled(state)?;
-    progress.send(ExportStage::Identifying, 0, files.len() as u64);
 
-    let (files, diff) = match &base {
-        Some(base) => {
-            let relevant: Vec<(String, PathBuf)> = files
-                .iter()
-                .filter(|file| base.files.contains_key(&file.key))
-                .map(|file| (file.key.clone(), file.path.clone()))
-                .collect();
-
-            let local = local_hashes(state, &paths, &instance, &relevant).await?;
-            let diff = export::diff(&base.files, &local, export::covered_by(&request.include));
-
-            let files = files
-                .into_iter()
-                .filter(|file| !diff.skip.contains(&file.key))
-                .collect();
-
-            (files, Some(diff))
-        }
-        None => (files, None),
-    };
-
-    let candidates: Vec<(String, PathBuf)> = files
-        .iter()
-        .map(|file| (file.key.clone(), file.path.clone()))
-        .collect();
-
-    let lookup = lookup(state, &paths, &instance, &candidates).await?;
-
-    cancelled(state)?;
-
-    let delete: Vec<String> = match &diff {
-        Some(diff) => diff
-            .delete
-            .iter()
-            .cloned()
-            .chain(export::stale_replacements(diff, &lookup))
-            .collect(),
-        None => Vec::new(),
-    };
-
-    let split = export::split(files, &lookup)?;
-    let id = export::pack_id(&instance).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let mods_count = split.mods.len();
-    let removed = delete.len();
-    let with_base = base.is_some();
-
-    let file = export::build(Build {
+    let partial = partial_path(&target);
+    let job = Job {
+        app,
+        state,
+        paths: &paths,
         instance: &instance,
         request: &request,
-        id: id.clone(),
-        mods: split.mods,
-        exported_by: env!("CARGO_PKG_VERSION"),
-        base: base.map(|base| (base.spec, base.info)),
-        delete,
-    });
-
-    let embeds: Vec<Embed> = split
-        .embedded
-        .iter()
-        .map(|file| Embed {
-            key: file.key.clone(),
-            source: file.path.clone(),
-            mode: file.mode,
-        })
-        .collect();
-
-    let total: u64 = split.embedded.iter().map(|file| file.size).sum();
-    let icon = read_icon(&paths, &instance).await;
-    let partial = partial_path(&target);
-
-    progress.send(ExportStage::Packing, 0, total);
-
-    let written = {
-        let state = Arc::clone(state);
-        let app = app.clone();
-        let instance_id = instance.id.clone();
-        let partial = partial.clone();
-
-        tokio::task::spawn_blocking(move || {
-            let progress = Progress::new(&app, &instance_id);
-            let report = |done: u64| progress.throttled(ExportStage::Packing, done, total);
-            let cancelled = || state.exports.is_cancelled();
-
-            cast_file::write(
-                &partial,
-                file,
-                embeds,
-                WriteOptions {
-                    icon: icon.as_ref(),
-                    progress: &report,
-                    cancelled: &cancelled,
-                },
-            )
-        })
-        .await
-        .map_err(|e| CommandError::task_panicked("write_cast_file", e))
-        .and_then(|written| written)
+        partial: &partial,
     };
 
-    let written = match written {
-        Ok(written) => written,
+    let packed = match request.format {
+        ExportFormat::Cast => pack_cast(&job, files).await,
+        ExportFormat::Mrpack => pack_mrpack(&job, files).await,
+        ExportFormat::CurseForge => pack_curseforge(&job, files).await,
+    };
+
+    let packed = match packed {
+        Ok(packed) => packed,
         Err(error) => {
             cast_core::fs_util::remove_file_if_exists(&partial).await;
             return Err(error);
@@ -425,25 +368,26 @@ pub async fn export(
         .map(|meta| meta.len())
         .unwrap_or(0);
 
-    let preview = written.preview(false);
-
     let result = ExportResult {
         path: target.display().to_string(),
         size,
-        mods: mods_count,
-        embedded: preview.embedded_files,
-        embedded_code: preview.embedded_code.len(),
-        removed,
+        mods: packed.links,
+        embedded: packed.embedded,
+        embedded_code: packed.embedded_code,
+        removed: packed.removed,
         skipped,
     };
 
-    remember(state, &paths, &instance, id, &request).await;
+    if let Some(id) = packed.id {
+        remember(state, &paths, &instance, id, &request).await;
+    }
 
     log::info!(
-        "Exported instance '{}' as {} {}: {} catalog files, {} embedded ({} mods), {} removed from the base, {} bytes",
+        "Exported instance '{}' as {} {} ({}): {} catalog files, {} embedded ({} mods), {} removed from the base, {} bytes",
         instance.name,
-        written.manifest.name,
-        written.manifest.version,
+        request.name,
+        request.version,
+        request.format.name(),
         result.mods,
         result.embedded,
         result.embedded_code,
@@ -455,18 +399,222 @@ pub async fn export(
         app,
         Event::new("cast_exported")
             .instance(&instance)
+            .text("format", request.format.name())
             .num("mods", result.mods as f64)
             .num("embedded", result.embedded as f64)
             .num("embedded_code", result.embedded_code as f64)
-            .num("unchecked", lookup.unchecked.len() as f64)
+            .num("unchecked", packed.unchecked as f64)
             .num("size_mb", telemetry::megabytes(result.size))
             .num("removed", result.removed as f64)
             .num("duration_s", started.elapsed().as_secs_f64())
-            .flag("base", with_base)
+            .flag("base", packed.with_base)
             .flag("known_pack", export::pack_id(&instance).is_some()),
     );
 
     Ok(Some(result))
+}
+
+async fn pack_cast(job: &Job<'_>, files: Vec<ExportFile>) -> CommandResult<Packed> {
+    let Job {
+        state,
+        paths,
+        instance,
+        request,
+        ..
+    } = *job;
+
+    let base = match request.use_base {
+        true => base(state, paths, instance, true).await?,
+        false => None,
+    };
+
+    cancelled(state)?;
+    job.progress()
+        .send(ExportStage::Identifying, 0, files.len() as u64);
+
+    let (files, diff) = match &base {
+        Some(base) => {
+            let relevant: Vec<(String, PathBuf)> = files
+                .iter()
+                .filter(|file| base.files.contains_key(&file.key))
+                .map(|file| (file.key.clone(), file.path.clone()))
+                .collect();
+
+            let local = local_hashes(state, paths, instance, &relevant).await?;
+            let diff = export::diff(&base.files, &local, export::covered_by(&request.include));
+
+            let files = files
+                .into_iter()
+                .filter(|file| !diff.skip.contains(&file.key))
+                .collect();
+
+            (files, Some(diff))
+        }
+        None => (files, None),
+    };
+
+    let candidates: Vec<(String, PathBuf)> = files
+        .iter()
+        .map(|file| (file.key.clone(), file.path.clone()))
+        .collect();
+
+    let lookup = lookup(state, paths, instance, &candidates).await?;
+
+    cancelled(state)?;
+
+    let delete: Vec<String> = match &diff {
+        Some(diff) => diff
+            .delete
+            .iter()
+            .cloned()
+            .chain(export::stale_replacements(diff, &lookup))
+            .collect(),
+        None => Vec::new(),
+    };
+
+    let split = export::split(files, &lookup)?;
+    let id = export::pack_id(instance).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let links = split.mods.len();
+    let removed = delete.len();
+    let with_base = base.is_some();
+
+    let file = export::build(Build {
+        instance,
+        request,
+        id: id.clone(),
+        mods: split.mods,
+        exported_by: env!("CARGO_PKG_VERSION"),
+        base: base.map(|base| (base.spec, base.info)),
+        delete,
+    });
+
+    let embeds: Vec<Embed> = split
+        .embedded
+        .iter()
+        .map(|file| Embed {
+            key: file.key.clone(),
+            source: file.path.clone(),
+            mode: file.mode,
+        })
+        .collect();
+
+    let total: u64 = split.embedded.iter().map(|file| file.size).sum();
+    let icon = read_icon(paths, instance).await;
+
+    job.progress().send(ExportStage::Packing, 0, total);
+
+    let written = {
+        let state = Arc::clone(state);
+        let app = job.app.clone();
+        let instance_id = instance.id.clone();
+        let partial = job.partial.to_path_buf();
+
+        tokio::task::spawn_blocking(move || {
+            let progress = Progress::new(&app, &instance_id);
+            let report = |done: u64| progress.throttled(ExportStage::Packing, done, total);
+            let cancelled = || state.exports.is_cancelled();
+
+            cast_file::write(
+                &partial,
+                file,
+                embeds,
+                WriteOptions {
+                    icon: icon.as_ref(),
+                    progress: &report,
+                    cancelled: &cancelled,
+                },
+            )
+        })
+        .await
+        .map_err(|e| CommandError::task_panicked("write_cast_file", e))??
+    };
+
+    let preview = written.preview(false);
+
+    Ok(Packed {
+        links,
+        embedded: preview.embedded_files,
+        embedded_code: preview.embedded_code.len(),
+        removed,
+        unchecked: lookup.unchecked.len(),
+        id: Some(id),
+        with_base,
+    })
+}
+
+async fn pack_mrpack(job: &Job<'_>, files: Vec<ExportFile>) -> CommandResult<Packed> {
+    let hashes = catalog_hashes(job, &files).await?;
+    let links = modpack::modrinth_links(&hashes).await?;
+
+    write_modpack(
+        job,
+        modpack::mrpack(job.instance, job.request, files, &links)?,
+    )
+    .await
+}
+
+async fn pack_curseforge(job: &Job<'_>, files: Vec<ExportFile>) -> CommandResult<Packed> {
+    let hashes = catalog_hashes(job, &files).await?;
+    let minecraft = job.paths.instance(&job.instance.id).minecraft();
+    let links = modpack::curseforge_links(&hashes, &minecraft).await?;
+
+    write_modpack(
+        job,
+        modpack::curseforge(job.instance, job.request, files, &links)?,
+    )
+    .await
+}
+
+async fn catalog_hashes(
+    job: &Job<'_>,
+    files: &[ExportFile],
+) -> CommandResult<BTreeMap<String, FileHashes>> {
+    job.progress()
+        .send(ExportStage::Identifying, 0, files.len() as u64);
+
+    let candidates: Vec<(String, PathBuf)> = files
+        .iter()
+        .filter(|file| export::is_catalog_candidate(&file.key))
+        .map(|file| (file.key.clone(), file.path.clone()))
+        .collect();
+
+    let hashes = file_hashes(job.state, job.paths, job.instance, &candidates).await?;
+
+    cancelled(job.state)?;
+
+    Ok(hashes)
+}
+
+async fn write_modpack(job: &Job<'_>, plan: modpack::Plan) -> CommandResult<Packed> {
+    let total = plan.size();
+    let packed = Packed {
+        links: plan.links,
+        embedded: plan.overrides.len(),
+        embedded_code: plan.embedded_code(),
+        removed: 0,
+        unchecked: 0,
+        id: None,
+        with_base: false,
+    };
+
+    job.progress().send(ExportStage::Packing, 0, total);
+
+    let state = Arc::clone(job.state);
+    let app = job.app.clone();
+    let instance_id = job.instance.id.clone();
+    let partial = job.partial.to_path_buf();
+
+    tokio::task::spawn_blocking(move || {
+        let progress = Progress::new(&app, &instance_id);
+        let report = |done: u64| progress.throttled(ExportStage::Packing, done, total);
+        let cancelled = || state.exports.is_cancelled();
+
+        modpack::write(&partial, &plan, &report, &cancelled)
+    })
+    .await
+    .map_err(|e| CommandError::task_panicked("write_modpack", e))??;
+
+    Ok(packed)
 }
 
 fn cancelled(state: &Arc<AppState>) -> CommandResult<()> {
@@ -507,12 +655,17 @@ async fn pick_target(
     request: &ExportRequest,
 ) -> Option<PathBuf> {
     let (sender, receiver) = tokio::sync::oneshot::channel();
+    let extension = request.format.extension();
 
     app.dialog()
         .file()
         .set_title(dialog.title)
-        .add_filter(dialog.filter, &[cast_file::EXTENSION])
-        .set_file_name(cast_file::file_name(&request.name, &request.version))
+        .add_filter(dialog.filter, &[extension])
+        .set_file_name(cast_file::file_name(
+            &request.name,
+            &request.version,
+            extension,
+        ))
         .save_file(move |picked| {
             let _ = sender.send(picked);
         });
@@ -521,13 +674,13 @@ async fn pick_target(
 
     let has_extension = picked
         .extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case(cast_file::EXTENSION));
+        .is_some_and(|found| found.eq_ignore_ascii_case(extension));
 
     Some(match has_extension {
         true => picked,
         false => {
             let mut name = picked.into_os_string();
-            name.push(format!(".{}", cast_file::EXTENSION));
+            name.push(format!(".{extension}"));
             PathBuf::from(name)
         }
     })
