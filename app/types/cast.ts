@@ -125,7 +125,6 @@ export interface ExportFormatInfo {
   icon: string
   extension: string
   labelKey: string
-  hintKey: string
   filterKey: string
   fields: readonly ExportField[]
   links: readonly SourceKind[]
@@ -138,7 +137,6 @@ export const EXPORT_FORMATS: Record<ExportFormat, ExportFormatInfo> = {
     icon: 'i-lucide-file-archive',
     extension: '.cast',
     labelKey: 'cast_export.format.cast',
-    hintKey: 'cast_export.format.cast_hint',
     filterKey: 'dialog.cast_export.filter',
     fields: ['author', 'ram', 'description', 'changelog'],
     links: ['modrinth', 'curseforge'],
@@ -148,7 +146,6 @@ export const EXPORT_FORMATS: Record<ExportFormat, ExportFormatInfo> = {
     icon: 'simple-icons:modrinth',
     extension: '.mrpack',
     labelKey: 'cast_export.format.mrpack',
-    hintKey: 'cast_export.format.mrpack_hint',
     filterKey: 'dialog.cast_export.filter_mrpack',
     fields: ['description'],
     links: ['modrinth'],
@@ -159,7 +156,6 @@ export const EXPORT_FORMATS: Record<ExportFormat, ExportFormatInfo> = {
     icon: 'simple-icons:curseforge',
     extension: '.zip',
     labelKey: 'cast_export.format.curseforge',
-    hintKey: 'cast_export.format.curseforge_hint',
     filterKey: 'dialog.cast_export.filter_curseforge',
     fields: ['author', 'ram'],
     links: ['curseforge', 'modrinth'],

@@ -109,10 +109,11 @@ const versionOf = (version: string) => version || t('import_pack.cast.version_un
           <span class="w-full truncate font-medium text-fg">
             {{ option === 'update' ? $t('import_pack.cast.mode_update', { name: existing.name }) : $t('import_pack.cast.mode_create') }}
           </span>
-          <span class="w-full truncate text-caption text-fg-faint">
-            {{ option === 'update'
-              ? $t('import_pack.cast.mode_update_hint', { from: versionOf(existing.version), to: versionOf(pack.version) })
-              : $t('import_pack.cast.mode_create_hint') }}
+          <span
+            v-if="option === 'update'"
+            class="w-full truncate text-caption text-fg-faint"
+          >
+            {{ $t('import_pack.cast.mode_update_hint', { from: versionOf(existing.version), to: versionOf(pack.version) }) }}
           </span>
         </RadioGroupItem>
       </RadioGroup>

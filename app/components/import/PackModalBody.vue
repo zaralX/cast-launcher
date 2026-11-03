@@ -287,13 +287,6 @@ async function run() {
         :choosable="!updateTarget"
       />
 
-      <KitNote
-        v-if="pack.kind === 'curseforge' || (pack.cast?.curseforgeMods ?? 0) > 0"
-        icon="i-lucide-hand"
-      >
-        {{ $t('import_pack.curseforge_hint') }}
-      </KitNote>
-
       <div class="flex justify-end">
         <Button
           variant="primary"

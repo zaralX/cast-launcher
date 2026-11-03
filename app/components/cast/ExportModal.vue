@@ -131,7 +131,6 @@ const summary = computed(() => {
   let code = 0
   let unchecked = 0
   let fromBase = 0
-  let fromModrinth = 0
   const personal: string[] = []
   const linkKinds = formatInfo.value.links
 
@@ -151,7 +150,6 @@ const summary = computed(() => {
 
       if (kind && linkKinds.includes(kind)) {
         links++
-        if (kind === 'modrinth') fromModrinth++
         continue
       }
 
@@ -163,7 +161,7 @@ const summary = computed(() => {
     }
   }
 
-  return { links, embedded, size, code, unchecked, fromBase, fromModrinth, personal }
+  return { links, embedded, size, code, unchecked, fromBase, personal }
 })
 
 const canContinue = computed(() => include.value.length > 0)
@@ -262,10 +260,6 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           v-if="step === 'files'"
           class="space-y-4"
         >
-          <p class="text-body text-fg-muted">
-            {{ $t('cast_export.files_hint') }}
-          </p>
-
           <div
             v-if="scanning && !scan"
             class="flex items-center gap-3 py-10"
@@ -322,10 +316,7 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           class="space-y-5"
           @submit.prevent="run"
         >
-          <KitField
-            :label="$t('cast_export.format_label')"
-            :hint="$t(formatInfo.hintKey)"
-          >
+          <KitField :label="$t('cast_export.format_label')">
             <div class="grid grid-cols-3 gap-2">
               <KitTile
                 v-for="info in formats"
@@ -386,7 +377,6 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
             <KitField
               v-if="shows('ram')"
               :label="$t('cast_export.ram')"
-              :hint="$t('cast_export.ram_hint')"
             >
               <KitNumberInput
                 v-model="form.recommendedRam"
@@ -414,7 +404,6 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
           <KitField
             v-if="shows('changelog')"
             :label="$t('cast_export.changelog')"
-            :hint="$t('cast_export.changelog_hint')"
             for="cast-export-changelog"
           >
             <Textarea
@@ -469,23 +458,17 @@ const showInFolder = (path: string) => safeRun(() => call('open_path', { path: f
                 : $t('cast_export.code_hint', { count: summary.code }) }}
             </KitNote>
             <KitNote
-              v-if="format === 'curseforge' && summary.fromModrinth"
-              icon="i-lucide-search"
-            >
-              {{ $t('cast_export.curseforge_check') }}
-            </KitNote>
-            <KitNote
               v-if="summary.personal.length"
               icon="i-lucide-user-round"
             >
               {{ $t('cast_export.personal_hint', { folders: summary.personal.join(', ') }) }}
             </KitNote>
             <KitNote
-              v-if="format === 'cast'"
-              :icon="scan?.defaults.knownPack ? 'i-lucide-refresh-cw' : 'i-lucide-sparkles'"
+              v-if="format === 'cast' && scan?.defaults.knownPack"
+              icon="i-lucide-refresh-cw"
               tone="muted"
             >
-              {{ scan?.defaults.knownPack ? $t('cast_export.known_pack') : $t('cast_export.new_pack') }}
+              {{ $t('cast_export.known_pack') }}
             </KitNote>
           </div>
         </form>
