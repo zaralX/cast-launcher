@@ -13,7 +13,7 @@ use super::{https_url, SCHEMA_VERSION};
 
 pub const MAX_ENTRIES: usize = 512;
 
-pub const MAX_FILE_ENTRIES: usize = 4096;
+pub const MAX_FILE_ENTRIES: usize = 32_768;
 
 /// Where a manifest came from: the catalog serves it by link, a `.cast` file carries it inside.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
