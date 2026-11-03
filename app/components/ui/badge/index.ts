@@ -16,6 +16,7 @@ export const badgeVariants = cva(
         danger: 'bg-danger/15 text-danger',
         solid: 'bg-accent text-on-accent',
         outline: 'text-fg-faint ring-1 ring-inset ring-line-strong',
+        float: 'bg-raise text-fg-muted shadow-float ring-1 ring-inset ring-line-strong',
       },
       size: {
         sm: 'h-5 px-1.5 text-micro',

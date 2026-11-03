@@ -1098,6 +1098,7 @@
   "skins.demo_hint_before": "Скин меняется только у лицензии.",
   "skins.demo_hint_link": "Добавьте аккаунт Microsoft",
   "skins.stale": "Профиль Mojang не ответил, показано сохранённое состояние.",
+  "skins.refreshing": "Обновляем профиль",
   "skins.no_set": "Набор не выбран",
   "skins.preview.rotate": "Вращение",
   "skins.preview.second_layer": "Второй слой",

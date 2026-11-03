@@ -114,8 +114,13 @@ pub async fn add(
         .map(|byte| format!("{byte:02x}"))
         .collect();
 
+    let path = texture_file(dir, &texture)?;
+
     ensure_dir(dir).await?;
-    write_atomic(&texture_file(dir, &texture)?, &normalized).await?;
+
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
+        write_atomic(&path, &normalized).await?;
+    }
 
     let mut library = load(dir).await;
 
@@ -124,8 +129,10 @@ pub async fn add(
         .iter_mut()
         .find(|entry| entry.texture == texture);
 
-    let id = match existing {
+    let (id, changed) = match existing {
         Some(entry) => {
+            let before = entry.clone();
+
             if source == SkinSource::Profile {
                 entry.source = SkinSource::Profile;
             }
@@ -134,7 +141,7 @@ pub async fn add(
                 entry.variant = variant;
             }
 
-            entry.id.clone()
+            (entry.id.clone(), *entry != before)
         }
         None => {
             let entry = SkinEntry {
@@ -150,11 +157,13 @@ pub async fn add(
             let id = entry.id.clone();
             library.skins.push(entry);
 
-            id
+            (id, true)
         }
     };
 
-    save(dir, &library).await?;
+    if changed {
+        save(dir, &library).await?;
+    }
 
     library
         .find(&id)
@@ -539,6 +548,60 @@ mod tests {
         .unwrap();
 
         assert_eq!(entry.source, SkinSource::Profile);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[tokio::test]
+    async fn adding_a_known_profile_skin_again_leaves_the_index_alone() {
+        let dir = temp_dir();
+        let png = skin_png([7, 7, 7, 255]);
+
+        add(
+            &dir,
+            "a",
+            &png,
+            SkinSource::Profile,
+            Some(SkinVariant::Slim),
+        )
+        .await
+        .unwrap();
+
+        let mut index: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(index_file(&dir)).unwrap()).unwrap();
+        index["marker"] = json!(true);
+        std::fs::write(index_file(&dir), serde_json::to_vec(&index).unwrap()).unwrap();
+
+        add(
+            &dir,
+            "a",
+            &png,
+            SkinSource::Profile,
+            Some(SkinVariant::Slim),
+        )
+        .await
+        .unwrap();
+
+        let raw = std::fs::read_to_string(index_file(&dir)).unwrap();
+        assert!(
+            raw.contains("marker"),
+            "an unchanged entry must not rewrite the index"
+        );
+
+        let entry = add(
+            &dir,
+            "a",
+            &png,
+            SkinSource::Profile,
+            Some(SkinVariant::Classic),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(entry.variant, SkinVariant::Classic);
+        assert!(!std::fs::read_to_string(index_file(&dir))
+            .unwrap()
+            .contains("marker"));
 
         std::fs::remove_dir_all(&dir).ok();
     }

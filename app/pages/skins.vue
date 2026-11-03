@@ -12,7 +12,7 @@ const toast = useAppToast()
 
 const { t } = useI18n()
 const skinStore = useSkinStore()
-const { library, capes, draft, loading, saving, stale } = storeToRefs(skinStore)
+const { library, capes, draft, loading, refreshing, saving, stale } = storeToRefs(skinStore)
 
 const accountStore = useAccountStore()
 const { accountConfig } = storeToRefs(accountStore)
@@ -328,7 +328,7 @@ watch(activeUuid, uuid => reload(uuid))
           />
 
           <div
-            v-if="loading"
+            v-if="loading || (refreshing && !draftTexture)"
             class="grid h-full place-items-center"
           >
             <Progress
@@ -355,6 +355,16 @@ watch(activeUuid, uuid => reload(uuid))
           >
             {{ $t('skins.no_set') }}
           </p>
+
+          <Badge
+            v-if="refreshing && draftTexture && !loading"
+            variant="float"
+            size="md"
+            class="absolute top-2.5 right-2.5"
+          >
+            <Spinner class="size-3.5" />
+            {{ $t('skins.refreshing') }}
+          </Badge>
 
           <div class="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-raise p-0.75 shadow-float ring-1 ring-line-strong">
             <Button
@@ -633,7 +643,7 @@ watch(activeUuid, uuid => reload(uuid))
           </div>
 
           <KitEmpty
-            v-if="!library.skins.length && !loading"
+            v-if="!library.skins.length && !loading && !refreshing"
             class="mt-3 py-10"
           >
             {{ $t('skins.library_empty') }}

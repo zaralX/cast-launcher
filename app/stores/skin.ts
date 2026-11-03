@@ -6,9 +6,13 @@ const emptyLibrary = (): SkinLibrary => ({ skins: [] })
 
 const emptyLook = (): Look => ({ skinId: null, capeId: null, variant: 'CLASSIC' })
 
+const texturesInFlight = new Map<string, Promise<void>>()
+
 export const useSkinStore = defineStore('skin', {
   state: () => ({
     loading: false,
+    refreshingUuid: null as string | null,
+    revision: 0,
     saving: false,
     uuid: null as string | null,
     name: '',
@@ -47,6 +51,8 @@ export const useSkinStore = defineStore('skin', {
     },
 
     dirty: state => !!state.uuid && !sameLook(state.draft, state.applied),
+
+    refreshing: state => !!state.uuid && state.refreshingUuid === state.uuid,
   },
 
   actions: {
@@ -58,6 +64,21 @@ export const useSkinStore = defineStore('skin', {
       this.capes = look.capes
       this.applied = lookOf(look)
       this.draft = lookOf(look)
+      this.revision++
+
+      this.ensureTextures()
+    },
+
+    merge(look: AccountLook) {
+      const untouched = sameLook(this.draft, this.applied)
+
+      this.name = look.name
+      this.stale = look.stale
+      this.library = look.library
+      this.capes = look.capes
+      this.applied = lookOf(look)
+
+      if (untouched) this.draft = lookOf(look)
 
       this.ensureTextures()
     },
@@ -70,16 +91,50 @@ export const useSkinStore = defineStore('skin', {
       this.ensureTextures()
     },
 
-    async load(uuid: string, refresh = true) {
-      if (this.loading) return
+    async load(uuid: string) {
+      if (this.uuid !== uuid) await this.loadSaved(uuid)
 
+      await this.refresh(uuid)
+    },
+
+    async loadSaved(uuid: string) {
+      this.uuid = uuid
+      this.stale = false
+      this.applied = emptyLook()
+      this.draft = emptyLook()
       this.loading = true
 
       try {
-        this.apply(await call('account_look', { uuid, refresh }))
+        const look = await call('account_look', { uuid, refresh: false })
+        if (this.uuid !== uuid) return
+
+        this.apply(look)
+        await this.ensureDraftTexture()
+      }
+      catch (error) {
+        if (this.uuid === uuid) this.uuid = null
+        throw error
       }
       finally {
-        this.loading = false
+        if (this.uuid === uuid || !this.uuid) this.loading = false
+      }
+    },
+
+    async refresh(uuid: string) {
+      if (this.refreshingUuid === uuid) return
+
+      this.refreshingUuid = uuid
+      const revision = this.revision
+
+      try {
+        const look = await call('account_look', { uuid, refresh: true })
+        if (this.uuid !== uuid || this.revision !== revision) return
+
+        this.merge(look)
+        await this.ensureDraftTexture()
+      }
+      finally {
+        if (this.refreshingUuid === uuid) this.refreshingUuid = null
       }
     },
 
@@ -90,7 +145,24 @@ export const useSkinStore = defineStore('skin', {
     async ensureTexture(texture: string) {
       if (this.textures[texture]) return
 
-      this.textures[texture] = await call('skin_texture', { texture })
+      let pending = texturesInFlight.get(texture)
+
+      if (!pending) {
+        pending = call('skin_texture', { texture })
+          .then((url) => {
+            this.textures[texture] = url
+          })
+          .finally(() => texturesInFlight.delete(texture))
+
+        texturesInFlight.set(texture, pending)
+      }
+
+      await pending
+    },
+
+    async ensureDraftTexture() {
+      const entry = this.draftSkin
+      if (entry) await this.ensureTexture(entry.texture).catch(() => undefined)
     },
 
     ensureTextures() {

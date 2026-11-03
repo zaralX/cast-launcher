@@ -1098,6 +1098,7 @@
   "skins.demo_hint_before": "Only a licensed account can change the skin.",
   "skins.demo_hint_link": "Add a Microsoft account",
   "skins.stale": "The Mojang profile did not answer, showing the saved state.",
+  "skins.refreshing": "Updating profile",
   "skins.no_set": "No set picked",
   "skins.preview.rotate": "Rotation",
   "skins.preview.second_layer": "Second layer",

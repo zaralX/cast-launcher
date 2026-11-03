@@ -199,7 +199,7 @@ impl AccountStore {
             .ok_or_else(|| CommandError::not_found("error.reason.account.not_found"))
     }
 
-    pub async fn licensed(&self, uuid: &str) -> CommandResult<Account> {
+    pub async fn microsoft(&self, uuid: &str) -> CommandResult<Account> {
         let account = self.find(uuid).await?;
 
         if account.account_type != AccountType::Microsoft {
@@ -208,6 +208,12 @@ impl AccountStore {
                     .param("name", &account.name),
             );
         }
+
+        Ok(account)
+    }
+
+    pub async fn licensed(&self, uuid: &str) -> CommandResult<Account> {
+        let account = self.microsoft(uuid).await?;
 
         if account.is_expired() {
             return self.refresh(uuid).await;

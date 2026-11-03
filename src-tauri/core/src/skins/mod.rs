@@ -117,18 +117,25 @@ pub async fn look(
     uuid: &str,
     refresh: bool,
 ) -> CommandResult<AccountLook> {
-    let mut account = accounts.licensed(uuid).await?;
-    let mut stale = false;
+    let account = accounts.microsoft(uuid).await?;
 
-    if refresh {
-        match refresh_profile(accounts, &account).await {
-            Ok(updated) => account = updated,
-            Err(error) if error.code == ErrorCode::AuthExpired => return Err(error),
-            Err(_) => stale = true,
-        }
+    if !refresh {
+        return build_look(dir, &account, false).await;
     }
 
-    build_look(dir, &account, stale).await
+    match fresh_profile(accounts, uuid).await {
+        Ok(updated) => build_look(dir, &updated, false).await,
+        Err(error) if error.code == ErrorCode::AuthExpired => Err(error),
+        Err(error) => {
+            log::warn!("Could not refresh the Minecraft profile, showing the saved one: {error}");
+            build_look(dir, &account, true).await
+        }
+    }
+}
+
+async fn fresh_profile(accounts: &AccountStore, uuid: &str) -> CommandResult<Account> {
+    let account = accounts.licensed(uuid).await?;
+    refresh_profile(accounts, &account).await
 }
 
 pub async fn apply_skin(
