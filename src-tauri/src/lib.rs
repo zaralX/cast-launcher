@@ -153,6 +153,7 @@ pub fn run() {
             commands::list_pack_versions,
             commands::pack_filters,
             commands::set_instance_pack_version,
+            commands::set_instance_game_version,
             commands::list_pack_blocked,
             commands::save_pack_icon,
             commands::detect_launchers,

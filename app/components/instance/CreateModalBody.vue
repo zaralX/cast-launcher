@@ -1,22 +1,15 @@
 <script setup lang="ts">
 import type { InstanceType } from '~/types/instance'
+import { INSTANCE_TYPE_LABELS, INSTANCE_TYPE_MARKS, INSTANCE_TYPES } from '~/types/instance'
 import { v4 } from 'uuid'
-import type { NeoForgeRelease } from '~/types/backend'
-import type { LauncherError } from '~/utils/error'
 
 const emit = defineEmits<{ created: [] }>()
 
-const { t } = useI18n()
 const instancesStore = useInstanceStore()
+const versions = useGameVersions()
+const { loading, loadError, minecraft: minecraftVersions } = versions
 
-const loading = ref(true)
-const loadError = ref<LauncherError | null>(null)
 const creating = ref(false)
-
-const minecraftVersions = ref<string[]>([])
-const fabricLoaderVersions = ref<string[]>([])
-const forgeVersions = ref<string[]>([])
-const neoforgeVersions = ref<NeoForgeRelease[]>([])
 
 const name = ref('')
 const description = ref('')
@@ -26,70 +19,34 @@ const fabricLoader = ref<string>('latest')
 const forgeLoader = ref<string>('latest')
 const neoforgeLoader = ref<string>('')
 
-const TYPES: { value: InstanceType, label: string, mark: string }[] = [
-  { value: 'vanilla', label: 'Vanilla', mark: 'VA' },
-  { value: 'fabric', label: 'Fabric', mark: 'FA' },
-  { value: 'forge', label: 'Forge', mark: 'FO' },
-  { value: 'neoforge', label: 'NeoForge', mark: 'NF' },
-]
-
-const filteredForgeVersions = computed(() =>
-  forgeVersions.value.filter((v: string) => v.startsWith(minecraftVersion.value)),
-)
-
-const filteredNeoforgeVersions = computed(() =>
-  neoforgeVersions.value
-    .filter(release => release.minecraftVersion === minecraftVersion.value)
-    .map(release => release.version),
-)
+const fabricLoaderVersions = computed(() => versions.loaderVersions('fabric', minecraftVersion.value))
+const filteredForgeVersions = computed(() => versions.loaderVersions('forge', minecraftVersion.value))
+const filteredNeoforgeVersions = computed(() => versions.loaderVersions('neoforge', minecraftVersion.value))
 
 const missingLoader = computed(() =>
   instanceType.value === 'neoforge' && filteredNeoforgeVersions.value.length === 0,
 )
 
-watch(filteredNeoforgeVersions, (versions) => {
-  if (!versions.includes(neoforgeLoader.value)) neoforgeLoader.value = versions[0] ?? ''
+watch(versions.latestRelease, (release) => {
+  minecraftVersion.value = release
+})
+
+watch(fabricLoaderVersions, (list) => {
+  fabricLoader.value = list[0] ?? 'latest'
+})
+
+watch(filteredForgeVersions, (list) => {
+  if (!list.includes(forgeLoader.value)) forgeLoader.value = list[0] ?? 'latest'
+})
+
+watch(filteredNeoforgeVersions, (list) => {
+  if (!list.includes(neoforgeLoader.value)) neoforgeLoader.value = list[0] ?? ''
 }, { immediate: true })
 
 const canCreate = computed(() =>
   !loading.value && !loadError.value && !creating.value && !missingLoader.value
   && name.value.trim().length > 0,
 )
-
-async function loadMetadata() {
-  loading.value = true
-  loadError.value = null
-
-  try {
-    const [manifest, fabric, forge, neoforge] = await Promise.all([
-      call('list_minecraft_versions'),
-      call('list_fabric_versions'),
-      call('list_forge_versions'),
-      call('list_neoforge_versions'),
-    ])
-
-    minecraftVersions.value = manifest.versions
-      .filter(version => version.type === 'release')
-      .map(version => version.id)
-    minecraftVersion.value = manifest.latest.release ?? minecraftVersions.value[0] ?? ''
-
-    fabricLoaderVersions.value = fabric
-    fabricLoader.value = fabric[0] ?? 'latest'
-
-    forgeVersions.value = forge
-    forgeLoader.value = forge[0] ?? 'latest'
-
-    neoforgeVersions.value = neoforge
-  }
-  catch (e) {
-    loadError.value = captureError(e, { code: 'NETWORK', context: { action: t('create.versions_action') } })
-  }
-  finally {
-    loading.value = false
-  }
-}
-
-onMounted(loadMetadata)
 
 function loaderVersion(): string | undefined {
   if (instanceType.value === 'fabric') return fabricLoader.value
@@ -129,7 +86,7 @@ const createInstance = async () => {
     <KitLoadError
       v-else-if="loadError"
       :error="loadError"
-      @retry="loadMetadata"
+      @retry="versions.load"
     />
 
     <form
@@ -153,15 +110,15 @@ const createInstance = async () => {
           :aria-label="$t('create.loader')"
         >
           <RadioGroupItem
-            v-for="type in TYPES"
-            :key="type.value"
-            :value="type.value"
+            v-for="type in INSTANCE_TYPES"
+            :key="type"
+            :value="type"
             class="flex-col gap-1.5 py-4"
           >
             <span class="font-mono text-caption tracking-[0.1em] transition-colors duration-300 group-data-[state=checked]:text-accent">
-              {{ type.mark }}
+              {{ INSTANCE_TYPE_MARKS[type] }}
             </span>
-            <span class="font-unbounded text-body tracking-[-0.02em]">{{ type.label }}</span>
+            <span class="font-unbounded text-body tracking-[-0.02em]">{{ INSTANCE_TYPE_LABELS[type] }}</span>
           </RadioGroupItem>
         </RadioGroup>
       </KitField>

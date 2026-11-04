@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 type Section = 'mods' | 'settings' | 'logs'
-type SettingsSection = 'general' | 'castpack' | 'pack' | 'launch'
+type SettingsSection = 'general' | 'version' | 'castpack' | 'pack' | 'launch'
 
 const SECTIONS: Section[] = ['mods', 'settings', 'logs']
 
@@ -61,6 +61,10 @@ const settingsTabs = computed(() => {
   const items: TabItem<SettingsSection>[] = [
     { value: 'general', label: t('instance.tabs.general'), icon: 'i-lucide-sliders-horizontal' },
   ]
+
+  if (!instance.value?.castpack) {
+    items.push({ value: 'version', label: t('instance.tabs.version'), icon: 'i-lucide-git-branch' })
+  }
 
   if (instance.value?.castpack) {
     items.push({
@@ -205,6 +209,13 @@ const guard = useUnsavedChanges({
                   v-model:icon="draft.icon"
                   :instance="instance"
                 />
+              </TabsContent>
+
+              <TabsContent
+                v-if="!instance.castpack"
+                value="version"
+              >
+                <InstanceVersion :instance="instance" />
               </TabsContent>
 
               <TabsContent

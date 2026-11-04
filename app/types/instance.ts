@@ -14,6 +14,15 @@ export const INSTANCE_TYPE_LABELS: Record<InstanceType, string> = {
   neoforge: 'NeoForge',
 }
 
+export const INSTANCE_TYPE_MARKS: Record<InstanceType, string> = {
+  vanilla: 'VA',
+  fabric: 'FA',
+  forge: 'FO',
+  neoforge: 'NF',
+}
+
+export const INSTANCE_TYPES: InstanceType[] = ['vanilla', 'fabric', 'forge', 'neoforge']
+
 export interface InstanceSettings {
   overrideMemory: boolean
   minRam: number

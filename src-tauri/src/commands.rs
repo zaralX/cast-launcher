@@ -15,7 +15,7 @@ use cast_core::error::{CommandError, CommandResult};
 use cast_core::icons::{self, IconFile};
 use cast_core::import::{ImportProgress, ImportReport, LauncherKind, ScannedInstance};
 use cast_core::install::pack_files::{self, PackFiles};
-use cast_core::instance::{Instance, InstanceUpdate, PackProvider};
+use cast_core::instance::{Instance, InstanceUpdate, PackProvider, VersionChange};
 use cast_core::java::detect::JavaRuntime;
 use cast_core::logs::{self, LogFile};
 use cast_core::meta::{neoforge, vanilla};
@@ -1361,6 +1361,80 @@ pub async fn set_instance_pack_version(
         instances: state.instances.all().await,
     }
     .emit(&app);
+
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn set_instance_game_version(
+    app: AppHandle,
+    state: Ctx<'_>,
+    instance_id: String,
+    change: VersionChange,
+) -> CommandResult<Instance> {
+    if state.processes.is_running(&instance_id).await {
+        return Err(CommandError::conflict(
+            "error.reason.instance.close_game_first",
+        ));
+    }
+
+    if state.installs.snapshot(&instance_id).await.is_some() {
+        return Err(CommandError::conflict(
+            "error.reason.instance.wait_for_install",
+        ));
+    }
+
+    let instance = state.instances.get(&instance_id).await?;
+    let change = change.normalized(&instance)?;
+
+    if !change.changes(&instance) {
+        return Ok(instance);
+    }
+
+    let detached = VersionChange::detaches(&instance);
+    let from = format!("{} {}", instance.loader.key(), instance.minecraft_version);
+    let paths = state.paths().await;
+
+    let updated = state
+        .instances
+        .update(&paths, &instance_id, move |instance| change.apply(instance))
+        .await?;
+
+    let dirs = paths.instance(&instance_id);
+
+    if detached {
+        for file in [dirs.pack_files(), dirs.pack_blocked(), dirs.pack_archive()] {
+            cast_core::fs_util::remove_file_if_exists(&file).await;
+        }
+    }
+
+    cast_core::fs_util::remove_dir_if_exists(&dirs.natives()).await;
+
+    log::info!(
+        "Instance '{}' moved from {from} to {} {}{}",
+        updated.name,
+        updated.loader.key(),
+        updated.minecraft_version,
+        if detached {
+            ", detached from its modpack"
+        } else {
+            ""
+        }
+    );
+
+    telemetry::track(
+        &app,
+        Event::new("game_version_changed")
+            .instance(&updated)
+            .flag("detached", detached),
+    );
+
+    LauncherEvent::Instances {
+        instances: state.instances.all().await,
+    }
+    .emit(&app);
+
+    crate::discord::refresh(&state).await;
 
     Ok(updated)
 }

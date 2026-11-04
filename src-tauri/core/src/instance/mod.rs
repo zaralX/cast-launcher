@@ -360,6 +360,97 @@ impl InstanceUpdate {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionChange {
+    #[serde(rename = "type")]
+    pub loader: LoaderType,
+    pub minecraft_version: String,
+    #[serde(default)]
+    pub loader_version: Option<String>,
+}
+
+impl VersionChange {
+    pub fn normalized(self, instance: &Instance) -> CommandResult<Self> {
+        if instance.castpack.is_some() {
+            return Err(CommandError::unsupported(
+                "error.reason.castpack.version_locked",
+            ));
+        }
+
+        let minecraft_version = self.minecraft_version.trim().to_string();
+
+        if minecraft_version.is_empty() {
+            return Err(CommandError::invalid_input(
+                "error.reason.instance.minecraft_version_empty",
+            ));
+        }
+
+        let loader_version = match self.loader {
+            LoaderType::Vanilla => None,
+            loader => {
+                let version = self
+                    .loader_version
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|version| !version.is_empty())
+                    .ok_or_else(|| {
+                        CommandError::invalid_input("error.reason.instance.loader_version_empty")
+                            .param("loader", loader.label())
+                    })?;
+
+                if !loader_fits(loader, version, &minecraft_version) {
+                    return Err(CommandError::invalid_input(
+                        "error.reason.instance.loader_version_mismatch",
+                    )
+                    .param("loader", loader.label())
+                    .param("version", version)
+                    .param("minecraft", &minecraft_version));
+                }
+
+                Some(version.to_string())
+            }
+        };
+
+        Ok(Self {
+            loader: self.loader,
+            minecraft_version,
+            loader_version,
+        })
+    }
+
+    pub fn changes(&self, instance: &Instance) -> bool {
+        self.loader != instance.loader
+            || self.minecraft_version != instance.minecraft_version
+            || self.loader_version != instance.loader_version
+    }
+
+    pub fn detaches(instance: &Instance) -> bool {
+        instance.pack.is_some() || instance.local_pack.is_some()
+    }
+
+    pub fn apply(self, instance: &mut Instance) {
+        instance.loader = self.loader;
+        instance.minecraft_version = self.minecraft_version;
+        instance.loader_version = self.loader_version;
+        instance.installed = false;
+        instance.pack = None;
+        instance.local_pack = None;
+    }
+}
+
+fn loader_fits(loader: LoaderType, version: &str, minecraft: &str) -> bool {
+    match loader {
+        LoaderType::Forge => version
+            .split_once('-')
+            .is_none_or(|(game, _)| game == minecraft),
+        LoaderType::NeoForge => {
+            crate::meta::neoforge::minecraft_version(version).is_none_or(|game| game == minecraft)
+        }
+        LoaderType::Fabric | LoaderType::Vanilla => true,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Instance {
@@ -1153,5 +1244,138 @@ mod tests {
         let error = instance.require_loader_version().unwrap_err();
         assert!(error.text.mentions("Без версии"));
         assert!(error.text.mentions("Fabric"));
+    }
+
+    fn change(loader: LoaderType, minecraft: &str, version: Option<&str>) -> VersionChange {
+        VersionChange {
+            loader,
+            minecraft_version: minecraft.into(),
+            loader_version: version.map(Into::into),
+        }
+    }
+
+    #[test]
+    fn a_version_change_moves_the_game_and_loader_and_asks_for_an_install() {
+        let mut instance = update_target();
+        instance.installed = true;
+
+        let change = change(LoaderType::Fabric, " 1.21.1 ", Some(" 0.16.5 "))
+            .normalized(&instance)
+            .unwrap();
+        assert!(change.changes(&instance));
+
+        change.apply(&mut instance);
+
+        assert_eq!(instance.loader, LoaderType::Fabric);
+        assert_eq!(instance.minecraft_version, "1.21.1");
+        assert_eq!(instance.loader_version.as_deref(), Some("0.16.5"));
+        assert!(
+            !instance.installed,
+            "the new version still has to be installed"
+        );
+    }
+
+    #[test]
+    fn vanilla_drops_the_loader_version() {
+        let instance = update_target();
+
+        let change = change(LoaderType::Vanilla, "1.20.1", Some("47.2.0"))
+            .normalized(&instance)
+            .unwrap();
+
+        assert_eq!(change.loader_version, None);
+        assert!(
+            !change.changes(&instance),
+            "nothing differs from the instance"
+        );
+    }
+
+    #[test]
+    fn a_loader_needs_its_version() {
+        let error = change(LoaderType::Forge, "1.20.1", Some("  "))
+            .normalized(&update_target())
+            .unwrap_err();
+
+        assert_eq!(error.code, crate::error::ErrorCode::InvalidInput);
+        assert!(error.text.mentions("Forge"));
+
+        assert!(change(LoaderType::Vanilla, "  ", None)
+            .normalized(&update_target())
+            .is_err());
+    }
+
+    #[test]
+    fn a_loader_build_for_another_game_version_is_refused() {
+        let instance = update_target();
+
+        for (loader, version) in [
+            (LoaderType::Forge, "1.20.4-49.0.30"),
+            (LoaderType::NeoForge, "21.1.77"),
+            (LoaderType::NeoForge, "1.20.4-47.1.106"),
+        ] {
+            let error = change(loader, "1.20.1", Some(version))
+                .normalized(&instance)
+                .unwrap_err();
+            assert!(error.text.mentions("loader_version_mismatch"), "{version}");
+        }
+
+        for (loader, version) in [
+            (LoaderType::Forge, "1.20.1-47.2.0"),
+            (LoaderType::Forge, "47.2.0"),
+            (LoaderType::NeoForge, "1.20.1-47.1.106"),
+            (LoaderType::Fabric, "0.16.5"),
+        ] {
+            assert!(
+                change(loader, "1.20.1", Some(version))
+                    .normalized(&instance)
+                    .is_ok(),
+                "{version}"
+            );
+        }
+
+        assert!(change(LoaderType::NeoForge, "1.21.1", Some("21.1.77"))
+            .normalized(&instance)
+            .is_ok());
+    }
+
+    #[test]
+    fn a_version_change_cuts_the_instance_off_its_modpack() {
+        let mut instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "Pack",
+            "minecraftVersion": "1.20.1",
+            "type": "fabric",
+            "loaderVersion": "0.15.0",
+            "localPack": { "kind": "modrinth", "name": "Pack", "version": "1.0" }
+        }))
+        .unwrap();
+
+        assert!(VersionChange::detaches(&instance));
+
+        change(LoaderType::Fabric, "1.21.1", Some("0.16.5"))
+            .normalized(&instance)
+            .unwrap()
+            .apply(&mut instance);
+
+        assert!(instance.local_pack.is_none() && instance.pack.is_none());
+        assert!(!VersionChange::detaches(&instance));
+    }
+
+    #[test]
+    fn a_castpack_keeps_the_versions_of_its_manifest() {
+        let instance: Instance = serde_json::from_value(json!({
+            "id": "abc",
+            "name": "RPG",
+            "minecraftVersion": "1.20.1",
+            "type": "forge",
+            "castpack": { "catalogId": "rpg", "manifestUrl": "https://castpacks.zaralx.ru/rpg.json" }
+        }))
+        .unwrap();
+
+        let error = change(LoaderType::Forge, "1.20.1", Some("47.3.0"))
+            .normalized(&instance)
+            .unwrap_err();
+
+        assert_eq!(error.code, crate::error::ErrorCode::Unsupported);
     }
 }

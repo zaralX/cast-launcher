@@ -1,6 +1,6 @@
 import type { Account, AccountConfig } from '~/types/account'
 import type { AppConfig, CustomTheme, JavaRuntime, LauncherPaths } from '~/types/app'
-import type { Instance, InstanceLogFile, InstanceSettings, InstallSnapshot, PackSource, RunningGame, PackProvider } from '~/types/instance'
+import type { Instance, InstanceLogFile, InstanceSettings, InstanceType, InstallSnapshot, PackSource, RunningGame, PackProvider } from '~/types/instance'
 import type { IconFile, ItemCatalog } from '~/types/icon'
 import type { CatalogMatch, CatalogVersion, InstallPlan, InstallReport, InstalledMods, ModFile, ModSearchQuery, ModUpdate, UpdatedModsReport } from '~/types/mods'
 import type { AccountLook, SkinEntry, SkinLibrary, SkinVariant } from '~/types/skin'
@@ -159,6 +159,7 @@ export interface Commands {
   list_pack_versions: Command<{ provider: PackProvider, projectId: string }, PackVersion[]>
   pack_filters: Command<{ provider: PackProvider }, PackFilters>
   set_instance_pack_version: Command<{ instanceId: string, versionId: string }, Instance>
+  set_instance_game_version: Command<{ instanceId: string, change: VersionChange }, Instance>
   list_pack_blocked: Command<{ instanceId: string }, BlockedFile[]>
   save_pack_icon: Command<{ provider: PackProvider, projectId: string, url: string }, IconFile>
 
@@ -226,6 +227,12 @@ export interface InstanceUpdate {
   description?: string
   icon?: string
   settings?: InstanceSettings
+}
+
+export interface VersionChange {
+  type: InstanceType
+  minecraftVersion: string
+  loaderVersion?: string
 }
 
 export type InstanceDir = 'root' | 'minecraft' | 'mods' | 'logs'
